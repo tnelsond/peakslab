@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon32x32.png" />
+    <title>PS&nbsp;Lozi</title>
+    <link rel="stylesheet" href="chota.css">
+    <link rel="manifest" id="link" href="lozi.json">
+    <style>
+      body {
+        background-color: #d9d9cf;
+      }
+
+      .dropd {
+        position: relative;
+        display: inline-block;
+      }
+
+      .button {
+        border: 1px solid grey;
+      }
+
+      .media {
+        font-size: 50%;
+      }
+
+      .context sub {
+        color: #664400;
+      }
+
+      .context sup {
+        color: purple;
+      }
+
+      .tbug {
+        background: #ffcccc;
+        border-radius: 10px;
+        padding: 1em;
+        overflow-wrap: anywhere;
+      }
+
+      .dropd-content {
+        display: none;
+        position: absolute;
+        background-color: #e9d9a9;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+        padding: 12px 16px;
+        z-index: 5;
+      }
+
+      .dropd:hover .dropd-content {
+        display: block;
+      }
+
+      .entry {
+        background-color: white;
+        border: 2px dashed #deeede;
+        border-radius: 5px;
+        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+        margin-bottom: 0.5em;
+        padding: 0.5em;
+      }
+
+      .hent {
+        margin-bottom: 0px;
+        margin-top: 0px;
+        color: #004400;
+      }
+
+      .hentu {
+        margin-bottom: 0px;
+        margin-top: 0px;
+        color: #004400;
+        border-bottom: 2px dashed #aaaa99;
+        display: inline;
+      }
+
+      #logo {
+        position: relative;
+        z-index: -100;
+        font-family: serif;
+        font-size: 150%;
+      }
+
+      #load {
+        position: absolute;
+        z-index: 6;
+        margin-left: 5em;
+        margin-top: 5em;
+        border: 30px solid #d3f3a3;
+        /* Light grey */
+        border-top: 30px solid #1dda50;
+        /* Blue */
+        border-radius: 50%;
+        display: inline-block;
+        width: 200px;
+        height: 200px;
+        animation: spin 2s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      #tout {
+        clear: left;
+      }
+
+      #q,
+      #searchbutton,
+      #qcol,
+      #qsort {
+        background: #f1f1f1;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        font-size: 100%;
+        font: inherit;
+        vertical-align: baseline;
+        padding: 10px;
+        border: 1px solid grey;
+        font-size: 17px;
+      }
+
+      #q {
+        background: #f1f1f1;
+        border-right: none;
+        border-left: none;
+        border-radius: 15px 15px 15px 15px;
+        padding-left: 4em;
+        padding-right: 5.6em;
+        float: left;
+        z-index: 1;
+        width: 100%;
+      }
+
+      #q:hover {
+        box-shadow: 0 0px 4px var(--color-primary);
+      }
+
+      #qcol {
+        position: absolute;
+        z-index: 2;
+        border-right: 1px solid grey;
+        border-radius: 15px 0px 0px 15px;
+        float: left;
+        width: 4em;
+        background: #cccccc;
+        padding: 11px 1px 12px 5px;
+        font-size: 15px;
+        text-align: center;
+      }
+
+      #qsort {
+        position: absolute;
+        z-index: 2;
+        width: 1.5em;
+        margin-left: calc(100% - 5.5em);
+        padding-left: 0px;
+        border-right: none;
+        border-left: none;
+        border-radius: 0px;
+      }
+
+      #qsort:hover {
+        color: red;
+      }
+
+      .searchbox {
+        position: relative;
+        margin-top: .5em;
+        clear: left;
+        float: left;
+        width: 100%;
+      }
+
+      #searchbutton {
+        position: absolute;
+        z-index: 2;
+        padding-top: 12px;
+        padding-bottom: 2px;
+        padding-left: 10px;
+        border: 1px solid grey;
+        font-size: 17px;
+        border-left: none;
+        margin-left: -4em;
+        border-radius: 0px 15px 15px 0px;
+        cursor: pointer;
+        width: 4em;
+        background: #559900;
+      }
+
+      #searchbutton:hover {
+        background: #88aa00;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="load"></div>
+    <main class="container" id="container">
+      <div id="logo">
+        <svg width="86" height="86" version="1.1" viewBox="0 0 647 647" xmlns="http://www.w3.org/2000/svg" style="padding-right: .2em; float: left" width="90px">
+          <g fill-rule="evenodd">
+            <rect x="75" y="101" width="540" height="541" fill="#9c3" fill-rule="evenodd" />
+            <g>
+              <path d="m45 498-2 129 536-2 1-140-26-32z" fill="#404040" />
+              <path d="m35 194-7 208 180-151 217 157 131-46 16 24 0.4-189z" fill="#404040" />
+              <path d="m209 299-181 174-2 129 536-2 1-140-26-32-131 40z" fill="#808080" />
+              <path d="m306 10c-249-0.4-271 157-271 157l-7 208 180-151 217 157 131-46 16 24 0.4-189s-17-158-266-158z" fill="#808080" />
+            </g>
+            <path d="m446 473 23 15 0.9 79-25 14 74 3 31-32-22-30 19-21-19-39zm44 12 23 1 7 19-14 15-19-2zm1 48 25 2 8 21-15 18-21-2z" fill="#404040" />
+            <g transform="matrix(.7 0 0 .7 5 110)" fill="#404040">
+              <path d="m106 225 33-30-24-159-38-12 110-23 67 39-22 75-58 26 32-49-0.5-39-55-10 37 176z" />
+              <path d="m269-43 121 2 0.9 43-21-28-42-0.3 0.8 54 31 0.2 17-14-0.2 46-17-14-31-0.1-0.8 48 45 3 19-27 0.1 49-110 0.4 14-141z" />
+              <path d="m554-50-34 23-69 114-42 16 88 16-19-24 15-31 49 5 5 33-26 17 81 9-22-24zm-22 42 10 47-34-5z" />
+              <path d="m538 507-30 28-42 122-39 22 88 3-22-21 9-31 41-5 19 33-22 21 79-3-25-21zm-16 45 16 45-34-0.1z" />
+              <path d="m580 168 37-10 32-112-22-27 82 24-32 14-16 51 71-41-11-19 76 19-105 50 64 102-80-20 17-14-35-58-20 63z" />
+              <path d="m242 497-67-74-77 101 108 79-29 51-65-31-9 46 80 21 55-43 10-63-96-72 26-41z" />
+              <path d="m267 521 100-1-36 25 3 115 55 1 27-34-7 57-149 3 40-33-0.03-115z" />
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <select style="float: left; width: 6em; margin-right: .4em" name="tablesel" id="tablesel" onchange="javascript:tInit(this)"> </select>
+      <div class="dropd">
+        <span class="button dark" style="padding-left: .9em; padding-right: .9em;">Columns</span>
+        <div id="dcol" class="dropd-content"></div>
+      </div>
+      <div class="dropd">
+        <span class="button" style="padding-left: .9em; padding-right: .9em">Options</span>
+        <div class="dropd-content">
+          <input type="checkbox" id="bcheck" value="b" checked /><label>Beginning</label><br>
+          <input type="checkbox" id="echeck" value="e" /><label>Ending</label><br>
+          <label for="limit"> <input type="range" min="5" max="1000" value="50" class="slider" id="limit" /> Results <span id="limitd">50</span></label>
+        </div>
+      </div>
+      <div class="searchbox">
+        <select name="qcol" id="qcol"> </select>
+        <input type="search" id="q" name="search" placeholder="Search..." onsearch="javascript:tSearch(0)" autofocus>
+        <div id="qsort" onclick="tToggleDesc(this)">A↓</div>
+        <button id="searchbutton" onclick="javascript:tSearch(0)">
+          <svg width="25" height="25" version="1.1" viewBox="0 0 556 556" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="234" cy="233" r="190" fill="none" stroke="#FFF" stroke-width="62" />
+            <rect transform="rotate(-45)" x="-49" y="526" width="101" height="194" ry="0" fill="#FFF" fill-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+      <div id="tresults"></div>
+      <div id="tout"></div>
+      <div id="tbug" class="tbug"></div>
+      <script>
+        const tsel = document.getElementById("tablesel");
+        const qcol = document.getElementById("qcol");
+        const limitd = document.getElementById("limitd");
+        const limit = document.getElementById("limit");
+        const tout = document.getElementById("tout");
+        const tresults = document.getElementById("tresults");
+        const urlParams = new URL(globalThis.location.href).searchParams;
+          const logo = document.getElementById("logo");
+          logo.innerHTML = document.title + logo.innerHTML;
+          const q = document.getElementById("q");
+          q.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              tSearch(0);
+            }
+          });
+          q.value = urlParams.get('q');
+          var desc = true;
+          var tToggleDesc = function(div) {
+            desc = !desc;
+            if (desc) {
+              div.innerHTML = "A↓";
+            } else {
+              div.innerHTML = "A↑";
+            }
+            tSearch(0);
+          };
+          var trestotal = 0;
+          var fullsearch = 0;
+          limit.oninput = function() {
+            limitd.innerHTML = this.value;
+          };
+          const tlist = [];
+          const bcheck = document.getElementById("bcheck");
+          const echeck = document.getElementById("echeck");
+          const dcol = document.getElementById("dcol");
+          document.getElementById("tbug").innerHTML += urlParams;
+          const w = new Worker(
+            "dict.js" // + urlParams
+            /* Note the URL argument on that name. See
+            the notes in demo-123.js (search for
+            "importScripts") for why we need
+            that. */
+          );
+          w.postMessage("param: " + "db=lozi.db.html");
+          (function() {
+            var color = false;
+            const logHtml = function(cssClass, ...args) {
+              if (cssClass == "entry") {
+                const ln = document.createElement("div");
+                ln.classList.add("entry");
+                ln.innerHTML = args;
+                // ln.append(document.createTextNode(args.join(' ')));
+                tout.append(ln);
+                color = !color;
+              } else if (cssClass == "results") {
+                trestotal += args;
+                tresults.innerHTML += (args == '0' ? '<span class="bd-error">' : '<span class="bd-success">') + args + "; </span>";
+                if (fullsearch == 0 && trestotal == 0) {
+                  tSearch(1);
+                }
+              } else if (cssClass == "refresh") {
+                tInit();
+              } else if (cssClass == "init") {
+                if (args == "*ALL") {
+                  qcol.innerHTML += '<option style="background: yellow; font-size: 125%" value="' + args + '">' + args + "</option>";
+                  let lo = document.getElementById("load");
+                  if (lo) {
+                    lo.remove();
+                    if (q.value != "") {
+                      tSearch(0);
+                    }
+                  }
+                } else {
+                  qcol.innerHTML += '<option value="' + args + '">' + args + "</option>";
+                  dcol.innerHTML += '<input type="checkbox" value="' + args + '" checked><label>' + args + "</label><br>";
+                }
+              } else if (cssClass == "init2") {
+                tlist[tlist.length - 1].col.push(args);
+              } else if (cssClass == "dictlist") {
+                /*tlist = [{name: "khmer7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
+                tlist.push({
+                  name: args,
+                  col: []
+                })
+                tsel.innerHTML += '<option value="' + args + '">' + args + "</option>";
+              } else if (cssClass == "audio") {
+                (async () => {
+                  const blob = new Blob([args[1]], {
+                    type: 'audio/webm; codecs=opus'
+                  })
+                  const audio = new Audio(URL.createObjectURL(blob));
+                  audio.controls = true;
+                  audio.autoplay = true;
+                  const media = document.getElementById(args[0]);
+                  media.innerHTML = "";
+                  media.appendChild(audio);
+                })()
+              } else {
+                const ln = document.createElement("div");
+                if (cssClass) ln.classList.add(cssClass);
+                ln.append(document.createTextNode(args.join(" ")));
+                document.getElementById("tbug").append(ln);
+                if (cssClass == "bd-error") {
+                  let lo = document.getElementById("load");
+                  if (lo) {
+                    lo.remove();
+                  }
+                }
+              }
+            };
+            w.onmessage = function({
+              data
+            }) {
+              console.log("MAIN: Message received from worker");
+              switch (data.type) {
+                case "log":
+                  logHtml(data.payload.cssClass, ...data.payload.args);
+                  break;
+                default:
+                  logHtml("bg-error", "Unhandled message:", data.type);
+              }
+            };
+          })();
+          var tAudio = function(button) {
+            console.log("MAIN: request audio message sent to worker");
+            let id = button.parentNode.id;
+            w.postMessage(".addmedia: " + id + "@" + id);
+          };
+          var tInit = function() {
+            console.log("MAIN: init message sent to worker");
+            dcol.innerHTML = qcol.innerHTML = "";
+            if (tlist.length > 0) {
+              const foundIdx = tlist.findIndex(el => el.name == tsel.value);
+              const temp = tlist[foundIdx];
+              tlist.splice(foundIdx, 1);
+              tlist.unshift(temp);
+              tsel.innerHTML = "";
+              tlist.forEach(tl => tsel.innerHTML += '<option value="' + tl.name + '">' + tl.name + "</option>");
+            }
+            w.postMessage(".init: " + tsel.value);
+          };
+          var tSearch = function(all) {
+            urlParams.set('q', q.value);
+            window.history.pushState({
+              "html": "",
+              "pageTitle": window.title
+            }, "", "?" + urlParams);
+            console.log("MAIN: Message posted to worker");
+            const q2 = q.value.replaceAll(/[']+/g, "‘")
+            tout.innerHTML = "";
+            tresults.innerHTML = (qcol.value != "*ALL" && all) ? 'Exact Search: <span class="bd-error">0;</span> Wide Search: ' : "Exact Search: ";
+            trestotal = 0;
+            fullsearch = all;
+            if (all == 0 && qcol.value != "*ALL") {
+              const dlist = [];
+              dcol.childNodes.forEach(function(node) {
+                if (node.tagName == "INPUT" && node.checked) {
+                  dlist.push(node.value);
+                }
+              });
+              const dres = dlist.filter((x) => typeof x === "string" && x.length > 0).join(", ");
+              w.postMessage(
+                "SELECT " +
+                dres +
+                " FROM " +
+                tsel.value +
+                " WHERE " +
+                qcol.value +
+                " LIKE " +
+                (!bcheck.checked ? "'%" : "'") +
+                q2 +
+                (!echeck.checked ? "%'" : "'") +
+                " order by " +
+                qcol.value +
+                (desc ? " desc" : " asc") +
+                " limit " +
+                limit.value +
+                ";"
+              );
+            } else {
+              /*tlist = [{name: "khmer7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
+              tlist.forEach(function tcallall(ctab) {
+                /*	for (let i = 0; i < ctab.col.length; i++) {
+                let ccol = ctab.col[i]; */
+                let ccol = ctab.col.join(" LIKE '%" + q2 + "%' OR ") + " LIKE '%" + q2 + "%'";
+                w.postMessage("SELECT " + ctab.col.join(", ") + " FROM " + ctab.name + " WHERE " + ccol + " order by " + ((ctab.name == tsel.value && qcol.value != "*ALL") ? qcol.value : ctab.col[0]) + (desc ? " desc" : " asc") + " limit " + limit.value + ";");
+              });
+            }
+          };
+          const registerServiceWorker = async () => {
+            if ("serviceWorker" in navigator) {
+              try {
+                const registration = await navigator.serviceWorker.register("dictsw.js", {});
+                if (registration.installing) {
+                  console.log("Service worker installing");
+                } else if (registration.waiting) {
+                  console.log("Service worker installed");
+                } else if (registration.active) {
+                  console.log("Service worker active");
+                }
+              } catch (error) {
+                console.error(`Registration failed with ${error}`);
+              }
+            }
+          };
+          registerServiceWorker();
+          var tRemoveServiceWorker = function() {
+            console.log("Trying to uninstall Service Worker");
+            if (window.navigator && navigator.serviceWorker) {
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (let registration of registrations) {
+                  registration.unregister();
+                  console.log("Uninstalled Service Worker");
+                }
+              });
+            }
+          };
+      </script>
+      <button class="button error" onclick="javascript:tRemoveServiceWorker(this)">Uninstall</button>
+    </main>
+  </body>
+</html>
