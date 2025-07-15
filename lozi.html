@@ -7,9 +7,13 @@
     <title>PS&nbsp;Lozi</title>
     <link rel="stylesheet" href="chota.css">
     <link rel="manifest" id="link" href="lozi.json">
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-title" content="nimi.li" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <style>
       body {
-        background-color: #d9d9cf;
+        background-color: #d9d9d3;
       }
 
       .dropd {
@@ -247,7 +251,7 @@
       <div class="searchbox">
         <select name="qcol" id="qcol"> </select>
         <input type="search" id="q" name="search" placeholder="Search..." onsearch="javascript:tSearch(0)" autofocus>
-        <div id="qsort" onclick="tToggleDesc(this)">A↓</div>
+        <div id="qsort" onclick="tToggleDesc(this)">A↑</div>
         <button id="searchbutton" onclick="javascript:tSearch(0)">
           <svg width="25" height="25" version="1.1" viewBox="0 0 556 556" xmlns="http://www.w3.org/2000/svg">
             <circle cx="234" cy="233" r="190" fill="none" stroke="#FFF" stroke-width="62" />
@@ -259,6 +263,64 @@
       <div id="tout"></div>
       <div id="tbug" class="tbug"></div>
       <script>
+	const tbug =  document.getElementById("tbug");
+        const synth = window.speechSynthesis;
+        let voices = [];
+
+// Function to create CSS classes based on available voices
+function updateLanguageStyles() {
+    const availableLangs = new Set(voices.map(voice => voice.lang.toLowerCase()));
+
+    const styleElement = document.createElement('style');
+    styleElement.type = 'text/css';
+
+    // Default rule: hide all lang- prefixed classes
+    let css = '[class^="lang-"] { display: none; }\n';
+
+    availableLangs.forEach(lang => {
+        css += `.lang-${lang.substr(0,2)} { display: inline; }\n`;
+    });
+
+    styleElement.textContent = css;
+
+    const existingStyle = document.getElementById('lang-styles');
+    if (existingStyle) {
+        existingStyle.remove();
+    }
+    styleElement.id = 'lang-styles';
+
+    document.head.appendChild(styleElement);
+}
+
+        function populateVoiceList() {
+            voices = synth.getVoices();
+	    updateLanguageStyles();
+	    tbug.innerHTML+="🗣️";
+        }
+
+        // Populate voices when they're loaded
+        synth.onvoiceschanged = populateVoiceList;
+        populateVoiceList();
+
+        function speak(text, lang) {
+            if (synth.speaking) {
+                synth.cancel();
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = voices.find(voice => voice.lang.includes(lang.substr(0, 2)));
+	    if(!utterance.voice)
+		alert(lang + ' language not supported');
+	    else{
+            utterance.lang = lang;
+            utterance.pitch = 1;
+            utterance.rate = 0.5;
+            utterance.volume = 1;
+
+            synth.speak(utterance);
+	 }
+        }
+
         const tsel = document.getElementById("tablesel");
         const qcol = document.getElementById("qcol");
         const limitd = document.getElementById("limitd");
@@ -276,7 +338,7 @@
             }
           });
           q.value = urlParams.get('q');
-          var desc = true;
+          var desc = false;
           var tToggleDesc = function(div) {
             desc = !desc;
             if (desc) {
@@ -295,7 +357,7 @@
           const bcheck = document.getElementById("bcheck");
           const echeck = document.getElementById("echeck");
           const dcol = document.getElementById("dcol");
-          document.getElementById("tbug").innerHTML += urlParams;
+          tbug.innerHTML += urlParams;
           const w = new Worker(
             "dict.js" // + urlParams
             /* Note the URL argument on that name. See
@@ -303,7 +365,7 @@
             "importScripts") for why we need
             that. */
           );
-          w.postMessage("param: " + "db=lozi.db.html");
+          w.postMessage("param: " + "db=lozi.db.html&dbass=loziass.db.html");
           (function() {
             var color = false;
             const logHtml = function(cssClass, ...args) {
@@ -339,7 +401,7 @@
               } else if (cssClass == "init2") {
                 tlist[tlist.length - 1].col.push(args);
               } else if (cssClass == "dictlist") {
-                /*tlist = [{name: "khmer7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
+                /*tlist = [{name: "lozi7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
                 tlist.push({
                   name: args,
                   col: []
@@ -440,7 +502,7 @@
                 ";"
               );
             } else {
-              /*tlist = [{name: "khmer7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
+              /*tlist = [{name: "lozi7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
               tlist.forEach(function tcallall(ctab) {
                 /*	for (let i = 0; i < ctab.col.length; i++) {
                 let ccol = ctab.col[i]; */

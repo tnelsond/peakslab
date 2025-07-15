@@ -229,7 +229,7 @@
                     }
                 });
 								q.value = urlParams.get('q');
-                var desc = true;
+                var desc = false;
 								var tToggleDesc = function (div) {
 										desc = !desc;
 										if(desc){
@@ -297,7 +297,6 @@
                         } else if (cssClass == "init2") {
 														tlist[tlist.length-1].col.push(args);
                         } else if (cssClass == "dictlist") {
-														/*tlist = [{name: "khmer7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
 														tlist.push({name: args, col: []})
                             tsel.innerHTML += '<option value="' + args + '">' + args + "</option>";
                         } else if (cssClass == "audio") {
@@ -391,7 +390,6 @@
 															";"
 											);
 									}else{
-										/*tlist = [{name: "khmer7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
 										tlist.forEach(function tcallall(ctab){
 										/*	for (let i = 0; i < ctab.col.length; i++) {
 												let ccol = ctab.col[i]; */
@@ -433,6 +431,7 @@
 							}else{
 								const logo = document.getElementById("logo");
 								document.body.innerHTML = '<ul style="float: left"><li><a href="khmer.html">Khmer Dictionary</a></li>'+
+									'<li><a href="lao.html">Lao Dictionary</a></li>'+
 									'<li><a href="chitonga.html">Chitonga Dictionary</a></li>'+
 									'<li><a href="lozi.html">Lozi Dictionary</a></li></ul>';
 								document.body.prepend(logo);

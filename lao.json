@@ -1,0 +1,26 @@
+{
+  "name": "PeakSlabLao",
+  "short_name": "PsLao",
+  "theme_color": "#660000",
+  "background_color": "#441100",
+  "display": "fullscreen",
+  "scope": "/peakslab",
+  "start_url": "/peakslab/lao.html",
+	"icons": [
+  {
+    "src": "favicon32x32.png",
+    "sizes": "32x32"
+  },
+  {
+    "src": "favicon64x64.png",
+    "sizes": "64x64"
+  },
+  {
+    "src": "favicon16x16.png",
+    "sizes": "16x16"
+  },
+  {
+    "src": "favicon148x148.png",
+    "sizes": "148x148"
+  }]
+}
