@@ -4,8 +4,8 @@
   "theme_color": "#660000",
   "background_color": "#441100",
   "display": "fullscreen",
-  "scope": "/peakslab",
-  "start_url": "/peakslab/lao.html",
+  "scope": "/",
+  "start_url": "/lao.html",
 	"icons": [
   {
     "src": "favicon32x32.png",

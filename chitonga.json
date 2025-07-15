@@ -4,8 +4,8 @@
   "theme_color": "#66bb33",
   "background_color": "#007700",
   "display": "fullscreen",
-  "scope": "/peakslab",
-  "start_url": "/peakslab/chitonga.html",
+  "scope": "/",
+  "start_url": "/chitonga.html",
 	"icons": [
   {
     "src": "favicon32x32.png",
