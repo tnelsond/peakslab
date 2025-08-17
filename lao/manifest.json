@@ -5,8 +5,8 @@
   "theme_color": "",
   "background_color": "",
   "display": "standalone",
-  "scope": "/@XXXX",
-  "start_url": "/@XXXX/index.html",
+  "scope": "/lao",
+  "start_url": "/lao/index.html",
   "icons": [
   {
     "src": "peak32x32.png",

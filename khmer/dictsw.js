@@ -9,8 +9,6 @@ let urls_to_cache = [
  'peakmono.svg',
  'dict.js',
  'sqlite3.js',
- 'khmer.db.html',
- 'khmerass.db.html',
  'sqlite3.wasm'];
 
 self.addEventListener('install', (e) => {
