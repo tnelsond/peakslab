@@ -18,7 +18,7 @@ Under the hood PeakSlab uses sqlite3's official wasm port to load dictionaries f
 - Modular (just substitute the database file and you're good to go)
 
 ## Todo
-- write a pouchdb backend
+- write a pouchdb backend (might be slower... Need to find a couchdb host)
 - make an online editor
 - image support in dictionary
 - History and bookmarking

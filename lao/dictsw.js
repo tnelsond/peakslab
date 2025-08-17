@@ -1,12 +1,12 @@
-let cache_name = 'peakslab 0.5.1.5';
+let cache_name = 'peakslab lao 0.5.1.6';
 let urls_to_cache = [
  'index.html',
  './',
  'chota.css',
- 'favicon16x16.png',
- 'favicon32x32.png',
- 'favicon64x64.png',
- 'favicon148x148.png',
+ 'peak32x32.png',
+ 'peak64x64.png',
+ 'peakslab.svg',
+ 'peakmono.svg',
  'dict.js',
  'sqlite3.js',
  'sqlite3.wasm'];

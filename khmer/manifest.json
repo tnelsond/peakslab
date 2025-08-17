@@ -1,12 +1,12 @@
 {
-  "name": "PeakSlab@UXXXX",
-  "short_name": "Ps@UXXXX",
-  "description": "A dictionary app for the @UXXXX language.",
-  "theme_color": "@X2COLOR",
-  "background_color": "@XCOLOR",
+  "name": "PeakSlabKhmer",
+  "short_name": "PsKhmer",
+  "description": "A dictionary app for the Khmer language.",
+  "theme_color": "#66bb00",
+  "background_color": "#007700",
   "display": "standalone",
-  "scope": "/@XXXX",
-  "start_url": "/@XXXX/index.html",
+  "scope": "/khmer",
+  "start_url": "/khmer/index.html",
   "icons": [
   {
     "src": "peak32x32.png",

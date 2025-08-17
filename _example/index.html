@@ -3,12 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon32x32.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="peak32x32.png" />
+    <link rel="icon" type="image/svg" sizes="any" href="peakslab.svg" />
     <title>PS&nbsp;@UXXXX</title>
     <link rel="stylesheet" href="chota.css">
     <link rel="manifest" id="link" href="manifest.json">
     <meta name="theme-color" content="#000000" />
-    <meta name="apple-mobile-web-app-title" content="peakslab.org" />
+    <meta name="apple-mobile-web-app-title" content="PeakSlab @UXXXX" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <style>
@@ -49,22 +50,38 @@
         }
 
         body {
-            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f4;
+            background-color: #DDC;
         }
 
-        header {
-            background: #333;
-            color: #fff;
-            padding: 10px 0;
-            text-align: center;
-        }
+header {
+  background: #DDB;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding: 5px;
+  width: 100%;
+  transition: transform 300ms ease;
+  z-index: 10;
+  filter: drop-shadow(0px 3px 5px black);
+}
 
-        main {
-            padding: 20px;
-        }
+header.scroll-up{
+    transform: translateY(0);
+}
+
+header.static{
+    position: absolute;
+}
+
+header.scroll-down{
+    transform: translateY(-100%);
+}
+
+main {
+}
+
 
         footer {
             text-align: center;
@@ -75,9 +92,6 @@
             width: 100%;
             bottom: 0;
         }
-      body {
-        background-color: #d9d9d3;
-      }
 
       .dropd {
         position: relative;
@@ -273,31 +287,57 @@
 
   <body>
     <div id="load"></div>
-    <main class="container" id="container">
+	    <header id="nav-bar">
       <div id="logo">
-	      @UXXXX
-        <svg width="86" height="86" version="1.1" viewBox="0 0 647 647" xmlns="http://www.w3.org/2000/svg" style="padding-right: .2em; float: left" width="90px">
-          <g fill-rule="evenodd">
-            <rect x="75" y="101" width="540" height="541" fill="#9c3" fill-rule="evenodd" />
-            <g>
-              <path d="m45 498-2 129 536-2 1-140-26-32z" fill="#404040" />
-              <path d="m35 194-7 208 180-151 217 157 131-46 16 24 0.4-189z" fill="#404040" />
-              <path d="m209 299-181 174-2 129 536-2 1-140-26-32-131 40z" fill="#808080" />
-              <path d="m306 10c-249-0.4-271 157-271 157l-7 208 180-151 217 157 131-46 16 24 0.4-189s-17-158-266-158z" fill="#808080" />
-            </g>
-            <path d="m446 473 23 15 0.9 79-25 14 74 3 31-32-22-30 19-21-19-39zm44 12 23 1 7 19-14 15-19-2zm1 48 25 2 8 21-15 18-21-2z" fill="#404040" />
-            <g transform="matrix(.7 0 0 .7 5 110)" fill="#404040">
-              <path d="m106 225 33-30-24-159-38-12 110-23 67 39-22 75-58 26 32-49-0.5-39-55-10 37 176z" />
-              <path d="m269-43 121 2 0.9 43-21-28-42-0.3 0.8 54 31 0.2 17-14-0.2 46-17-14-31-0.1-0.8 48 45 3 19-27 0.1 49-110 0.4 14-141z" />
-              <path d="m554-50-34 23-69 114-42 16 88 16-19-24 15-31 49 5 5 33-26 17 81 9-22-24zm-22 42 10 47-34-5z" />
-              <path d="m538 507-30 28-42 122-39 22 88 3-22-21 9-31 41-5 19 33-22 21 79-3-25-21zm-16 45 16 45-34-0.1z" />
-              <path d="m580 168 37-10 32-112-22-27 82 24-32 14-16 51 71-41-11-19 76 19-105 50 64 102-80-20 17-14-35-58-20 63z" />
-              <path d="m242 497-67-74-77 101 108 79-29 51-65-31-9 46 80 21 55-43 10-63-96-72 26-41z" />
-              <path d="m267 521 100-1-36 25 3 115 55 1 27-34-7 57-149 3 40-33-0.03-115z" />
-            </g>
-          </g>
-        </svg>
-      </div>
+<svg width="90px" height="86" style="float:left;padding-right:.2em" version="1.1" viewBox="0 0 647 647" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+  <mask id="scar">
+  <rect width="100%" height="100%" fill="#FFF"/>
+  <path d="m-8 458 220-193 199 158 129-40 68 61" fill="none" stroke="#000" stroke-width="70"/>
+  </mask>
+  <filter id="s">
+  <feOffset result="offset" in="SourceAlpha" dx="16" dy="28"/>
+  <feFlood result="f" flood-color="#404040"/>
+  <feComposite result="x" in2="offset" in="f" operator="in"/>
+  <feTurbulence baseFrequency='0.035' result='noise' />
+  <feDiffuseLighting in='noise' lighting-color='#FFF' surfaceScale='7' result="l2">
+  <feDistantLight azimuth='45' elevation='60' />
+  </feDiffuseLighting>
+  <feBlend in2="x" in="SourceGraphic" result="y"/>
+  <feBlend in2="y" in="l2" mode="multiply" result="z"/>
+  <feComposite in="z" in2="y" operator="in"/>
+  </filter>
+  <filter id="s2">
+  <feOffset result="offset" in="SourceAlpha" dx="10" dy="-10"/>
+  <feFlood result="f" flood-color="#BBB"/>
+  <feComposite result="x" in2="offset" in="f" operator="in"/>
+  <feBlend in2="x" in="SourceGraphic"/>
+  </filter>
+  <filter id="s3">
+  <feOffset result="offset" in="SourceAlpha" dx="-26" dy="-38"/>
+  <feFlood result="f" flood-color="#999"/>
+  <feComposite result="x" in2="offset" in="f" operator="in"/>
+  <feGaussianBlur result="bx" in="x" stdDeviation="25"/>
+  <feComposite in="bx" in2="SourceGraphic" operator="atop"/>
+  </filter>
+  </defs>
+  <rect x="75" y="101" width="540" height="550" fill="#9c3"/>
+  <g  filter="url(#s)"><g  filter="url(#s3)"><g  mask="url(#scar)"><g fill="#666">
+  <ellipse cx="304" cy="194" rx="269.5" ry="182"/>
+  <rect x="35" y="190" width="538" height="415"/>
+  </g></g></g></g>
+  <g transform="matrix(.7 0 0 .7 131 96)" fill="#222" filter="url(#s2)">
+   <path d="m459 539 34 22 1 116-37 21 109 4 46-47-32-44 28-31-28-57zm65 18 34 1 10 28-21 22-28-3zm1 71 37 3 12 31-22 26-31-3z"/>
+   <path d="m-73 249 33-30-24-159-38-12 110-23 67 39-22 75-58 26 32-49-0.5-39-55-10 37 176z"/>
+   <path d="m88-15 121 2 0.9 43-21-28-42-0.3 0.8 54 31 0.2 17-14-0.2 46-17-14-31-0.1-0.8 48 45 3 19-27 0.1 49-110 0.4 14-141z"/>
+   <path d="m373-10-34 23-69 114-42 16 88 16-19-24 15-31 49 5 5 33-26 17 81 9-22-24zm-22 42 10 47-34-5z"/>
+   <path d="m357 526-30 28-42 122-39 22 88 3-22-21 9-31 41-5 19 33-22 21 79-3-25-21zm-16 45 16 45-34-0.1z"/>
+   <path d="m401 212 37-10 32-112-22-27 82 24-32 14-16 51 71-41-11-19 76 19-105 50 64 102-80-20 17-14-35-58-20 63z"/>
+   <path d="m66 520-67-74-77 101 108 79-29 51-65-31-9 46 80 21 55-43 10-63-96-72 26-41z"/>
+   <path d="m84 535 100-1-36 25 3 115 55 1 27-34-7 57-149 3 40-33-0.03-115z"/>
+  </g>
+</svg>
+     </div>
 
       <select style="float: left; width: 6em; margin-right: .4em" name="tablesel" id="tablesel" onchange="javascript:tInit(this)"> </select>
       <div class="dropd">
@@ -309,7 +349,8 @@
         <div class="dropd-content">
           <input type="checkbox" id="bcheck" value="b" checked /><label>Beginning</label><br>
           <input type="checkbox" id="echeck" value="e" /><label>Ending</label><br>
-          <label for="limit"> <input type="range" min="5" max="1000" value="50" class="slider" id="limit" /> Results <span id="limitd">50</span></label>
+          <label for="limit"> <input type="range" min="5" max="1000" value="99" class="slider" id="limit" /> Results <span id="limitd">99</span></label>
+	  <button class="button error" onclick="javascript:tRemoveServiceWorker(this)">Uninstall</button>
         </div>
       </div>
       <div class="searchbox">
@@ -323,13 +364,19 @@
           </svg>
         </button>
       </div>
-      <div id="tresults"></div>
+      <div id="tresults">Exact Search:</div>
+</header>
+    <main class="container" id="container">
       <div id="tout"></div>
       <div id="tbug" class="tbug"></div>
       <script>
 	const tbug =  document.getElementById("tbug");
         const synth = window.speechSynthesis;
         let voices = [];
+
+	const header = document.querySelector("header");
+	const main = document.querySelector("main");
+	const headerHeight = document.querySelector("header").offsetHeight + 50;
 
 // Function to create CSS classes based on available voices
 function updateLanguageStyles() {
@@ -392,6 +439,8 @@ function updateLanguageStyles() {
         const tout = document.getElementById("tout");
         const tresults = document.getElementById("tresults");
         const urlParams = new URL(globalThis.location.href).searchParams;
+          const logo = document.getElementById("logo");
+          logo.innerHTML = document.title + logo.innerHTML;
           const q = document.getElementById("q");
           q.addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
@@ -524,12 +573,20 @@ function updateLanguageStyles() {
             }
             w.postMessage(".init: " + tsel.value);
           };
+	  let lastScroll = 0;
           var tSearch = function(all) {
             urlParams.set('q', q.value);
             window.history.pushState({
               "html": "",
               "pageTitle": window.title
             }, "", "?" + urlParams);
+	    //window.pageYOffset = 0;
+	    header.classList.remove("scroll-up");
+	    header.classList.remove("scroll-down");
+	    document.pageYOffset = 0;
+	    lastScroll = 0;
+	    document.activeElement.blur();
+
             console.log("MAIN: Message posted to worker");
             const q2 = q.value.replaceAll(/[']+/g, "‘")
             tout.innerHTML = "";
@@ -563,7 +620,6 @@ function updateLanguageStyles() {
                 ";"
               );
             } else {
-              /*tlist = [{name: "@XXXX7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
               tlist.forEach(function tcallall(ctab) {
                 /*	for (let i = 0; i < ctab.col.length; i++) {
                 let ccol = ctab.col[i]; */
@@ -600,8 +656,23 @@ function updateLanguageStyles() {
               });
             }
           };
+
+main.style.paddingTop = headerHeight + "px";
+window.addEventListener("scroll", () => {
+  let currentScroll = window.pageYOffset;
+  if ((currentScroll - lastScroll > 0) && document.activeElement != q) {
+    header.classList.add("scroll-down");
+    header.classList.remove("scroll-up");
+  } else {
+    // scrolled up -- header show
+    header.classList.add("scroll-up");
+    header.classList.remove("scroll-down");
+  }
+if(Math.abs(lastScroll - currentScroll) > 90)
+	  lastScroll = currentScroll;
+})
+
       </script>
-      <button class="button error" onclick="javascript:tRemoveServiceWorker(this)">Uninstall</button>
 
           <!-- Install Button -->
     <button id="install-button">
