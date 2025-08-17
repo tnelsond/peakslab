@@ -4,11 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" sizes="32x32" href="favicon32x32.png" />
-    <title>PS&nbsp;Khmer</title>
+    <title>PS&nbsp;@UXXXX</title>
     <link rel="stylesheet" href="chota.css">
-    <link rel="manifest" id="link" href="khmer.json">
+    <link rel="manifest" id="link" href="manifest.json">
     <meta name="theme-color" content="#000000" />
-    <meta name="apple-mobile-web-app-title" content="nimi.li" />
+    <meta name="apple-mobile-web-app-title" content="peakslab.org" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <style>
@@ -275,6 +275,7 @@
     <div id="load"></div>
     <main class="container" id="container">
       <div id="logo">
+	      @UXXXX
         <svg width="86" height="86" version="1.1" viewBox="0 0 647 647" xmlns="http://www.w3.org/2000/svg" style="padding-right: .2em; float: left" width="90px">
           <g fill-rule="evenodd">
             <rect x="75" y="101" width="540" height="541" fill="#9c3" fill-rule="evenodd" />
@@ -391,8 +392,6 @@ function updateLanguageStyles() {
         const tout = document.getElementById("tout");
         const tresults = document.getElementById("tresults");
         const urlParams = new URL(globalThis.location.href).searchParams;
-          const logo = document.getElementById("logo");
-          logo.innerHTML = document.title + logo.innerHTML;
           const q = document.getElementById("q");
           q.addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
@@ -428,7 +427,7 @@ function updateLanguageStyles() {
             "importScripts") for why we need
             that. */
           );
-          w.postMessage("param: " + "db=khmer.db.html&dbass=khmerass.db.html");
+          w.postMessage("param: " + "db=@XXXX.db.html&dbass=@XXXXass.db.html");
           (function() {
             var color = false;
             const logHtml = function(cssClass, ...args) {
@@ -464,7 +463,6 @@ function updateLanguageStyles() {
               } else if (cssClass == "init2") {
                 tlist[tlist.length - 1].col.push(args);
               } else if (cssClass == "dictlist") {
-                /*tlist = [{name: "khmer7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
                 tlist.push({
                   name: args,
                   col: []
@@ -565,7 +563,7 @@ function updateLanguageStyles() {
                 ";"
               );
             } else {
-              /*tlist = [{name: "khmer7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
+              /*tlist = [{name: "@XXXX7", col: ["kh", "csea", "headley97", "misc"]}, {name: "xEng", col: ["w", "def", "m"]}];*/
               tlist.forEach(function tcallall(ctab) {
                 /*	for (let i = 0; i < ctab.col.length; i++) {
                 let ccol = ctab.col[i]; */
