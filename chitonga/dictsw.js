@@ -1,4 +1,4 @@
-let cache_name = 'peakslab chitonga 0.5.1.6';
+let cache_name = 'peakslab chitonga 0.5.1.8';
 let urls_to_cache = [
  'index.html',
  './',
@@ -7,6 +7,7 @@ let urls_to_cache = [
  'peak64x64.png',
  'peakslab.svg',
  'peakmono.svg',
+ 'chitonga.db.html',
  'dict.js',
  'sqlite3.js',
  'sqlite3.wasm'];
