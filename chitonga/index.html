@@ -13,6 +13,22 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <style>
+/* Style for the select search button */
+    #selectSearch {
+      position: absolute;
+      background-color: #370;
+      color: white;
+      border: 1px gray;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 150%;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+    }
+    #searchButton:hover {
+      background-color: #0056b3;
+    }
         #install-button {
             display: none;
             position: fixed;
@@ -440,6 +456,77 @@ function updateLanguageStyles() {
           const logo = document.getElementById("logo");
           logo.innerHTML = document.title + logo.innerHTML;
           const q = document.getElementById("q");
+
+let searchButton = null;
+
+    // Function to remove the search button
+    function removeSearchButton() {
+      if (searchButton) {
+        searchButton.remove();
+        searchButton = null;
+      }
+    }
+
+    // Function to create and position the search button
+    function showSearchButton(selection) {
+      // Remove existing button if it exists
+      if (searchButton) {
+        searchButton.remove();
+        searchButton = null;
+      }
+
+      // Get the selected text
+      const selectedText = selection.toString().trim();
+      if (!selectedText) return;
+
+      // Create the search button
+      searchButton = document.createElement('button');
+      searchButton.id = 'selectSearch';
+      searchButton.innerText = 'Search';
+      document.body.appendChild(searchButton);
+
+      // Get the range of the selection
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      // Position the button at the bottom-right of the selection
+      searchButton.style.top = `${window.scrollY + rect.bottom + 30}px`;
+      searchButton.style.left = `${window.scrollX + rect.left}px`;
+
+      // Add click event to trigger a search
+      searchButton.addEventListener('click', () => {
+	      q.value = selectedText;
+	      tSearch(0);
+	      removeSearchButton();
+      });
+    }
+
+    // Listen for selection changes
+    document.addEventListener('selectionchange', () => {
+      const selection = window.getSelection();
+      if (selection.toString().trim()) {
+        showSearchButton(selection);
+      } else {
+        removeSearchButton();
+      }
+    });
+
+    // Handle mouseup to ensure button updates position
+    document.addEventListener('mouseup', () => {
+      const selection = window.getSelection();
+      if (selection.toString().trim()) {
+        showSearchButton(selection);
+      } else {
+        removeSearchButton();
+      }
+    });
+
+    // Remove button on click elsewhere
+    document.addEventListener('click', (e) => {
+      if (e.target !== searchButton) {
+        removeSearchButton();
+      }
+    });
           q.addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
               event.preventDefault();
