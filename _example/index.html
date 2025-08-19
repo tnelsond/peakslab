@@ -14,7 +14,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <style>
 /* Style for the select search button */
-    #selectSearch {
+    #ssearch {
       display: block;
       position: absolute;
       background-color: rgba(30, 110, 0, .8);
@@ -28,7 +28,7 @@
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
       z-index: 200;
     }
-    #selectSearch:hover {
+    #ssearch:hover {
       background-color: #0056b3;
     }
         #install-button {
@@ -464,33 +464,29 @@ function updateLanguageStyles() {
           logo.innerHTML = document.title + logo.innerHTML;
           const q = document.getElementById("q");
 
-let ssearchButton = null;
+    let ssearchButton = null;
 
     // Function to remove the search button
     function removeSsearchButton() {
-      if (ssearchButton) {
+      if(ssearchButton){
         ssearchButton.remove();
-        ssearchButton = null;
+	ssearchButton = null;
       }
     }
 
     // Function to create and position the search button
     function showSsearchButton(selection) {
-      // Remove existing button if it exists
-      if (ssearchButton) {
-        ssearchButton.remove();
-        ssearchButton = null;
-      }
+      removeSsearchButton();
+
+      // Create the search button
+      ssearchButton = document.createElement('button');
+      ssearchButton.id = 'ssearch';
+      ssearchButton.innerText = 'Search';
+      document.body.appendChild(ssearchButton);
 
       // Get the selected text
       const selectedText = selection.toString().trim();
       if (!selectedText) return;
-
-      // Create the search button
-      ssearchButton = document.createElement('button');
-      ssearchButton.id = 'selectSearch';
-      ssearchButton.innerText = 'Search';
-      document.body.appendChild(ssearchButton);
 
       // Get the range of the selection
       const range = selection.getRangeAt(0);
@@ -502,10 +498,9 @@ let ssearchButton = null;
 
       // Add click event to trigger a search
       ssearchButton.addEventListener('click', () => {
-	      console.log('Button clicked!');
+	      removeSsearchButton();
 	      q.value = selectedText;
 	      tSearch(0);
-	      removeSsearchButton();
       });
     }
 

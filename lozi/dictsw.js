@@ -1,7 +1,6 @@
-let CACHE_NAME = 'peakslab lozi 0.5.2.5';
+let CACHE_NAME = 'peakslab lozi 0.5.3.4';
 const FILES_TO_CACHE = [
  'index.html',
- '/',
  'chota.css',
  'peak32x32.png',
  'peak64x64.png',
@@ -12,6 +11,22 @@ const FILES_TO_CACHE = [
  'sqlite3.js',
  'sqlite3.wasm'];
 
+// Utility function to normalize URL by removing query parameters and standardizing directory paths
+function normalizeUrl(url) {
+  const urlObj = new URL(url);
+  let pathname = urlObj.pathname;
+
+  // Ensure trailing slash for directory-like URLs
+  if (pathname.endsWith('/')) {
+    pathname += 'index.html'; // Convert /khmer/ to /khmer/index.html
+  } else if (!pathname.match(/\.[a-zA-Z0-9]+$/)) {
+    // If no file extension, assume it's a directory and append /index.html
+    pathname += '/index.html';
+  }
+
+  return urlObj.origin + pathname; // Return normalized URL without query parameters
+}
+
 // Install event: Cache initial files
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -20,7 +35,7 @@ self.addEventListener('install', event => {
         console.log('Service Worker: Installing and caching files');
         return cache.addAll(FILES_TO_CACHE);
       })
-      .then(() => self.skipWaiting()) // Activate new Service Worker immediately
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -33,7 +48,7 @@ self.addEventListener('activate', event => {
           .filter(name => name !== CACHE_NAME)
           .map(name => caches.delete(name))
       );
-    }).then(() => self.clients.claim()) // Take control of clients immediately
+    }).then(() => self.clients.claim())
   );
 });
 
@@ -42,31 +57,34 @@ self.addEventListener('fetch', event => {
   // Ignore non-GET requests
   if (event.request.method !== 'GET') return;
 
+  // Normalize the URL for cache key
+  const cacheKey = normalizeUrl(event.request.url);
+
   event.respondWith(
-    caches.match(event.request, {ignoreSearch: true})
+    caches.match(cacheKey, { ignoreSearch: true })
       .then(cachedResponse => {
         // Return cached response if available
         if (cachedResponse) {
           // Start a background fetch to update cache
-          event.waitUntil(updateCache(event.request));
+          event.waitUntil(updateCache(event.request, cacheKey));
           return cachedResponse;
         }
 
         // Fallback to network if not cached
         return fetch(event.request)
           .then(networkResponse => {
-	    let clone = networkResponse.clone();
-            // Cache the new response if valid
+            let clone = networkResponse.clone();
+            // Cache the new response if valid, using normalized URL
             if (networkResponse && networkResponse.status === 200) {
               event.waitUntil(
                 caches.open(CACHE_NAME)
-                  .then(cache => cache.put(event.request, clone))
+                  .then(cache => cache.put(cacheKey, clone))
               );
             }
             return networkResponse;
           })
           .catch(() => {
-            // Offline fallback (optional, customize as needed)
+            // Offline fallback
             return new Response('Offline', { status: 503 });
           });
       })
@@ -74,10 +92,10 @@ self.addEventListener('fetch', event => {
 });
 
 // Update cache for a request if the resource has changed
-async function updateCache(request) {
+async function updateCache(request, cacheKey) {
   try {
     const cache = await caches.open(CACHE_NAME);
-    const cachedResponse = await caches.match(request);
+    const cachedResponse = await caches.match(cacheKey, { ignoreSearch: true });
     const networkResponse = await fetch(request);
 
     // Compare ETag or Last-Modified headers to check for updates
@@ -89,14 +107,14 @@ async function updateCache(request) {
     const isUpdated = (cachedETag && networkETag && cachedETag !== networkETag) ||
                      (cachedLastModified && networkLastModified && cachedLastModified !== networkLastModified);
 
-    // Only update cache if the resource has changed
+    // Only update cache if the resource has changed, using normalized URL
     if (isUpdated && networkResponse.status === 200) {
-      console.log(`Service Worker: Updating cache for ${request.url}`);
-      await cache.put(request, networkResponse.clone());
+      console.log(`Service Worker: Updating cache for ${cacheKey}`);
+      await cache.put(cacheKey, networkResponse.clone());
     }
 
     return networkResponse;
   } catch (error) {
-    console.error(`Service Worker: Error updating cache for ${request.url}`, error);
+    console.error(`Service Worker: Error updating cache for ${cacheKey}`, error);
   }
 }
