@@ -2,7 +2,7 @@
   "name": "PeakSlabChitonga",
   "short_name": "PsChitonga",
   "description": "A dictionary app for the Chitonga language.",
-  "theme_color": "#003377",
+  "theme_color": "#5588ff",
   "background_color": "#666600",
   "display": "standalone",
   "scope": "/chitonga",

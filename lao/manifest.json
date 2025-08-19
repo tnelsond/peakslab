@@ -2,7 +2,7 @@
   "name": "PeakSlabLao",
   "short_name": "PsLao",
   "description": "A dictionary app for the Lao language.",
-  "theme_color": "#110077",
+  "theme_color": "#DD4466",
   "background_color": "#770000",
   "display": "standalone",
   "scope": "/lao",
