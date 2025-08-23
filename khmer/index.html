@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" sizes="32x32" href="peak32x32.png" />
     <link rel="icon" type="image/svg" sizes="any" href="peakslab.svg" />
-    <title>PeakKhmer</title>
+    <title>PS&nbsp;Khmer</title>
     <link rel="stylesheet" href="chota.css">
     <link rel="manifest" id="link" href="manifest.json">
     <meta name="theme-color" content="#000000" />
@@ -14,6 +14,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <style>
 /* Style for the select search button */
+    p-a{
+	color: blue;
+    }
+    p-a:hover{
+	color: #0AF;
+    }
     #ssearch {
       display: block;
       position: absolute;
@@ -155,7 +161,12 @@ header.scroll-down{
         display: block;
       }
 
-      .entry {
+      li:only-child{
+	list-style-type: none;
+      }
+
+      p-d, .entry {
+	display: block;
         background-color: white;
         border: 2px dashed #deeede;
         border-radius: 5px;
@@ -164,7 +175,7 @@ header.scroll-down{
         padding: 0.5em;
       }
 
-      .hent {
+      .hent, p-d h1, p-d h2, p-d h3 {
         margin-bottom: 0px;
         margin-top: 0px;
         color: #004400;
@@ -388,7 +399,18 @@ header.scroll-down{
       <div id="tresults">Exact Search:</div>
 </header>
     <main class="container" id="container">
-      <div id="tout"></div>
+      <div id="tout">
+<p-d>
+<h2>How to use:</h2>
+	PeakSlab is a dictionary web app using sqlite3's wasm port to query results from a database.
+	<br>Benefits of PeakSlab:
+	<ol>
+		<li>Extremely customizable</li>
+		<li>Runs offline</li>
+		<li>Fast</li>
+	</ol>
+</p-d>
+      </div>
       <div id="tbug" class="tbug"></div>
       <script>
 	const tbug =  document.getElementById("tbug");
@@ -504,6 +526,15 @@ function updateLanguageStyles() {
       });
     }
 
+	  // Add a single click event listener to the document
+        document.addEventListener("click", function(event) {
+            // Check if the clicked element is a <p-a> tag
+            if (event.target.tagName.toLowerCase() === "p-a") {
+                q.value = event.target.textContent; // Get the content (e.g., "arg1")
+		tSearch(0);
+            }
+        });
+
     // Listen for selection changes
     document.addEventListener('selectionchange', () => {
       const selection = window.getSelection();
@@ -593,12 +624,10 @@ function updateLanguageStyles() {
                   const blob = new Blob([args[1]], {
                     type: 'audio/webm; codecs=opus'
                   })
-                  const audio = new Audio(URL.createObjectURL(blob));
+                  const audio = document.getElementById(args[0]).firstChild;
+                  audio.src = URL.createObjectURL(blob);
                   audio.controls = true;
                   audio.autoplay = true;
-                  const media = document.getElementById(args[0]);
-                  media.innerHTML = "";
-                  media.appendChild(audio);
                 })()
               } else {
                 const ln = document.createElement("div");
@@ -628,8 +657,16 @@ function updateLanguageStyles() {
           })();
           var tAudio = function(button) {
             console.log("MAIN: request audio message sent to worker");
-            let id = button.parentNode.id;
-            w.postMessage(".addmedia: " + id + "@" + id);
+	    const mom = button.parentNode;
+	    mom.innerHTML = "";
+	    const audio = document.createElement("audio");
+	    mom.append(audio);
+            w.postMessage(".addmedia: " + mom.id + "@" + mom.id);
+	    audio.addEventListener("canplay", () => {
+                audio.play().catch(error => {
+                    console.log("Error playing audio:", error);
+                });
+            });
           };
           var tInit = function() {
             console.log("MAIN: init message sent to worker");
