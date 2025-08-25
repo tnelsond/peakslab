@@ -74,20 +74,21 @@
 							}.bind({counter: 0})
 						});
         } else {
-            console.log("Worker:" + e.data);
-            const lopokup = e.data.match(/SELECT (.*) FROM/)[1].split(", ");
-            const que = ("^" + e.data.match(/LIKE '([^\x27]*)' /)[1] + "$").replace(/\^%+/, "").replace(/%+\$/, "").replaceAll("_", ".").replaceAll(/‘/g, "'");
+	    const ssqls = e.data.substr(e.data.indexOf(':') + 1);
+	    const dest = e.data.substr(0, e.data.indexOf(':'));
+            const lopokup = ssqls.match(/SELECT (.*) FROM/)[1].split(", ");
+            const que = ("^" + ssqls.match(/LIKE '([^\x27]*)' /)[1] + "$").replace(/\^%+/, "").replace(/%+\$/, "").replaceAll("_", ".").replaceAll(/‘/g, "'");
             console.log("query!: " + que);
             const quer = new RegExp(que, "mgi");
             console.log(quer);
             console.log(lopokup);
-						let counter = 0;
+	    let counter = 0;
             db.exec({
-                sql: e.data.replaceAll(/‘‘*/g, "''"),
+                sql: ssqls,//.replaceAll(/‘‘*/g, "''"),
                 rowMode: "array", // 'array' (default), 'object', or 'stmt'
                 callback: function (row) {
                     ++this.counter;
-										++counter;
+		    ++counter;
                     let res = "";
                     for (let i = 0; i < row.length; ++i) {
                         if (row[i]) {
@@ -107,12 +108,12 @@
                             }
                         }
                     }
-                    addEntry("" + res + "");
+                    logHtml("entry>" + dest, "" + res + "");
 
 									//addEntry(row.join('</div><div class="col">'));
                 }.bind({ counter: 0 }),
             });
-            logHtml("results", "" + counter);
+            logHtml("results>" + dest, "" + counter);
         }
 		}
 		else if(e.data.startsWith("param: ")){

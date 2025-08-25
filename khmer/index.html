@@ -522,7 +522,7 @@ function updateLanguageStyles() {
       ssearchButton.addEventListener('click', () => {
 	      removeSsearchButton();
 	      q.value = selectedText;
-	      tSearch(0);
+	      tSearch(0, "tbug");
       });
     }
 
@@ -570,6 +570,7 @@ function updateLanguageStyles() {
           const bcheck = document.getElementById("bcheck");
           const echeck = document.getElementById("echeck");
           const dcol = document.getElementById("dcol");
+	  outputs = {"tout": tout, "tbug": tbug};
           tbug.innerHTML += urlParams;
           const w = new Worker(
             "dict.js" // + urlParams
@@ -582,18 +583,20 @@ function updateLanguageStyles() {
           (function() {
             var color = false;
             const logHtml = function(cssClass, ...args) {
-              if (cssClass == "entry") {
+              if (cssClass.startsWith("entry")) {
                 const ln = document.createElement("div");
                 ln.classList.add("entry");
                 ln.innerHTML = args;
                 // ln.append(document.createTextNode(args.join(' ')));
-                tout.append(ln);
+		dest = cssClass.substr(cssClass.indexOf('>')+1);
+                outputs[dest].append(ln);
                 color = !color;
-              } else if (cssClass == "results") {
+              } else if (cssClass.startsWith("results")) {
+		dest = cssClass.substr(cssClass.indexOf(">")+1);
                 trestotal += args;
                 tresults.innerHTML += (args == '0' ? '<span class="bd-error">' : '<span class="bd-success">') + args + "; </span>";
                 if (fullsearch == 0 && trestotal == 0) {
-                  tSearch(1);
+                  tSearch(1, dest);
                 }
               } else if (cssClass == "refresh") {
                 tInit();
@@ -633,7 +636,7 @@ function updateLanguageStyles() {
                 const ln = document.createElement("div");
                 if (cssClass) ln.classList.add(cssClass);
                 ln.append(document.createTextNode(args.join(" ")));
-                document.getElementById("tbug").append(ln);
+                tbug.append(ln);
                 if (cssClass == "bd-error") {
                   let lo = document.getElementById("load");
                   if (lo) {
@@ -682,7 +685,7 @@ function updateLanguageStyles() {
             w.postMessage(".init: " + tsel.value);
           };
 	  let lastScroll = 0;
-          var tSearch = function(all) {
+          var tSearch = function(all, dest="tout") {
             urlParams.set('q', q.value);
             window.history.pushState({
               "html": "",
@@ -697,7 +700,7 @@ function updateLanguageStyles() {
 
             console.log("MAIN: Message posted to worker");
             const q2 = q.value.replaceAll(/[']+/g, "‘")
-            tout.innerHTML = "";
+            outputs[dest].innerHTML = "";
             tresults.innerHTML = (qcol.value != "*ALL" && all) ? 'Exact Search: <span class="bd-error">0;</span> Wide Search: ' : "Exact Search: ";
             trestotal = 0;
             fullsearch = all;
@@ -709,7 +712,7 @@ function updateLanguageStyles() {
                 }
               });
               const dres = dlist.filter((x) => typeof x === "string" && x.length > 0).join(", ");
-              w.postMessage(
+              w.postMessage(dest + ": " +
                 "SELECT " +
                 dres +
                 " FROM " +
@@ -732,7 +735,7 @@ function updateLanguageStyles() {
                 /*	for (let i = 0; i < ctab.col.length; i++) {
                 let ccol = ctab.col[i]; */
                 let ccol = ctab.col.join(" LIKE '%" + q2 + "%' OR ") + " LIKE '%" + q2 + "%'";
-                w.postMessage("SELECT " + ctab.col.join(", ") + " FROM " + ctab.name + " WHERE " + ccol + " order by " + ((ctab.name == tsel.value && qcol.value != "*ALL") ? qcol.value : ctab.col[0]) + (desc ? " desc" : " asc") + " limit " + limit.value + ";");
+                w.postMessage(dest + ": " + "SELECT " + ctab.col.join(", ") + " FROM " + ctab.name + " WHERE " + ccol + " order by " + ((ctab.name == tsel.value && qcol.value != "*ALL") ? qcol.value : ctab.col[0]) + (desc ? " desc" : " asc") + " limit " + limit.value + ";");
               });
             }
           };
