@@ -13,12 +13,31 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <style>
-/* Style for the select search button */
+    .nav-right, .header{
+	margin-right: 0px;
+	padding-right: 0px;
+    }
+    .nav a{
+	    padding-bottom: 0px;
+	    padding-top: 0px;
+	    border-bottom: 6px solid green;
+    }
+    button.settings{
+	font-size: 300%;
+	padding:0px 10px;
+	margin-right: 0px;
+    }
     p-a{
 	color: blue;
     }
     p-a:hover{
 	color: #0AF;
+    }
+    #writer {
+	display: none;
+	font-size: 150%;
+	height: 10em;
+	padding: 2em;
     }
     #ssearch {
       display: block;
@@ -32,7 +51,7 @@
       cursor: pointer;
       pointer-events: auto;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
-      z-index: 200;
+      z-index: 100;
     }
     #ssearch:hover {
       background-color: #0056b3;
@@ -73,6 +92,7 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+	    z-index: 500;
         }
 
         body {
@@ -80,6 +100,46 @@
             padding: 0;
             background-color: #AA9;
         }
+
+
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 300; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  /*background-color: rgb(0,0,0); /* Fallback color */
+  /*background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content */
+.modal-content {
+  position: relative;
+  background-color: #fefefe;
+  margin: 2em 3em;
+  padding: .4em;
+  border: 2px solid #888;
+  width: 80%;
+  height: 90%;
+}
+
+/* The Close Button */
+.close {
+  color: grey;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  z-index: 900;
+}
+.close:hover,
+.close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
 
 header {
   background: #DDB;
@@ -115,13 +175,8 @@ header.scroll-down{
             bottom: 0;
         }
 
-      .dropd {
-        position: relative;
-        display: inline-block;
-      }
-
-      .button {
-        border: 1px solid grey;
+      button, .button {
+        border: 1px solid #440;
       }
 
       .media {
@@ -141,24 +196,6 @@ header.scroll-down{
         border-radius: 10px;
         padding: 1em;
         overflow-wrap: anywhere;
-      }
-
-      .dropd-content {
-        display: none;
-        position: absolute;
-        background-color: #e9d9a9;
-        min-width: 160px;
-        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
-        padding: 12px 16px;
-        z-index: 5;
-      }
-
-      .dropd:hover .dropd-content {
-        display: block;
-      }
-
-      .dropd:active .dropd-content {
-        display: block;
       }
 
       li:only-child{
@@ -314,78 +351,56 @@ header.scroll-down{
       #searchbutton:hover {
         background: #88aa00;
       }
+      .tabs{
+	font-size: 150%;
+      }
+      .greedysvg {
+	width: 100%;
+	height: auto;
+      }
     </style>
   </head>
 
   <body>
     <div id="load"></div>
 	    <header id="nav-bar">
-      <div id="logo">
-<svg width="90px" height="86" style="float:left;padding-right:.2em" version="1.1" viewBox="0 0 647 647" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-  <mask id="scar">
-  <rect width="100%" height="100%" fill="#FFF"/>
-  <path d="m-8 458 220-193 199 158 129-40 68 61" fill="none" stroke="#000" stroke-width="70"/>
-  </mask>
-  <filter id="s">
-  <feOffset result="offset" in="SourceAlpha" dx="16" dy="28"/>
-  <feFlood result="f" flood-color="#404040"/>
-  <feComposite result="x" in2="offset" in="f" operator="in"/>
-  <feTurbulence baseFrequency='0.035' result='noise' />
-  <feDiffuseLighting in='noise' lighting-color='#FFF' surfaceScale='7' result="l2">
-  <feDistantLight azimuth='45' elevation='60' />
-  </feDiffuseLighting>
-  <feBlend in2="x" in="SourceGraphic" result="y"/>
-  <feBlend in2="y" in="l2" mode="multiply" result="z"/>
-  <feComposite in="z" in2="y" operator="in"/>
-  </filter>
-  <filter id="s2">
-  <feOffset result="offset" in="SourceAlpha" dx="10" dy="-10"/>
-  <feFlood result="f" flood-color="#BBB"/>
-  <feComposite result="x" in2="offset" in="f" operator="in"/>
-  <feBlend in2="x" in="SourceGraphic"/>
-  </filter>
-  <filter id="s3">
-  <feOffset result="offset" in="SourceAlpha" dx="-26" dy="-38"/>
-  <feFlood result="f" flood-color="#999"/>
-  <feComposite result="x" in2="offset" in="f" operator="in"/>
-  <feGaussianBlur result="bx" in="x" stdDeviation="25"/>
-  <feComposite in="bx" in2="SourceGraphic" operator="atop"/>
-  </filter>
-  </defs>
-  <rect x="75" y="101" width="540" height="550" fill="#9c3"/>
-  <g  filter="url(#s)"><g  filter="url(#s3)"><g  mask="url(#scar)"><g fill="#666">
-  <ellipse cx="304" cy="194" rx="269.5" ry="182"/>
-  <rect x="35" y="190" width="538" height="415"/>
-  </g></g></g></g>
-  <g transform="matrix(.7 0 0 .7 131 96)" fill="#222" filter="url(#s2)">
-   <path d="m459 539 34 22 1 116-37 21 109 4 46-47-32-44 28-31-28-57zm65 18 34 1 10 28-21 22-28-3zm1 71 37 3 12 31-22 26-31-3z"/>
-   <path d="m-73 249 33-30-24-159-38-12 110-23 67 39-22 75-58 26 32-49-0.5-39-55-10 37 176z"/>
-   <path d="m88-15 121 2 0.9 43-21-28-42-0.3 0.8 54 31 0.2 17-14-0.2 46-17-14-31-0.1-0.8 48 45 3 19-27 0.1 49-110 0.4 14-141z"/>
-   <path d="m373-10-34 23-69 114-42 16 88 16-19-24 15-31 49 5 5 33-26 17 81 9-22-24zm-22 42 10 47-34-5z"/>
-   <path d="m357 526-30 28-42 122-39 22 88 3-22-21 9-31 41-5 19 33-22 21 79-3-25-21zm-16 45 16 45-34-0.1z"/>
-   <path d="m401 212 37-10 32-112-22-27 82 24-32 14-16 51 71-41-11-19 76 19-105 50 64 102-80-20 17-14-35-58-20 63z"/>
-   <path d="m66 520-67-74-77 101 108 79-29 51-65-31-9 46 80 21 55-43 10-63-96-72 26-41z"/>
-   <path d="m84 535 100-1-36 25 3 115 55 1 27-34-7 57-149 3 40-33-0.03-115z"/>
-  </g>
-</svg>
-     </div>
+      <nav class="nav">
+  <div class="nav-left">
+    <div class="tabs">
+	    <a style="padding: 0; margin: 0;" href="../">
+	      <img src="peakslab.svg">
+	    </a>
+	    <a class="active" onclick="javascript:showDict()" id="adict">Dict</a>
+	    <a onclick="javascript:showWriter()" id="awriter">Write&#9888;</a>
+    </div>
+  <div class="nav-right">
+<select name="tablesel" style="width:6em" id="tablesel" onchange="javascript:tInit(this)"> </select>
+	  <button onclick="javascript:showSettings();" class="settings">&#9967;</button>
+  </div>
+</nav>
 
-      <select style="float: left; width: 6em; margin-right: .4em" name="tablesel" id="tablesel" onchange="javascript:tInit(this)"> </select>
-      <div class="dropd">
-        <span class="button dark" style="padding-left: .9em; padding-right: .9em;">Columns</span>
+      <div class="modal" id="settings">
+	 <div class="modal-content">
+	    <span class="close" onclick="javascript:closeSettings();">&times;</span>
+	    <table>
+		    <tr><td>
+			    </td>
+			    <td>
+	  <button class="button error" onclick="javascript:tRemoveServiceWorker(this)">Uninstall</button>
+			    </td>
+			    <tr>
+				    <td>
         <div id="dcol" class="dropd-content"></div>
-      </div>
-      <div class="dropd">
-        <span class="button" style="padding-left: .9em; padding-right: .9em">Options</span>
-        <div class="dropd-content">
+				    </td>
+				    <td>
           <input type="checkbox" id="bcheck" value="b" checked /><label>Beginning</label><br>
           <input type="checkbox" id="echeck" value="e" /><label>Ending</label><br>
           <label for="limit"> <input type="range" min="5" max="1000" value="99" class="slider" id="limit" /> Results <span id="limitd">99</span></label>
-	  <button class="button error" onclick="javascript:tRemoveServiceWorker(this)">Uninstall</button>
-        </div>
+				    </td></tr></table>
       </div>
-      <div class="searchbox">
+      </div>
+
+            <div class="searchbox" id="search">
         <select name="qcol" id="qcol"> </select>
         <input type="search" id="q" name="search" placeholder="Search..." onsearch="javascript:tSearch(0)" autofocus>
         <div id="qsort" onclick="tToggleDesc(this)">A↑</div>
@@ -396,10 +411,13 @@ header.scroll-down{
           </svg>
         </button>
       </div>
-      <div id="tresults">Exact Search:</div>
+
 </header>
     <main class="container" id="container">
+      <div id="dict">
+      <div id="tresults">Exact Search:</div>
       <div id="tout">
+      <img src="peakslab.svg" align="left">
 <p-d>
 <h2>How to use:</h2>
 	PeakSlab is a dictionary web app using sqlite3's wasm port to query results from a database.
@@ -411,6 +429,13 @@ header.scroll-down{
 	</ol>
 </p-d>
       </div>
+      </div>
+      <div class="modal" id="dictpop">
+	 <div id="popout">
+	 </div>
+      </div>
+      </div>
+      <textarea id="writer">Select a word.</textarea>	
       <div id="tbug" class="tbug"></div>
       <script>
 	const tbug =  document.getElementById("tbug");
@@ -418,6 +443,55 @@ header.scroll-down{
         let voices = [];
 
 	const header = document.querySelector("header");
+	const settings = document.getElementById("settings");
+	const writer = document.getElementById("writer");
+	const dict = document.getElementById("dict");
+	const search = document.getElementById("search");
+	const awriter = document.getElementById("awriter");
+	const adict = document.getElementById("adict");
+	var ctab = "dict";
+	function showSettings() {
+		settings.style.display = "block";
+	}
+	function closeSettings() {
+		settings.style.display = "none";
+	}
+	function changeTab(x){
+		ctab = x;
+		switch(x){
+			case "writer":
+				adict.classList.remove('active');
+				awriter.classList.add('active');
+				break;
+			default:
+				awriter.classList.remove('active');
+				adict.classList.add('active');
+				break;
+		}
+	}
+	function showWriter(){
+		writer.style.display = "block";
+		dict.style.display = "none";
+		search.style.display = "none";
+		changeTab("writer");
+	}
+	function showDict(){
+		dict.style.display = "block";
+		writer.style.display = "none"
+		search.style.display = "block";
+		changeTab("dict");
+	}
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function(event) {
+  if (event.target == settings) {
+	closeSettings();
+  }
+  else if(event.target == dictpop){
+	dictpop.style.display = "none";
+	popout.innerHTML = "";
+  }
+}
 	const main = document.querySelector("main");
 	const headerHeight = document.querySelector("header").offsetHeight + 50;
 
@@ -483,7 +557,7 @@ function updateLanguageStyles() {
         const tresults = document.getElementById("tresults");
         const urlParams = new URL(globalThis.location.href).searchParams;
           const logo = document.getElementById("logo");
-          logo.innerHTML = document.title + logo.innerHTML;
+          /*logo.innerHTML = document.title + logo.innerHTML;*/
           const q = document.getElementById("q");
 
     let ssearchButton = null;
@@ -516,13 +590,13 @@ function updateLanguageStyles() {
 
       // Position the button at the bottom-right of the selection
       ssearchButton.style.top = `${window.scrollY + rect.bottom + 30}px`;
-      ssearchButton.style.left = `${window.scrollX + rect.left}px`;
+      ssearchButton.style.left = `${window.scrollX + 100}px`;
 
       // Add click event to trigger a search
       ssearchButton.addEventListener('click', () => {
 	      removeSsearchButton();
 	      q.value = selectedText;
-	      tSearch(0, "tbug");
+	      tSearch(0, ctab === "dict" ? "tout" : "popout");
       });
     }
 
@@ -535,7 +609,7 @@ function updateLanguageStyles() {
             }
         });
 
-    // Listen for selection changes
+    if(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)){
     document.addEventListener('selectionchange', () => {
       const selection = window.getSelection();
       if (selection.toString().trim()) {
@@ -544,6 +618,7 @@ function updateLanguageStyles() {
         removeSsearchButton();
       }
     });
+    }
           q.addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
               event.preventDefault();
@@ -570,7 +645,9 @@ function updateLanguageStyles() {
           const bcheck = document.getElementById("bcheck");
           const echeck = document.getElementById("echeck");
           const dcol = document.getElementById("dcol");
-	  outputs = {"tout": tout, "tbug": tbug};
+          const dictpop = document.getElementById("dictpop");
+          const popout = document.getElementById("popout");
+	  outputs = {"tout": tout, "tbug": tbug, "popout": popout};
           tbug.innerHTML += urlParams;
           const w = new Worker(
             "dict.js" // + urlParams
@@ -589,6 +666,9 @@ function updateLanguageStyles() {
                 ln.innerHTML = args;
                 // ln.append(document.createTextNode(args.join(' ')));
 		dest = cssClass.substr(cssClass.indexOf('>')+1);
+	        if(dest === "popout"){
+			dictpop.style.display = "block";
+	        }
                 outputs[dest].append(ln);
                 color = !color;
               } else if (cssClass.startsWith("results")) {
@@ -685,7 +765,7 @@ function updateLanguageStyles() {
             w.postMessage(".init: " + tsel.value);
           };
 	  let lastScroll = 0;
-          var tSearch = function(all, dest="tout") {
+          var tSearch = function(all, dest="tout", tlimit=limit.value) {
             urlParams.set('q', q.value);
             window.history.pushState({
               "html": "",
@@ -727,7 +807,7 @@ function updateLanguageStyles() {
                 qcol.value +
                 (desc ? " desc" : " asc") +
                 " limit " +
-                limit.value +
+                tlimit +
                 ";"
               );
             } else {
@@ -735,7 +815,7 @@ function updateLanguageStyles() {
                 /*	for (let i = 0; i < ctab.col.length; i++) {
                 let ccol = ctab.col[i]; */
                 let ccol = ctab.col.join(" LIKE '%" + q2 + "%' OR ") + " LIKE '%" + q2 + "%'";
-                w.postMessage(dest + ": " + "SELECT " + ctab.col.join(", ") + " FROM " + ctab.name + " WHERE " + ccol + " order by " + ((ctab.name == tsel.value && qcol.value != "*ALL") ? qcol.value : ctab.col[0]) + (desc ? " desc" : " asc") + " limit " + limit.value + ";");
+                w.postMessage(dest + ": " + "SELECT " + ctab.col.join(", ") + " FROM " + ctab.name + " WHERE " + ccol + " order by " + ((ctab.name == tsel.value && qcol.value != "*ALL") ? qcol.value : ctab.col[0]) + (desc ? " desc" : " asc") + " limit " + tlimit + ";");
               });
             }
           };
