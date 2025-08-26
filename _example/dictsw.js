@@ -1,4 +1,4 @@
-let CACHE_NAME = 'peakslab @XXXX 0.5.3.4';
+let CACHE_NAME = 'peakslab @XXXX 0.5.3.5';
 const FILES_TO_CACHE = [
  'index.html',
  'chota.css',
