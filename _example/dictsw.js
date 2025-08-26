@@ -1,16 +1,18 @@
-let CACHE_NAME = 'peakslab @XXXX 0.5.3.5';
+let CACHE_NAME = 'peakslab @XXXX 0.5.3.8';
+let CACHE_PREFIX = 'peakslab @XXXX';
 const FILES_TO_CACHE = [
- 'index.html',
- 'chota.css',
- 'peak32x32.png',
- 'peak64x64.png',
- 'peakslab.svg',
- 'peakmono.svg',
- '@DB',
- '@ASSDB',
- 'dict.js',
- 'sqlite3.js',
- 'sqlite3.wasm'];
+ './index.html',
+ './chota.css',
+ './peak32x32.png',
+ './peak64x64.png',
+ './peakslab.svg',
+ './peakmono.svg',
+ './@DB',
+ './@ASSDB',
+ './manifest.json',
+ './dict.js',
+ './sqlite3.js',
+ './sqlite3.wasm'];
 
 // Utility function to normalize URL by removing query parameters and standardizing directory paths
 function normalizeUrl(url) {
@@ -45,10 +47,14 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames
-          .filter(name => name !== CACHE_NAME)
-          .map(name => caches.delete(name))
-      );
+       
+	cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME && cache.startsWith(CACHE_PREFIX)) {
+            console.log('Deleting old cache:', cache);
+            return caches.delete(cache);
+          }
+        })
+       );
     }).then(() => self.clients.claim())
   );
 });
