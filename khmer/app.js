@@ -388,7 +388,7 @@ function renderEntry(text, dictName = null) {
 
     // Default template: <h2> for first field, <p-des> for the rest
     const head = `<h2>${highlightText(parts[0], displayQuery)}</h2>`;
-    const body = parts.slice(1).map(p => `${highlightText(p, displayQuery)}`).join('');
+    const body = parts.slice(1).map(p => `<p>${highlightText(p, displayQuery)}</p>`).join('');
     return head + body;
 }
 
