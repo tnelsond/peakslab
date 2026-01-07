@@ -27,11 +27,76 @@
 	padding:0px 10px;
 	margin-right: 0px;
     }
+      p-d {
+	display: block;
+        background-color: white;
+        border: 2px dashed #deeede;
+        border-radius: 5px;
+        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.3);
+        margin-bottom: 0.5em;
+        padding: 0.5em;
+      }
+      p-des{
+	border-left: 5px solid #290;
+	padding-left: 1em;
+	display: block;
+      }
+      p-tags{
+	display: inline-block;
+	padding-left: .3em;
+	padding-right: .3em;
+	background: #EE8;
+      }
+      li:only-child{
+	list-style-type: none;
+      }
+      p-d ul{
+	padding-left: 1em;
+	list-style: square;
+      }
+      p-d li::marker{
+	color: #290;
+	font-weight: bold;
+      }
+      p-d h1{ 
+	font-size: 1.5em;
+      }
+      p-d h1, p-d h2, p-d h3 {
+        margin-bottom: 0px;
+        margin-top: 0px;
+        color: #004400;
+      }
+
+      .hentu {
+        margin-bottom: 0px;
+        margin-top: 0px;
+        color: #004400;
+        border-bottom: 2px dashed #aaaa99;
+        display: inline;
+     }
     p-a{
 	color: blue;
     }
     p-a:hover{
 	color: #0AF;
+    }
+    p-l{
+	margin-bottom: .3em;
+	color: #900;
+    }
+    p-des{
+	color: #110;
+    }
+    p-n{
+	font-size: 80%;
+	font-family: monospace;
+	color: #555;
+    }
+    p-ipa{
+	font-size: 1.2em;
+	display: block;
+	clear: left;
+	color: #303;
     }
     #writer {
 	display: none;
@@ -198,35 +263,7 @@ header.scroll-down{
         overflow-wrap: anywhere;
       }
 
-      li:only-child{
-	list-style-type: none;
-      }
-
-      p-d, .entry {
-	display: block;
-        background-color: white;
-        border: 2px dashed #deeede;
-        border-radius: 5px;
-        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.3);
-        margin-bottom: 0.5em;
-        padding: 0.5em;
-      }
-
-      .hent, p-d h1, p-d h2, p-d h3 {
-        margin-bottom: 0px;
-        margin-top: 0px;
-        color: #004400;
-      }
-
-      .hentu {
-        margin-bottom: 0px;
-        margin-top: 0px;
-        color: #004400;
-        border-bottom: 2px dashed #aaaa99;
-        display: inline;
-      }
-
-      #logo {
+     #logo {
         position: relative;
         z-index: -100;
         font-family: serif;
@@ -428,6 +465,7 @@ header.scroll-down{
       <textarea id="writer">Select a word.</textarea>	
       <div id="tbug" class="tbug"></div>
       <script>
+	const loadStart = performance.now();
 	const tbug =  document.getElementById("tbug");
         const synth = window.speechSynthesis;
         let voices = [];
@@ -651,8 +689,7 @@ function updateLanguageStyles() {
             var color = false;
             const logHtml = function(cssClass, ...args) {
               if (cssClass.startsWith("entry")) {
-                const ln = document.createElement("div");
-                ln.classList.add("entry");
+                const ln = document.createElement("p-d");
                 ln.innerHTML = args;
                 // ln.append(document.createTextNode(args.join(' ')));
 		dest = cssClass.substr(cssClass.indexOf('>')+1);
@@ -671,6 +708,7 @@ function updateLanguageStyles() {
               } else if (cssClass == "refresh") {
                 tInit();
               } else if (cssClass == "init") {
+								tbug.innerHTML += "Loading time: " + (performance.now() - loadStart).toFixed(1) + "ms";
                 if (args == "*ALL") {
                   qcol.innerHTML += '<option style="background: yellow; font-size: 125%" value="' + args + '">' + args + "</option>";
                   let lo = document.getElementById("load");
