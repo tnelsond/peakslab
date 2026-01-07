@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "packages/peakgen",
+    "packages/peakdec",
+    "packages/peakcmp",
+]
+resolver = '2'

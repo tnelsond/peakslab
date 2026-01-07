@@ -1,6 +1,6 @@
 {
-  "name": "PeakSlabKhmer",
-  "short_name": "PsKhmer",
+  "name": "PeakSlab Khmer",
+  "short_name": "Ps Khmer",
   "description": "A dictionary app for the Khmer language.",
   "theme_color": "#DDDDDD",
   "background_color": "#770044",
@@ -13,18 +13,7 @@
     "sizes": "32x32",
     "type": "image/png"
   },
-  {
-    "src": "peak64x64.png",
-    "sizes": "64x64",
-    "type": "image/png"
-  },
-  {
-    "src": "peakmono.svg",
-    "sizes": "any",
-    "type": "image/svg",
-    "purpose": "monochrome maskable"
-  },
-  {
+      {
     "src": "peakslab.svg",
     "sizes": "any"
   }]

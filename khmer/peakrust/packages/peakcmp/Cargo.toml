@@ -1,0 +1,21 @@
+[package]
+name = "peakcmp"
+version = "0.4.2"
+edition = "2021"
+
+[dependencies.alphanumeric-sort]
+version = "*"
+default-features = false
+
+[lib]
+name = "peakcmp"
+path = "src/lib.rs"
+
+[profile.release]
+# Strip symbols, inline small functions, etc.
+codegen-units = 1
+lto = "fat"
+panic = "abort"  # ⚠️ Removes unwind handler (~50KB savings)
+
+[profile.release.package."*"]  # Apply to ALL deps too
+codegen-units = 1

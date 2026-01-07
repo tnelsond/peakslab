@@ -1,0 +1,211 @@
+// src/lib.rs
+use wasm_bindgen::prelude::*;
+use js_sys::Uint8Array;
+use zstd::stream::decode_all;
+
+// Cargo.toml: alphanumeric-sort = "1.5"
+use alphanumeric_sort::compare_str;
+
+fn u32_from_bytes(bytes: &[u8]) -> u32 {
+    u32::from_le_bytes(bytes[0..4].try_into().unwrap())
+}
+
+// Raw key bytes — no UTF-8 checks
+unsafe fn get_key_bytes(binary: &[u8], data_start: usize, off: u32) -> &[u8] {
+    let start = data_start + off as usize;
+    let slice = &binary[start..];
+    let tab_pos = slice.iter().position(|&b| b == b'\t').unwrap_or(slice.len());
+    &slice[..tab_pos]
+}
+
+// Fast case-insensitive prefix or substring match
+fn key_lower_matches(key_bytes: &[u8], query_lower: &[u8], prefix_only: bool) -> bool {
+    if query_lower.is_empty() {
+        return true;
+    }
+    if prefix_only {
+        key_bytes.len() >= query_lower.len()
+            && key_bytes
+                .iter()
+                .zip(query_lower.iter())
+                .all(|(&k, &q)| k.to_ascii_lowercase() == q)
+    } else {
+        key_bytes
+            .windows(query_lower.len())
+            .any(|w| w.iter().zip(query_lower.iter()).all(|(&k, &q)| k.to_ascii_lowercase() == q))
+    }
+}
+
+// Raw key as &str — unchecked for maximum speed
+unsafe fn get_key_str_unchecked(binary: &[u8], data_start: usize, off: u32) -> &str {
+    let bytes = get_key_bytes(binary, data_start, off);
+    std::str::from_utf8_unchecked(bytes)
+}
+
+#[derive(Default)]
+struct Index {
+    offsets_start: usize,  // byte offset where u32 array starts
+    len: usize,            // number of entries
+    results: Vec<u32>,
+    ri: usize,
+}
+
+#[wasm_bindgen]
+pub struct PeakDecoder {
+    binary: Vec<u8>,
+    data_start: usize,
+    indexes: Vec<Index>,
+}
+
+#[wasm_bindgen]
+impl PeakDecoder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(input: &[u8], is_compressed: bool) -> Result<PeakDecoder, JsValue> {
+        let binary = if is_compressed {
+            decode_all(input).map_err(|e| JsValue::from_str(&format!("zstd error: {}", e)))?
+        } else {
+            input.to_vec()
+        };
+
+        let mut cursor = 0usize;
+        let ni = u32_from_bytes(&binary[cursor..cursor + 4]) as usize;
+        cursor += 4;
+
+        let mut indexes = Vec::with_capacity(ni);
+
+        for _ in 0..ni {
+            let len = u32_from_bytes(&binary[cursor..cursor + 4]) as usize;
+            cursor += 4;
+
+            let offsets_start = cursor;
+            cursor += len * 4;
+
+            indexes.push(Index {
+                offsets_start,
+                len,
+                ..Default::default()
+            });
+        }
+
+        let data_start = cursor;
+
+        Ok(PeakDecoder {
+            binary,
+            data_start,
+            indexes,
+        })
+    }
+
+    // Read offset using only shared (&self) access to binary and index metadata
+    fn get_offset_at(&self, locali: usize) -> u32 {
+        let index = &self.indexes[0];
+        let byte_offset = index.offsets_start + locali * 4;
+        u32_from_bytes(&self.binary[byte_offset..byte_offset + 4])
+    }
+
+    /// Search the primary index
+    /// - `query`: search string
+    /// - `use_index`: true = fast prefix search using binary search (natural order)
+    ///                false = full-text substring search (linear scan)
+    /// - `reverse`: reverse result order
+    pub fn search(&mut self, query: &str, use_index: bool, reverse: bool) -> Result<(), JsValue> {
+        self.indexes[0].ri = 0;
+        self.indexes[0].results.clear();
+
+
+        if self.indexes[0].len == 0 || query.is_empty() {
+            return Ok(());
+        }
+
+        let query_lower = query.to_ascii_lowercase();
+        let query_lower_bytes = query_lower.into_bytes();
+
+        if use_index {
+            // Lower bound using natural order on lowered key
+            let mut left = 0usize;
+            let mut high = self.indexes[0].len;
+            while left < high {
+                let mid = left + (high - left) / 2;
+                let off = self.get_offset_at(mid);
+                let key_str = unsafe { get_key_str_unchecked(&self.binary, self.data_start, off) };
+                let key_lower = key_str.to_ascii_lowercase();
+
+                let query_str = unsafe { std::str::from_utf8_unchecked(&query_lower_bytes) };
+
+                if compare_str(&key_lower, query_str).is_lt() {
+                    left = mid + 1;
+                } else {
+                    high = mid;
+                }
+            }
+
+            // Upper bound using prefix match
+            let mut right = left;
+            high = self.indexes[0].len;
+            while right < high {
+                let mid = right + (high - right) / 2;
+                let off = self.get_offset_at(mid);
+                let key_bytes = unsafe { get_key_bytes(&self.binary, self.data_start, off) };
+
+                if key_lower_matches(key_bytes, &query_lower_bytes, true) {
+                    right = mid + 1;
+                } else {
+                    high = mid;
+                }
+            }
+
+            for locali in left..right {
+                self.indexes[0].results.push(locali as u32);
+            }
+        } else {
+            // Full-text linear scan
+            for locali in 0..self.indexes[0].len {
+                let off = self.get_offset_at(locali);
+                let key_bytes = unsafe { get_key_bytes(&self.binary, self.data_start, off) };
+
+                if key_lower_matches(key_bytes, &query_lower_bytes, false) {
+                    self.indexes[0].results.push(locali as u32);
+                }
+            }
+        }
+
+        if reverse {
+            self.indexes[0].results.reverse();
+        }
+
+        Ok(())
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn has_more_results(&self) -> bool {
+        self.indexes[0].ri < self.indexes[0].results.len()
+    }
+
+    pub fn get_results(&mut self, count: usize) -> Vec<Uint8Array> {
+        let primary = &self.indexes[0];
+        let results = &primary.results;
+        let start = primary.ri;
+        let end = (start + count).min(results.len());
+
+        let mut out = Vec::with_capacity(end - start);
+        for &locali in &results[start..end] {
+            let locali = locali as usize;
+            let start_off = self.get_offset_at(locali);
+
+            let end_off = if locali + 1 < primary.len {
+                self.get_offset_at(locali + 1)
+            } else {
+                (self.binary.len() - self.data_start) as u32
+            };
+
+            let slice = &self.binary[self.data_start + start_off as usize..self.data_start + end_off as usize];
+
+            let arr = Uint8Array::new_with_length(slice.len() as u32);
+            arr.copy_from(slice);
+            out.push(arr);
+        }
+
+        self.indexes[0].ri = end;
+        out
+    }
+}
