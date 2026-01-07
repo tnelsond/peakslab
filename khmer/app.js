@@ -610,7 +610,8 @@ const registerServiceWorker = async () => {
 	}
 };
 registerServiceWorker();
-var removeServiceWorker = function() {
+
+    document.getElementById('uninstall').addEventListener('click', () => function() {
 	console.log("Trying to uninstall Service Worker");
 	if (window.navigator && navigator.serviceWorker) {
 		navigator.serviceWorker.getRegistrations().then(function(registrations) {
@@ -620,5 +621,5 @@ var removeServiceWorker = function() {
 			}
 		});
 	}
-};
+};);
 

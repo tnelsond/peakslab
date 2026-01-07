@@ -1,4 +1,4 @@
-let CACHE_NAME = 'peakslab khmer 0.5.5.2';
+let CACHE_NAME = 'peakslab khmer 0.5.5.9';
 let CACHE_PREFIX = 'peakslab khmer';
 const FILES_TO_CACHE = [
  './index.html',
