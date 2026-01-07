@@ -592,3 +592,33 @@ initWasm().then(() => {
     // Focus search bar immediately
     searchInput.focus();
 });
+
+const registerServiceWorker = async () => {
+	if ("serviceWorker" in navigator) {
+		try {
+			const registration = await navigator.serviceWorker.register("dictsw.js", {scope: '/lao/'});
+			if (registration.installing) {
+				console.log("Service worker installing");
+			} else if (registration.waiting) {
+				console.log("Service worker installed");
+			} else if (registration.active) {
+				console.log("Service worker active");
+			}
+		} catch (error) {
+			console.error(`Registration failed with ${error}`);
+		}
+	}
+};
+registerServiceWorker();
+var removeServiceWorker = function() {
+	console.log("Trying to uninstall Service Worker");
+	if (window.navigator && navigator.serviceWorker) {
+		navigator.serviceWorker.getRegistrations().then(function(registrations) {
+			for (let registration of registrations) {
+				registration.unregister();
+				console.log("Uninstalled Service Worker");
+			}
+		});
+	}
+};
+
