@@ -621,5 +621,5 @@ registerServiceWorker();
 			}
 		});
 	}
-};);
+});
 
