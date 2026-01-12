@@ -1,4 +1,4 @@
-let CACHE_NAME = 'peakslab khmer 0.5.6.1';
+let CACHE_NAME = 'peakslab khmer 0.5.6.2';
 let CACHE_PREFIX = 'peakslab khmer';
 const FILES_TO_CACHE = [
  './index.html',
@@ -14,7 +14,9 @@ const FILES_TO_CACHE = [
  './db/km_ulb.peak.zst',
  './db/bible.peak.zst',
  './db/bibletrans.peak.zst',
- './app.js',
+ './peakslab.js',
+ './settings.js',
+ './ui.js',
  './manifest.json',
  './wasm/peakdec.js',
  './wasm/peakdec_bg.wasm'];
