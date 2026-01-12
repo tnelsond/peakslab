@@ -13,7 +13,17 @@
     "sizes": "32x32",
     "type": "image/png"
   },
-      {
+  {
+    "src": "peak192x192.png",
+    "sizes": 192x192,
+    "type": "image/png"
+  },
+  {
+    "src": "peak512x512.png",
+    "sizes": "512x512",
+    "type": "image/png"
+  },
+	{
     "src": "peakslab.svg",
     "sizes": "any"
   }]

@@ -17,9 +17,9 @@ alphanumeric-sort = "1.5"
 opt-level = "z"          # Optimize for size
 lto = true               # Link Time Optimization
 codegen-units = 1        # Better optimization
-panic = "abort"          # Reduces panic code
-strip = "symbols"        # Remove debug symbols
+#panic = "abort"          # Reduces panic code
+#strip = "symbols"        # Remove debug symbols
 
 # WASM-pack specific settings
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-mutable-globals"]
+#[package.metadata.wasm-pack.profile.release]
+#wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-mutable-globals"]
