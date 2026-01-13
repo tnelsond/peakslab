@@ -166,7 +166,7 @@ function advance() {
     pagination.decoderIdx = 0;
     pagination.level++;
     // We could check if level >= max_level of all, but for simplicity we just keep going
-		if(pagination.level > 4){
+		if(pagination.level > 3){ // Normally put it at 3.
 			pagination.done = true;
 		}
   }

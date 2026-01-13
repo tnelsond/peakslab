@@ -241,11 +241,11 @@ function updateSearchHeaderWithTime(timeMs) {
         : `Results for "${currentSearchQuery}" • First results in ${timeMs}ms`;
 }
 
-window.addEventListener('scroll', () => {
+window.addEventListener('scroll', debounce(() => {
 	if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) {
 			loadNextBatch();
 	}
-});
+}, 130));
 
 // ── Result Rendering ─────────────────────────────────────────
 function renderBatch(batch) {
