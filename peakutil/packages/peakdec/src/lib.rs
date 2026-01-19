@@ -55,7 +55,7 @@ pub struct PeakDecoder {
     offsets_starts: Vec<usize>,
     lens: Vec<usize>,
 
-    query_lower_bytes: Vec<u8>,
+    query_lower: &'a str,
     results: Vec<u32>,
     ri: usize,
     pi: usize,
@@ -102,7 +102,7 @@ impl PeakDecoder {
             data_start,
             offsets_starts,
             lens,
-            query_lower_bytes: Vec::new(),
+            query_lower: "",
             results: Vec::new(),
             ri: 0,
             pi: 0,
@@ -116,8 +116,7 @@ impl PeakDecoder {
     }
 
     pub fn search(&mut self, query: &str, reverse: bool) -> Result<(), JsValue> {
-        let query_lower = query.to_ascii_lowercase();
-        self.query_lower_bytes = query_lower.into_bytes();
+        self.query_lower = query.to_ascii_lowercase();
         self.reverse = reverse;
 
 				self.results.clear();
@@ -128,10 +127,45 @@ impl PeakDecoder {
         Ok(())
     }
 
-    // Always true if level exists — forces population on first get
-    pub fn has_more_results_in_level(&self, level: usize) -> bool {
-        level < self.offsets_starts.len()
-    }
+		pub fn get_exact(&mut self, query: &str) -> Vec<Uint8Array>{ // This doesn't change the state
+			// Real secondary index — prefix binary search
+			let query_lower = query.to_ascii_lowercase();
+			let mut out = Vec::new();
+			for level in 0..self.lens.len(){
+				let len = self.lens[level];
+				let mut left = 0usize;
+				let mut high = len;
+
+				while left < high {
+						let mid = left + (high - left) / 2;
+						let off = self.get_offset_at(level, mid); // Check if this works with secondary
+						let key_str = unsafe { get_key_str_unchecked(&self.binary, self.data_start, off) };
+						let key_lower = key_str.to_ascii_lowercase();
+
+						if compare_str(&key_lower, &query_lower).is_lt() {
+								left = mid + 1;
+						} else {
+								high = mid;
+						}
+				}
+
+				let off = self.get_offset_at(level, left);
+				let primary_locali = self.primary_locali_from_offset(off) as usize;
+				let start_off = self.get_offset_at(0, primary_locali);
+				let end_off = if primary_locali + 1 < self.lens[0] {
+						self.get_offset_at(0, primary_locali + 1)
+				} else {
+						(self.binary.len() - self.data_start) as u32
+				};
+				let slice = &self.binary[self.data_start + start_off as usize..self.data_start + end_off as usize];
+
+				let arr = Uint8Array::new_with_length(slice.len() as u32);
+				arr.copy_from(slice);
+				out.push(arr);
+
+			}
+			return out;
+		}
 
     pub fn get_results_from_level(&mut self, level: usize, count: usize) -> Vec<Uint8Array> {
         if level >= self.offsets_starts.len(){
@@ -144,7 +178,6 @@ impl PeakDecoder {
 
         if self.results.len() - self.ri < count && self.pi < self.lens[level] {
 					let ni = self.offsets_starts.len() - 2;
-					let query_lower_bytes = &self.query_lower_bytes;
 					let mut temp_results = Vec::new();
 
 					if level < ni {
@@ -159,9 +192,8 @@ impl PeakDecoder {
 									let off = self.get_offset_at(level, mid); // Check if this works with secondary
 									let key_str = unsafe { get_key_str_unchecked(&self.binary, self.data_start, off) };
 									let key_lower = key_str.to_ascii_lowercase();
-									let query_str = unsafe { std::str::from_utf8_unchecked(query_lower_bytes) };
 
-									if compare_str(&key_lower, query_str).is_lt() {
+									if compare_str(&key_lower, &self.query_lower).is_lt() {
 											left = mid + 1;
 									} else {
 											high = mid;
@@ -173,8 +205,9 @@ impl PeakDecoder {
 							while right < high {
 									let mid = right + (high - right) / 2;
 									let off = self.get_offset_at(level, mid);
-									let key_bytes = unsafe { get_key_bytes(&self.binary, self.data_start, off) };
-									if key_lower_matches(key_bytes, query_lower_bytes, true) {
+									let key_str = unsafe { get_key_str_unchecked(&self.binary, self.data_start, off) };
+									let key_lower = key_str.to_ascii_lowercase();
+									if compare_str(&key_lower, &self.query_lower).is_lt() {
 											right = mid + 1;
 									} else {
 											high = mid;
@@ -192,7 +225,7 @@ impl PeakDecoder {
 									let off = self.get_offset_at(0, self.pi);
 									let key_bytes = unsafe { get_key_bytes(&self.binary, self.data_start, off) };
 									let already_in = self.results.contains(&(self.pi as u32));
-									if !already_in && key_lower_matches(key_bytes, query_lower_bytes, false) {
+									if !already_in && key_lower_matches(key_bytes, self.query_lower.as_bytes(), false) {
 											temp_results.push(self.pi as u32);
 									}
 									self.pi += 1;
@@ -211,7 +244,7 @@ impl PeakDecoder {
 									};
 									let entry_bytes = unsafe { get_entry_bytes(&self.binary, self.data_start, start_off, end_off) };
 									let already_in = self.results.contains(&(self.pi as u32));
-									if !already_in && text_after_tab_contains(entry_bytes, query_lower_bytes) {
+									if !already_in && text_after_tab_contains(entry_bytes, self.query_lower.as_bytes()) {
 											temp_results.push(self.pi as u32);
 									}
 									self.pi += 1;
