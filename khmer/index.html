@@ -3,11 +3,11 @@
   <meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PeakSlabKH</title>
-	<link rel="stylesheet" href="style.css">
-	<link rel="icon" type="image/png" sizes="32x32" href="peak32x32.png" />
-	<link rel="icon" type="image/png" sizes="192x192" href="peak192x192.png" />
-	<link rel="icon" type="image/png" sizes="512x512" href="peak512x512.png" />
-	<link rel="icon" type="image/svg" sizes="any" href="peakslab.svg" />
+	<link rel="stylesheet" href="/style.css">
+	<link rel="icon" type="image/png" sizes="32x32" href="/peak32x32.png" />
+	<link rel="icon" type="image/png" sizes="192x192" href="/peak192x192.png" />
+	<link rel="icon" type="image/png" sizes="512x512" href="/peak512x512.png" />
+	<link rel="icon" type="image/svg" sizes="any" href="/peakslab.svg" />
 	<!-- <link rel="manifest" id="link" href="manifest.json"> -->
 	<meta name="theme-color" content="#000000" />
 	<meta name="apple-mobile-web-app-title" content="PeakSlab Khmer" />
@@ -17,8 +17,8 @@
 <body>
 	<header id="header">
   <div id="searchContainer">
-		<div class="logo"><img src="peakslab.svg" alt="PeakSlab"><div class="logooverlay">kh</div></div>
-    <input type="text" id="queryInput" value="jesu" placeholder="Type your query here..." autofocus autocomplete="off" onchange="startSearch();">
+		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"><div class="logooverlay">kh</div></div>
+    <input type="text" id="queryInput" value="" placeholder="Type your query here..." autofocus autocomplete="off" onchange="startSearch();">
   </div>
 	<div id="tabs" class="hide"></div>
 </header>
@@ -75,30 +75,30 @@ const hidetabs = document.getElementById('hidetabs');
 
 let tablayout = [
 	{name: "Dict", dicts: [
-		["db/sonv3.peak.zst", "En→Km", 32*1024],
-		["db/khmer92_h97.peak.zst", "Km→En", 32*1024],
-		["db/baby.peak.zst", "Baby", 4*1024],
-		["db/plantdict.peak.zst", "Plants", 3*1024],
-		["db/ant.peak.zst", "ANT", 32*1024],
-		["db/nath2022_8.peak.zst", "Km→Km", 32*1024],
-		["db/seacount.peak.zst", "Count", 1*1024],
+		["khmer/db/sonv3.peak.zst", "En→Km", 32*1024],
+		["khmer/db/khmer92_h97.peak.zst", "Km→En", 32*1024],
+		["khmer/db/baby.peak.zst", "Baby", 4*1024],
+		["khmer/db/plantdict.peak.zst", "Plants", 3*1024],
+		["khmer/db/ant.peak.zst", "ANT", 32*1024],
+		["khmer/db/nath2022_8.peak.zst", "Km→Km", 32*1024],
+		["khmer/db/seacount.peak.zst", "Count", 1*1024],
 	]},
 	{name: "♫", dicts: [
-		["db/hymns7.peak.zst", "Hymn", 32*1024],
+		["khmer/db/hymns7.peak.zst", "Hymn", 32*1024],
 	]},
 	{name: "Bible", dicts: [
-		["db/bible.peak.zst", "Bible", 16*1024],
-		["db/bibletrans.peak.zst", "Bible2", 64*1024],
-		["db/km_ulb2.peak.zst", "Km_ULB", 32*1024],
-		["db/strongs.peak.zst", "Strongs", 2*1024],
+		["khmer/db/bible.peak.zst", "Bible", 16*1024],
+		["khmer/db/bibletrans.peak.zst", "Bible2", 64*1024],
+		["khmer/db/km_ulb2.peak.zst", "Km_ULB", 32*1024],
+		["khmer/db/strongs.peak.zst", "Strongs", 2*1024],
 	]},
 	{name: "Media", dicts: [
-		["db/zzz.slab.zst", "Assets", 256*1024],
+		["khmer/db/zzz.slab.zst", "Assets", 256*1024],
 	]}
 ];
 
 let dicts = tablayout.flatMap(table => table.dicts);
-let workers = [new Worker('peakworker.js'), new Worker('peakworker.js')];
+let workers = [new Worker('/peakworker.js'), new Worker('/peakworker.js')];
 let worker_code = new Array(workers.length).fill(false);
 let dict_code = new Array(dicts.length).fill(false);
 
@@ -481,6 +481,6 @@ async function registerServiceWorker() {
 }
 
   </script>
-<script src="settings.js"></script>
+<script src="/settings.js"></script>
 </body>
 </html>
