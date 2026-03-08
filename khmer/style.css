@@ -1,9 +1,85 @@
+:root {
+    --font-size: 16px;
+    --bg-color: #ba8;
+    --card-bg: #FFFFFF;
+    --card-text: #1A1A1A;
+    --header-bg: #643;
+    --tab-bg: #dF8;
+    --color1: #060;
+    --maintext: #100;
+    --alttext: #900;
+    --search-bg: #EEE;
+    --search-bg2: #FFE;
+    --header-text: #000000;
+    --header-placeholder: rgba(0,0,0,0.6);
+    --header-accent: #010;
+    --result-entry-bg: #FDF8F0;
+    --accent-color: #8BAC0F;
+    --control-btn-bg: #280;
+    --mark-bg: #F5A623;
+    --result-count-color: #8BAC0F;
+}
+
+.hide{
+	display: none !important;
+}
+
+body.dark-mode {
+    --alttext: #d75;
+    --tab-bg: #672;
+    --color1: #df8;
+    --bg-color: #321;
+    --card-bg: #110;
+    --card-text: #E0E0FF;
+    --header-bg: #643;
+    --search-bg: #000;
+    --search-bg2: #210;
+    --header-text: #FFFFFF;
+    --header-placeholder: rgba(255,255,255,0.65);
+    --header-accent: #8BAC0F;
+    --result-entry-bg: #110;
+    --control-btn-bg: #890;
+}
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--bg-color);
+    color: var(--card-text);
+    min-height: 100vh;
+    transition: background 0.5s, color 0.5s;
+    touch-action: manipulation;
+}
+
 #loader {
     text-align: center;
     padding: 1.5rem;
     color: #666;
     font-style: italic;
-    display: none;
+		height: 10em;
+}
+
+p-m {
+  position: relative;
+  min-width: 1.5em; /* Matches min-width of ::before to ensure space in text flow */
+}
+p-d:has(p-m) {
+  line-height: 2.5; /* Greater line-spacing only for text containing p-m */
+}
+
+/* The chord text comes from the attribute via ::before */
+p-m::before {
+  content: attr(chord);           /* or attr(data-chord) if you used data-chord */
+  white-space: nowrap;
+	position: absolute;
+  font-family: monospace;         /* helps with chord alignment */
+  font-weight: bold;
+  color: #c62828;                 /* red-ish, change as you like */
+  pointer-events: none;           /* so clicking goes to lyrics, not chord */
+  transform: translateY(-50%); 
+  min-width: 1.5em;               /* helps prevent overlap on short chords */
+  text-align: center;
 }
 
 .no-results {
@@ -21,77 +97,6 @@
     margin-bottom: 16px;
 }
 
-.tab {
-    padding: 8px 16px;
-    border: 1px solid #ccc;
-    background: #f8f8f8;
-    cursor: pointer;
-    border-radius: 6px;
-    font-size: 14px;
-    transition: all 0.2s;
-    position: relative;
-}
-
-.tab:hover {
-    background: #eee;
-}
-
-.tab.active {
-    background: #007bff;
-    color: white;
-    font-weight: bold;
-    border-color: #007bff;
-}
-
-.tab-dropdown > .tab::after {
-    content: '▼';
-    margin-left: 6px;
-    font-size: 10px;
-}
-
-.tab-dropdown {
-    display: inline-block;
-}
-
-.dropdown-menu {
-    display: none;
-		position: absolute;
-    margin-top: 6px;
-    border: 1px solid #ccc;
-    background: white;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    overflow: hidden;
-    min-width: 180px;
-}
-
-.tab-dropdown.open .dropdown-menu {
-    display: block;
-}
-
-.dropdown-item {
-    display: block;
-    width: 100%;
-    padding: 10px 16px;
-    text-align: left;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.dropdown-item:hover {
-    background: #f0f8ff;
-}
-
-.dropdown-item.active {
-    background: #007bff;
-    color: white;
-    font-weight: bold;
-}
-
-.dropdown-item.loading::before { content: "⏳ "; }
-.dropdown-item.ready::before   { content: "✓ "; }
 
 /* Sub-results pane */
 .sub-results {
@@ -102,49 +107,6 @@
     overflow: hidden;
 }
 
-:root {
-    --font-size: 16px;
-    --bg-color: #E1D9B1;
-    --card-bg: #FFFFFF;
-    --card-text: #1A1A1A;
-    --header-bg: #8a7;
-    --tab-bg: #dF8;
-    --search-bg: #EEE;
-    --search-bg2: #FFE;
-    --header-text: #000000;
-    --header-placeholder: rgba(0,0,0,0.6);
-    --header-accent: #000;
-    --result-entry-bg: #FDF8F0;
-    --accent-color: #8BAC0F;
-    --control-btn-bg: #9B7653;
-    --mark-bg: #F5A623;
-    --result-count-color: #8BAC0F;
-}
-
-body.dark-mode {
-    --bg-color: #120;
-    --card-bg: #1E1E3F;
-    --card-text: #E0E0FF;
-    --header-bg: rgba(84, 84, 4, 0.95);
-    --search-bg: #000;
-    --search-bg2: #120;
-    --header-text: #FFFFFF;
-    --header-placeholder: rgba(255,255,255,0.65);
-    --header-accent: #8BAC0F;
-    --result-entry-bg: rgba(139, 172, 15, 0.15);
-    --control-btn-bg: #890;
-}
-
-body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background: var(--bg-color);
-    color: var(--card-text);
-    min-height: 100vh;
-    transition: background 0.5s, color 0.5s;
-    touch-action: manipulation;
-}
 
 #header {
     position: fixed;
@@ -229,7 +191,7 @@ body {
     padding: 2px 5px 0px 3px;
 }
 
-#searchInput {
+#queryInput {
     flex: 1;
     padding: 11px 12px;
     font-size: 16px;
@@ -240,11 +202,17 @@ body {
     outline: none;
 }
 
-#searchInput::placeholder {
+#queryInput.error {
+    background: #f8d7da !important;
+    color: #721c24 !important;
+}
+
+
+#queryInput::placeholder {
     color: var(--header-placeholder);
 }
 
-#searchInput:focus {
+#queryInput:focus {
     background: var(--search-bg2);
 }
 
@@ -291,27 +259,14 @@ body {
 }
 
 #results {
-    min-height: calc(100vh - 150px);
+    /*min-height: calc(100vh - 150px);*/
 }
 
 
 mark {
     background: var(--mark-bg);
-    color: #000;
-    font-weight: 600;
-    padding: 0;
-}
-
-.load-more-btn {
-    padding: 12px 20px;
-    margin: 20px auto;
-    display: block;
-    background: var(--accent-color);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
+		padding: 0;
+		margin: 0;
 }
 
 #loading {
@@ -343,6 +298,9 @@ mark {
     display: flex;
     align-items: center;
     justify-content: center;
+		user-select: none; /* For most browsers */
+		-webkit-user-select: none; /* For Safari */
+		-moz-user-select: none; /* For Firefox */
 }
 
 #settingsModal {
@@ -472,20 +430,6 @@ mark {
     color: var(--card-text);
 }
 
-.other-dict-section {
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px dashed var(--accent-color);
-    opacity: 0.9;
-}
-
-.other-dict-header {
-    font-weight: bold;
-    color: var(--accent-color);
-    margin-bottom: 10px;
-    font-size: 0.9em;
-}
-
 .context-menu {
     position: absolute;
     background: var(--card-bg);
@@ -495,6 +439,9 @@ mark {
     box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     z-index: 4000;
     font-size: 15px;
+		user-select: none; /* For most browsers */
+		-webkit-user-select: none; /* For Safari */
+		-moz-user-select: none; /* For Firefox */
 }
 
 .context-menu button {
@@ -552,7 +499,7 @@ p-d {
       p-d h1, p-d h2, p-d h3 {
         margin-bottom: 0px;
         margin-top: 0px;
-        color: #004400;
+        color: var(--color1);
       }
 p-a {
 		color: blue;
@@ -574,22 +521,21 @@ p-h{
 	-webkit-user-select: none; /* For Safari */
 	-moz-user-select: none; /* For Firefox */
 }
-    p-l{
+p-l{
 	margin-bottom: .3em;
-	color: #900;
-    }
-    p-des{
-	color: #110;
-    }
-    p-n{
+	color: var(--alttext);
+}
+p-des{
+	color: var(--maintext);
+}
+p-n{
 	font-size: 80%;
 	font-family: monospace;
-	color: #555;
-    }
-    p-ipa{
+	color: #666;
+}
+p-ipa{
 	font-size: 1.2em;
 	display: block;
 	clear: left;
 	color: #303;
-    }
-
+}

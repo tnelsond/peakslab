@@ -1,5 +1,37 @@
 // settings.js
 
+document.addEventListener('touchend', function(e) {
+  const active = document.activeElement;
+
+  // Only proceed if something is focused AND it's an input-like element
+  if (!active || !['INPUT','TEXTAREA'].includes(active.tagName)) {
+    return;
+  }
+
+  // Check if the touch landed inside the currently focused element
+  let touchedInside = false;
+  let el = e.target;
+
+  while (el && el !== document.body) {
+    if (el === active) {
+      touchedInside = true;
+      break;
+    }
+    el = el.parentElement;
+  }
+
+  // If touch was NOT inside the active input → blur it (hides keyboard)
+  if (!touchedInside) {
+    active.blur();
+  }
+}, false);   // use capture=false so it runs after other handlers
+
+// Optional: make sure keyboard re-appears nicely when tapping the field again
+/*document.getElementById('queryInput')?.addEventListener('focus', function() {
+  // You can add extra behavior here if needed (scroll, etc.)
+  this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});*/
+
 let fontSize = parseInt(localStorage.getItem('fontSize')) || 16;
 document.documentElement.style.setProperty('--font-size', fontSize + 'px');
 
@@ -23,9 +55,17 @@ document.getElementById('darkModeToggle')?.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
 });
-
 if (localStorage.getItem('darkMode') === 'true') {
     document.body.classList.add('dark-mode');
+}
+
+document.getElementById('showtabs')?.addEventListener('click', () => {
+		console.log("hide");
+    document.getElementById('tabs').classList.toggle('hide');
+    localStorage.setItem('hidetabs', tabs?.classList.contains('hide'));
+});
+if (localStorage.getItem('hidetabs') === 'false') {
+    document.getElementById('tabs').classList.remove('hide');
 }
 
 // Settings modal
@@ -76,8 +116,8 @@ document.addEventListener('contextmenu', e => {
             utterance.lang = lang;
             speechSynthesis.speak(utterance);
         } else if (action === 'search-current') {
-            document.getElementById('searchInput').value = text;
-            window.startNewSearch?.(text);
+            document.getElementById('queryInput').value = text;
+            window.startSearch?.();
         } else if (action === 'search-popup') {
             window.openPopupSearch?.(text);
         }
@@ -90,6 +130,7 @@ document.addEventListener('click', () => {
     contextMenu.style.display = 'none';
 });
 
+/*
 // Service Worker
 async function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
@@ -110,3 +151,4 @@ document.getElementById('uninstall')?.addEventListener('click', async () => {
 });
 
 registerServiceWorker();
+*/

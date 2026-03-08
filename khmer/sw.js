@@ -1,25 +1,27 @@
-let CACHE_NAME = 'peakslab khmer 0.5.6.2';
+let CACHE_NAME = 'peakslab khmer 0.6.6.2';
 let CACHE_PREFIX = 'peakslab khmer';
 const FILES_TO_CACHE = [
  './index.html',
  './style.css',
  './peakslab.svg',
+ './peak.js',
+ './peak.wasm',
  './peak32x32.png',
- './db/kh.peak.zst',
- './db/nath2022.peak.zst',
  './db/ant.peak.zst',
- './db/sonv.peak.zst',
- './db/sea_count.peak.zst',
  './db/baby.peak.zst',
- './db/km_ulb.peak.zst',
  './db/bible.peak.zst',
  './db/bibletrans.peak.zst',
- './peakslab.js',
+ './db/hymns7.peak.zst',
+ './db/khmer92_h97.peak.zst',
+ './db/km_ulb2.peak.zst',
+ './db/nath2022_8.peak.zst',
+ './db/plantdict.peak.zst',
+ './db/seacount.peak.zst',
+ './db/sonv3.peak.zst',
+ './db/strongs.peak.zst',
+ './db/zzz.slab.zst',
  './settings.js',
- './ui.js',
- './manifest.json',
- './wasm/peakdec.js',
- './wasm/peakdec_bg.wasm'];
+ './manifest.json'];
 
 // Utility function to normalize URL by removing query parameters and standardizing directory paths
 function normalizeUrl(url) {
