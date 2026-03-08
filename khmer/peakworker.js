@@ -1,5 +1,5 @@
 "use strict";
-importScripts('/peak.js');
+importScripts('./peak.js');
 let id = 0;
 let dicts = []
 let adicts = []
