@@ -23,5 +23,8 @@ const tablayout = [
 ];
 
 const scope = '/khmer/';
-const tts = 'kh-KM';
+const lang = [
+	{name: "Khmer", val: 'kh-KM'},
+	{name: "English", val: 'en-US'}
+];
 const appname = 'kh';

@@ -488,11 +488,11 @@ document.addEventListener('contextmenu', e => {
     e.preventDefault();
 
     contextMenu.innerHTML = `
-        <button data-action="speak-khmer">🔊 Khmer</button>
-        <button data-action="speak-english">🔊 English</button>
         <button data-action="search-current">🔍 Search</button>
-        <button data-action="search-popup">🔍 Popup</button>
-    `;
+        <button data-action="search-popup">🔍 Popup</button>`;
+		lang.forEach((x) =>{
+    contextMenu.innerHTML += `<button data-action="speak-${x.val}">🔊 ${x.name}</button>`
+		});
 
     contextMenu.style.left = `${e.pageX + 5}px`;
     contextMenu.style.top = `${e.pageY + 5}px`;
@@ -503,7 +503,7 @@ document.addEventListener('contextmenu', e => {
         const action = ev.target.dataset.action;
 
         if (action.startsWith('speak')) {
-            const lang = action === 'speak-khmer' ? 'km-KH' : 'en-US';
+            const lang = action.replace("speak-", "");
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = lang;
             speechSynthesis.speak(utterance);
