@@ -1,4 +1,4 @@
-let CACHE_NAME = 'peakslab khmer 0.6.6.5';
+let CACHE_NAME = 'peakslab khmer 0.6.6.6';
 let CACHE_PREFIX = 'peakslab khmer';
 const FILES_TO_CACHE = [
  './index.html',
@@ -8,6 +8,7 @@ const FILES_TO_CACHE = [
  '../peakslab.svg',
  '../peak.js',
  '../peak.wasm',
+ '../peakworker.js',
  '../peak32x32.png',
  './db/ant.peak.zst',
  './db/baby.peak.zst',
