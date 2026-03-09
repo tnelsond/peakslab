@@ -8,6 +8,7 @@ document.getElementById("appname").textContent = appname;
 document.title += appname.toUpperCase();
 let tstart = performance.now();
 let num = 0;
+let debug = false;
 let loader = null;
 let isLoading = false;
 let st = 2;
@@ -92,7 +93,9 @@ workers.forEach((w) => {
 					});
 				}
 			}
-			div.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}'</p-h><h2>${e.data.header}</h2>`;
+			if(debug)
+				div.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}'</p-h><h2>${e.data.header}</h2>`;
+			div.innerHTML += `<h2>${e.data.header}</h2>`;
 			if(e.data.filename){
 				if (e.data.filename.toLowerCase().endsWith('.webp')) {
 					const blob = new Blob([e.data.body], { type: 'image/webp' });
@@ -461,6 +464,11 @@ document.getElementById('darkModeToggle')?.addEventListener('click', () => {
 if (localStorage.getItem('darkMode') === 'true') {
     document.body.classList.add('dark-mode');
 }
+
+document.getElementById('debugToggle')?.addEventListener('click', () => {
+		debug = !debug;
+});
+
 
 document.getElementById('showtabs')?.addEventListener('click', () => {
 		console.log("hide");

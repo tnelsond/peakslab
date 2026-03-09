@@ -366,7 +366,7 @@ mark {
     font-size: 16px;
 }
 
-#darkModeToggle {
+.setting button {
     padding: 14px 18px;
     background: var(--control-btn-bg);
     color: white;
