@@ -1,12 +1,12 @@
 {
-  "name": "PeakSlab Khmer",
-  "short_name": "PS Khmer",
-  "description": "A dictionary app for the Khmer language.",
+  "name": "PeakSlab Lao",
+  "short_name": "PS Lao",
+  "description": "A dictionary app for the Lao language.",
   "theme_color": "#664433",
   "background_color": "#664433",
   "display": "standalone",
-  "scope": "/khmer",
-  "start_url": "/khmer/index.html",
+  "scope": "/lao",
+  "start_url": "/lao/index.html",
   "icons": [
   {
     "src": "/peak32x32.png",
