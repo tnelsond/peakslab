@@ -393,17 +393,21 @@ function debounce(fn, delay) {
 
 queryInput.addEventListener('input', debounce(startSearch, 140));
 
-// Service Worker
-async function registerServiceWorker() {
-    if (!("serviceWorker" in navigator)) return;
-    try {
-        const reg = await navigator.serviceWorker.register(`${scope}sw.js`, { scope: scope });
-        console.log("Service Worker:", reg.active ? "active" : reg.installing ? "installing" : "waiting");
-    } catch (err) {
-        console.error("Service Worker failed:", err);
-    }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(reg => {
+			const rootUrl = new URL('/', location.origin).href;  // e.g., 'https://peakslab.org/'
+      if (reg.scope !== rootUrl) {
+        reg.unregister().then(() => console.log('Unregistered old SW:', reg.scope));
+      }
+    });
+  }).then(() => {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Root SW registered with scope:', reg.scope))
+      .catch(err => console.error('Registration failed:', err));
+  })});
 }
-window.addEventListener('load', registerServiceWorker);
 
 document.addEventListener('touchend', function(e) {
   const active = document.activeElement;
