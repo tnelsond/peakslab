@@ -2,7 +2,7 @@
   "name": "PeakSlab Khmer",
   "short_name": "PS Khmer",
   "description": "A dictionary app for the Khmer language.",
-  "theme_color": "#bbaa88",
+  "theme_color": "#664433",
   "background_color": "#664433",
   "display": "standalone",
   "scope": "/khmer",

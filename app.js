@@ -232,6 +232,13 @@ const popupClose = document.getElementById('popupClose');
 let out = resultsDiv;
 let mainQuery = null;
 
+let temp = `<p-d><h3>${appname.toUpperCase()} Dictionary List:</h3><ol>`;
+dicts.forEach((dict) =>{
+	temp += `<li><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+});
+temp += `</ol></p-d>`;
+resultsDiv.innerHTML = temp;
+
 window.openPopupSearch = function(text){
 	cleanup(popupResults);
 	let temp_dict_code = new Array(dicts.length).fill(true);
