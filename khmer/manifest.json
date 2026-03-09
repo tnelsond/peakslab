@@ -6,7 +6,7 @@
   "background_color": "#664433",
   "display": "standalone",
   "scope": "/khmer",
-  "start_url": "/khmer/index.html",
+  "start_url": "/khmer",
   "icons": [
   {
     "src": "/peak32x32.png",
