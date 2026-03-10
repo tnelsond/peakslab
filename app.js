@@ -81,7 +81,8 @@ workers.forEach((w) => {
 			let idpre = e.data.dest == "popup" ? "pid" : "mid";
 			const nheader = updateQuery(e.data.header);
 			let div = document.getElementById(`${idpre}-${nheader}`);
-			if(div === null){
+			const first = div === null;
+			if(first){
 				div = document.createElement('p-d');
 				div.id = `${idpre}-${nheader}`;
 				if(idpre == "mid"){
@@ -95,7 +96,10 @@ workers.forEach((w) => {
 			}
 			if(debug)
 				div.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}'</p-h>`;
-			div.innerHTML += `<h2>${e.data.header}</h2>`;
+			if(first)
+				div.innerHTML += `<h2>${e.data.header}</h2>`;
+			else
+				div.innerHTML += `<hr>`;
 			if(e.data.filename){
 				if (e.data.filename.toLowerCase().endsWith('.webp')) {
 					const blob = new Blob([e.data.body], { type: 'image/webp' });
