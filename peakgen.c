@@ -461,43 +461,45 @@ int main(int argc, char **argv) {
 			*/
 
 			printf("\nTAGS DATA: (%d lines)\n", tag_idx.len);
-			for(int i = 0; i < tag_idx.len - 1; ++i){
-				putchar('\n');
-				uint32_t t = tag_idx.items[i]*2;
-				char *c = &textflat.data[line_idx.items[i]];
-				int upper = 0;
-				uint32_t j = 0;
-				uint32_t tend = tag_idx.items[i+1]*2;
-				printf("\ntag range %d-%d\n", t, tend);
-				if(tend < t){
-					printf("ERROR with tag order!!!\n");
-				}
-				while(*c || t + 1 < tend){
-					while(j == tag.items[t] && t+1 < tend){
-						switch(tag.items[t+1]){
-							case CAPITAL_SINGLE:
-								upper = 1; break;
-							case CAPITAL_RUN_START:
-								upper = 2; break;
-							case CAPITAL_RUN_END:
-								upper = 0; break;
-							default:
-								break;
+			if(tag.len > 0){
+				for(int i = 0; i < tag_idx.len - 1; ++i){
+					putchar('\n');
+					uint32_t t = tag_idx.items[i]*2;
+					char *c = &textflat.data[line_idx.items[i]];
+					int upper = 0;
+					uint32_t j = 0;
+					uint32_t tend = tag_idx.items[i+1]*2;
+					printf("\ntag range %d-%d\n", t, tend);
+					if(tend < t){
+						printf("ERROR with tag order!!!\n");
+					}
+					while(*c || t + 1 < tend){
+						while(j == tag.items[t] && t+1 < tend){
+							switch(tag.items[t+1]){
+								case CAPITAL_SINGLE:
+									upper = 1; break;
+								case CAPITAL_RUN_START:
+									upper = 2; break;
+								case CAPITAL_RUN_END:
+									upper = 0; break;
+								default:
+									break;
+							}
+							printf("<%u-%u>", tag.items[t], tag.items[t+1]);
+							//printf("%s", &tagdef.data[tagdef_idx.items[tag.items[t+1]]]);
+							t += 2;
+							j = 0;
 						}
-						printf("<%u-%u>", tag.items[t], tag.items[t+1]);
-						//printf("%s", &tagdef.data[tagdef_idx.items[tag.items[t+1]]]);
-						t += 2;
-						j = 0;
-					}
-					if(*c){
-						putchar(upper ? toupper(*c) : *c);
-						upper = upper == 1 ? 0 : upper;
-						c++;
-						++j;
-					}
-					else if(j != tag.items[t]){
-						printf("\nIMPOSSIBLE!\n");
-						break;
+						if(*c){
+							putchar(upper ? toupper(*c) : *c);
+							upper = upper == 1 ? 0 : upper;
+							c++;
+							++j;
+						}
+						else if(j != tag.items[t]){
+							printf("\nIMPOSSIBLE!\n");
+							break;
+						}
 					}
 				}
 			}
