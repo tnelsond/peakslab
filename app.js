@@ -94,7 +94,7 @@ workers.forEach((w) => {
 				}
 			}
 			if(debug)
-				div.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}'</p-h><h2>${e.data.header}</h2>`;
+				div.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}'</p-h>`;
 			div.innerHTML += `<h2>${e.data.header}</h2>`;
 			if(e.data.filename){
 				if (e.data.filename.toLowerCase().endsWith('.webp')) {
