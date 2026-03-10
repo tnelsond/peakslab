@@ -18,7 +18,7 @@ const tabs  = document.getElementById('tabs');
 const hidetabs = document.getElementById('hidetabs');
 
 let dicts = tablayout.flatMap(table => table.dicts);
-let workers = [new Worker('/peakworker.js'), new Worker('/peakworker.js')];
+let workers = dicts.length > 1 ? [new Worker('/peakworker.js'), new Worker('/peakworker.js')] : [new Worker('/peakworker.js')];
 let worker_code = new Array(workers.length).fill(false);
 let dict_code = new Array(dicts.length).fill(false);
 

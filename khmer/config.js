@@ -13,10 +13,11 @@ const tablayout = [
 	]},
 	{name: "Bible", dicts: [
 		["khmer/db/bible.peak.zst", "Bible", 16*1024, "From my khsv bible and a blue bible dictionary."],
-		["khmer/db/bibletrans.peak.zst", "Bible2", 64*1024, `Translation words from <a href="https://door43.org/">door43</a>`],
+		["khmer/db/biblewordkm.peak.zst", "Words Km", 64*1024, `Translation words from <a href="https://door43.org/">door43</a>`],
+		["english/db/bibleworden.peak.zst", "Words En", 64*1024, `Translation words from <a href="https://door43.org/">door43</a>`],
 		["khmer/db/kmULB.peak.zst", "Km_ULB", 32*1024, `Khmer Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`],
-		["khmer/db/engULB.peak.zst", "En_ULB", 8*1024, `English Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`],
-		["khmer/db/strongs.peak.zst", "Strongs", 2*1024, `<a href="https://github.com/openscriptures/strongs">Strongs by Openscriptures</a>`],
+		["english/db/engULB.peak.zst", "En_ULB", 8*1024, `English Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`],
+		["english/db/strongs.peak.zst", "Strongs", 2*1024, `<a href="https://github.com/openscriptures/strongs">Strongs by Openscriptures</a>`],
 	]},
 	{name: "Media", dicts: [
 		["khmer/db/zzz.slab.zst", "Assets", 256*1024, `Contains images from the plantsdictionarykh.com as well as audio from <a href="kheng.info">kheng.info</a>.`],
