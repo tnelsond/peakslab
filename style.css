@@ -29,8 +29,6 @@
 		border-radius: 5px;
 		cursor: pointer;
 }
-
-/* Moved styles for iOS Instructions */
 #ios-instructions {
 		display: none;
 		position: fixed;
@@ -44,8 +42,6 @@
 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
 z-index: 20;
 }
-
-/* Moved styles for iOS Close Button */
 #ios-close-btn {
 		padding: 5px 10px;
 		background-color: #007bff;

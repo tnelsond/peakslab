@@ -1,4 +1,4 @@
-const CACHE_NAME = 'peakslab-0.7.1';
+const CACHE_NAME = 'peakslab-0.7.2';
 
 self.addEventListener('activate', event => {
   event.waitUntil(

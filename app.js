@@ -545,27 +545,24 @@ document.addEventListener('click', () => {
     contextMenu.style.display = 'none';
 });
 
-let deferredPrompt;
 
+let deferredPrompt;
 function isIOS() {
 		return /iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
-
-		document.getElementById('ios-close-btn').addEventListener('click', () => {
-				iosInstructions.style.display = 'none';
-		});
+document.getElementById('ios-close-btn').addEventListener('click', () => {
+		iosInstructions.style.display = 'none';
+});
 const iosInstructions = document.getElementById('ios-instructions');
 if (isIOS() && window.navigator.standalone == false) {
 		iosInstructions.style.display = 'none';
 		document.getElementById('install-button').style.display = 'block';
 }
-
 window.addEventListener('beforeinstallprompt', (e) => {
 		e.preventDefault();
 		deferredPrompt = e;
 		document.getElementById('install-button').style.display = 'block';
 });
-
 document.getElementById('install-button').addEventListener('click', async () => {
 		if (deferredPrompt) {
 				deferredPrompt.prompt();
