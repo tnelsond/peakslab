@@ -544,3 +544,44 @@ document.addEventListener('contextmenu', e => {
 document.addEventListener('click', () => {
     contextMenu.style.display = 'none';
 });
+
+let deferredPrompt;
+
+function isIOS() {
+		return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+		document.getElementById('ios-close-btn').addEventListener('click', () => {
+				iosInstructions.style.display = 'none';
+		});
+const iosInstructions = document.getElementById('ios-instructions');
+if (isIOS() && window.navigator.standalone == false) {
+		iosInstructions.style.display = 'none';
+		document.getElementById('install-button').style.display = 'block';
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+		e.preventDefault();
+		deferredPrompt = e;
+		document.getElementById('install-button').style.display = 'block';
+});
+
+document.getElementById('install-button').addEventListener('click', async () => {
+		if (deferredPrompt) {
+				deferredPrompt.prompt();
+				const { outcome } = await deferredPrompt.userChoice;
+				deferredPrompt = null;
+		}
+		if(isIOS()){
+			iosInstructions.style.display = 'block';
+		}
+});
+
+if(window.navigator.standalone){
+		document.getElementById('install-button').style.display = 'none';
+}
+
+window.addEventListener('appinstalled', () => {
+		console.log('PWA installed');
+		document.getElementById('install-button').style.display = 'none';
+});
