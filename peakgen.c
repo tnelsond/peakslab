@@ -338,7 +338,7 @@ int main(int argc, char **argv) {
 							tagdef_idx.len--;
 							tagdef.len--;
 							inside = 0;
-							++taggap;
+							taggap += 2;
 							vec_char_push(&textflat, '<');
 							vec_char_push(&textflat, c);
 						}else{
