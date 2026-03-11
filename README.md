@@ -9,6 +9,13 @@ Current languages:
 - Chitonga (Tonga)
 - Lozi (Silozi)
 
+# License
+
+This project is under the GPL3 license.
+This project uses the following libraries:
+- <a href="https://github.com/facebook/zstd">Zstandard</a> (BSD License. See ZSTD_LICENSE.txt)
+- <a href="https://github.com/ashvardanian/StringZilla">Stringzilla</a> (Apache 2.0 License. See STRINGZILLA_LICENSE.txt)
+
 ## Peak file
 
 The peak format is basically a tsv file with tags (for substitutions, like a mini dictionary) and 3 indexes at the beginning. Very simple.
@@ -24,15 +31,16 @@ The peak format is basically a tsv file with tags (for substitutions, like a min
 - 56-63: line_start (4 bytes); line_len (4 bytes);
 - 64-71: idx2_start (4 bytes); idx2_len (4 bytes);
 - 72-79: idx3_start (4 bytes); idx3_len (4 bytes);
-- 80+ Data, can be organized in any order because the header has offsets to all the points. But peakgen generates data in this order:
-		- tagdef_idx
-		- tagdef
-		- tag_idx
-		- tag
-		- idx2 (you can mark something to be added to this index by putting a '@' before the word. If you want to use an actuall @ in your tsv, double it to escape the index.)
-		- idx3 (Same thing as idx2 but we use ^ instead.)
-		- line_idx (Main indexes)
-		- tsv file or binary slabs
+- 80+: Data, can be organized in any order because the header has offsets to all the points. But peakgen generates data in this order:
+
+	- tagdef_idx
+	- tagdef
+	- tag_idx
+	- tag
+	- idx2 (you can mark something to be added to this index by putting a '@' before the word. If you want to use an actuall @ in your tsv, double it to escape the index.)
+	- idx3 (Same thing as idx2 but we use ^ instead.)
+	- line_idx (Main indexes)
+	- tsv file or binary slabs
  
 The slab format is just like the peak format, the only difference is that it's binary data instead of text with the filenames as keys. The filename of course is ended by a tab, just like tsv data.
 
