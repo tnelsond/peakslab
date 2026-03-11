@@ -1,7 +1,9 @@
 <img style="float:left; width:auto; height:200px" src="/peakslab.svg" alt="PeakSlab">
 # Peakslab
 
-A project to make offline dictionary webapps and tools for building those for obscure languages.
+See it <a href="https://peakslab.org">live</a>.
+
+A project to make offline (PWA) dictionary webapps and tools for building those for obscure languages.
 
 Current languages:
 - Khmer (Cambodian)
