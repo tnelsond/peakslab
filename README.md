@@ -71,6 +71,8 @@ These peak files can then be compressed using zstdandard compression which is ve
 - Fix strcmp bugs.
 - Fix context menu.
 - Make it so that files to be included in the slab file can have a metadata file so that there can be  attribution or alttext attached to the file.
+- Make the combiner combine the entries with the same headword in order
+	- Enable custom html for the combining of dictionary entries.
 
 ## Changes
 - Moved from SQLite's wasm backend to a brand new engine and file format. This format allows for really good compression and lightning fast speed as well as speed and lazy loading.

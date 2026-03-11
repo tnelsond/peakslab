@@ -9,6 +9,7 @@ document.title += appname.toUpperCase();
 let tstart = performance.now();
 let num = 0;
 let debug = false;
+let mark = true;
 let loader = null;
 let isLoading = false;
 let st = 2;
@@ -34,6 +35,10 @@ tablayout.forEach(g => {
   });
   tabDictIndices.push(groupIndices);
 });
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function cleanup(container = out){
 	container.querySelectorAll('img[src^="blob:"], audio source[src^="blob:"]').forEach(el => {
@@ -113,7 +118,12 @@ workers.forEach((w) => {
 					div.innerHTML += `${e.data.filename}<br> filetype not supported`;
 				}
 			}else{
-				div.innerHTML += `${e.data.body}`;
+				const regex = new RegExp(escapeRegExp(query), 'gi'); // 'g' for global, 'i' for case-insensitive
+				if(mark){
+					div.innerHTML += `${e.data.body.replace(regex, match => `<mark>${match}</mark>`)}`;
+				} else{
+					div.innerHTML += `${e.data.body}`;
+				}
 			}
 			let place = e.data.dest == "popup" ? popupResults : resultsDiv;
 			if(place == resultsDiv){
@@ -467,6 +477,13 @@ document.getElementById('darkModeToggle')?.addEventListener('click', () => {
 });
 if (localStorage.getItem('darkMode') === 'true') {
     document.body.classList.add('dark-mode');
+}
+document.getElementById('markToggle')?.addEventListener('click', () => {
+		mark = !mark;
+    localStorage.setItem('mark', document.body.classList.contains('mark'));
+});
+if (localStorage.getItem('mark') === 'false') {
+	mark = false;
 }
 
 document.getElementById('debugToggle')?.addEventListener('click', () => {

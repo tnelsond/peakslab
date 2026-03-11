@@ -16,9 +16,29 @@
     --result-entry-bg: #FDF8F0;
     --accent-color: #8BAC0F;
     --control-btn-bg: #280;
-    --mark-bg: #F5A623;
+    --mark-bg: #FD5;
+    --mark-fg: #000;
     --result-count-color: #8BAC0F;
 }
+body.dark-mode {
+    --alttext: #d75;
+    --tab-bg: #672;
+    --color1: #df8;
+    --bg-color: #321;
+    --card-bg: #110;
+    --card-text: #E0E0FF;
+    --header-bg: #643;
+    --search-bg: #000;
+    --search-bg2: #210;
+    --header-text: #FFFFFF;
+    --header-placeholder: rgba(255,255,255,0.65);
+    --header-accent: #8BAC0F;
+    --result-entry-bg: #110;
+    --mark-bg: #660;
+    --mark-fg: #fff;
+    --control-btn-bg: #890;
+}
+
 #install-button {
 		display: none;
 		background-color: #007bff;
@@ -60,23 +80,6 @@ z-index: 500;
 
 .hide{
 	display: none !important;
-}
-
-body.dark-mode {
-    --alttext: #d75;
-    --tab-bg: #672;
-    --color1: #df8;
-    --bg-color: #321;
-    --card-bg: #110;
-    --card-text: #E0E0FF;
-    --header-bg: #643;
-    --search-bg: #000;
-    --search-bg2: #210;
-    --header-text: #FFFFFF;
-    --header-placeholder: rgba(255,255,255,0.65);
-    --header-accent: #8BAC0F;
-    --result-entry-bg: #110;
-    --control-btn-bg: #890;
 }
 
 body {
@@ -303,6 +306,7 @@ p-m::before {
 
 mark {
     background: var(--mark-bg);
+    color: var(--mark-fg);
 		padding: 0;
 		margin: 0;
 }
