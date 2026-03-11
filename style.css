@@ -29,6 +29,12 @@
 		border-radius: 5px;
 		cursor: pointer;
 }
+p-eg{
+	background: #ff9;
+	border: 2px solid green;
+	margin: 5px;
+	clear: left;
+}
 #ios-instructions {
 		display: none;
 		position: fixed;

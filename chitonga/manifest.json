@@ -1,31 +1,30 @@
 {
-  "name": "PeakSlabChitonga",
-  "short_name": "PsChitonga",
+  "name": "PeakSlab Chitonga",
+  "short_name": "PS Chitonga",
   "description": "A dictionary app for the Chitonga language.",
-  "theme_color": "#5588ff",
-  "background_color": "#666600",
+  "theme_color": "#664433",
+  "background_color": "#664433",
   "display": "standalone",
   "scope": "/chitonga",
-  "start_url": "/chitonga/index.html",
+  "start_url": "/chitonga",
   "icons": [
   {
-    "src": "peak32x32.png",
+    "src": "/peak32x32.png",
     "sizes": "32x32",
     "type": "image/png"
   },
   {
-    "src": "peak64x64.png",
-    "sizes": "64x64",
+    "src": "/peak192x192.png",
+    "sizes": "192x192",
     "type": "image/png"
   },
   {
-    "src": "peakmono.svg",
-    "sizes": "any",
-    "type": "image/svg",
-    "purpose": "monochrome maskable"
+    "src": "/peak512x512.png",
+    "sizes": "512x512",
+    "type": "image/png"
   },
-  {
-    "src": "peakslab.svg",
+	{
+    "src": "/peakslab.svg",
     "sizes": "any"
   }]
 }

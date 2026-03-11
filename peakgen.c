@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
 
     // ──────────────── DIRECTORY ────────────────
     if (S_ISDIR(st.st_mode)) {
-        printf("Files found:\n");
+        //printf("Files found:\n");
 
         DIR *dir = opendir(path);
         if (!dir) {
@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
 							vec_str_pushc(&files, *c);
 						}
 						vec_str_pushc(&files, '\0');
-            printf("  %s\n", entry->d_name);
+            //printf("  %s\n", entry->d_name);
         }
 
         closedir(dir);
@@ -216,7 +216,7 @@ int main(int argc, char **argv) {
 					}
 					buf[path_prefix_len + j] = '\0';
 					vec_char_push(&bin, '\t');
-					printf("%s\n", buf);
+					//printf("%s\n", buf);
 					FILE *f = fopen(buf, "rb");
 					if(f){
 						int c;
@@ -431,45 +431,17 @@ int main(int argc, char **argv) {
 				qsort(idx3.items, idx3.len, sizeof(idx3.items[0]), idx_cmp);
 			}
 
-			/*for(int i = 0; i < tagdef_idx.len; ++i){
-				puts(&tagdef.data[tagdef_idx.items[i]]);
-			}
-
-			printf("\nFLAT TEXT: (%d lines)\n", line_idx.len);
-			for(int i = 0; i < textflat.len; ++i){
-				int c = textflat.data[i];
-				putchar(c ? c : '\n');	
-			}
-
-			printf("\nINDEX TEXT:\n");
-			for(int i = 0; i < line_idx.len-1; ++i){
-				puts(&textflat.data[line_idx.items[i]]);	
-			}
-
-			printf("&&&&&&& TAG LEN!!! %d\n", tag.len);
-
-			*/
-
-			/*
-			for(int i = 0; i < tag_idx.len - 1; ++i){
-				printf("\n");
-				for(int j = tag_idx.items[i]; j + 1 < tag_idx.items[i+1]; j+=2){
-					printf("%u:<%u %u>; ", j, tag.items[j], tag.items[j+1]);
-				}
-			}
-			printf("\n");
-			*/
-
+			/* For testing
 			printf("\nTAGS DATA: (%d lines)\n", tag_idx.len);
 			if(tag.len > 0){
 				for(int i = 0; i < tag_idx.len - 1; ++i){
-					putchar('\n');
+					//putchar('\n');
 					uint32_t t = tag_idx.items[i]*2;
 					char *c = &textflat.data[line_idx.items[i]];
 					int upper = 0;
 					uint32_t j = 0;
 					uint32_t tend = tag_idx.items[i+1]*2;
-					printf("\ntag range %d-%d\n", t, tend);
+					//printf("\ntag range %d-%d\n", t, tend);
 					if(tend < t){
 						printf("ERROR with tag order!!!\n");
 					}
@@ -485,7 +457,7 @@ int main(int argc, char **argv) {
 								default:
 									break;
 							}
-							printf("<%u-%u>", tag.items[t], tag.items[t+1]);
+							//printf("<%u-%u>", tag.items[t], tag.items[t+1]);
 							//printf("%s", &tagdef.data[tagdef_idx.items[tag.items[t+1]]]);
 							t += 2;
 							j = 0;
@@ -497,12 +469,13 @@ int main(int argc, char **argv) {
 							++j;
 						}
 						else if(j != tag.items[t]){
-							printf("\nIMPOSSIBLE!\n");
+							//printf("\nIMPOSSIBLE!\n");
 							break;
 						}
 					}
 				}
 			}
+			*/
 
 			/*printf("Line starts %d# ", line_idx.len);
 			for(int i = 0; i < line_idx.len; ++i){
@@ -626,9 +599,9 @@ int main(int argc, char **argv) {
 			}
 			printf("\n");*/
 
-			for(int i=0; i<tagdef_idx.len; ++i){
+			//for(int i=0; i<tagdef_idx.len; ++i){
 				//printf("%d @%s@\n", i, tagdef.data + tagdef_idx.items[i]);
-			}
+			//}
 
 
 			fclose(out);
