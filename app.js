@@ -126,13 +126,15 @@ workers.forEach((w) => {
 				}
 			}
 			let place = e.data.dest == "popup" ? popupResults : resultsDiv;
-			if(place == resultsDiv){
-				place.insertBefore(div, loader); 
-			}else{
-				place.appendChild(div); 
-			}
-			if(e.data.dest == "popup"){
-				popupOverlay.style.display = 'block';
+			if(first){
+				if(place == resultsDiv){
+					place.insertBefore(div, loader); 
+				}else{
+					place.appendChild(div); 
+				}
+				if(e.data.dest == "popup"){
+					popupOverlay.style.display = 'block';
+				}
 			}
 			++num;
 			queryInput.classList.remove("error");
