@@ -258,7 +258,7 @@ dicts.forEach((dict) =>{
 temp += `</ol></p-d>`;
 resultsDiv.innerHTML = temp;
 
-window.openPopupSearch = function(text){
+function openPopupSearch(text){
 	cleanup(popupResults);
 	let temp_dict_code = new Array(dicts.length).fill(true);
 	workers.forEach((w, i) =>{
@@ -553,7 +553,7 @@ document.addEventListener('contextmenu', e => {
             document.getElementById('queryInput').value = text;
             startSearch();
         } else if (action === 'search-popup') {
-            window.openPopupSearch?.(text);
+            openPopupSearch(text);
         }
 
         contextMenu.style.display = 'none';
@@ -601,3 +601,12 @@ window.addEventListener('appinstalled', () => {
 		console.log('PWA installed');
 		document.getElementById('install-button').style.display = 'none';
 });
+
+class PaElement extends HTMLElement {
+		connectedCallback() {
+				this.addEventListener('click', () => {
+						openPopupSearch(this.textContent);
+				});
+		}
+}
+customElements.define('p-a', PaElement);
