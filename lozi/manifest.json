@@ -1,31 +1,30 @@
 {
-  "name": "PeakSlabLozi",
-  "short_name": "PsLozi",
+  "name": "PeakSlab Lozi",
+  "short_name": "PS Lozi",
   "description": "A dictionary app for the Lozi language.",
-  "theme_color": "#995500",
-  "background_color": "#3300BB",
+  "theme_color": "#664433",
+  "background_color": "#664433",
   "display": "standalone",
   "scope": "/lozi",
-  "start_url": "/lozi/index.html",
+  "start_url": "/lozi",
   "icons": [
   {
-    "src": "peak32x32.png",
+    "src": "/peak32x32.png",
     "sizes": "32x32",
     "type": "image/png"
   },
   {
-    "src": "peak64x64.png",
-    "sizes": "64x64",
+    "src": "/peak192x192.png",
+    "sizes": "192x192",
     "type": "image/png"
   },
   {
-    "src": "peakmono.svg",
-    "sizes": "any",
-    "type": "image/svg",
-    "purpose": "monochrome maskable"
+    "src": "/peak512x512.png",
+    "sizes": "512x512",
+    "type": "image/png"
   },
-  {
-    "src": "peakslab.svg",
+	{
+    "src": "/peakslab.svg",
     "sizes": "any"
   }]
 }
