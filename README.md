@@ -1,3 +1,4 @@
+<img style="float:left; width:auto; height:200px" src="/peakslab.svg" alt="PeakSlab">
 # Peakslab
 
 A project to make offline dictionary webapps and tools for building those for obscure languages.
