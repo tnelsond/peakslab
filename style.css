@@ -1,4 +1,6 @@
 :root {
+		--link: #00a;
+		--link-old: #409;
     --font-size: 16px;
     --bg-color: #ba8;
     --card-bg: #FFFFFF;
@@ -22,6 +24,8 @@
 }
 body.dark-mode {
     --alttext: #d75;
+		--link: #99f;
+		--link-old: #f7f;
     --tab-bg: #672;
     --color1: #df8;
     --bg-color: #321;
@@ -38,7 +42,18 @@ body.dark-mode {
     --mark-fg: #fff;
     --control-btn-bg: #890;
 }
-
+a, p-a {
+		color: var(--link);
+		text-decoration: underline;
+		cursor: pointer;
+}
+a:hover, p-a:hover {
+		color: var(--link-old);
+		text-decoration: none;
+}
+a:visited{
+		color: var(--link-old);
+}
 #install-button {
 		display: none;
 		background-color: #007bff;
@@ -543,14 +558,6 @@ p-d {
         margin-top: 0px;
         color: var(--color1);
       }
-p-a {
-		color: blue;
-		text-decoration: underline;
-		cursor: pointer;
-}
-p-a:hover {
-		color: darkblue;
-}
 p-h{
 	background: var(--tab-bg);
 	display: inline-block;
