@@ -586,6 +586,7 @@ function showSelectionMenu() {
     }
 
     selectionMenu.innerHTML = `
+        <button data-action="copy">Copy</button>
         <button data-action="search-current">🔍 Search</button>
         <button data-action="search-popup">🔍 Popup</button>`;
     lang.forEach((x) => {
@@ -601,11 +602,11 @@ function showSelectionMenu() {
     const menuHeight = selectionMenu.offsetHeight;
 
     let left = rect.left + (rect.width / 2) - (menuWidth / 2);
-    let top = rect.top - menuHeight - 10;
+    let top = rect.top - menuHeight - 10 + window.scrollY;
 
     // Keep menu inside viewport
     left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
-    if (top < 10) top = rect.bottom + 10;
+    if (top < 10) top = rect.bottom + 10 + window.scrollY;
 
     selectionMenu.style.left = `${left}px`;
     selectionMenu.style.top = `${top}px`;
@@ -628,6 +629,8 @@ selectionMenu.addEventListener('click', (ev) => {
         startSearch();
     } else if (action === 'search-popup') {
         openPopupSearch(selText);
+    } else if (action === 'copy') {
+	navigator.clipboard.writeText(selectedText);
     }
 
     // === CANCEL SELECTION (exactly as you requested) ===
@@ -647,7 +650,8 @@ function checkAndShowSelection() {
     }
 }
 
-document.addEventListener('mouseup', () => {
+document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
     clearTimeout(selectionTimer);
     selectionTimer = setTimeout(checkAndShowSelection, 30);
 });

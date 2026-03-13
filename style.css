@@ -488,18 +488,22 @@ mark {
 }
 
 .selection-menu {
-	background: var(--card-bg);
+		user-select: none; /* For most browsers */
+		-webkit-user-select: none; /* For Safari */
+		-moz-user-select: none; /* For Firefox */
 	position: absolute;
+	background: none;
 	z-index: 5000;
 	display: none;
-	border: 2px solid grey;
 }
 .selection-menu button {
     padding: 10px 20px;
-    border: none;
-		background: none;
+	background: var(--tab-bg);
+	opacity: 90%;
     color: var(--card-text);
     cursor: pointer;
+    color: var(--header-text);
+    border-radius: 6px;
 }
 
 
