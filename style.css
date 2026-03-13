@@ -487,8 +487,24 @@ mark {
     color: var(--card-text);
 }
 
+.selection-menu {
+	background: var(--card-bg);
+	position: absolute;
+	z-index: 5000;
+	display: none;
+	border: 2px solid grey;
+}
+.selection-menu button {
+    padding: 10px 20px;
+    border: none;
+		background: none;
+    color: var(--card-text);
+    cursor: pointer;
+}
+
+
 .context-menu {
-    position: absolute;
+    position: fixed;
     background: var(--card-bg);
     border: 1px solid var(--accent-color);
     border-radius: 8px;

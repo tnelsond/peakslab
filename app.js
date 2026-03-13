@@ -37,6 +37,8 @@ tablayout.forEach(g => {
 });
 
 function escapeRegExp(string) {
+	if(!string)
+		return null;
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -285,7 +287,7 @@ function updateQuery(text = queryInput.value){
 	if (!text) {
 			return null;
 	}
-	text = text.toLowerCase().replace("", "");
+	text = text.toLowerCase().replaceAll("​", "");
 	return text;
 }
 
@@ -518,6 +520,7 @@ document.getElementById('settingsModal')?.addEventListener('click', e => {
 });
 
 // Context menu (right-click)
+/*
 const contextMenu = document.createElement('div');
 contextMenu.className = 'context-menu';
 contextMenu.style.display = 'none';
@@ -563,7 +566,105 @@ document.addEventListener('contextmenu', e => {
 document.addEventListener('click', () => {
     contextMenu.style.display = 'none';
 });
+*/
 
+// === NEW SELECTION MENU (replaces old right-click menu) ===
+const selectionMenu = document.createElement('div');
+selectionMenu.className = 'selection-menu';
+document.body.appendChild(selectionMenu);
+
+function hideSelectionMenu() {
+    selectionMenu.style.display = 'none';
+}
+
+function showSelectionMenu() {
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+    if (!text || selection.rangeCount === 0) {
+        hideSelectionMenu();
+        return;
+    }
+
+    selectionMenu.innerHTML = `
+        <button data-action="search-current">🔍 Search</button>
+        <button data-action="search-popup">🔍 Popup</button>`;
+    lang.forEach((x) => {
+        selectionMenu.innerHTML += `<button data-action="speak-${x.val}">🔊 ${x.name}</button>`;
+    });
+
+    selectionMenu.style.display = 'block';
+
+    // Position above the selected text (or below if needed)
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const menuWidth = selectionMenu.offsetWidth;
+    const menuHeight = selectionMenu.offsetHeight;
+
+    let left = rect.left + (rect.width / 2) - (menuWidth / 2);
+    let top = rect.top - menuHeight - 10;
+
+    // Keep menu inside viewport
+    left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
+    if (top < 10) top = rect.bottom + 10;
+
+    selectionMenu.style.left = `${left}px`;
+    selectionMenu.style.top = `${top}px`;
+}
+
+// Button clicks (works even after innerHTML is rebuilt)
+selectionMenu.addEventListener('click', (ev) => {
+    if (ev.target.tagName !== 'BUTTON') return;
+    const action = ev.target.dataset.action;
+    const selText = window.getSelection().toString().trim();
+    if (!selText) return;
+
+    if (action.startsWith('speak')) {
+        const langCode = action.replace("speak-", "");
+        const utterance = new SpeechSynthesisUtterance(selText);
+        utterance.lang = langCode;
+        speechSynthesis.speak(utterance);
+    } else if (action === 'search-current') {
+        document.getElementById('queryInput').value = selText;
+        startSearch();
+    } else if (action === 'search-popup') {
+        openPopupSearch(selText);
+    }
+
+    // === CANCEL SELECTION (exactly as you requested) ===
+    window.getSelection().removeAllRanges();
+    hideSelectionMenu();
+});
+
+// Show/hide triggers
+let selectionTimer = null;
+
+function checkAndShowSelection() {
+    const text = window.getSelection().toString().trim();
+    if (text) {
+        showSelectionMenu();
+    } else {
+        hideSelectionMenu();
+    }
+}
+
+document.addEventListener('mouseup', () => {
+    clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(checkAndShowSelection, 30);
+});
+
+document.addEventListener('selectionchange', () => {
+    if (window.getSelection().toString().trim() === '') {
+        hideSelectionMenu();
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (selectionMenu.style.display !== 'none' && !selectionMenu.contains(e.target)) {
+        hideSelectionMenu();
+    }
+});
+
+// END CONTEXT MENU
 
 let deferredPrompt;
 function isIOS() {
