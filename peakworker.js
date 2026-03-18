@@ -1,11 +1,25 @@
 "use strict";
 importScripts('./peak.js');
+
+let wasmBinaryPromise = null;
+async function getCachedWasmBinary() {
+    if (!wasmBinaryPromise) {
+        wasmBinaryPromise = (async () => {
+            const resp = await fetch('./peak.wasm');
+            if (!resp.ok) throw new Error(`Failed to fetch peak.wasm: ${resp.status}`);
+            return await resp.arrayBuffer();
+        })();
+    }
+    return wasmBinaryPromise;
+}
+
 let id = 0;
 let dicts = []
 let adicts = []
 let query = ''
 let cdic = 0;
 let st = 0;
+
 
 self.onmessage = async (e) => {
 	//console.log(e.data);
@@ -111,7 +125,8 @@ class Dic{
 	}
 	async init() {
 		try{
-			this.module = await peak();
+			const wasmBinary = await getCachedWasmBinary();
+      this.module = await peak({wasmBinary});
 			const resp = await fetch(this.filename);
 			//console.log(`filename: ${this.filename}`);
 			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
