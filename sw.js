@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.4.0.3';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.0.4';   // ← Bump this on every deploy!
 
 // Optional: restrict which files can be cached (leave empty to allow everything)
 const ALLOWED_TO_CACHE = [
@@ -76,19 +76,13 @@ self.addEventListener('install', event => {
 async function sendCacheVersion() {
   const clients = await self.clients.matchAll();
   clients.forEach(client => {
-    client.postMessage({
-      type: 'version',
-      version: CURRENT_CACHE
-    });
+    client.postMessage({ type: 'version', version: CURRENT_CACHE });
   });
 }
 
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'get version') {
-    event.source.postMessage({
-      type: 'version',
-      version: CURRENT_CACHE
-    });
+  if (event.data?.type === 'get version') {
+    event.source.postMessage({ type: 'version', version: CURRENT_CACHE });
   }
 });
 
@@ -97,7 +91,7 @@ self.addEventListener('activate', event => {
     Promise.all([
       self.clients.claim(),
       cleanupAllEmptyOldCaches(),
-			sendCacheVersion()
+      sendCacheVersion()
     ])
   );
 });
@@ -125,6 +119,7 @@ async function cleanupAllEmptyOldCaches() {
   }
 }
 
+// ====================== FIXED FETCH HANDLER ======================
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || 
       !event.request.url.startsWith(self.location.origin)) {
@@ -140,7 +135,7 @@ self.addEventListener('fetch', event => {
       const newResponse = await currentCache.match(event.request);
       if (newResponse) return newResponse;
 
-      // 2. Check old caches
+      // 2. Look for the file in any old cache
       const oldCacheNames = await getOldCacheNames();
       let oldResponse = null;
       let oldCacheUsed = null;
@@ -154,54 +149,55 @@ self.addEventListener('fetch', event => {
         }
       }
 
-      // 3. Revalidate step BEFORE moving old cache
-      try {
-        // Create a conditional request (GitHub Pages may respect it)
-        const headers = new Headers();
-        if (oldResponse) {
-          const etag = oldResponse.headers.get('ETag');
-          const lastMod = oldResponse.headers.get('Last-Modified');
-          if (etag) headers.set('If-None-Match', etag);
-          if (lastMod) headers.set('If-Modified-Since', lastMod);
+      // If we have nothing in any cache, just try network
+      if (!oldResponse) {
+        try {
+          const resp = await fetch(event.request);
+          if (resp?.status === 200 && resp.type === 'basic' && isAllowed(event.request.url)) {
+            await currentCache.put(event.request, resp.clone());
+          }
+          return resp;
+        } catch {
+          return new Response('Offline', { status: 503 });
         }
+      }
+
+      // 3. We have an oldResponse → Revalidate (but gracefully handle offline)
+      try {
+        const headers = new Headers();
+        const etag = oldResponse.headers.get('ETag');
+        const lastMod = oldResponse.headers.get('Last-Modified');
+        if (etag) headers.set('If-None-Match', etag);
+        if (lastMod) headers.set('If-Modified-Since', lastMod);
 
         const networkResponse = await fetch(event.request, { headers });
 
-        const url = event.request.url;
-
-        if (networkResponse.status === 304 && oldResponse) {
-          // Not modified → safe to move old response to new cache
+        if (networkResponse.status === 304) {
+          // Not modified → move old file to new cache
           await currentCache.put(event.request, oldResponse.clone());
           await oldCacheUsed.delete(event.request);
-          console.log('✅ Revalidated 304 - Moved from old cache:', url);
+          console.log('✅ 304 Revalidated - Moved from old cache:', event.request.url);
           await cleanupAllEmptyOldCaches();
           return oldResponse;
         }
 
         if (networkResponse.status === 200 && networkResponse.type === 'basic') {
-          if (!isAllowed(url)) return networkResponse;
-
-          // Newer version available → store it
-          await currentCache.put(event.request, networkResponse.clone());
-
-          // Clean up from old cache
-          if (oldResponse && oldCacheUsed) {
+          if (isAllowed(event.request.url)) {
+            await currentCache.put(event.request, networkResponse.clone());
             await oldCacheUsed.delete(event.request);
+            console.log('✅ Updated with newer version:', event.request.url);
+            await cleanupAllEmptyOldCaches();
           }
-
-          console.log('✅ Updated with newer version from network:', url);
-          await cleanupAllEmptyOldCaches();
           return networkResponse;
         }
 
-        // Other status (404, 500, etc.) → fall back to old cache
-        if (oldResponse) return oldResponse;
-        return networkResponse;
+        // Other status → fallback to old
+        return oldResponse;
 
       } catch (err) {
-        // Network failed (offline, etc.) → use old cache if we have it
-        console.error('Revalidate failed:', err);
-        return oldResponse || new Response('Offline', { status: 503 });
+        // Offline or network error → just use the old cached version
+        console.log('Offline - using old cache for:', event.request.url);
+        return oldResponse;
       }
     })()
   );
