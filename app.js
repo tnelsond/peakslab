@@ -428,7 +428,23 @@ if ('serviceWorker' in navigator) {
       .then(reg => console.log('Root SW registered with scope:', reg.scope))
       .catch(err => console.error('Registration failed:', err));
   })});
+	navigator.serviceWorker.addEventListener('message', event => {
+		if (event.data && event.data.type === 'version') {
+			const version = event.data.version;
+			console.log('Current cache version:', version);
+			const el = document.getElementById('version');
+			if (el) {
+				el.textContent = version;
+			}
+		}
+	});
 }
+function requestCacheVersion() {
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'get version' });
+  }
+}
+window.addEventListener('load', requestCacheVersion);
 
 document.addEventListener('touchend', function(e) {
   const active = document.activeElement;

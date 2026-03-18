@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.8.2.4';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.0.1';   // ← Bump this on every deploy!
 
 // Optional: restrict which files can be cached (leave empty to allow everything)
 const ALLOWED_TO_CACHE = [
@@ -73,11 +73,31 @@ self.addEventListener('install', event => {
   event.waitUntil(self.skipWaiting());
 });
 
+async function sendCacheVersion() {
+  const clients = await self.clients.matchAll();
+  clients.forEach(client => {
+    client.postMessage({
+      type: 'version',
+      version: CURRENT_CACHE
+    });
+  });
+}
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'get version') {
+    event.source.postMessage({
+      type: 'version',
+      version: CURRENT_CACHE
+    });
+  }
+});
+
 self.addEventListener('activate', event => {
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
-      consolidateOldCaches()   // Merge all old caches into one + cleanup
+      consolidateOldCaches(),   // Merge all old caches into one + cleanup
+			sendCacheVersion()
     ])
   );
 });

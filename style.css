@@ -104,7 +104,7 @@ body {
     background: var(--bg-color);
     color: var(--card-text);
     min-height: 100vh;
-    transition: background 0.5s, color 0.5s;
+    transition: background 0.2s, color 0.2s;
     touch-action: manipulation;
 }
 
@@ -145,25 +145,6 @@ p-m::before {
     padding: 2rem;
 }
 
-#tabsContainer {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    margin-bottom: 16px;
-}
-
-
-/* Sub-results pane */
-.sub-results {
-    margin: 15px 0;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-
 #header {
     position: fixed;
     top: 0;
@@ -195,47 +176,6 @@ p-m::before {
     font-weight: bold;
     color: #fd9;
     text-shadow: 1px 1px 3px rgba(0,0,0,1.0), -1px -1px 2px rgba(0,0,0,1.0);
-}
-
-.tab.loading {
-    background: #bba !important;
-    color: #856404 !important;
-    position: relative;
-    padding-right: 28px !important;
-}
-
-.tab.loading::after {
-    content: "";
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 14px;
-    height: 14px;
-    border: 2px solid #856404;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-.tab.error {
-    background: #f8d7da !important;
-    color: #721c24 !important;
-    position: relative;
-    padding-right: 28px !important;
-}
-
-.tab.error::after {
-    content: "⚠️";
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 16px;
-}
-
-@keyframes spin {
-    to { transform: translateY(-50%) rotate(360deg); }
 }
 
 #searchContainer {
@@ -307,17 +247,12 @@ p-m::before {
 }
 
 #content {
-    margin-top: 108px;
+    margin-top: 78px;
     padding: 2px;
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
 }
-
-#results {
-    /*min-height: calc(100vh - 150px);*/
-}
-
 
 mark {
     background: var(--mark-bg);
@@ -400,29 +335,6 @@ mark {
     opacity: 0.7;
 }
 
-.diag-entry { margin: 12px 0; }
-.diag-label { font-weight: bold; color: var(--accent-color); }
-
-.search-option {
-    margin: 24px 0;
-}
-
-.search-option label {
-    display: block;
-    margin-bottom: 10px;
-    font-weight: bold;
-}
-
-.search-option select {
-    width: 100%;
-    padding: 14px;
-    border-radius: 10px;
-    border: none;
-    background: rgba(0,0,0,0.12);
-    color: var(--card-text);
-    font-size: 16px;
-}
-
 .setting button {
     padding: 14px 18px;
     background: var(--control-btn-bg);
@@ -465,6 +377,8 @@ mark {
     width: 90%;
     max-width: 800px;
     max-height: 90vh;
+    margin-left: auto;
+    margin-right: auto;
     overflow-y: auto;
     box-shadow: 0 20px 50px rgba(0,0,0,0.7);
 }
