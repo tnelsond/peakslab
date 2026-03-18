@@ -488,18 +488,34 @@ mark {
 }
 
 .selection-menu {
-	background: var(--card-bg);
+		user-select: none; /* For most browsers */
+		-webkit-user-select: none; /* For Safari */
+		-moz-user-select: none; /* For Firefox */
 	position: absolute;
+	background: none;
 	z-index: 5000;
 	display: none;
-	border: 2px solid grey;
+	height: 40px;
 }
-.selection-menu button {
-    padding: 10px 20px;
-    border: none;
-		background: none;
+.selection-menu button{
+		height: 100%;
+		padding: 10px;
+		margin: 0px;
+		border: 2px solid #642;
+		border-left: none;
+		border-right: none;
+		background: var(--tab-bg);
+		opacity: 90%;
     color: var(--card-text);
     cursor: pointer;
+    color: var(--header-text);
+}
+
+.selection-menu button :first-child{
+	border-left: 2px solid #642;
+}
+.selection-menu button :last-child{
+	border-right: 2px solid #642;
 }
 
 

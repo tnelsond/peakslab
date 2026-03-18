@@ -519,56 +519,6 @@ document.getElementById('settingsModal')?.addEventListener('click', e => {
     }
 });
 
-// Context menu (right-click)
-/*
-const contextMenu = document.createElement('div');
-contextMenu.className = 'context-menu';
-contextMenu.style.display = 'none';
-document.body.appendChild(contextMenu);
-
-document.addEventListener('contextmenu', e => {
-    const text = window.getSelection().toString().trim();
-    if (!text) return;
-
-    e.preventDefault();
-
-    contextMenu.innerHTML = `
-        <button data-action="search-current">🔍 Search</button>
-        <button data-action="search-popup">🔍 Popup</button>`;
-		lang.forEach((x) =>{
-    contextMenu.innerHTML += `<button data-action="speak-${x.val}">🔊 ${x.name}</button>`
-		});
-
-    contextMenu.style.left = `${e.pageX + 5}px`;
-    contextMenu.style.top = `${e.pageY + 5}px`;
-    contextMenu.style.display = 'block';
-
-    contextMenu.onclick = ev => {
-        if (ev.target.tagName !== 'BUTTON') return;
-        const action = ev.target.dataset.action;
-
-        if (action.startsWith('speak')) {
-            const lang = action.replace("speak-", "");
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang;
-            speechSynthesis.speak(utterance);
-        } else if (action === 'search-current') {
-            document.getElementById('queryInput').value = text;
-            startSearch();
-        } else if (action === 'search-popup') {
-            openPopupSearch(text);
-        }
-
-        contextMenu.style.display = 'none';
-    };
-});
-
-document.addEventListener('click', () => {
-    contextMenu.style.display = 'none';
-});
-*/
-
-// === NEW SELECTION MENU (replaces old right-click menu) ===
 const selectionMenu = document.createElement('div');
 selectionMenu.className = 'selection-menu';
 document.body.appendChild(selectionMenu);
@@ -585,9 +535,7 @@ function showSelectionMenu() {
         return;
     }
 
-    selectionMenu.innerHTML = `
-        <button data-action="search-current">🔍 Search</button>
-        <button data-action="search-popup">🔍 Popup</button>`;
+    selectionMenu.innerHTML = `<button data-action="copy">Copy</button><button data-action="search-current">🔍 Search</button><button data-action="search-popup">🔍 Popup</button>`;
     lang.forEach((x) => {
         selectionMenu.innerHTML += `<button data-action="speak-${x.val}">🔊 ${x.name}</button>`;
     });
@@ -601,7 +549,7 @@ function showSelectionMenu() {
     const menuHeight = selectionMenu.offsetHeight;
 
     let left = rect.left + (rect.width / 2) - (menuWidth / 2);
-    let top = rect.top - menuHeight - 10;
+    let top = rect.top - menuHeight - 10 + window.scrollY;
 
     // Keep menu inside viewport
     left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
@@ -628,9 +576,9 @@ selectionMenu.addEventListener('click', (ev) => {
         startSearch();
     } else if (action === 'search-popup') {
         openPopupSearch(selText);
-    }
-
-    // === CANCEL SELECTION (exactly as you requested) ===
+    } else if(action == 'copy'){
+			navigator.clipboard.writeText(selText);
+		}
     window.getSelection().removeAllRanges();
     hideSelectionMenu();
 });

@@ -1,13 +1,13 @@
-// zstd_peak_loader.c
 #define ZSTD_STATIC_LINKING_ONLY
 #include "zstddeclib.c"
 #include "stringzilla/stringzilla.h"
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #include "peak.h"
-//#include "strnatcmp.h"
 
-#define NDEBUG
-#ifdef NDEBUG
+#ifndef DEBUG
     #define printf(...) ((void)0)
 #endif
 
@@ -50,7 +50,6 @@ struct pstate{
 	enum searchtype st;
 	uint32_t idx;
 	uint32_t idxlen;
-	// Fixed locations (set from JavaScript)
 	int line; // We use negative numbers to signify done.
 	uint8_t*  qloc;
 	uint32_t qlen;
@@ -70,9 +69,6 @@ static size_t g_result_max = 0;
 #else
 #define EMSCRIPTEN_KEEPALIVE ;
 #endif
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdio.h>
 
 EMSCRIPTEN_KEEPALIVE
 int switchstate(){
@@ -84,6 +80,7 @@ int switchstate(){
 	return 0;
 }
 
+// Any unused function is automatically culled by the compiler.
 void printbytes(uint8_t *start, int esize, int len){
 	if(len < 0)
 		return;
@@ -563,7 +560,7 @@ int get_result(int skip){
 					return -1;
 				//match = p_linetostr(bsea, psa->st);
 				++psa->line;
-			}while(!(vec_u32_push_uniq(&results, tline) || skip));
+			}while(!(skip || vec_u32_push_uniq(&results, tline)));
 
 			uint8_t *start = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline, ps_h->bline_idx));
 			uint8_t *end = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline+1, ps_h->bline_idx));
@@ -583,7 +580,7 @@ int get_result(int skip){
 				match = p_linetostr(psa->line, psa->st);
 				tline = p_getline(match);
 				++psa->line;
-			}while(!(vec_u32_push_uniq(&results, tline) || skip));
+			}while(!(skip || vec_u32_push_uniq(&results, tline)));
 		}else{
 			do{ // FULL
 				uint8_t *start = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
@@ -597,7 +594,7 @@ int get_result(int skip){
 				//int ret = p_strncpy(out_buffer, out_capacity, g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
 				tline = psa->line = p_getline(match);
 				++psa->line;
-			}while(!(vec_u32_push_uniq(&results, tline) || skip));
+			}while(!(skip || vec_u32_push_uniq(&results, tline)));
 		}
 		if(match){
 				//char *str = p_linetostr(psa->line);
@@ -664,47 +661,21 @@ int main(int argc, char **argv){
 	int query_size = 256;
 	peak_init(buf, query_size, buf + query_size, query_size, buf + query_size*2, 8096 - query_size*2);
 
-//	binarybyte; magicnum; magicstr;
-//	version; features; btagdef_idx; btag_idx; btag1; btag2; bline_idx; 
-//	tagdef_idx_start; tagdef_idx_len;
-//  tagdef_start; tagdef_len; 
-//  tag_idx_start; tag_idx_len;
-//  tag_start; tag_len; 
-//	line_idx_start; line_idx_len;
-//	line_start; line_len;
-//	idx2_start; idx2_len;
-//	idx3_start; idx3_len;
-
-/*	printf("btagdef_idx %d; btag_idx %d; btag1 %d; btag2 %d; bline_idx %d;\n", ps_h->btagdef_idx, ps_h->btag_idx, ps_h->btag1, ps_h->btag2, ps_h->bline_idx);
-	printf("tagdef_idx_start %d; tagdef_idx_len %d; tagdef_start %d; tagdef_len %d;\n", ps_h->tagdef_idx_start, ps_h->tagdef_idx_len, ps_h->tagdef_start, ps_h->tagdef_len);
-	printf("tag_idx_start %d; tag_idx_len %d;\n", ps_h->tag_idx_start, ps_h->tag_idx_len);
-	
-	printf("#tag idx data: ");
-//	printbytes(g_d + ps_h->tag_idx_start, ps_h->btag_idx, ps_h->tag_idx_len);
-
-	printf("tag_start %d; tag_len %d;\n", ps_h->tag_start, ps_h->tag_len);
-	printf("#tag data: ");
-	printbytesi(g_d + ps_h->tag_start, ps_h->btag1 + ps_h->btag2, ps_h->tag_len);
-
-	printf("#tagdef data: ");
-//	printbytes(g_d + ps_h->tagdef_start, 1, ps_h->tagdef_len);
-	printf("line_idx_start %d; line_idx_len %d;\n", ps_h->line_idx_start, ps_h->line_idx_len); */
-
-printf("Loaded header:\n");
-printf("  btag1          = %u\n", ps_h->btag1);         // should be 1
-printf("  btag2          = %u\n", ps_h->btag2);         // should be 2
-printf("  tagdef_idx_len = %u\n", ps_h->tagdef_idx_len); // ~514
-printf("tag_start        = %u\n", ps_h->tag_start);
-printf("tag_len          = %u\n", ps_h->tag_len);
-printf("First tag ptr    = %p\n", (void*)(g_d + ps_h->tag_start));
-printf("Buffer end       ≈ %p\n", (void*)(g_d + g_d_size));
-printf("First 16 raw bytes at tag_start:\n");
-for(int i = 0; i < 16; i++) {
-    uint8_t b = (g_d + ps_h->tag_start)[i];
-    printf("%02x ", b);
-    if ((i & 3) == 3) printf("  ");
-}
-printf("\n");
+	printf("Loaded header:\n");
+	printf("  btag1          = %u\n", ps_h->btag1);         // should be 1
+	printf("  btag2          = %u\n", ps_h->btag2);         // should be 2
+	printf("  tagdef_idx_len = %u\n", ps_h->tagdef_idx_len); // ~514
+	printf("tag_start        = %u\n", ps_h->tag_start);
+	printf("tag_len          = %u\n", ps_h->tag_len);
+	printf("First tag ptr    = %p\n", (void*)(g_d + ps_h->tag_start));
+	printf("Buffer end       ≈ %p\n", (void*)(g_d + g_d_size));
+	printf("First 16 raw bytes at tag_start:\n");
+	for(int i = 0; i < 16; i++) {
+			uint8_t b = (g_d + ps_h->tag_start)[i];
+			printf("%02x ", b);
+			if ((i & 3) == 3) printf("  ");
+	}
+	printf("\n");
 
 	//printf("line_start %d; line_len %d;\n", ps_h->line_start, ps_h->line_len);
 	//printbytes(g_d + ps_h->line_idx_start, ps_h->bline_idx, ps_h->line_idx_len);
@@ -760,8 +731,6 @@ printf("\n");
 			if(len > 0)
 				printf("%d %s\n", len, g_result_loc);
 		}while(len > 0 && num > 0);
-
 	}
-
 	return 0;
 }

@@ -15,6 +15,6 @@ peakdec : peak.c zstddeclib.c peak.h
   -s EXPORTED_RUNTIME_METHODS='["HEAPU8","UTF8ToString","stringToNewUTF8"]' \
   -o peak.js
 peak : peak.c peak.h zstddeclib.c
-	gcc peak.c -o peak
+	gcc -DDEBUG peak.c -o peak
 
 all : peakgen peakdec peak

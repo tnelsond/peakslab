@@ -26,6 +26,21 @@ typedef struct {
     VecChar *line;
 } VecStr;
 
+typedef struct {
+	uint32_t stroff;
+	uint32_t tagstart;
+	uint32_t taglen;
+	uint32_t idx2start;
+	uint32_t idx2len;
+	uint32_t idx3start;
+	uint32_t idx3len;
+} Peakline;
+
+typedef struct {
+	uint32_t len, max;
+	Peakline *line;
+} VecPeakline;
+
 static int bytes_req(uint32_t val){
 	if(val > 0xFFFFFF)
 		return 4;
@@ -53,6 +68,16 @@ static void vec_char_push(VecChar *v, char c) {
     }
     v->data[v->len++] = c;
 }
+
+static void vec_peakline_expand(VecPeakline *v){
+    if (v->len >= v->max) {
+        v->max = v->max ? v->max * 2 : 256;
+        v->line = realloc(v->line, v->max * sizeof(Peakline));
+        if (!v->line) exit(1);
+    }
+		v->len++;
+}
+
 
 static void vec_str_startnew(VecStr *v) {
     if (v->len >= v->max) {
@@ -101,10 +126,10 @@ static int ps_cmp(const void *a, const void *b){
 
 // gen 1:10 - gen 1:2
 static int ps_cmp(const void *a, const void *b){
-	unsigned char *sa = (char*)a;
-	unsigned char *sb = (char*)b;
+	uint8_t *sa = (uint8_t*)a;
+	uint8_t *sb = (uint8_t*)b;
 	int i = 0;
-	while(sa[i] && sb[i] && tolower(sa[i]) == tolower(sb[i])){
+	while(sa[i] && sb[i] && sa[i] == sb[i]){
 		i++;	
 	}
 	int j = i;
@@ -117,9 +142,7 @@ static int ps_cmp(const void *a, const void *b){
 	if(!isdigit(sa[j]) && isdigit(sb[j])){
 		return -1;
 	}
-	int x = sa[i] < 0x7F ? tolower(sa[i]) : sa[i];
-	int y = sb[i] < 0x7F ? tolower(sb[i]) : sb[i];
-	return x - y;
+	return sa[i] - sb[i];
 }
 
 /*
@@ -131,6 +154,7 @@ static int ps_cmp(const void *a, const void *b){
 */
 
 VecChar textflat = {0, 0, NULL}; // Global so we can lazily use it in qsort
+VecChar textflat2 = {0, 0, NULL}; // Global so we can lazily use it in qsort
 
 static int idx_cmp(const void *pa, const void *pb){
 	uint32_t a = *(uint32_t*)pa;
@@ -148,6 +172,13 @@ static int vec_char_cmp(const void *pa, const void *pb){
 	//int blen = strlen(b->data);
 	//return sz_order(a->data, alen, b->data, blen);
 	return ps_cmp(a->data, b->data);
+}
+
+static int peakline_cmp(const void *pa, const void *pb){
+	Peakline *a = (Peakline*)pa;
+	Peakline *b = (Peakline*)pb;
+	//printf("###a: %s\n###b: %s\n", textflat2.data + a->stroff, textflat2.data + b->stroff);
+	return ps_cmp(textflat2.data + a->stroff, textflat2.data + b->stroff);
 }
 
 int main(int argc, char **argv) {
@@ -293,136 +324,187 @@ int main(int argc, char **argv) {
 
 			VecU32 tag_idx = {0, 0, NULL};
 			VecU32 tag = {0, 0, NULL};
+			VecU32 tag2 = {0, 0, NULL};
 		
 			int c;
 			while((c = fgetc(f)) != EOF){
 				if(c == '\n'){
-					if(text.line[text.len-1].len > 0){
-						vec_str_pushc(&text, '\0');
-						vec_str_startnew(&text);
-					}
+					vec_char_push(&textflat, '\0');
 					continue;
 				}
-				vec_str_pushc(&text, c);
+				vec_char_push(&textflat, c);
 			}
-			text.len--; // Remove empty end line
 
 			fclose(f);
 
-			qsort(text.line, text.len, sizeof(text.line[0]), vec_char_cmp);
+			puts(textflat.data);
+
 			/*for(int i = 0; i < text.len; ++i){
 				puts(text.line[i].data);
 			}*/
 
+			VecPeakline peaklines = {0, 0, NULL};
 			VecU32 line_idx = {0, 0, NULL};
 			VecU32 idx2 = {0, 0, NULL};
 			VecU32 idx3 = {0, 0, NULL};
-			// Remove tags, and put the text in a flat representation and make the line_idx
-			for(int i = 0; i < text.len; ++i){
-				uint32_t taggap = 0;
-				int upper = 0;
-				int pupper = 0;
-				int upper_idx = 0;
-				//printf("\n");
-				vec_u32_push(&line_idx, textflat.len);
-				vec_u32_push(&tag_idx, tag.len/2);
-				int inside = 0;
-				for(int j = 0; j < text.line[i].len; ++j){
-					int c = text.line[i].data[j];
-					if(c == '<'){
-						inside = 1;
-						vec_u32_push(&tagdef_idx, tagdef.len);
+
+			uint32_t taggap = 0;
+			int upper = 0;
+			int pupper = 0;
+			int upper_idx = 0;
+			int inside = 0;
+			//printf("\n");
+			vec_peakline_expand(&peaklines);
+			Peakline *p = peaklines.line;
+			p->stroff = 0;
+			p->tagstart = 0;
+			p->idx2start = 0;
+			p->idx3start = 0;
+			for(int a = 0; a < textflat.len; ++a){
+				//vec_u32_push(&line_idx, textflat.len);
+				//vec_u32_push(&tag_idx, tag.len/2);
+				uint8_t c = textflat.data[a];
+				if(!c){
+					vec_char_push(&textflat2, c);
+					//printf("##: %s\n", textflat2.data + p->stroff);
+					taggap = 0;
+					upper = 0;
+					pupper = 0;
+					upper_idx = 0;
+					p->taglen = tag.len - p->tagstart;
+					p->idx2len = idx2.len - p->idx2start;
+					p->idx3len = idx3.len - p->idx3start;
+					vec_peakline_expand(&peaklines);
+					Peakline *pold = peaklines.line + peaklines.len - 2;
+					p = peaklines.line + peaklines.len - 1;
+					inside = 0;
+					p->stroff = textflat2.len;
+					p->tagstart = pold->tagstart + pold->taglen;
+					p->idx2start = pold->idx2start + pold->idx2len;
+					p->idx3start = pold->idx3start + pold->idx3len;
+					continue;
+				}
+				if(c == '<'){
+					inside = 1;
+					vec_u32_push(&tagdef_idx, tagdef.len);
+					vec_char_push(&tagdef, c);
+				}else if(inside){
+					if(tagdef.len > 2 && (!tagdef.data[tagdef.len-2]) && (c == ' ' || c < 0)){
+						tagdef_idx.len--;
+						tagdef.len--;
+						inside = 0;
+						taggap += 2;
+						vec_char_push(&textflat2, '<');
+						vec_char_push(&textflat2, c);
+					}else{
 						vec_char_push(&tagdef, c);
-					}else if(inside){
-						if(tagdef.len > 2 && (!tagdef.data[tagdef.len-2]) && (c == ' ' || c < 0)){
-							tagdef_idx.len--;
-							tagdef.len--;
-							inside = 0;
-							taggap += 2;
-							vec_char_push(&textflat, '<');
-							vec_char_push(&textflat, c);
-						}else{
-							vec_char_push(&tagdef, c);
-						}
-						
-						if(c == '>' || c == '\n' || c == '\t'){
-							inside = 0;
-							vec_char_push(&tagdef, '\0');
-							uint32_t tagid = get_tagid(&tagdef_idx, &tagdef);
-							vec_u32_push(&tag, taggap);
-							//printf("taggap %d\n", taggap);
-							taggap = 0;
-							vec_u32_push(&tag, tagid);
-							//printf("tagid: %u - %u\n", tag.items[tag.len-2], tag.items[tag.len-1]);
-						}
-					}else if(c == '@'){
-						if(idx2.len && textflat.len == idx2.items[idx2.len-1]){ // If there's an escaped/doubled @, remove the previous idx2 and put one @ back in.
-							idx2.len--;
-							vec_char_push(&textflat, c);
-							++taggap;
-						}else{
-							vec_u32_push(&idx2, textflat.len);
-						}
-					}else if(c == '^'){
-						if(idx3.len && textflat.len == idx3.items[idx3.len-1]){
-							idx3.len--;
-							vec_char_push(&textflat, c);
-							++taggap;
-						}else{
-							vec_u32_push(&idx3, textflat.len);
-						}
-					}else if(isupper(c)){
-						vec_char_push(&textflat, tolower(c));
-						if(!upper){
-							upper = 1;
-							upper_idx = textflat.len;
-							vec_u32_push(&tag, taggap);
-							vec_u32_push(&tag, CAPITAL_SINGLE);
-							pupper = tag.len - 1;
-							taggap = 0;
-						}
+					}
+					
+					if(c == '>' || c == '\n' || c == '\t'){
+						inside = 0;
+						vec_char_push(&tagdef, '\0');
+						uint32_t tagid = get_tagid(&tagdef_idx, &tagdef);
+						vec_u32_push(&tag, taggap);
+						//printf("taggap %d\n", taggap);
+						taggap = 0;
+						vec_u32_push(&tag, tagid);
+						//printf("tagid: %u - %u\n", tag.items[tag.len-2], tag.items[tag.len-1]);
+					}
+				}else if(c == '@'){
+					if(idx2.len && textflat2.len == idx2.items[idx2.len-1]){ // If there's an escaped/doubled @, remove the previous idx2 and put one @ back in.
+						idx2.len--;
+						vec_char_push(&textflat2, c);
 						++taggap;
 					}else{
-						if(upper){
-							int x = textflat.len - upper_idx + 1;
-							//printf("CAP RUN: %d ", x);
-							if(x > 1){
-								tag.items[pupper] = CAPITAL_RUN_START;
-								vec_u32_push(&tag, taggap);
-								vec_u32_push(&tag, CAPITAL_RUN_END);
-								taggap = 0;
-							}
-							upper = 0;
-						}
-						vec_char_push(&textflat, c);
-						taggap++;
+						vec_u32_push(&idx2, textflat2.len - p->stroff);
 					}
-						uint8_t *uc = textflat.data;
-						if(uc[textflat.len-1] == 0x8b && uc[textflat.len-2] == 0x80 && uc[textflat.len-3] == 0xe2){
-							textflat.len -= 3;
-							taggap -= 3;
+				}else if(c == '^'){
+					if(idx3.len && textflat2.len == idx3.items[idx3.len-1]){
+						idx3.len--;
+						vec_char_push(&textflat2, c);
+						++taggap;
+					}else{
+						vec_u32_push(&idx3, textflat2.len - p->stroff);
+					}
+				}else if(isupper(c)){
+					vec_char_push(&textflat2, tolower(c));
+					if(!upper){
+						upper = 1;
+						upper_idx = textflat2.len;
+						vec_u32_push(&tag, taggap);
+						vec_u32_push(&tag, CAPITAL_SINGLE);
+						pupper = tag.len - 1;
+						taggap = 0;
+					}
+					++taggap;
+				}else{
+					if(upper){
+						int x = textflat2.len - upper_idx + 1;
+						//printf("CAP RUN: %d ", x);
+						if(x > 1){
+							tag.items[pupper] = CAPITAL_RUN_START;
 							vec_u32_push(&tag, taggap);
-							vec_u32_push(&tag, ZWS);
+							vec_u32_push(&tag, CAPITAL_RUN_END);
 							taggap = 0;
-						}/*else if(textflat.data[textflat.len-1] < 0 && textflat.data[textflat.len-2] == ' ' && textflat.data[textflat.len-3] < 0){
-							printf("\nXXXXX %d %d %d\n", taggap, textflat.len, tag.len);
-							textflat.data[textflat.len-2] = textflat.data[textflat.len-1];
-							--textflat.len;
-							vec_u32_push(&tag, taggap-2);
-							vec_u32_push(&tag, PSPACE);
-							taggap = 1;
 						}
-					}*/
-					if(taggap > 255){ // Before this was broken and was putting just out of reach tags, hopefully this fixes it.
-						vec_u32_push(&tag, taggap-1);
-						vec_u32_push(&tag, NOP);
+						upper = 0;
+					}
+					vec_char_push(&textflat2, c);
+					taggap++;
+				}
+					uint8_t *uc = textflat2.data;
+					if(uc[textflat2.len-1] == 0x8b && uc[textflat2.len-2] == 0x80 && uc[textflat2.len-3] == 0xe2){
+						textflat2.len -= 3;
+						taggap -= 3;
+						vec_u32_push(&tag, taggap);
+						vec_u32_push(&tag, ZWS);
+						taggap = 0;
+					}/*else if(textflat.data[textflat.len-1] < 0 && textflat.data[textflat.len-2] == ' ' && textflat.data[textflat.len-3] < 0){
+						printf("\nXXXXX %d %d %d\n", taggap, textflat.len, tag.len);
+						textflat.data[textflat.len-2] = textflat.data[textflat.len-1];
+						--textflat.len;
+						vec_u32_push(&tag, taggap-2);
+						vec_u32_push(&tag, PSPACE);
 						taggap = 1;
 					}
+				}*/
+				if(taggap > 255){ // Before this was broken and was putting just out of reach tags, hopefully this fixes it.
+					vec_u32_push(&tag, taggap-1);
+					vec_u32_push(&tag, NOP);
+					taggap = 1;
 				}
 			}
+			peaklines.len--; //Remove empty last line
 
-			vec_u32_push(&tag_idx, tag.len/2); // There's an extra one for the bounds checking
-			vec_u32_push(&line_idx, textflat.len);
+			printf("Ok\n");
+
+			qsort(peaklines.line, peaklines.len, sizeof(Peakline), peakline_cmp);
+			printf("Sorted\n");
+			printf("tag_idx.len: %d\n", tag_idx.len);
+
+			textflat.len = 0;
+			for(int x=0; x<peaklines.len; ++x){
+				p = peaklines.line + x;
+				vec_u32_push(&tag_idx, tag2.len/2);
+				vec_u32_push(&line_idx, textflat.len);
+				for(int i = p->tagstart; i < p->tagstart + p->taglen; ++i){
+			//		printf("%d: %d (%d)\n", x, i, tag.items[i]);
+					vec_u32_push(&tag2, tag.items[i]);
+				}
+				for(int i=p->idx2start; i < p->idx2start + p->idx2len; ++i){
+					idx2.items[i] += textflat.len; // Introduce proper offset into sorted lines
+				}
+				for(int i=p->idx3start; i < p->idx3start + p->idx3len; ++i){
+					idx3.items[i] += textflat.len; // Introduce proper offset into sorted lines
+				}
+				uint8_t *str = textflat2.data + p->stroff;
+				uint32_t temp = textflat.len;
+				do{
+					vec_char_push(&textflat, *str);
+				}
+				while(*str++);
+			//	printf("%s\n", textflat.data + temp);
+			}
 
 			if(idx2.len){
 				qsort(idx2.items, idx2.len, sizeof(idx2.items[0]), idx_cmp);
@@ -430,6 +512,8 @@ int main(int argc, char **argv) {
 			if(idx3.len){
 				qsort(idx3.items, idx3.len, sizeof(idx3.items[0]), idx_cmp);
 			}
+			vec_u32_push(&line_idx, textflat.len); // Extra for bounds checking
+			vec_u32_push(&tag_idx, tag2.len/2); // There's an extra one for the bounds checking
 
 			/* For testing
 			printf("\nTAGS DATA: (%d lines)\n", tag_idx.len);
@@ -485,11 +569,11 @@ int main(int argc, char **argv) {
 
 			struct peakslab h = {0, {0xF2, 0xFC, 0xF3}, {'P', 'e', 'a', 'k'},
 				0x2, PEAK, bytes_req(tagdef.len),
-				bytes_req(tag.len), 1, bytes_req(tagdef_idx.len), textflat.len > 0xFFFF ? 4 : 2,
+				bytes_req(tag2.len), 1, bytes_req(tagdef_idx.len), textflat.len > 0xFFFF ? 4 : 2,
 				0, tagdef_idx.len,
 				0, tagdef.len,
 				0, tag_idx.len,
-				0, tag.len/2,
+				0, tag2.len/2,
 				0, line_idx.len,
 				0, textflat.len,
 				0, idx2.len,
@@ -549,9 +633,9 @@ int main(int argc, char **argv) {
 
 			putchar('\n');
 			printf("tag: %d\n", size);
-			for(int i=0; i<tag.len; ++i){
+			for(int i=0; i<tag2.len; ++i){
 				int el = (i & 1) ? h.btag2 : h.btag1;
-				fwrite(&tag.items[i], el, 1, out);
+				fwrite(&tag2.items[i], el, 1, out);
 				size += el; 
 			}
 			uint32_t x0 = 0;
