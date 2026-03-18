@@ -553,7 +553,7 @@ function showSelectionMenu() {
 
     // Keep menu inside viewport
     left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
-    if (top < 10) top = rect.bottom + 10;
+    if (top < 10) top = rect.bottom + 10 + window.scrollY;
 
     selectionMenu.style.left = `${left}px`;
     selectionMenu.style.top = `${top}px`;
@@ -595,7 +595,8 @@ function checkAndShowSelection() {
     }
 }
 
-document.addEventListener('mouseup', () => {
+document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
     clearTimeout(selectionTimer);
     selectionTimer = setTimeout(checkAndShowSelection, 30);
 });
