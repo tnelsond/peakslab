@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.4.0.1';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.0.3';   // ← Bump this on every deploy!
 
 // Optional: restrict which files can be cached (leave empty to allow everything)
 const ALLOWED_TO_CACHE = [
@@ -96,70 +96,15 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
-      consolidateOldCaches(),   // Merge all old caches into one + cleanup
+      cleanupAllEmptyOldCaches(),
 			sendCacheVersion()
     ])
   );
 });
 
-// =============================================
-//  Consolidate all old caches into the newest one
-// =============================================
-async function consolidateOldCaches() {
-  const allCaches = await caches.keys();
-  const oldCaches = allCaches.filter(name => name !== CURRENT_CACHE);
-
-  if (oldCaches.length <= 1) return; // Nothing to consolidate
-
-  // Sort old caches by name (assuming semantic versioning like peakslab-0.8.3)
-  oldCaches.sort();
-
-  const targetOldCacheName = oldCaches[oldCaches.length - 1]; // most recent old cache
-  const targetOldCache = await caches.open(targetOldCacheName);
-
-  console.log(`Consolidating ${oldCaches.length} old caches into ${targetOldCacheName}`);
-
-  for (const oldName of oldCaches) {
-    if (oldName === targetOldCacheName) continue;
-
-    const oldCache = await caches.open(oldName);
-    const requests = await oldCache.keys();
-
-    for (const request of requests) {
-      const response = await oldCache.match(request);
-      if (!response) continue;
-
-      // If file doesn't exist in target old cache, or this one is newer, copy it
-      const existing = await targetOldCache.match(request);
-      if (!existing || isNewer(response, existing)) {
-        await targetOldCache.put(request, response.clone());
-      }
-    }
-
-    // Delete the older cache after merging
-    await caches.delete(oldName);
-    console.log(`Merged and deleted old cache: ${oldName}`);
-  }
-}
-
-// Simple heuristic: compare Last-Modified or ETag
-function isNewer(responseA, responseB) {
-  const lmA = responseA.headers.get('Last-Modified');
-  const lmB = responseB.headers.get('Last-Modified');
-  if (lmA && lmB) return new Date(lmA) > new Date(lmB);
-
-  const etagA = responseA.headers.get('ETag');
-  const etagB = responseB.headers.get('ETag');
-  return etagA && etagA !== etagB;
-}
-
-// =============================================
-//  Main fetch handler
-// =============================================
-async function getOldCacheName() {
+async function getOldCacheNames() {
   const names = await caches.keys();
-  const oldOnes = names.filter(name => name !== CURRENT_CACHE);
-  return oldOnes.length ? oldOnes[0] : null; // now there should be at most one
+  return names.filter(name => name !== CURRENT_CACHE);
 }
 
 function isAllowed(url) {
@@ -169,20 +114,20 @@ function isAllowed(url) {
   );
 }
 
-async function cleanupOldCacheIfEmpty() {
-  const oldName = await getOldCacheName();
-  if (!oldName) return;
-
-  const oldCache = await caches.open(oldName);
-  const keys = await oldCache.keys();
-  if (keys.length === 0) {
-    await caches.delete(oldName);
-    console.log('🗑️ Old cache is now empty and deleted:', oldName);
+async function cleanupAllEmptyOldCaches() {
+  const oldNames = await getOldCacheNames();
+  for (const name of oldNames) {
+    const cache = await caches.open(name);
+    if ((await cache.keys()).length === 0) {
+      await caches.delete(name);
+      console.log('🗑️ Deleted empty old cache:', name);
+    }
   }
 }
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
+  if (event.request.method !== 'GET' || 
+      !event.request.url.startsWith(self.location.origin)) {
     event.respondWith(fetch(event.request));
     return;
   }
@@ -191,55 +136,71 @@ self.addEventListener('fetch', event => {
     (async () => {
       const currentCache = await caches.open(CURRENT_CACHE);
 
-      // 1. Current (new) cache first
-      let response = await currentCache.match(event.request);
-      if (response) return response;
+      // 1. New cache first
+      const newResponse = await currentCache.match(event.request);
+      if (newResponse) return newResponse;
 
-      // 2. Check the single old cache
-      const oldCacheName = await getOldCacheName();
+      // 2. Check old caches
+      const oldCacheNames = await getOldCacheNames();
       let oldResponse = null;
-      let oldCache = null;
-      if (oldCacheName) {
-        oldCache = await caches.open(oldCacheName);
+      let oldCacheUsed = null;
+
+      for (const oldName of oldCacheNames) {
+        const oldCache = await caches.open(oldName);
         oldResponse = await oldCache.match(event.request);
+        if (oldResponse) {
+          oldCacheUsed = oldCache;
+          break;
+        }
       }
 
-      // 3. Check network for updates
+      // 3. Revalidate step BEFORE moving old cache
       try {
-        const networkResponse = await fetch(event.request);
-
-        if (networkResponse?.status === 200 && networkResponse.type === 'basic') {
-          const url = event.request.url;
-          if (!isAllowed(url)) return networkResponse;
-
-          const isNewerOnNetwork = !oldResponse ||
-            networkResponse.headers.get('ETag') !== oldResponse.headers.get('ETag') ||
-            networkResponse.headers.get('Last-Modified') !== oldResponse.headers.get('Last-Modified');
-
-          if (isNewerOnNetwork) {
-            await currentCache.put(event.request, networkResponse.clone());
-            if (oldResponse) await oldCache.delete(event.request);
-            console.log('✅ Updated from network:', url);
-            await cleanupOldCacheIfEmpty();
-            return networkResponse;
-          } else if (oldResponse) {
-            // Move from old → new without re-download
-            await currentCache.put(event.request, oldResponse.clone());
-            await oldCache.delete(event.request);
-            console.log('✅ Moved from old to new cache:', url);
-            await cleanupOldCacheIfEmpty();
-            return oldResponse;
-          } else {
-            await currentCache.put(event.request, networkResponse.clone());
-            return networkResponse;
-          }
+        // Create a conditional request (GitHub Pages may respect it)
+        const headers = new Headers();
+        if (oldResponse) {
+          const etag = oldResponse.headers.get('ETag');
+          const lastMod = oldResponse.headers.get('Last-Modified');
+          if (etag) headers.set('If-None-Match', etag);
+          if (lastMod) headers.set('If-Modified-Since', lastMod);
         }
 
-        // Network failed or bad status → use old cache
-        return oldResponse || networkResponse;
+        const networkResponse = await fetch(event.request, { headers });
+
+        const url = event.request.url;
+
+        if (networkResponse.status === 304 && oldResponse) {
+          // Not modified → safe to move old response to new cache
+          await currentCache.put(event.request, oldResponse.clone());
+          await oldCacheUsed.delete(event.request);
+          console.log('✅ Revalidated 304 - Moved from old cache:', url);
+          await cleanupAllEmptyOldCaches();
+          return oldResponse;
+        }
+
+        if (networkResponse.status === 200 && networkResponse.type === 'basic') {
+          if (!isAllowed(url)) return networkResponse;
+
+          // Newer version available → store it
+          await currentCache.put(event.request, networkResponse.clone());
+
+          // Clean up from old cache
+          if (oldResponse && oldCacheUsed) {
+            await oldCacheUsed.delete(event.request);
+          }
+
+          console.log('✅ Updated with newer version from network:', url);
+          await cleanupAllEmptyOldCaches();
+          return networkResponse;
+        }
+
+        // Other status (404, 500, etc.) → fall back to old cache
+        if (oldResponse) return oldResponse;
+        return networkResponse;
 
       } catch (err) {
-        console.error('Network failed:', err);
+        // Network failed (offline, etc.) → use old cache if we have it
+        console.error('Revalidate failed:', err);
         return oldResponse || new Response('Offline', { status: 503 });
       }
     })()
