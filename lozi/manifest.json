@@ -5,8 +5,8 @@
   "theme_color": "#664433",
   "background_color": "#664433",
   "display": "standalone",
-  "scope": "/lozi",
-  "start_url": "/lozi",
+  "scope": "/lozi/",
+  "start_url": "/lozi/",
   "icons": [
   {
     "src": "/peak32x32.png",

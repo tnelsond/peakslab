@@ -5,8 +5,8 @@
   "theme_color": "#664433",
   "background_color": "#664433",
   "display": "standalone",
-  "scope": "/khmer",
-  "start_url": "/khmer",
+  "scope": "/khmer/",
+  "start_url": "/khmer/",
   "icons": [
   {
     "src": "/peak32x32.png",

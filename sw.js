@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.4.0.6';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.0.8';   // ← Bump this on every deploy!
 
 // Map files to their content version
 // Update versions only when files actually change
@@ -29,11 +29,11 @@ const FILE_VERSIONS = {
   '/khmer/db/seacount.peak.zst': 'v1',
   '/khmer/db/sonv3.peak.zst': 'v1',
   '/khmer/db/zzz.slab.zst': 'v1',
-  '/khmer/manifest.json': 'v1',
+  '/khmer/manifest.json': 'v2',
 
   '/khmermusic/config.js': 'v1',
   '/khmermusic/': 'v1',
-  '/khmermusic/manifest.json': 'v1',
+  '/khmermusic/manifest.json': 'v2',
 
   '/lao/config.js': 'v1',
   '/lao/': 'v1',
@@ -44,12 +44,12 @@ const FILE_VERSIONS = {
   '/lao/db/laotech.peak.zst': 'v1',
   '/lao/db/lo_ulb.peak.zst': 'v1',
   '/lao/db/pat4.peak.zst': 'v1',
-  '/lao/manifest.json': 'v1',
+  '/lao/manifest.json': 'v2',
 
   '/lozi/config.js': 'v1',
   '/lozi/': 'v1',
   '/lozi/db/lozi.peak.zst': 'v1',
-  '/lozi/manifest.json': 'v1',
+  '/lozi/manifest.json': 'v2',
 
   '/english/config.js': 'v1',
   '/english/': 'v1',
@@ -59,7 +59,7 @@ const FILE_VERSIONS = {
   '/english/db/engULB.peak.zst': 'v1',
   '/english/db/opted.peak.zst': 'v1',
   '/english/db/strongs.peak.zst': 'v1',
-  '/english/manifest.json': 'v1',
+  '/english/manifest.json': 'v2',
 
   '/chitonga/config.js': 'v1',
   '/chitonga/': 'v1',
@@ -67,7 +67,7 @@ const FILE_VERSIONS = {
   '/chitonga/db/toibible.peak.zst': 'v1',
   '/chitonga/db/tother.peak.zst': 'v1',
   '/chitonga/db/tverbs.peak.zst': 'v1',
-  '/chitonga/manifest.json': 'v1',
+  '/chitonga/manifest.json': 'v2',
 };
 
 self.addEventListener('install', event => {
@@ -122,7 +122,23 @@ async function cleanupAllEmptyOldCaches() {
   }
 }
 
-// ====================== VERSION-AWARE FETCH HANDLER ======================
+function generateOfflineHtml(requestUrl) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Offline - Peakslab</title>
+      </head>
+    <body>
+         <p>The requested resource is not available offline:</p>
+          <div class="missing-url">${requestUrl}</div>
+    </body>
+    </html>
+  `;
+}
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || 
       !event.request.url.startsWith(self.location.origin)) {
@@ -160,8 +176,14 @@ self.addEventListener('fetch', event => {
             await currentCache.put(event.request, resp.clone());
           }
           return resp;
-        } catch {
-          return new Response('Offline', { status: 503 });
+        } catch (err) {
+          // Offline and no cache - show helpful offline page
+          const html = generateOfflineHtml(event.request.url);
+          return new Response(html, { 
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/html' }
+          });
         }
       }
 

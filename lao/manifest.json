@@ -5,8 +5,8 @@
   "theme_color": "#664433",
   "background_color": "#664433",
   "display": "standalone",
-  "scope": "/lao",
-  "start_url": "/lao",
+  "scope": "/lao/",
+  "start_url": "/lao/",
   "icons": [
   {
     "src": "/peak32x32.png",
