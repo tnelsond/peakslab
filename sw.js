@@ -1,13 +1,13 @@
-const CURRENT_CACHE = 'peakslab-0.4.0.8';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.0.9';   // ← Bump this on every deploy!
 
 // Map files to their content version
 // Update versions only when files actually change
 const FILE_VERSIONS = {
   './': 'v1',
-  '/app.js': 'v1',
+  '/app.js': 'v2',
   '/peak.js': 'v1',
-  '/peakworker.js': 'v1',
-  '/peak.wasm': 'v1',
+  '/peakworker.js': 'v2',
+  '/peak.wasm': 'v2',
   '/peakslab.svg': 'v1',
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',

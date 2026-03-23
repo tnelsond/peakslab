@@ -38,12 +38,9 @@ self.onmessage = async (e) => {
 		cdic = 0;
 		st = e.data.st;
 		adicts = e.data.dicts;
-		//console.log(adicts);
-		adicts.forEach((val, i) => {
-			if(val){
-				if(dicts[i] && dicts[i].module){
-					dicts[i].module._init_search(e.data.st, 1);
-				}
+		dicts.forEach((d) => { // Yes, we have to reset all the dictionaries because the results build up.
+			if(d && d.module){
+				d.module._init_search(e.data.st, 1);
 			}
 		});
 	}

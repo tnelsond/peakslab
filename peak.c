@@ -430,7 +430,6 @@ int p_getline(uint8_t *match) {
     while (l + 1 < r) {           // safer loop condition
         int m = l + (r - l) / 2;  // avoid potential overflow
         uint32_t guess = p_read_bytes(g_d, ps_h->line_idx_start, m, ps_h->bline_idx);
-
         if (guess < (uint32_t)charoff) {
             l = m;
         } else if (guess > (uint32_t)charoff) {
@@ -478,11 +477,7 @@ int p_binarysearch(){
 		guess = (uint8_t*)(g_d + ps_h->line_start + offset);
 		//size_t line_len = next_offset - offset;
 		//cmpr = sz_order(guess, psa->qlen, psa->qloc, psa->qlen);
-		if(psa->st == EXACT){
-			cmpr = ps_cmpe(guess, psa->qloc);
-		} else{
-			cmpr = ps_cmp(guess, psa->qloc);
-		}
+		cmpr = ps_cmp(guess, psa->qloc);
 //		printf("\n@ (%d-%d) %d: %.10s\n", l, r, cmpr, guess);
 		if(cmpr < 0){
 			l = m+1;
@@ -494,7 +489,13 @@ int p_binarysearch(){
 		}
 	}
 	printf("Y\n");
-	if(match == -1 && psa->st != EXACT){
+	if(psa->st == EXACT){
+		uint32_t offset = p_read_bytes(g_d, psa->idx, l, ps_h->bline_idx);
+		guess = (uint8_t*)(g_d + ps_h->line_start + offset);
+		if(!ps_cmpe(guess, psa->qloc))
+			return l;
+		return -1;
+	}else if(match == -1){
 		if(!ps_cmp_basic(guess, psa->qloc)){
 			return l;
 		}
@@ -720,6 +721,18 @@ int main(int argc, char **argv){
 			if(len > 0)
 				printf("%d %s\n", len, g_result_loc);
 		}while(len > 0 && num > 0);
+
+		printf("\n### Exact!!!\n\n");
+		init_search(EXACT, 1);
+		num = 3;
+		do{
+			--num;
+			len = get_result(0);
+			if(len > 0)
+				printf("%d %s\n", len, g_result_loc);
+		}while(len > 0 && num > 0);
+
+
 
 		printf("\n### FULL SEARCH!\n");
 

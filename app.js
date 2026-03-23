@@ -304,8 +304,8 @@ function initSearch(){
 	num = 0;
 	workers.forEach((w, i) =>{
 		let code = dict_code.filter((_, index) => index % workers.length == i);
+		w.postMessage({type: "initsearch", st: st, dicts: code});
 		if(code.includes(true)){
-			w.postMessage({type: "initsearch", st: st, dicts: code});
 			w.postMessage({type: "getresults"});
 			worker_code[i] = false;
 		}
