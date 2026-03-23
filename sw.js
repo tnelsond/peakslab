@@ -1,8 +1,8 @@
-const CURRENT_CACHE = 'peakslab-0.4.3.8';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.4.1';   // ← Bump this on every deploy!
 
 const FILE_VERSIONS = {
   '/': 'v1',
-  '/app.js': 'v3',
+  '/app.js': 'v5',
   '/peak.js': 'v2',
   '/peakworker.js': 'v3',
   '/peak.wasm': 'v2',
@@ -10,10 +10,10 @@ const FILE_VERSIONS = {
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
   '/peak512x512.png': 'v1',
-  '/style.css': 'v1',
+  '/style.css': 'v2',
 
   '/khmer/config.js': 'v1',
-  '/khmer/': 'v1',
+  '/khmer/': 'v2',
   '/khmer/db/ant.peak.zst': 'v1',
   '/khmer/db/baby.peak.zst': 'v2',
   '/khmer/db/bible.peak.zst': 'v1',
@@ -30,27 +30,27 @@ const FILE_VERSIONS = {
   '/khmer/manifest.json': 'v2',
 
   '/khmermusic/config.js': 'v1',
-  '/khmermusic/': 'v1',
+  '/khmermusic/': 'v2',
   '/khmermusic/manifest.json': 'v2',
 
-  '/lao/config.js': 'v1',
-  '/lao/': 'v1',
+  '/lao/config.js': 'v2',
+  '/lao/': 'v2',
   '/lao/db/agrilao.peak.zst': 'v1',
   '/lao/db/csea.peak.zst': 'v1',
   '/lao/db/kerr4.peak.zst': 'v1',
-  '/lao/db/laobibleword.peak.zst': 'v1',
+  '/lao/db/laobibleword.peak.zst': 'v2',
   '/lao/db/laotech.peak.zst': 'v1',
   '/lao/db/lo_ulb.peak.zst': 'v1',
   '/lao/db/pat4.peak.zst': 'v1',
   '/lao/manifest.json': 'v2',
 
   '/lozi/config.js': 'v1',
-  '/lozi/': 'v1',
+  '/lozi/': 'v2',
   '/lozi/db/lozi.peak.zst': 'v1',
   '/lozi/manifest.json': 'v2',
 
   '/english/config.js': 'v1',
-  '/english/': 'v1',
+  '/english/': 'v2',
   '/english/db/bibleworden.peak.zst': 'v3',
   '/english/db/eng-bsb.peak.zst': 'v1',
   '/english/db/eng-kjv.peak.zst': 'v1',
@@ -60,7 +60,7 @@ const FILE_VERSIONS = {
   '/english/manifest.json': 'v2',
 
   '/chitonga/config.js': 'v1',
-  '/chitonga/': 'v1',
+  '/chitonga/': 'v2',
   '/chitonga/db/tnouns.peak.zst': 'v1',
   '/chitonga/db/toibible.peak.zst': 'v1',
   '/chitonga/db/tother.peak.zst': 'v1',

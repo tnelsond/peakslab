@@ -135,7 +135,8 @@ workers.forEach((w) => {
 					place.appendChild(div); 
 				}
 				if(e.data.dest == "popup"){
-					popupOverlay.style.display = 'block';
+					popupOpen();
+					document.addEventListener('click', closePopupClick); 
 				}
 			}
 			++num;
@@ -268,11 +269,22 @@ function openPopupSearch(text){
 		w.postMessage({type: "tempsearch", st: 1, query: updateQuery(text), dest: "popup", dicts: code});
 	});
 }
-
-popupClose.addEventListener('click', () => {
+function popupOpen(){
+	popupOverlay.style.display = 'block';
+  document.body.classList.add('no-scroll');
+}
+function closePopupClick(e){
+  if (!e.target.closest('#popupContent')) { 
+		document.removeEventListener('click', closePopupClick);
+		closePopup();
+  }
+}
+function closePopup(){
 	cleanup(popupResults);
 	popupOverlay.style.display = 'none';
-});
+  document.body.classList.remove('no-scroll');
+}
+popupClose.addEventListener('click', closePopup);
 
 function nextst(){
 	if(st < 2)
