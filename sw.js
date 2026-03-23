@@ -1,7 +1,5 @@
-const CURRENT_CACHE = 'peakslab-0.4.1.0';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.1.2';   // ← Bump this on every deploy!
 
-// Map files to their content version
-// Update versions only when files actually change
 const FILE_VERSIONS = {
   './': 'v1',
   '/app.js': 'v3',
@@ -70,8 +68,27 @@ const FILE_VERSIONS = {
   '/chitonga/manifest.json': 'v2',
 };
 
+function createVersionsResponse() {
+  const json = JSON.stringify(FILE_VERSIONS, null, 2);
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',   // optional: prevent extra caching confusion
+  });
+  return new Response(json, { status: 200, statusText: 'OK', headers });
+}
+
 self.addEventListener('install', event => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    (async () => {
+      // Wait for the new cache to open
+      const cache = await caches.open(CURRENT_CACHE);
+
+      // Generate and put versions.json into the new cache
+      await cache.put('/versions.json', createVersionsResponse());
+			await self.skipWaiting();
+      console.log(`[install] Generated /versions.json in cache ${CURRENT_CACHE}`);
+    })()
+  );
 });
 
 async function sendCacheVersion() {
