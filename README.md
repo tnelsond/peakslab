@@ -54,6 +54,8 @@ These peak files can then be compressed using zstdandard compression which is ve
 - System TTS integration
 - Narrow and wide search
 - Offline
+- Selection Menu
+- Image and Audio support
 
 ## Todo
 - make an online editor
@@ -64,11 +66,12 @@ These peak files can then be compressed using zstdandard compression which is ve
 - Sheet music (ABC files)
 - Cite sources
 - <strike>Rework databases</strike>
+- Rewrite the AI's service worker.
 - <strike>Make it more modular to make porting languages and data easier.</strike>
 - <strike>Rewrite the AI's rust code in C</strike>
 - Bundle zstd compressor with peakgen.
 - Make an online peakgen.
-- Fix strcmp bugs.
+- <strike>Fix strcmp bugs.</strike>
 - Fix context menu.
 - Make it so that files to be included in the slab file can have a metadata file so that there can be  attribution or alttext attached to the file.
 - Make the combiner combine the entries with the same headword in order
