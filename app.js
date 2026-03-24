@@ -120,7 +120,7 @@ workers.forEach((w) => {
 					div.innerHTML += `${e.data.filename}<br> filetype not supported`;
 				}
 			}else{
-				const regex = new RegExp(escapeRegExp(query), 'gi'); // 'g' for global, 'i' for case-insensitive
+				const regex = new RegExp(escapeRegExp(e.data.query), 'gi'); // 'g' for global, 'i' for case-insensitive
 				if(mark){
 					div.innerHTML += `${e.data.body.replace(regex, match => `<mark>${match}</mark>`)}`;
 				} else{
