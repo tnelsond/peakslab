@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.4.4.8';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.4.9';   // ← Bump this on every deploy!
 
 const FILE_VERSIONS = {
   '/': 'v1',
@@ -68,11 +68,19 @@ const FILE_VERSIONS = {
   '/chitonga/manifest.json': 'v2',
 };
 
+const isVersionedFile = (url) => {
+  const path = new URL(url).pathname.replace(/\/$/, '') || '/';
+  return FILE_VERSIONS[path] !== undefined;
+};
+
+const getFileVersion = (url) => {
+  const path = new URL(url).pathname.replace(/\/$/, '') || '/';
+  return FILE_VERSIONS[path];
+};
+
 async function sendCacheVersion() {
   const clients = await self.clients.matchAll();
-  clients.forEach(client => {
-    client.postMessage({ type: 'version', version: CURRENT_CACHE });
-  });
+  clients.forEach(client => client.postMessage({ type: 'version', version: CURRENT_CACHE }));
 }
 
 self.addEventListener('message', event => {
@@ -81,181 +89,158 @@ self.addEventListener('message', event => {
   }
 });
 
-function getFileVersion(url) {
-  const path = new URL(url).pathname.replace(/\/$/, '') || '/';
-  return FILE_VERSIONS[path] || FILE_VERSIONS[path + '/'];
-}
-
-function isVersionedFile(url) {
-  return getFileVersion(url) !== undefined;
-}
-
-async function getOldCacheNames() {
-  const names = await caches.keys();
-  return names.filter(name => name !== CURRENT_CACHE);
-}
-
-async function cleanupEmptyOldCaches() {
-  const oldNames = await getOldCacheNames();
-  for (const name of oldNames) {
-    const cache = await caches.open(name);
-    if ((await cache.keys()).length === 0) {
-      await caches.delete(name);
-      console.log('🗑️ Deleted empty old cache:', name);
-    }
-  }
-}
-
-async function migrateAndCleanCaches() {
-  const currentCache = await caches.open(CURRENT_CACHE);
-  const oldNames = await getOldCacheNames();
-
-  for (const oldName of oldNames) {
-    const oldCache = await caches.open(oldName);
-    const requests = await oldCache.keys();
-
-    for (const req of requests) {
-      const res = await oldCache.match(req);
-      if (!res) continue;
-
-      const url = req.url;
-
-      if (!isVersionedFile(url)) {
-        await oldCache.delete(req);
-        continue;
-      }
-
-      const expected = getFileVersion(url);
-      const stored = res.headers.get('X-File-Version') || null;
-
-      if (stored === expected) {
-        // Safe: clone once → put clone → original can still be used if needed elsewhere
-        await currentCache.put(req, res.clone());
-        await oldCache.delete(req);
-      }
-      // outdated → keep in old for fallback
-    }
-  }
-
-  // Clean stale in current
-  const currReqs = await currentCache.keys();
-  for (const req of currReqs) {
-    const res = await currentCache.match(req);
-    if (!res) continue;
-    const url = req.url;
-    if (!isVersionedFile(url)) continue;
-    const expected = getFileVersion(url);
-    const actual = res.headers.get('X-File-Version') || null;
-    if (actual !== expected) {
-      await currentCache.delete(req);
-    }
-  }
-
-  await cleanupEmptyOldCaches();
-}
-
 self.addEventListener('install', event => {
   event.waitUntil(
-    migrateAndCleanCaches().then(() => self.skipWaiting())
+    (async () => {
+      const currentCache = await caches.open(CURRENT_CACHE);
+      const oldCacheNames = (await caches.keys()).filter(name => name !== CURRENT_CACHE);
+
+      for (const oldName of oldCacheNames) {
+        const oldCache = await caches.open(oldName);
+        const requests = await oldCache.keys();
+
+        for (const req of requests) {
+          const cachedResp = await oldCache.match(req);
+          if (!cachedResp) continue;
+
+          const url = req.url;
+          if (!isVersionedFile(url)) {
+            await oldCache.delete(req);
+            continue;
+          }
+
+          const expectedVer = getFileVersion(url);
+          const storedVer = cachedResp.headers.get('X-File-Version');
+
+          if (storedVer === expectedVer) {
+            // Safe migration
+            await currentCache.put(req, cachedResp.clone());
+            await oldCache.delete(req);
+          }
+          // else: outdated → leave in old cache for fallback
+        }
+      }
+
+      await self.skipWaiting();
+      sendCacheVersion(); // notify clients early
+    })()
   );
 });
 
+// ─────────────────────────────────────────────────────────────
+// Activate: claim clients + clean empty old caches
+// ─────────────────────────────────────────────────────────────
 self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await self.clients.claim();
+
+      // Clean up truly empty old caches
+      const oldNames = (await caches.keys()).filter(name => name !== CURRENT_CACHE);
+      for (const name of oldNames) {
+        const cache = await caches.open(name);
+        if ((await cache.keys()).length === 0) {
+          await caches.delete(name);
+        }
+      }
+    })()
+  );
 });
 
-function generateOfflinePage(url) {
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Offline</title></head>
-<body style="font-family:sans-serif;text-align:center;padding:2rem;">
-<h2>Offline</h2><p>Resource not available offline:</p><code>${url}</code>
-</body></html>`;
-}
-
+// ─────────────────────────────────────────────────────────────
+// Fetch: Cache-first with smart background update for versioned files
+// ─────────────────────────────────────────────────────────────
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
-    event.respondWith(fetch(event.request));
-    return;
+    return; // let browser handle non-GET or cross-origin
   }
 
-  event.respondWith((async () => {
-    const cache = await caches.open(CURRENT_CACHE);
-    const cached = await cache.match(event.request);
-    if (cached) return cached;
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(CURRENT_CACHE);
+      let response = await cache.match(event.request);
 
-    // Try old caches
-    let oldResp = null;
-    let oldCacheName = null;
-    const oldNames = await getOldCacheNames();
-
-    for (const name of oldNames) {
-      const oldC = await caches.open(name);
-      const r = await oldC.match(event.request);
-      if (r) {
-        oldResp = r;
-        oldCacheName = name;
-        break;
+      if (response) {
+        // We have a good cached version → serve it immediately
+        return response;
       }
-    }
 
-    if (!oldResp) {
-      // Pure network path
-      try {
-        const netResp = await fetch(event.request, {cache: 'reload'});
-        if (netResp.ok && netResp.type === 'basic') {
-          const clone = netResp.clone();
-          if (isVersionedFile(event.request.url)) {
-            const ver = getFileVersion(event.request.url);
-            const h = new Headers(netResp.headers);
-            h.set('X-File-Version', ver);
-            cache.put(event.request, new Response(clone.body, { status: netResp.status, statusText: netResp.statusText, headers: h }));
-          } else {
-            cache.put(event.request, clone);
-          }
-        }
-        return netResp;
-      } catch {
-        return new Response(generateOfflinePage(event.request.url), { status: 503, headers: { 'Content-Type': 'text/html' } });
+      // No current cache → check old caches (rare after first migration)
+      const oldNames = (await caches.keys()).filter(name => name !== CURRENT_CACHE);
+      for (const oldName of oldNames) {
+        const oldCache = await caches.open(oldName);
+        response = await oldCache.match(event.request);
+        if (response) break;
       }
-    }
 
-    // We have old response → serve it immediately (fast + offline safe)
-    const url = event.request.url;
-    const versioned = isVersionedFile(url);
-    const currentVer = getFileVersion(url);
-    const oldVer = oldResp.headers.get('X-File-Version') || null;
-
-    if (versioned && oldVer === currentVer) {
-      // Move forward safely
-      cache.put(event.request, oldResp.clone());
-      const oldC = await caches.open(oldCacheName);
-      oldC.delete(event.request);
-      cleanupEmptyOldCaches();
-    } else if (versioned && oldVer !== currentVer) {
-      // Serve old → update in background
-      (async () => {
+      if (!response) {
+        // Pure network fallback
         try {
-          const net = await fetch(event.request, {cache: 'reload'});
-          if (!net.ok || net.type !== 'basic') return;
-          const clone = net.clone();
-          const h = new Headers(net.headers);
-          h.set('X-File-Version', currentVer);
-          cache.put(event.request, new Response(clone.body, { status: net.status, statusText: net.statusText, headers: h }));
-          const oldC = await caches.open(oldCacheName);
-          oldC.delete(event.request);
-          cleanupEmptyOldCaches();
-        } catch {} // silent
-      })();
-    } else {
-      // Non-versioned in old → just move
-      cache.put(event.request, oldResp.clone());
-      const oldC = await caches.open(oldCacheName);
-      oldC.delete(event.request);
-    }
+          const netResponse = await fetch(event.request, { cache: 'reload' });
 
-    return oldResp;  // ← always return the old one first → no lock issue
+          if (netResponse.ok && netResponse.type === 'basic') {
+            const clone = netResponse.clone();
+            if (isVersionedFile(event.request.url)) {
+              const headers = new Headers(netResponse.headers);
+              headers.set('X-File-Version', getFileVersion(event.request.url));
+              cache.put(event.request, new Response(clone.body, {
+                status: netResponse.status,
+                statusText: netResponse.statusText,
+                headers
+              }));
+            } else {
+              cache.put(event.request, clone);
+            }
+          }
+          return netResponse;
+        } catch (err) {
+          // Offline
+          return new Response(
+            `<h2>Offline</h2><p>Resource not available: ${event.request.url}</p>`,
+            { status: 503, headers: { 'Content-Type': 'text/html' } }
+          );
+        }
+      }
 
-  })());
+      // We have an old response → serve it now, update in background if versioned
+      const url = event.request.url;
+      if (isVersionedFile(url)) {
+        const currentVer = getFileVersion(url);
+        const oldVer = response.headers.get('X-File-Version');
+
+        if (oldVer !== currentVer) {
+          // Background update (fire-and-forget)
+          (async () => {
+            try {
+              const net = await fetch(event.request, { cache: 'reload' });
+              if (!net.ok || net.type !== 'basic') return;
+
+              const clone = net.clone();
+              const headers = new Headers(net.headers);
+              headers.set('X-File-Version', currentVer);
+
+              await cache.put(event.request, new Response(clone.body, {
+                status: net.status,
+                statusText: net.statusText,
+                headers
+              }));
+
+              // Clean up old cache entry
+              const oldCache = await caches.open(oldNames[0]); // usually only one old cache left
+              await oldCache.delete(event.request);
+            } catch (e) { /* silent */ }
+          })();
+        } else {
+          // Same version → move to current cache
+          await cache.put(event.request, response.clone());
+          // Optional: delete from old cache
+        }
+      } else {
+        // Non-versioned → just promote to current cache
+        await cache.put(event.request, response.clone());
+      }
+
+      return response; // serve the (old) response immediately
+    })()
+  );
 });
