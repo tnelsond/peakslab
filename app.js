@@ -115,7 +115,7 @@ workers.forEach((w) => {
 				}else if (e.data.filename.toLowerCase().endsWith('.webm')) {
 					const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
 					const url = URL.createObjectURL(blob);
-					div.innerHTML += `<audio controls><source src="${url}" alt="${e.data.filename}"></audio>`;
+					div.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.filename}"></audio>`;
 				}else{
 					div.innerHTML += `${e.data.filename}<br> filetype not supported`;
 				}
@@ -684,3 +684,4 @@ if ('speechSynthesis' in window) {
     speechSynthesis.getVoices();           // trigger loading
     speechSynthesis.addEventListener('voiceschanged', loadVoices);
 }
+document.body.appendChild(document.createTextNode("v10.0"));
