@@ -18,7 +18,7 @@ const tablayout = [
 
 const scope = '/lao/';
 const lang = [
-	{name: "Lao", val: 'lo-LA'},
-	{name: "English", val: 'en-US'}
+	{name: "Lao", val: 'lo_LA'},
+	{name: "English", val: 'en_US'}
 ];
 const appname = 'lao';

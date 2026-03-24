@@ -271,6 +271,7 @@ function openPopupSearch(text){
 }
 function popupOpen(){
 	popupOverlay.style.display = 'block';
+	popupOverlay.scrollTop = 0;
   document.body.classList.add('no-scroll');
 }
 function closePopupClick(e){
@@ -547,101 +548,81 @@ document.getElementById('settingsModal')?.addEventListener('click', e => {
     }
 });
 
-const selectionMenu = document.createElement('div');
-selectionMenu.className = 'selection-menu';
-document.body.appendChild(selectionMenu);
-
-function hideSelectionMenu() {
-    selectionMenu.style.display = 'none';
-}
-
-function showSelectionMenu() {
-    const selection = window.getSelection();
-    const text = selection.toString().trim();
-    if (!text || selection.rangeCount === 0) {
-        hideSelectionMenu();
-        return;
-    }
-
-    selectionMenu.innerHTML = `<button data-action="copy">Copy</button><button data-action="search-current">🔍 Search</button><button data-action="search-popup">🔍 Popup</button>`;
-    lang.forEach((x) => {
-        selectionMenu.innerHTML += `<button data-action="speak-${x.val}">🔊 ${x.name}</button>`;
+let selMenu = document.createElement('div');
+function createSelMenu(){
+	selMenu.remove();
+	selMenu = document.createElement('div')
+	document.body.appendChild(selMenu);
+	selMenu.className = 'selection-menu';
+  selMenu.innerHTML = `<button data-action="search-current">🔍Search</button><button data-action="search-popup">🔍Popup</button>
+  `;
+  if (typeof lang !== "undefined") {
+    lang.forEach(x => {
+      if(speechSynthesis.getVoices().some(voice => voice.lang.startsWith(x.val.split('-')[0])))
+				selMenu.innerHTML += `<button data-action="speak-${x.val}">🔊 ${x.name}</button>`;
     });
-
-    selectionMenu.style.display = 'block';
-
-    // Position above the selected text (or below if needed)
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const menuWidth = selectionMenu.offsetWidth;
-    const menuHeight = selectionMenu.offsetHeight;
-
-    let left = rect.left + (rect.width / 2) - (menuWidth / 2);
-    let top = rect.top - menuHeight - 10 + window.scrollY;
-
-    // Keep menu inside viewport
-    left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
-    if (top < 10) top = rect.bottom + 10 + window.scrollY;
-
-    selectionMenu.style.left = `${left}px`;
-    selectionMenu.style.top = `${top}px`;
-}
-
-// Button clicks (works even after innerHTML is rebuilt)
-selectionMenu.addEventListener('click', (ev) => {
-    if (ev.target.tagName !== 'BUTTON') return;
-    const action = ev.target.dataset.action;
-    const selText = window.getSelection().toString().trim();
-    if (!selText) return;
-
-    if (action.startsWith('speak')) {
-        const langCode = action.replace("speak-", "");
-        const utterance = new SpeechSynthesisUtterance(selText);
-        utterance.lang = langCode;
-        speechSynthesis.speak(utterance);
-    } else if (action === 'search-current') {
-        document.getElementById('queryInput').value = selText;
-        startSearch();
-    } else if (action === 'search-popup') {
-        openPopupSearch(selText);
-    } else if(action == 'copy'){
-			navigator.clipboard.writeText(selText);
+  }
+	selMenu.addEventListener('click', function(e) {
+		const text = selText;
+		if (e.target.tagName === 'BUTTON') {
+			const action = event.target.dataset.action;
+			if (action.startsWith('speak-')) {
+				const u = new SpeechSynthesisUtterance(text);
+				u.lang = action.replace('speak-', '');
+				speechSynthesis.speak(u);
+			}else if (action === 'search-current') {
+				document.getElementById('queryInput').value = text;
+				startSearch();
+			} else if (action === 'search-popup') {
+				openPopupSearch(text);
+			}
+			hideSelMenu();
+			window.getSelection().removeAllRanges();
 		}
-    window.getSelection().removeAllRanges();
-    hideSelectionMenu();
-});
-
-// Show/hide triggers
-let selectionTimer = null;
-
-function checkAndShowSelection() {
-    const text = window.getSelection().toString().trim();
-    if (text) {
-        showSelectionMenu();
-    } else {
-        hideSelectionMenu();
-    }
+	});
 }
+createSelMenu();
 
-document.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    clearTimeout(selectionTimer);
-    selectionTimer = setTimeout(checkAndShowSelection, 30);
+function getSelRect(){
+	const sel = window.getSelection();
+	if(sel.rangeCount === 0 || sel.isCollapsed) return null;
+	return sel.getRangeAt(0).getBoundingClientRect();
+}
+let selText = "";
+function showSelMenu() {
+	const rect = getSelRect();
+	if(!rect) return;
+
+	selText = window.getSelection().toString().trim();
+
+  //let left = rect.left + (rect.width / 2) - 100;
+	let left = 20;
+  let top = rect.top - 140 + window.scrollY;
+  //left = Math.max(12, Math.min(left, window.innerWidth - 220));
+  if (top < 80) top = rect.bottom + 20 + window.scrollY;
+
+  selMenu.style.left = `${left}px`;
+  selMenu.style.top = `${top}px`;
+  selMenu.style.display = 'block';
+}
+function hideSelMenu(){
+	selMenu.style.display = 'none';
+}
+function handleSelEnd(){
+	setTimeout(() =>{
+		if(window.getSelection().toString())
+			showSelMenu();
+		else
+			hideSelMenu();
+	}, 30);
+}
+document.addEventListener('mouseup', handleSelEnd);
+document.addEventListener('touchend', handleSelEnd);
+document.addEventListener('selectionchange', handleSelEnd);
+document.addEventListener('click', (e) =>{
+	if(!selMenu.contains(e.target)) hideSelMenu();
 });
 
-document.addEventListener('selectionchange', () => {
-    if (window.getSelection().toString().trim() === '') {
-        hideSelectionMenu();
-    }
-});
-
-document.addEventListener('click', (e) => {
-    if (selectionMenu.style.display !== 'none' && !selectionMenu.contains(e.target)) {
-        hideSelectionMenu();
-    }
-});
-
-// END CONTEXT MENU
 
 let deferredPrompt;
 function isIOS() {
@@ -688,3 +669,18 @@ class PaElement extends HTMLElement {
 		}
 }
 customElements.define('p-a', PaElement);
+
+// Preload voices so the check is more accurate
+if ('speechSynthesis' in window) {
+    let voicesLoaded = false;
+
+    const loadVoices = () => {
+        if (!voicesLoaded) {
+            voicesLoaded = true;
+            // Recreate menu once voices are available for better accuracy
+            createSelMenu();
+        }
+    };
+    speechSynthesis.getVoices();           // trigger loading
+    speechSynthesis.addEventListener('voiceschanged', loadVoices);
+}

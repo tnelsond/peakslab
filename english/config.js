@@ -12,6 +12,6 @@ const tablayout = [
 
 const scope = '/english/';
 const lang = [
-	{name: "English", val: 'en-US'}
+	{name: "English", val: 'en_US'}
 ];
 const appname = 'en';

@@ -397,34 +397,28 @@ mark {
 }
 
 .selection-menu {
-		user-select: none; /* For most browsers */
-		-webkit-user-select: none; /* For Safari */
-		-moz-user-select: none; /* For Firefox */
+	border-radius: 8px;
+	box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+	border: 2px solid #642;
 	position: absolute;
-	background: none;
+	background: var(--tab-bg);
 	z-index: 5000;
 	display: none;
 	height: 40px;
+	user-select: none; /* For most browsers */
+	-webkit-user-select: none; /* For Safari */
+	-moz-user-select: none; /* For Firefox */
 }
 .selection-menu button{
 		height: 100%;
 		padding: 10px;
 		margin: 0px;
-		border: 2px solid #642;
-		border-left: none;
-		border-right: none;
-		background: var(--tab-bg);
+		border: none;
+		background: none;
 		opacity: 90%;
     color: var(--card-text);
     cursor: pointer;
     color: var(--header-text);
-}
-
-.selection-menu button :first-child{
-	border-left: 2px solid #642;
-}
-.selection-menu button :last-child{
-	border-right: 2px solid #642;
 }
 
 .context-menu {
@@ -454,9 +448,10 @@ mark {
     background: rgba(139,172,15,0.2);
 }
 
+
 p-d {
-	display: block;
-        background-color: white;
+		display: block;
+		background-color: white;
     background: var(--result-entry-bg);
     padding: 18px;
     margin: 16px 0;
@@ -465,6 +460,9 @@ p-d {
     font-size: var(--font-size);
     border-radius: 12px;
     border-left: 4px solid var(--accent-color);
+		-webkit-user-select: text !important;
+		user-select: text !important;
+		-webkit-touch-callout: none !important;
 }
 
 p-des{

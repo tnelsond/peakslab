@@ -27,7 +27,7 @@ const tablayout = [
 
 const scope = '/khmer/';
 const lang = [
-	{name: "Khmer", val: 'kh-KM'},
-	{name: "English", val: 'en-US'}
+	{name: "Khmer", val: 'km_KH'},
+	{name: "English", val: 'en_US'}
 ];
 const appname = 'kh';
