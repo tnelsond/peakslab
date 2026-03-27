@@ -107,17 +107,17 @@ workers.forEach((w) => {
 				div.innerHTML += `<h2>${e.data.header}</h2>`;
 			else
 				div.innerHTML += `<hr>`;
-			if(e.data.filename){
-				if (e.data.filename.toLowerCase().endsWith('.webp')) {
+			if(e.data.filetype){
+				if (e.data.filetype.toLowerCase().includes('webp')) {
 					const blob = new Blob([e.data.body], { type: 'image/webp' });
 					const url = URL.createObjectURL(blob);
-					div.innerHTML += `<img src="${url}" alt="${e.data.filename}" style="max-width:100%;">`;
-				}else if (e.data.filename.toLowerCase().endsWith('.webm')) {
+					div.innerHTML += `<img src="${url}" alt="${e.data.header}.${e.data.filetype}" style="max-width:100%;">`;
+				}else if (e.data.filetype.toLowerCase().includes('webm')) {
 					const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
 					const url = URL.createObjectURL(blob);
-					div.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.filename}"></audio>`;
+					div.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.header}.${e.data.filetype}"></audio>`;
 				}else{
-					div.innerHTML += `${e.data.filename}<br> filetype not supported`;
+					div.innerHTML += `${e.data.filetype}<br> filetype not supported`;
 				}
 			}else{
 				const regex = new RegExp(escapeRegExp(e.data.query), 'gi'); // 'g' for global, 'i' for case-insensitive
@@ -581,7 +581,7 @@ function createSelMenu(){
 		}
 	});
 }
-createSelMenu();
+//createSelMenu();
 
 function getSelRect(){
 	const sel = window.getSelection();

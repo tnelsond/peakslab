@@ -22,11 +22,6 @@ typedef struct {
 } VecChar;
 
 typedef struct {
-    uint32_t len, max;
-    VecChar *line;
-} VecStr;
-
-typedef struct {
 	uint32_t stroff;
 	uint32_t tagstart;
 	uint32_t taglen;
@@ -34,6 +29,7 @@ typedef struct {
 	uint32_t idx2len;
 	uint32_t idx3start;
 	uint32_t idx3len;
+	uint32_t sfileoff;
 } Peakline;
 
 typedef struct {
@@ -77,24 +73,6 @@ static void vec_peakline_expand(VecPeakline *v){
     }
 		v->len++;
 }
-
-
-static void vec_str_startnew(VecStr *v) {
-    if (v->len >= v->max) {
-        v->max = v->max ? v->max * 2 : 256;
-        v->line = realloc(v->line, v->max * sizeof(VecChar));
-        if (!v->line) exit(1);
-    }
-		v->line[v->len].max = 0;
-		v->line[v->len].len = 0;
-		v->line[v->len].data = NULL;
-		v->len++;
-}
-
-static void vec_str_pushc(VecStr *v, char c){
-	vec_char_push(&v->line[v->len-1], c);
-}
-
 
 /*
 static void vec_char_append(VecChar *v, const char *s) {
@@ -155,6 +133,7 @@ static int ps_cmp(const void *a, const void *b){
 
 VecChar textflat = {0, 0, NULL}; // Global so we can lazily use it in qsort
 VecChar textflat2 = {0, 0, NULL}; // Global so we can lazily use it in qsort
+VecChar textflat3 = {0, 0, NULL}; // Global so we can lazily use it in qsort
 
 static int idx_cmp(const void *pa, const void *pb){
 	uint32_t a = *(uint32_t*)pa;
@@ -162,7 +141,7 @@ static int idx_cmp(const void *pa, const void *pb){
 	//int alen = strlen(a->data);
 	//int blen = strlen(b->data);
 	//return sz_order(a->data, alen, b->data, blen);
-	return ps_cmp(&textflat.data[a], &textflat.data[b]);
+	return ps_cmp(&textflat3.data[a], &textflat3.data[b]);
 }
 
 static int vec_char_cmp(const void *pa, const void *pb){
@@ -196,135 +175,77 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-		VecStr files = {0, 0, NULL};
+		VecU32 tagdef_idx = {0, 0, NULL};
+		VecChar tagdef = {0, 0, NULL};
+		vec_char_push(&tagdef, '\0');
+		vec_u32_push(&tagdef_idx, 0); // NOP 
+		vec_u32_push(&tagdef_idx, 0); // CAPITAL_SINGLE
+		vec_u32_push(&tagdef_idx, 0); // CAPITAL_RUN_START
+		vec_u32_push(&tagdef_idx, 0); // CAPITAL_RUN_END
 
-    // ──────────────── DIRECTORY ────────────────
-    if (S_ISDIR(st.st_mode)) {
-        //printf("Files found:\n");
+		// ZWS Stuff
+		vec_u32_push(&tagdef_idx, tagdef.len); // ZWS
+		vec_char_push(&tagdef, 0xe2);
+		vec_char_push(&tagdef, 0x80);
+		vec_char_push(&tagdef, 0x8b);
+		vec_char_push(&tagdef, 0);
 
-        DIR *dir = opendir(path);
-        if (!dir) {
-            perror("opendir failed");
-            return 1;
-        }
+		vec_u32_push(&tagdef_idx, tagdef.len); // Normal Space 
+		vec_char_push(&tagdef, ' ');
+		vec_char_push(&tagdef, 0);
 
-        struct dirent *entry;
+		VecU32 tag_idx = {0, 0, NULL};
+		VecU32 tag = {0, 0, NULL};
+		VecU32 tag2 = {0, 0, NULL};
 
-        while ((entry = readdir(dir)) != NULL) {
-            // Skip . and ..
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-                continue;
+		const int BUF_LEN = 1024;
+		char buf[BUF_LEN]; // For slab
+		int path_prefix_len = 0;
 
-						vec_str_startnew(&files);
-						for(char *c = entry->d_name; *c; ++c){
-							vec_str_pushc(&files, *c);
-						}
-						vec_str_pushc(&files, '\0');
-            //printf("  %s\n", entry->d_name);
-        }
+		int isslab = S_ISDIR(st.st_mode);
+    if (isslab) {
+			//printf("Files found:\n");
+			DIR *dir = opendir(path);
+			if (!dir) {
+					perror("opendir failed");
+					return 1;
+			}
 
-        closedir(dir);
+			struct dirent *entry;
 
-				qsort(files.line, files.len, sizeof(files.line[0]), vec_char_cmp);
-				//qsort(text.line, text.len, sizeof(text.line[0]), vec_char_cmp);
+			while ((entry = readdir(dir)) != NULL) {
+					// Skip . and ..
+					if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+							continue;
 
-				VecChar bin = {0, 0, NULL};
-				VecU32 bin_idx = {0, 0, NULL};
-				vec_u32_push(&bin_idx, bin.len);
-				const int BUF_LEN = 512;
-				char buf[BUF_LEN];
-				int i;
-				for(i=0; path[i]; ++i){
-					buf[i] = path[i];
-				}
-				const int path_prefix_len = i;
-
-				for(i=0; i<files.len; ++i){
-					int j;
-					for(j = 0; files.line[i].data[j]; ++j){
-						buf[path_prefix_len + j] = files.line[i].data[j];
-						vec_char_push(&bin, files.line[i].data[j]);
+					//vec_str_startnew(&files);
+					char *c;
+					for(c = entry->d_name; *c; ++c){
+						vec_char_push(&textflat, *c);
+						//vec_str_pushc(&files, *c);
 					}
-					buf[path_prefix_len + j] = '\0';
-					vec_char_push(&bin, '\t');
-					//printf("%s\n", buf);
-					FILE *f = fopen(buf, "rb");
-					if(f){
-						int c;
-						while((c = fgetc(f)) != EOF){
-							vec_char_push(&bin, c);
-						}
-						vec_u32_push(&bin_idx, bin.len);
-						fclose(f);
-					}
-				}
-	
-				//	binarybyte; magicnum; magicstr;
-				//	version; features; btagdef_idx;
-				//	btag_idx; btag1; btag2; bline_idx;
-				//	tagdef_idx_start; tagdef_idx_len;
-				//  tagdef_start; tagdef_len; 
-				//  tag_idx_start; tag_idx_len;
-				//  tag_start; tag_len; 
-				//	line_idx_start; line_idx_len;
-				//	line_start; line_len;
-				//	idx2_start; idx2_len;
-				//	idx3_start; idx3_len;
-				struct peakslab h = {0, {0xF2, 0xFC, 0xF3}, {'P', 'e', 'a', 'k'},
-					0x2, SLAB, 0,
-					0, 0, 0, bin.len > 0xFFFF ? 4 : 2,
-					0, 0,
-					0, 0,
-					0, 0,
-					0, 0,
-					sizeof(struct peakslab), bin_idx.len,
-					0, bin.len,
-					0, 0,
-					0, 0
-				};
+					vec_char_push(&textflat, *c); // '\0'
+					//vec_str_pushc(&files, '\0');
+					//printf("  %s\n", entry->d_name);
+			}
 
-				h.line_start = h.line_idx_start + h.line_idx_len * h.bline_idx;
+			closedir(dir);
 
-				FILE *out = fopen(argv[2], "wb");
-				fwrite(&h, sizeof(struct peakslab), 1, out);
+			//qsort(files.line, files.len, sizeof(files.line[0]), vec_char_cmp);
+			//qsort(text.line, text.len, sizeof(text.line[0]), vec_char_cmp);
+
+			int i;
+			for(i=0; path[i]; ++i){
+				buf[i] = path[i];
+			}
+			path_prefix_len = i;
+		}
 			
-				for(int i=0; i<bin_idx.len; ++i){
-					fwrite(&bin_idx.items[i], h.bline_idx, 1, out);
-				}
-				fwrite(bin.data, 1, bin.len, out);
 
-        return 0;
-    }
-    else if (S_ISREG(st.st_mode)) {
-
+    if (S_ISREG(st.st_mode)) {
 			FILE *f = fopen(argv[1], "r");
 			if (!f) { perror("open input"); return 1; }
-
-			VecU32 tagdef_idx = {0, 0, NULL};
-			VecChar tagdef = {0, 0, NULL};
-			vec_char_push(&tagdef, '\0');
-			vec_u32_push(&tagdef_idx, 0); // NOP 
-			vec_u32_push(&tagdef_idx, 0); // CAPITAL_SINGLE
-			vec_u32_push(&tagdef_idx, 0); // CAPITAL_RUN_START
-			vec_u32_push(&tagdef_idx, 0); // CAPITAL_RUN_END
-
-			// ZWS Stuff
-			vec_u32_push(&tagdef_idx, tagdef.len); // ZWS
-			vec_char_push(&tagdef, 0xe2);
-			vec_char_push(&tagdef, 0x80);
-			vec_char_push(&tagdef, 0x8b);
-			vec_char_push(&tagdef, 0);
-
-			vec_u32_push(&tagdef_idx, tagdef.len); // Normal Space 
-			vec_char_push(&tagdef, ' ');
-			vec_char_push(&tagdef, 0);
-
-			VecStr text = {0, 0, NULL};
-			vec_str_startnew(&text);
-
-			VecU32 tag_idx = {0, 0, NULL};
-			VecU32 tag = {0, 0, NULL};
-			VecU32 tag2 = {0, 0, NULL};
+			
 		
 			int c;
 			while((c = fgetc(f)) != EOF){
@@ -336,360 +257,383 @@ int main(int argc, char **argv) {
 			}
 
 			fclose(f);
-
-			puts(textflat.data);
-
-			/*for(int i = 0; i < text.len; ++i){
-				puts(text.line[i].data);
-			}*/
-
-			VecPeakline peaklines = {0, 0, NULL};
-			VecU32 line_idx = {0, 0, NULL};
-			VecU32 idx2 = {0, 0, NULL};
-			VecU32 idx3 = {0, 0, NULL};
-
-			uint32_t taggap = 0;
-			int upper = 0;
-			int pupper = 0;
-			int upper_idx = 0;
-			int inside = 0;
-			//printf("\n");
-			vec_peakline_expand(&peaklines);
-			Peakline *p = peaklines.line;
-			p->stroff = 0;
-			p->tagstart = 0;
-			p->idx2start = 0;
-			p->idx3start = 0;
-			for(int a = 0; a < textflat.len; ++a){
-				//vec_u32_push(&line_idx, textflat.len);
-				//vec_u32_push(&tag_idx, tag.len/2);
-				uint8_t c = textflat.data[a];
-				if(!c){
-					vec_char_push(&textflat2, c);
-					//printf("##: %s\n", textflat2.data + p->stroff);
-					taggap = 0;
-					upper = 0;
-					pupper = 0;
-					upper_idx = 0;
-					p->taglen = tag.len - p->tagstart;
-					p->idx2len = idx2.len - p->idx2start;
-					p->idx3len = idx3.len - p->idx3start;
-					vec_peakline_expand(&peaklines);
-					Peakline *pold = peaklines.line + peaklines.len - 2;
-					p = peaklines.line + peaklines.len - 1;
-					inside = 0;
-					p->stroff = textflat2.len;
-					p->tagstart = pold->tagstart + pold->taglen;
-					p->idx2start = pold->idx2start + pold->idx2len;
-					p->idx3start = pold->idx3start + pold->idx3len;
-					continue;
-				}
-				if(c == '<'){
-					inside = 1;
-					vec_u32_push(&tagdef_idx, tagdef.len);
-					vec_char_push(&tagdef, c);
-				}else if(inside){
-					if(tagdef.len > 2 && (!tagdef.data[tagdef.len-2]) && (c == ' ' || c < 0)){
-						tagdef_idx.len--;
-						tagdef.len--;
-						inside = 0;
-						taggap += 2;
-						vec_char_push(&textflat2, '<');
-						vec_char_push(&textflat2, c);
-					}else{
-						vec_char_push(&tagdef, c);
-					}
-					
-					if(c == '>' || c == '\n' || c == '\t'){
-						inside = 0;
-						vec_char_push(&tagdef, '\0');
-						uint32_t tagid = get_tagid(&tagdef_idx, &tagdef);
-						vec_u32_push(&tag, taggap);
-						//printf("taggap %d\n", taggap);
-						taggap = 0;
-						vec_u32_push(&tag, tagid);
-						//printf("tagid: %u - %u\n", tag.items[tag.len-2], tag.items[tag.len-1]);
-					}
-				}else if(c == '@'){
-					if(idx2.len && textflat2.len == idx2.items[idx2.len-1]){ // If there's an escaped/doubled @, remove the previous idx2 and put one @ back in.
-						idx2.len--;
-						vec_char_push(&textflat2, c);
-						++taggap;
-					}else{
-						vec_u32_push(&idx2, textflat2.len - p->stroff);
-					}
-				}else if(c == '^'){
-					if(idx3.len && textflat2.len == idx3.items[idx3.len-1]){
-						idx3.len--;
-						vec_char_push(&textflat2, c);
-						++taggap;
-					}else{
-						vec_u32_push(&idx3, textflat2.len - p->stroff);
-					}
-				}else if(isupper(c)){
-					vec_char_push(&textflat2, tolower(c));
-					if(!upper){
-						upper = 1;
-						upper_idx = textflat2.len;
-						vec_u32_push(&tag, taggap);
-						vec_u32_push(&tag, CAPITAL_SINGLE);
-						pupper = tag.len - 1;
-						taggap = 0;
-					}
-					++taggap;
-				}else{
-					if(upper){
-						int x = textflat2.len - upper_idx + 1;
-						//printf("CAP RUN: %d ", x);
-						if(x > 1){
-							tag.items[pupper] = CAPITAL_RUN_START;
-							vec_u32_push(&tag, taggap);
-							vec_u32_push(&tag, CAPITAL_RUN_END);
-							taggap = 0;
-						}
-						upper = 0;
-					}
-					vec_char_push(&textflat2, c);
-					taggap++;
-				}
-					uint8_t *uc = textflat2.data;
-					if(uc[textflat2.len-1] == 0x8b && uc[textflat2.len-2] == 0x80 && uc[textflat2.len-3] == 0xe2){
-						textflat2.len -= 3;
-						taggap -= 3;
-						vec_u32_push(&tag, taggap);
-						vec_u32_push(&tag, ZWS);
-						taggap = 0;
-					}/*else if(textflat.data[textflat.len-1] < 0 && textflat.data[textflat.len-2] == ' ' && textflat.data[textflat.len-3] < 0){
-						printf("\nXXXXX %d %d %d\n", taggap, textflat.len, tag.len);
-						textflat.data[textflat.len-2] = textflat.data[textflat.len-1];
-						--textflat.len;
-						vec_u32_push(&tag, taggap-2);
-						vec_u32_push(&tag, PSPACE);
-						taggap = 1;
-					}
-				}*/
-				if(taggap > 255){ // Before this was broken and was putting just out of reach tags, hopefully this fixes it.
-					vec_u32_push(&tag, taggap-1);
-					vec_u32_push(&tag, NOP);
-					taggap = 1;
-				}
-			}
-			peaklines.len--; //Remove empty last line
-
-			printf("Ok\n");
-
-			qsort(peaklines.line, peaklines.len, sizeof(Peakline), peakline_cmp);
-			printf("Sorted\n");
-			printf("tag_idx.len: %d\n", tag_idx.len);
-
-			textflat.len = 0;
-			for(int x=0; x<peaklines.len; ++x){
-				p = peaklines.line + x;
-				vec_u32_push(&tag_idx, tag2.len/2);
-				vec_u32_push(&line_idx, textflat.len);
-				for(int i = p->tagstart; i < p->tagstart + p->taglen; ++i){
-			//		printf("%d: %d (%d)\n", x, i, tag.items[i]);
-					vec_u32_push(&tag2, tag.items[i]);
-				}
-				for(int i=p->idx2start; i < p->idx2start + p->idx2len; ++i){
-					idx2.items[i] += textflat.len; // Introduce proper offset into sorted lines
-				}
-				for(int i=p->idx3start; i < p->idx3start + p->idx3len; ++i){
-					idx3.items[i] += textflat.len; // Introduce proper offset into sorted lines
-				}
-				uint8_t *str = textflat2.data + p->stroff;
-				uint32_t temp = textflat.len;
-				do{
-					vec_char_push(&textflat, *str);
-				}
-				while(*str++);
-			//	printf("%s\n", textflat.data + temp);
-			}
-
-			if(idx2.len){
-				qsort(idx2.items, idx2.len, sizeof(idx2.items[0]), idx_cmp);
-			}
-			if(idx3.len){
-				qsort(idx3.items, idx3.len, sizeof(idx3.items[0]), idx_cmp);
-			}
-			vec_u32_push(&line_idx, textflat.len); // Extra for bounds checking
-			vec_u32_push(&tag_idx, tag2.len/2); // There's an extra one for the bounds checking
-
-			/* For testing
-			printf("\nTAGS DATA: (%d lines)\n", tag_idx.len);
-			if(tag.len > 0){
-				for(int i = 0; i < tag_idx.len - 1; ++i){
-					//putchar('\n');
-					uint32_t t = tag_idx.items[i]*2;
-					char *c = &textflat.data[line_idx.items[i]];
-					int upper = 0;
-					uint32_t j = 0;
-					uint32_t tend = tag_idx.items[i+1]*2;
-					//printf("\ntag range %d-%d\n", t, tend);
-					if(tend < t){
-						printf("ERROR with tag order!!!\n");
-					}
-					while(*c || t + 1 < tend){
-						while(j == tag.items[t] && t+1 < tend){
-							switch(tag.items[t+1]){
-								case CAPITAL_SINGLE:
-									upper = 1; break;
-								case CAPITAL_RUN_START:
-									upper = 2; break;
-								case CAPITAL_RUN_END:
-									upper = 0; break;
-								default:
-									break;
-							}
-							//printf("<%u-%u>", tag.items[t], tag.items[t+1]);
-							//printf("%s", &tagdef.data[tagdef_idx.items[tag.items[t+1]]]);
-							t += 2;
-							j = 0;
-						}
-						if(*c){
-							putchar(upper ? toupper(*c) : *c);
-							upper = upper == 1 ? 0 : upper;
-							c++;
-							++j;
-						}
-						else if(j != tag.items[t]){
-							//printf("\nIMPOSSIBLE!\n");
-							break;
-						}
-					}
-				}
-			}
-			*/
-
-			/*printf("Line starts %d# ", line_idx.len);
-			for(int i = 0; i < line_idx.len; ++i){
-				printf("%d..", line_idx.items[i]);
-			}
-			printf("\n");*/
-
-			struct peakslab h = {0, {0xF2, 0xFC, 0xF3}, {'P', 'e', 'a', 'k'},
-				0x2, PEAK, bytes_req(tagdef.len),
-				bytes_req(tag2.len), 1, bytes_req(tagdef_idx.len), textflat.len > 0xFFFF ? 4 : 2,
-				0, tagdef_idx.len,
-				0, tagdef.len,
-				0, tag_idx.len,
-				0, tag2.len/2,
-				0, line_idx.len,
-				0, textflat.len,
-				0, idx2.len,
-				0, idx3.len
-			};
-		
-	//	binarybyte; magicnum; magicstr;
-	//	version; features; btagdef_idx;
-	//	btag_idx; btag1; btag2; bline_idx;
-	//	tagdef_idx_start; tagdef_idx_len;
-	//  tagdef_start; tagdef_len; 
-	//  tag_idx_start; tag_idx_len;
-	//  tag_start; tag_len; 
-	//	line_idx_start; line_idx_len;
-	//	line_start; line_len;
-	//	idx2_start; idx2_len;
-	//	idx3_start; idx3_len;
-
-			h.tagdef_idx_start = sizeof(struct peakslab);
-			h.tagdef_start = h.tagdef_idx_start + h.tagdef_idx_len * h.btagdef_idx;
-			h.tag_idx_start = h.tagdef_start + h.tagdef_len * sizeof(char);
-			h.tag_start = h.tag_idx_start + h.tag_idx_len * h.btag_idx;
-			/*h.idx2_start = h.tag_start + h.tag_len * (h.btag1 + h.btag2);
-			h.idx3_start = h.idx2_start + h.idx2_len * h.bline_idx;
-			h.line_idx_start = h.idx3_start + h.idx3_len * h.bline_idx;*/
-			h.idx2_start = (h.tag_start + h.tag_len * (h.btag1 + h.btag2) + 3) & ~3u;
-			h.idx3_start = (h.idx2_start + h.idx2_len * h.bline_idx + 3) & ~3u;
-			h.line_idx_start = (h.idx3_start + h.idx3_len * h.bline_idx + 3) & ~3u;
-
-			h.line_start = h.line_idx_start + h.line_idx_len * h.bline_idx;
-
-			uint32_t size = 0;
-			FILE *out = fopen(argv[2], "wb");
-			fwrite(&h, sizeof(struct peakslab), 1, out);
-			size += sizeof(struct peakslab);
-			printf("tagdef_idx: %d\n", size);
-			for(int i=0; i<tagdef_idx.len; ++i){
-				fwrite(&tagdef_idx.items[i], h.btagdef_idx, 1, out);
-				size += h.btagdef_idx;
-			}
-			printf("tagdef: %d\n", size);
-			//fwrite(&tagdef.data[0], sizeof(char), 15, out);
-			fwrite(tagdef.data, sizeof(char), tagdef.len, out);
-			size += sizeof(char) * tagdef.len;
-			printf("tag_idx: %d\n", size);
-			printf("btag_idx: %d\n", h.btag_idx);
-			printf("bline_idx: %d\n", h.bline_idx);
-			for(int i=0; i<tag_idx.len; ++i){
-				/*printf("line %d, tag_idx: %d\n", i, tag_idx.items[i]);
-				if(i+1 < tag_idx.len){
-					uint32_t tagnum = tag_idx.items[i+1] - tag_idx.items[i];
-					printf("%d, (%d) items on line: %d\n", tag_idx.items[i], tagnum, i);
-				}*/
-				fwrite(&tag_idx.items[i], h.btag_idx, 1, out);
-				size += h.btag_idx; 
-			}
-
-			putchar('\n');
-			printf("tag: %d\n", size);
-			for(int i=0; i<tag2.len; ++i){
-				int el = (i & 1) ? h.btag2 : h.btag1;
-				fwrite(&tag2.items[i], el, 1, out);
-				size += el; 
-			}
-			uint32_t x0 = 0;
-			printf("size: %d\n", size);
-			while(size < h.idx2_start){
-				fwrite(&x0, 1, 1, out);
-				++size;
-			}
-			printf("size: %d\n", size);
-			printf("idx2_start: %d\n", size);
-			for(int i=0; i<idx2.len; ++i){
-				fwrite(&idx2.items[i], h.bline_idx, 1, out);
-				size += h.bline_idx;
-			}
-			printf("size: %d\n", size);
-			while(size < h.idx3_start){
-				fwrite(&x0, 1, 1, out);
-				++size;
-			}
-			printf("size: %d\n", size);
-			printf("idx3_start: %d\n", size);
-			for(int i=0; i<idx3.len; ++i){
-				fwrite(&idx3.items[i], h.bline_idx, 1, out);
-				size += h.bline_idx;
-			}
-			printf("size: %d\n", size);
-			while(size < h.line_idx_start){
-				fwrite(&x0, 1, 1, out);
-				++size;
-			}
-			printf("size: %d\n", size);
-			printf("line_idx_start: %d\n", size);
-			for(int i=0; i<line_idx.len; ++i){
-				fwrite(&line_idx.items[i], h.bline_idx, 1, out);
-			}
-			size += line_idx.len * h.bline_idx; 
-			printf("text_flat_start: %d\n", size);
-			fwrite(textflat.data, sizeof(char), textflat.len, out);
-			size += 1 * textflat.len; 
-			printf("text_flat_end: %d\n", size);
-
-			/*printf("Line starts %d# ", line_idx.len);
-			for(int i = 0; i < line_idx.len; ++i){
-				printf("%d..", line_idx.items[i]);
-			}
-			printf("\n");*/
-
-			//for(int i=0; i<tagdef_idx.len; ++i){
-				//printf("%d @%s@\n", i, tagdef.data + tagdef_idx.items[i]);
-			//}
-
-
-			fclose(out);
 		}
 
-    return 0;
+		VecPeakline peaklines = {0, 0, NULL};
+		VecU32 line_idx = {0, 0, NULL};
+		VecU32 idx2 = {0, 0, NULL};
+		VecU32 idx3 = {0, 0, NULL};
+
+		uint32_t taggap = 0;
+		int upper = 0;
+		int pupper = 0;
+		int upper_idx = 0;
+		int inside = 0;
+		//printf("\n");
+		vec_peakline_expand(&peaklines);
+		Peakline *p = peaklines.line;
+		p->stroff = 0;
+		p->sfileoff = 0;
+		p->tagstart = 0;
+		p->idx2start = 0;
+		p->idx3start = 0;
+		for(int a = 0; a < textflat.len; ++a){
+			//vec_u32_push(&line_idx, textflat.len);
+			//vec_u32_push(&tag_idx, tag.len/2);
+			uint8_t c = textflat.data[a];
+			if(!c){
+				vec_char_push(&textflat2, c); // null delimited strings
+				//printf("##: %s\n", textflat2.data + p->stroff);
+				taggap = 0;
+				upper = 0;
+				pupper = 0;
+				upper_idx = 0;
+				p->taglen = tag.len - p->tagstart;
+				p->idx2len = idx2.len - p->idx2start;
+				p->idx3len = idx3.len - p->idx3start;
+				vec_peakline_expand(&peaklines);
+				Peakline *pold = peaklines.line + peaklines.len - 2;
+				p = peaklines.line + peaklines.len - 1;
+				inside = 0;
+				p->stroff = textflat2.len;
+				p->sfileoff = a + 1;
+				p->tagstart = pold->tagstart + pold->taglen;
+				p->idx2start = pold->idx2start + pold->idx2len;
+				p->idx3start = pold->idx3start + pold->idx3len;
+				continue;
+			}
+			if(isslab){
+				if(c == '.'){
+					c = '\t';
+				}else if(c == ','){
+					c = '\t';
+				}
+			}
+			if(c == '<'){
+				inside = 1;
+				vec_u32_push(&tagdef_idx, tagdef.len);
+				vec_char_push(&tagdef, c);
+			}else if(inside){
+				if(tagdef.len > 2 && (!tagdef.data[tagdef.len-2]) && (c == ' ' || c < 0)){
+					tagdef_idx.len--;
+					tagdef.len--;
+					inside = 0;
+					taggap += 2;
+					vec_char_push(&textflat2, '<');
+					vec_char_push(&textflat2, c);
+				}else{
+					vec_char_push(&tagdef, c);
+				}
+				
+				if(c == '>' || c == '\n' || c == '\t'){
+					inside = 0;
+					vec_char_push(&tagdef, '\0');
+					uint32_t tagid = get_tagid(&tagdef_idx, &tagdef);
+					vec_u32_push(&tag, taggap);
+					//printf("taggap %d\n", taggap);
+					taggap = 0;
+					vec_u32_push(&tag, tagid);
+					//printf("tagid: %u - %u\n", tag.items[tag.len-2], tag.items[tag.len-1]);
+				}
+			}else if(c == '@'){
+				if(idx2.len && textflat2.len == idx2.items[idx2.len-1]){ // If there's an escaped/doubled @, remove the previous idx2 and put one @ back in.
+					idx2.len--;
+					vec_char_push(&textflat2, c);
+					++taggap;
+				}else{
+					vec_u32_push(&idx2, textflat2.len - p->stroff);
+				}
+			}else if(c == '^'){
+				if(idx3.len && textflat2.len == idx3.items[idx3.len-1]){
+					idx3.len--;
+					vec_char_push(&textflat2, c);
+					++taggap;
+				}else{
+					vec_u32_push(&idx3, textflat2.len - p->stroff);
+				}
+			}else if(isupper(c)){
+				vec_char_push(&textflat2, tolower(c));
+				if(!upper){
+					upper = 1;
+					upper_idx = textflat2.len;
+					vec_u32_push(&tag, taggap);
+					vec_u32_push(&tag, CAPITAL_SINGLE);
+					pupper = tag.len - 1;
+					taggap = 0;
+				}
+				++taggap;
+			}else{
+				if(upper){
+					int x = textflat2.len - upper_idx + 1;
+					//printf("CAP RUN: %d ", x);
+					if(x > 1){
+						tag.items[pupper] = CAPITAL_RUN_START;
+						vec_u32_push(&tag, taggap);
+						vec_u32_push(&tag, CAPITAL_RUN_END);
+						taggap = 0;
+					}
+					upper = 0;
+				}
+				vec_char_push(&textflat2, c);
+				taggap++;
+			}
+			uint8_t *uc = textflat2.data;
+			if(uc[textflat2.len-1] == 0x8b && uc[textflat2.len-2] == 0x80 && uc[textflat2.len-3] == 0xe2){
+				textflat2.len -= 3;
+				taggap -= 3;
+				vec_u32_push(&tag, taggap);
+				vec_u32_push(&tag, ZWS);
+				taggap = 0;
+			}/*else if(textflat.data[textflat.len-1] < 0 && textflat.data[textflat.len-2] == ' ' && textflat.data[textflat.len-3] < 0){
+				printf("\nXXXXX %d %d %d\n", taggap, textflat.len, tag.len);
+				textflat.data[textflat.len-2] = textflat.data[textflat.len-1];
+				--textflat.len;
+				vec_u32_push(&tag, taggap-2);
+				vec_u32_push(&tag, PSPACE);
+				taggap = 1;
+			}
+			}*/
+			if(taggap > 255){ // Before this was broken and was putting just out of reach tags, hopefully this fixes it.
+				vec_u32_push(&tag, taggap-1);
+				vec_u32_push(&tag, NOP);
+				taggap = 1;
+			}
+		}
+		peaklines.len--; //Remove empty last line
+
+		printf("Ok\n");
+
+		qsort(peaklines.line, peaklines.len, sizeof(Peakline), peakline_cmp);
+		printf("Sorted\n");
+		printf("tag_idx.len: %d\n", tag_idx.len);
+
+		for(int x=0; x<peaklines.len; ++x){
+			p = peaklines.line + x;
+			vec_u32_push(&tag_idx, tag2.len/2);
+			vec_u32_push(&line_idx, textflat3.len);
+			for(int i = p->tagstart; i < p->tagstart + p->taglen; ++i){
+		//		printf("%d: %d (%d)\n", x, i, tag.items[i]);
+				vec_u32_push(&tag2, tag.items[i]);
+			}
+			for(int i=p->idx2start; i < p->idx2start + p->idx2len; ++i){
+				idx2.items[i] += textflat3.len; // Introduce proper offset into sorted lines
+			}
+			for(int i=p->idx3start; i < p->idx3start + p->idx3len; ++i){
+				idx3.items[i] += textflat3.len; // Introduce proper offset into sorted lines
+			}
+			uint8_t *str = textflat2.data + p->stroff;
+			uint32_t temp = textflat3.len;
+			do{
+				vec_char_push(&textflat3, *str);
+			}
+			while(*str++);
+			if(isslab){
+				buf[path_prefix_len] = '\0'; // Reset buf length
+				strncat(buf, textflat.data + p->sfileoff, BUF_LEN - path_prefix_len);
+				FILE *f = fopen(buf, "rb");
+				if(f){
+					int c;
+					while((c = fgetc(f)) != EOF){
+						vec_char_push(&textflat3, c);
+					}
+					fclose(f);
+					vec_char_push(&textflat3, '\0');
+				}
+				else{
+					printf("File not found!: %s\n", buf);
+				}
+			}
+			printf("!!!%s\n", textflat3.data + temp);
+			for(int i=p->idx2start; i < p->idx2start + p->idx2len; ++i){
+				printf("@@@%.25s\n", textflat3.data + idx2.items[i]);
+			}
+		}
+
+		vec_u32_push(&line_idx, textflat3.len); // Extra for bounds checking
+		vec_u32_push(&tag_idx, tag2.len/2); // There's an extra one for the bounds checking
+
+		if(idx2.len){
+			qsort(idx2.items, idx2.len, sizeof(idx2.items[0]), idx_cmp);
+		}
+		if(idx3.len){
+			qsort(idx3.items, idx3.len, sizeof(idx3.items[0]), idx_cmp);
+		}
+
+		/* For testing
+		printf("\nTAGS DATA: (%d lines)\n", tag_idx.len);
+		if(tag.len > 0){
+			for(int i = 0; i < tag_idx.len - 1; ++i){
+				//putchar('\n');
+				uint32_t t = tag_idx.items[i]*2;
+				char *c = &textflat.data[line_idx.items[i]];
+				int upper = 0;
+				uint32_t j = 0;
+				uint32_t tend = tag_idx.items[i+1]*2;
+				//printf("\ntag range %d-%d\n", t, tend);
+				if(tend < t){
+					printf("ERROR with tag order!!!\n");
+				}
+				while(*c || t + 1 < tend){
+					while(j == tag.items[t] && t+1 < tend){
+						switch(tag.items[t+1]){
+							case CAPITAL_SINGLE:
+								upper = 1; break;
+							case CAPITAL_RUN_START:
+								upper = 2; break;
+							case CAPITAL_RUN_END:
+								upper = 0; break;
+							default:
+								break;
+						}
+						//printf("<%u-%u>", tag.items[t], tag.items[t+1]);
+						//printf("%s", &tagdef.data[tagdef_idx.items[tag.items[t+1]]]);
+						t += 2;
+						j = 0;
+					}
+					if(*c){
+						putchar(upper ? toupper(*c) : *c);
+						upper = upper == 1 ? 0 : upper;
+						c++;
+						++j;
+					}
+					else if(j != tag.items[t]){
+						//printf("\nIMPOSSIBLE!\n");
+						break;
+					}
+				}
+			}
+		}
+		*/
+
+		/*printf("Line starts %d# ", line_idx.len);
+		for(int i = 0; i < line_idx.len; ++i){
+			printf("%d..", line_idx.items[i]);
+		}
+		printf("\n");*/
+
+	struct peakslab h = {0, {0xF2, 0xFC, 0xF3}, {'P', 'e', 'a', 'k'},
+		0x2, isslab ? SLAB : PEAK, bytes_req(tagdef.len),
+		bytes_req(tag2.len), 1, bytes_req(tagdef_idx.len), textflat3.len > 0xFFFF ? 4 : 2,
+		0, tagdef_idx.len,
+		0, tagdef.len,
+		0, tag_idx.len,
+		0, tag2.len/2,
+		0, line_idx.len,
+		0, textflat3.len,
+		0, idx2.len,
+		0, idx3.len
+	};
+
+//	binarybyte; magicnum; magicstr;
+//	version; features; btagdef_idx;
+//	btag_idx; btag1; btag2; bline_idx;
+//	tagdef_idx_start; tagdef_idx_len;
+//  tagdef_start; tagdef_len; 
+//  tag_idx_start; tag_idx_len;
+//  tag_start; tag_len; 
+//	line_idx_start; line_idx_len;
+//	line_start; line_len;
+//	idx2_start; idx2_len;
+//	idx3_start; idx3_len;
+
+	h.tagdef_idx_start = sizeof(struct peakslab);
+	h.tagdef_start = h.tagdef_idx_start + h.tagdef_idx_len * h.btagdef_idx;
+	h.tag_idx_start = h.tagdef_start + h.tagdef_len * sizeof(char);
+	h.tag_start = h.tag_idx_start + h.tag_idx_len * h.btag_idx;
+	/*h.idx2_start = h.tag_start + h.tag_len * (h.btag1 + h.btag2);
+	h.idx3_start = h.idx2_start + h.idx2_len * h.bline_idx;
+	h.line_idx_start = h.idx3_start + h.idx3_len * h.bline_idx;*/
+	h.idx2_start = (h.tag_start + h.tag_len * (h.btag1 + h.btag2) + 3) & ~3u;
+	h.idx3_start = (h.idx2_start + h.idx2_len * h.bline_idx + 3) & ~3u;
+	h.line_idx_start = (h.idx3_start + h.idx3_len * h.bline_idx + 3) & ~3u;
+
+	h.line_start = h.line_idx_start + h.line_idx_len * h.bline_idx;
+
+	uint32_t size = 0;
+	FILE *out = fopen(argv[2], "wb");
+	fwrite(&h, sizeof(struct peakslab), 1, out);
+	size += sizeof(struct peakslab);
+	printf("tagdef_idx: %d\n", size);
+	for(int i=0; i<tagdef_idx.len; ++i){
+		fwrite(&tagdef_idx.items[i], h.btagdef_idx, 1, out);
+		size += h.btagdef_idx;
+	}
+	printf("tagdef: %d\n", size);
+	//fwrite(&tagdef.data[0], sizeof(char), 15, out);
+	fwrite(tagdef.data, sizeof(char), tagdef.len, out);
+	size += sizeof(char) * tagdef.len;
+	printf("tag_idx: %d\n", size);
+	printf("btag_idx: %d\n", h.btag_idx);
+	printf("bline_idx: %d\n", h.bline_idx);
+	for(int i=0; i<tag_idx.len; ++i){
+		/*printf("line %d, tag_idx: %d\n", i, tag_idx.items[i]);
+		if(i+1 < tag_idx.len){
+			uint32_t tagnum = tag_idx.items[i+1] - tag_idx.items[i];
+			printf("%d, (%d) items on line: %d\n", tag_idx.items[i], tagnum, i);
+		}*/
+		fwrite(&tag_idx.items[i], h.btag_idx, 1, out);
+		size += h.btag_idx; 
+	}
+
+	putchar('\n');
+	printf("tag: %d\n", size);
+	for(int i=0; i<tag2.len; ++i){
+		int el = (i & 1) ? h.btag2 : h.btag1;
+		fwrite(&tag2.items[i], el, 1, out);
+		size += el; 
+	}
+	uint32_t x0 = 0;
+	printf("size: %d\n", size);
+	while(size < h.idx2_start){
+		fwrite(&x0, 1, 1, out);
+		++size;
+	}
+	printf("size: %d\n", size);
+	printf("idx2_start: %d\n", size);
+	for(int i=0; i<idx2.len; ++i){
+		fwrite(&idx2.items[i], h.bline_idx, 1, out);
+		size += h.bline_idx;
+	}
+	printf("size: %d\n", size);
+	while(size < h.idx3_start){
+		fwrite(&x0, 1, 1, out);
+		++size;
+	}
+	printf("size: %d\n", size);
+	printf("idx3_start: %d\n", size);
+	for(int i=0; i<idx3.len; ++i){
+		fwrite(&idx3.items[i], h.bline_idx, 1, out);
+		size += h.bline_idx;
+	}
+	printf("size: %d\n", size);
+	while(size < h.line_idx_start){
+		fwrite(&x0, 1, 1, out);
+		++size;
+	}
+	printf("size: %d\n", size);
+	printf("line_idx_start: %d\n", size);
+	for(int i=0; i<line_idx.len; ++i){
+		fwrite(&line_idx.items[i], h.bline_idx, 1, out);
+	}
+	size += line_idx.len * h.bline_idx; 
+	printf("text_flat_start: %d\n", size);
+
+	fwrite(textflat3.data, sizeof(char), textflat3.len, out);
+	size += 1 * textflat3.len; 
+	printf("text_flat_end: %d\n", size);
+
+	/*printf("Line starts %d# ", line_idx.len);
+	for(int i = 0; i < line_idx.len; ++i){
+		printf("%d..", line_idx.items[i]);
+	}
+	printf("\n");*/
+
+	//for(int i=0; i<tagdef_idx.len; ++i){
+		//printf("%d @%s@\n", i, tagdef.data + tagdef_idx.items[i]);
+	//}
+
+
+	fclose(out);
+
+	return 0;
 }

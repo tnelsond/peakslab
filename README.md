@@ -58,6 +58,7 @@ These peak files can then be compressed using zstdandard compression which is ve
 - Image and Audio support
 
 ## Todo
+- Expand Exact Search to work with 2nd index too.
 - make an online editor
 - <strike>media support in dictionary</strike>
 - <strike>ignore zero width spaces in search</strike>

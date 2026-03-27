@@ -67,9 +67,10 @@ self.onmessage = async (e) => {
 						if(!d.slab)
 							self.postMessage({type: "result", dict: d.name, query: e.data.query, st: e.data.st, header: d.getHeader(),  body: d.getBodyStr(), dest: e.data.dest});
 						else{
-							const file = d.getHeader();
-							const header = file.substring(0, file.lastIndexOf('.'));
-							self.postMessage({type: "result", query: e.data.query, dict: d.name, st: e.data.st, header: header, filename: file, body: d.getBytes(), dest: e.data.dest});
+							let header = d.getHeader().split('\t');
+							const filetype = header[header.length-1];
+							header = header[0];
+							self.postMessage({type: "result", query: e.data.query, dict: d.name, st: e.data.st, header: header, filetype: filetype, body: d.getBytes(), dest: e.data.dest});
 						}
 					}
 					d.switchState(); // Switched it back :D
@@ -84,9 +85,11 @@ self.onmessage = async (e) => {
 				if(!dicts[cdic].slab){
 					self.postMessage({type: "result", dict: dicts[cdic].name, query: query, st: st, header: dicts[cdic].getHeader(), body: dicts[cdic].getBodyStr()});
 				}else{
-					const file = dicts[cdic].getHeader();
-					const header = file.substring(0, file.lastIndexOf('.'));
-					self.postMessage({type: "result", dict: dicts[cdic].name, query: query, header: header, st: st, filename: file, body: dicts[cdic].getBytes()});
+					let header = dicts[cdic].getHeader().split('\t');
+					const filetype = header[header.length-1];
+					header = header[0];
+					//header = header.substring(0, header.indexOf(9));
+					self.postMessage({type: "result", dict: dicts[cdic].name, query: query, header: header, st: st, filetype: filetype, body: dicts[cdic].getBytes()});
 				}
 				++num;
 			}
@@ -197,7 +200,7 @@ class Dic{
 	}
 	_computeTabPos() {
 		const arr = new Uint8Array(this.module.HEAPU8.buffer, this.rptr, this.rlen);
-		this._tabPos = arr.indexOf(9);           // 9 = ASCII/UTF-8 for '\t'
+		this._tabPos = arr.indexOf(this.slab ? 0 : 9);           // 9 = ASCII/UTF-8 for '\t'
 		if (this._tabPos === -1)
 			this._tabPos = this.rlen;              // no tab → headword = whole buffer
 	}
