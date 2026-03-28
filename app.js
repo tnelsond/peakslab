@@ -667,18 +667,16 @@ class PaElement extends HTMLElement {
 }
 customElements.define('p-a', PaElement);
 
-// Preload voices so the check is more accurate
 if ('speechSynthesis' in window) {
     let voicesLoaded = false;
 
     const loadVoices = () => {
         if (!voicesLoaded) {
             voicesLoaded = true;
-            // Recreate menu once voices are available for better accuracy
             createSelMenu();
         }
     };
-    speechSynthesis.getVoices();           // trigger loading
+    speechSynthesis.getVoices();
     speechSynthesis.addEventListener('voiceschanged', loadVoices);
 }
-document.body.appendChild(document.createTextNode("v10.0"));
+document.body.appendChild(document.createTextNode("v10.1"));
