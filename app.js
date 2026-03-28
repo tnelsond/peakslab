@@ -595,11 +595,8 @@ function showSelMenu() {
 
 	selText = window.getSelection().toString().trim();
 
-  //let left = rect.left + (rect.width / 2) - 100;
-	let left = 20;
-  let top = rect.top - 140 + window.scrollY;
-  //left = Math.max(12, Math.min(left, window.innerWidth - 220));
-  if (top < 80) top = rect.bottom + 20 + window.scrollY;
+  let left = Math.max(12, Math.min(window.innerWidth, rect.left + (rect.width / 2) - 70));
+  let top = rect.bottom + 26 + window.scrollY;
 
   selMenu.style.left = `${left}px`;
   selMenu.style.top = `${top}px`;
