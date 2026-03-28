@@ -397,8 +397,8 @@ mark {
 }
 
 .selection-menu {
-	margin: auto;
-	align: center;
+	left: 50%;
+	transform: translateX(-50%);
 	border-radius: 8px;
 	box-shadow: 0 4px 15px rgba(0,0,0,0.4);
 	border: 2px solid #642;
@@ -428,6 +428,11 @@ mark {
 }
 .selection-menu::-webkit-scrollbar {
     display: none;
+}
+p-d, #results, #popupResults, body {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;   /* allows native callout + your menu */
 }
 
 .context-menu {

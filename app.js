@@ -580,7 +580,6 @@ function createSelMenu(){
 		}
 	});
 }
-//createSelMenu();
 
 function getSelRect(){
 	const sel = window.getSelection();
@@ -597,26 +596,38 @@ function showSelMenu() {
   let top = rect.bottom + 26 + window.scrollY;
 
   selMenu.style.top = `${top}px`;
-  selMenu.style.display = 'flex';
+  selMenu.style.display = 'block';
 }
 function hideSelMenu(){
 	selMenu.style.display = 'none';
 }
-function handleSelEnd(){
-	setTimeout(() =>{
-		if(window.getSelection().toString())
-			showSelMenu();
-		else
-			hideSelMenu();
-	}, 30);
-}
-document.addEventListener('mouseup', handleSelEnd);
-document.addEventListener('touchend', handleSelEnd);
-document.addEventListener('selectionchange', handleSelEnd);
-document.addEventListener('click', (e) =>{
-	if(!selMenu.contains(e.target)) hideSelMenu();
-});
+let selTimeout = null;
+function handleSelEnd() {
+    // Clear any pending timeout
+    if (selTimeout) clearTimeout(selTimeout);
 
+    selTimeout = setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
+
+        if (text.length > 0) {
+            // Extra check for iOS: make sure we have a valid range
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                showSelMenu();
+            }
+        } else {
+            hideSelMenu();
+        }
+    }, 120);   // Increased delay — very important for iOS
+}
+document.addEventListener('selectionchange', handleSelEnd, { passive: true });
+document.addEventListener('touchend', handleSelEnd, { passive: true });
+document.addEventListener('mouseup', handleSelEnd, { passive: true });
+document.addEventListener('touchstart', (e) => {
+    if (!selMenu.contains(e.target)) {
+        hideSelMenu();
+    }
+}, { passive: true });
 
 let deferredPrompt;
 function isIOS() {
@@ -676,4 +687,5 @@ if ('speechSynthesis' in window) {
     speechSynthesis.getVoices();
     speechSynthesis.addEventListener('voiceschanged', loadVoices);
 }
+createSelMenu();
 document.body.appendChild(document.createTextNode("v10.5"));

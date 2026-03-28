@@ -1,8 +1,8 @@
-const CURRENT_CACHE = 'peakslab-0.4.5.5';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.5.6';   // ← Bump this on every deploy!
 
 const FILE_VERSIONS = {
   '/': 'v3',
-  '/app.js': 'v10.5',
+  '/app.js': 'v10.6',
   '/peak.js': 'v2',
   '/peakworker.js': 'v4',
   '/peak.wasm': 'v2',
@@ -10,14 +10,14 @@ const FILE_VERSIONS = {
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
   '/peak512x512.png': 'v1',
-  '/style.css': 'v7.1',
+  '/style.css': 'v7.2',
 
   '/khmer/config.js': 'v3',
   '/khmer/': 'v3',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
-  '/khmer/db/biblewordkm.peak.zst': 'v2',
+  '/khmer/db/biblewordkm.peak.zst': 'v3',
   '/khmer/db/choukprov.peak.zst': 'v2',
   '/khmer/db/hymns7.peak.zst': 'v2',
   '/khmer/db/khmer92_h97.peak.zst': 'v2',
@@ -51,7 +51,7 @@ const FILE_VERSIONS = {
 
   '/english/config.js': 'v1',
   '/english/': 'v2',
-  '/english/db/bibleworden.peak.zst': 'v4',
+  '/english/db/bibleworden.peak.zst': 'v5',
   '/english/db/eng-bsb.peak.zst': 'v2',
   '/english/db/eng-kjv.peak.zst': 'v2',
   '/english/db/engULB.peak.zst': 'v2',
