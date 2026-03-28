@@ -10,7 +10,7 @@ const FILE_VERSIONS = {
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
   '/peak512x512.png': 'v1',
-  '/style.css': 'v7',
+  '/style.css': 'v7.1',
 
   '/khmer/config.js': 'v3',
   '/khmer/': 'v3',
