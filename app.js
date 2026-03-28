@@ -594,14 +594,10 @@ function showSelMenu() {
 
 	selText = window.getSelection().toString().trim();
 
-	let menuWidth = selMenu.scrollWidth || 280;
-	let left = rect.left + (rect.width / 2) - (menuWidth / 2);
-	left = Math.max(12, Math.min(window.innerWidth - menuWidth - 22, left));
   let top = rect.bottom + 26 + window.scrollY;
 
-  selMenu.style.left = `${left}px`;
   selMenu.style.top = `${top}px`;
-  selMenu.style.display = 'block';
+  selMenu.style.display = 'flex';
 }
 function hideSelMenu(){
 	selMenu.style.display = 'none';
@@ -680,4 +676,4 @@ if ('speechSynthesis' in window) {
     speechSynthesis.getVoices();
     speechSynthesis.addEventListener('voiceschanged', loadVoices);
 }
-document.body.appendChild(document.createTextNode("v10.2"));
+document.body.appendChild(document.createTextNode("v10.5"));

@@ -398,7 +398,10 @@ mark {
 
 .selection-menu {
     display: none;
-    position: absolute;
+    position: fixed;           /* Changed to fixed for easier centering */
+    top: 0;                    /* Will be overridden by JS */
+    left: 50%;
+    transform: translateX(-50%);   /* Perfect horizontal centering */
     background: var(--tab-bg);
     border: 2px solid #642;
     border-radius: 8px;
@@ -409,9 +412,17 @@ mark {
     overflow-x: auto;
     overflow-y: hidden;
     white-space: nowrap;
-    display: flex;                    /* ← this is the key */
+    display: none;
     align-items: center;
-    gap: 2px;                         /* small gap between buttons */
+    gap: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    max-width: 96%;            /* Prevents it from going edge-to-edge on very small screens */
+    box-sizing: border-box;
+}
+
+.selection-menu::-webkit-scrollbar {
+    display: none;
 }
 
 .selection-menu button {
@@ -424,11 +435,11 @@ mark {
     cursor: pointer;
     font-size: 15px;
     white-space: nowrap;
-    flex-shrink: 0;                   /* prevent shrinking */
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 42px;                  /* ensure emoji buttons have space */
+    min-width: 44px;
 }
 
 .context-menu {
