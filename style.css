@@ -398,7 +398,7 @@ mark {
 
 .selection-menu {
     display: none;
-    position: fixed;           /* Changed to fixed for easier centering */
+    position: absolute;           /* Changed to fixed for easier centering */
     top: 0;                    /* Will be overridden by JS */
     left: 50%;
     transform: translateX(-50%);   /* Perfect horizontal centering */
