@@ -397,28 +397,38 @@ mark {
 }
 
 .selection-menu {
-	border-radius: 8px;
-	box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-	border: 2px solid #642;
-	position: absolute;
-	background: var(--tab-bg);
-	z-index: 5000;
-	display: none;
-	height: 40px;
-	user-select: none; /* For most browsers */
-	-webkit-user-select: none; /* For Safari */
-	-moz-user-select: none; /* For Firefox */
+    display: none;
+    position: absolute;
+    background: var(--tab-bg);
+    border: 2px solid #642;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    z-index: 5000;
+    padding: 0;
+    height: 42px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    display: flex;                    /* ← this is the key */
+    align-items: center;
+    gap: 2px;                         /* small gap between buttons */
 }
-.selection-menu button{
-		height: 100%;
-		padding: 10px;
-		margin: 0px;
-		border: none;
-		background: none;
-		opacity: 90%;
-    color: var(--card-text);
-    cursor: pointer;
+
+.selection-menu button {
+    height: 100%;
+    padding: 0 16px;
+    margin: 0;
+    border: none;
+    background: none;
     color: var(--header-text);
+    cursor: pointer;
+    font-size: 15px;
+    white-space: nowrap;
+    flex-shrink: 0;                   /* prevent shrinking */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;                  /* ensure emoji buttons have space */
 }
 
 .context-menu {
