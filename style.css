@@ -397,49 +397,37 @@ mark {
 }
 
 .selection-menu {
-    display: none;
-    position: absolute;           /* Changed to fixed for easier centering */
-    top: 0;                    /* Will be overridden by JS */
-    left: 50%;
-    transform: translateX(-50%);   /* Perfect horizontal centering */
-    background: var(--tab-bg);
-    border: 2px solid #642;
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-    z-index: 5000;
-    padding: 0;
-    height: 42px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
-    display: none;
-    align-items: center;
-    gap: 2px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    max-width: 96%;            /* Prevents it from going edge-to-edge on very small screens */
-    box-sizing: border-box;
+	left: 50%;
+	transform: translateX(-50%);
+	border-radius: 8px;
+	box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+	border: 2px solid #642;
+	position: absolute;
+	background: var(--tab-bg);
+	z-index: 5000;
+	display: none;
+	height: 40px;
+	overflow-x: auto;
+	white-space: nowrap;
+	scrollbar-width: none;
+	-webkit-overflow-scrolling: touch;
+	user-select: none; /* For most browsers */
+	-webkit-user-select: none; /* For Safari */
+	-moz-user-select: none; /* For Firefox */
+	max-width: 96%;
 }
-
+.selection-menu button{
+		height: 100%;
+		padding: 10px;
+		margin: 0px;
+		border: none;
+		background: none;
+		opacity: 90%;
+    cursor: pointer;
+    color: var(--header-text);
+}
 .selection-menu::-webkit-scrollbar {
     display: none;
-}
-
-.selection-menu button {
-    height: 100%;
-    padding: 0 16px;
-    margin: 0;
-    border: none;
-    background: none;
-    color: var(--header-text);
-    cursor: pointer;
-    font-size: 15px;
-    white-space: nowrap;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
 }
 
 .context-menu {
