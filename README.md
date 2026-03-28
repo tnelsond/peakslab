@@ -8,7 +8,7 @@ A project to make offline (PWA) dictionary webapps and tools for building those 
 
 Current languages:
 - Khmer (Cambodian)
-- English
+- English (This is just so that we can load English resources to combine with other dictionaries.)
 - Lao (Laos)
 - Chitonga (Tonga)
 - Lozi (Silozi)
@@ -69,6 +69,7 @@ These peak files can then be compressed using zstdandard compression which is ve
 - Image and Audio support
 
 ## Todo
+- Regex or Glob support
 - Expand Exact Search to work with 2nd index too.
 - make an online editor
 - <strike>media support in dictionary</strike>
@@ -94,15 +95,16 @@ These peak files can then be compressed using zstdandard compression which is ve
 - Rewrote the interface to be more intuitive and simpler.
 
 ## History
-- Tried SQLite, the database files were too large and the runtime was too bloated. Editing databases was a pain.
+- Be me, a missionary in Cambodia. All the Khmer dictionary apps are full of ads, or require internet connection or just incomplete. So I decide to make my own Khmer dictionary modules for Aard. The process is messy and it's difficult to share with other people. There's no  Aard dictionary app on iOS.
+- Tried Stardict and other things, a lot of the programs were outdated and just didn't work anymore; so I decided to make my own.
+- Tried SQLite, it worked pretty good. But the database files were too large and the runtime was too bloated. Editing databases was a pain. Left join right join all join? I figured out that github pages would send a compressed form if I saved the database file with a **.html** extension. Still downloads really slowly on iOS. Decide that I don't need all the features that SQLite offers, I just need to be able to read from the database.
 - Started using Grok to help me prototype a lot of ideas.
 - Tried Pouchdb with javascript, too slow to load from a file.
 - Tried rolling my own database from Javascript, parsing was too slow, startup too slow.
-- Tried using indexeddb, was good, but writing to indexeddb is just too slow for the first run.
-- Tried decompressing database files using decompression streams and gzip compression, slower than SQLite's loading of uncompressed database.
-- Switched to decompressing using a javascript zstd decompressor, speed was acceptable, but slower than SQLite.
+- Tried using indexeddb, was good, but writing to indexeddb is just too slow for the first run. Like really slow.
+- Tried decompressing database files using decompression streams and gzip compression, still slower than SQLite's loading of uncompressed database.
+- Switched to decompressing using a javascript zstd decompressor, speed was acceptable, but still slower than SQLite.
 - Started using zstd wasm modules for decompression, good, but transferring the memory from wasm to javascript was incurring a cost or impossible to implement right.
 - Because Grok sucks at writing C wasm modules I switched to rust for the wasm backend. Suddenly had really good speed, kept all the major processing in one wasm module. Thought that 150kb module was much better than the 1MB sqlite wasm module.
 - Refactored everything to work with lazy loading and lazy searching to make the app more seamless and less inefficient.
 - Rewrote everything from scratch in C because I understand it better, it's faster and most of my previous rust code was unsafe code anyway. Rewrote the html and javascript too. Got the size of the peak decoder from 150kb in rust to 58kb of C.
-
