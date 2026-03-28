@@ -20,6 +20,17 @@ This project uses the following libraries:
 - <a href="https://github.com/facebook/zstd">Zstandard</a> (BSD License. See ZSTD_LICENSE.txt)
 - <a href="https://github.com/ashvardanian/StringZilla">Stringzilla</a> (Apache 2.0 License. See STRINGZILLA_LICENSE.txt)
 
+## Design Goals
+- Client Side (Offline, power to the user)
+- Modular (Can load and run many different dictionary files in parallel)
+- Scalable (Same as above)
+- Lightweight (Written from scratch)
+- Fast (Loading and searching)
+- Libre Open Source (GPL3)
+- Simple (You just edit the source tsv file and then use peakgen to turn it into an indexed peak file. Or give it a full directory and it will generate a slab file with all the files in that folder). Each line is already it's own index item, but if you put an '@' anywhere it'll put everything after that as an item in the secondary index. '^' for tertiary index. Duplicate the '@' or '^' to escape them. To load a peak file we literally just cast the raw data to a struct, works great, this is why we write in C.
+- Sane Defaults (Most relevant results first, fallback to less relevant)
+- Powerful
+
 ## Peak file
 
 The peak format is basically a tsv file with tags (for substitutions, like a mini dictionary) and 3 indexes at the beginning. Very simple.
@@ -46,7 +57,7 @@ The peak format is basically a tsv file with tags (for substitutions, like a min
 	- line_idx (Main indexes)
 	- tsv file or binary slabs
  
-The slab format is just like the peak format, the only difference is that it's binary data instead of text with the filenames as keys. The filename of course is ended by a tab, just like tsv data.
+The slab format is just like the peak format with a tab delimited header, however that header is ended by a null character to signify the start of binary data.
 
 These peak files can then be compressed using zstdandard compression which is very quick for decompressing and has a good compression ratio.
 
@@ -73,7 +84,7 @@ These peak files can then be compressed using zstdandard compression which is ve
 - Bundle zstd compressor with peakgen.
 - Make an online peakgen.
 - <strike>Fix strcmp bugs.</strike>
-- Fix context menu.
+- <strike>Fix context menu.</strike>
 - Make it so that files to be included in the slab file can have a metadata file so that there can be  attribution or alttext attached to the file.
 - Make the combiner combine the entries with the same headword in order
 	- Enable custom html for the combining of dictionary entries.

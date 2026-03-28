@@ -1,5 +1,19 @@
 peakgen : peakgen.c peak.h
-	gcc -Wall -O3 peakgen.c -o peakgen
+	gcc -DDEBUG -Wall -O3 peakgen.c -o peakgen
+peakgen.wasm : peakgen.c peak.h
+	emcc peakgen.c \
+  -Oz \
+	-flto \
+	-msimd128 \
+	-mrelaxed-simd \
+  -msse4.2 -mavx -mavx2 \
+  -s ENVIRONMENT=web \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s MODULARIZE=1 \
+  -s EXPORT_NAME='peakgen' \
+  -s EXPORTED_FUNCTIONS='["_main","_malloc","_free"]' \
+  -s EXPORTED_RUNTIME_METHODS='["HEAPU8","UTF8ToString","stringToNewUTF8"]' \
+  -o peakgen.js
 peakdec : peak.c zstddeclib.c peak.h
 	emcc peak.c \
   -Oz \

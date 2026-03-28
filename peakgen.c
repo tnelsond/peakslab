@@ -7,7 +7,10 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-//#include "strnatcmp.h"
+#ifndef DEBUG
+    #define printf(...) ((void)0)
+#endif
+
 #include "stringzilla/stringzilla.h"
 #include "peak.h"
 
@@ -132,8 +135,8 @@ static int ps_cmp(const void *a, const void *b){
 */
 
 VecChar textflat = {0, 0, NULL}; // Global so we can lazily use it in qsort
-VecChar textflat2 = {0, 0, NULL}; // Global so we can lazily use it in qsort
-VecChar textflat3 = {0, 0, NULL}; // Global so we can lazily use it in qsort
+VecChar textflat2 = {0, 0, NULL};
+VecChar textflat3 = {0, 0, NULL};
 
 static int idx_cmp(const void *pa, const void *pb){
 	uint32_t a = *(uint32_t*)pa;
