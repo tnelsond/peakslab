@@ -12,7 +12,7 @@ const tablayout = [
 
 const scope = '/chitonga/';
 const lang = [
-	{name: "Chitonga", val: 'toi-ZM'},
-	{name: "English", val: 'en-US'}
+	{name: "Chitonga", val: 'toi_ZM'},
+	{name: "English", val: 'en_US'}
 ];
 const appname = 'tonga';

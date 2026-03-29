@@ -6,7 +6,7 @@ const tablayout = [
 
 const scope = '/khmermusic/';
 const lang = [
-	{name: "Khmer", val: 'kh-KM'},
-	{name: "English", val: 'en-US'}
+	{name: "Khmer", val: 'kh_KM'},
+	{name: "English", val: 'en_US'}
 ];
 const appname = 'kh𝄞';

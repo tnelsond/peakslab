@@ -6,7 +6,7 @@ const tablayout = [
 
 const scope = '/lozi/';
 const lang = [
-	{name: "Lozi", val: 'loz-ZM'},
-	{name: "English", val: 'en-US'}
+	{name: "Lozi", val: 'loz_ZM'},
+	{name: "English", val: 'en_US'}
 ];
 const appname = 'lozi';

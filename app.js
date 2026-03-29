@@ -548,19 +548,25 @@ document.getElementById('settingsModal')?.addEventListener('click', e => {
     }
 });
 
-let selMenu = document.createElement('div');
+let voicetries = 2;
+let voices = [];
+let selMenu = null;
 function createSelMenu(){
-	selMenu.remove();
+	if(selMenu)
+		selMenu.remove();
 	selMenu = document.createElement('div')
 	document.body.appendChild(selMenu);
 	selMenu.className = 'selection-menu';
   selMenu.innerHTML = `<button data-action="search-current">🔍Search</button><button data-action="search-popup">🔍Popup</button>`;
-  if (typeof lang !== "undefined") {
-    lang.forEach(x => {
-      if(speechSynthesis.getVoices().some(voice => voice.lang.startsWith(x.val.split('-')[0])))
-				selMenu.innerHTML += `<button data-action="speak-${x.val}">🔊 ${x.name}</button>`;
-    });
-  }
+	voices = speechSynthesis.getVoices();
+	if(voices.length > 0){
+		if (typeof lang !== "undefined") {
+			lang.forEach(x => {
+				if(voices.some(voice => voice.lang.toLowerCase().startsWith(x.val.split('_')[0])))
+					selMenu.innerHTML += `<button data-action="speak-${x.val}">🔊 ${x.name}</button>`;
+			});
+		}
+	}
 	selMenu.addEventListener('click', function(e) {
 		const text = selText;
 		if (e.target.tagName === 'BUTTON') {
@@ -591,6 +597,10 @@ function showSelMenu() {
 	const rect = getSelRect();
 	if(!rect) return;
 
+	if(!selMenu || (voices.length < 2 && voicetries-- > 0)){
+		createSelMenu();
+	}
+
 	selText = window.getSelection().toString().trim();
 
   let top = rect.bottom + 26 + window.scrollY;
@@ -599,7 +609,8 @@ function showSelMenu() {
   selMenu.style.display = 'block';
 }
 function hideSelMenu(){
-	selMenu.style.display = 'none';
+	if(selMenu)
+		selMenu.style.display = 'none';
 }
 let selTimeout = null;
 function handleSelEnd() {
@@ -674,18 +685,6 @@ class PaElement extends HTMLElement {
 		}
 }
 customElements.define('p-a', PaElement);
-
-if ('speechSynthesis' in window) {
-    let voicesLoaded = false;
-
-    const loadVoices = () => {
-        if (!voicesLoaded) {
-            voicesLoaded = true;
-            createSelMenu();
-        }
-    };
-    speechSynthesis.getVoices();
-    speechSynthesis.addEventListener('voiceschanged', loadVoices);
-}
 createSelMenu();
-document.body.appendChild(document.createTextNode("v10.5"));
+
+document.body.appendChild(document.createTextNode("v10.6"));
