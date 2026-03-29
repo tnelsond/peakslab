@@ -440,7 +440,6 @@ int main(int argc, char **argv) {
 						vec_char_push(&textflat3, c);
 					}
 					fclose(f);
-					vec_char_push(&textflat3, '\0');
 				}
 				else{
 					printf("File not found!: %s\n", buf);

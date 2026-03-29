@@ -111,7 +111,7 @@ workers.forEach((w) => {
 				if (e.data.filetype.toLowerCase().includes('webp')) {
 					const blob = new Blob([e.data.body], { type: 'image/webp' });
 					const url = URL.createObjectURL(blob);
-					div.innerHTML += `<img src="${url}" alt="${e.data.header}.${e.data.filetype}" style="max-width:100%;">`;
+					div.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
 				}else if (e.data.filetype.toLowerCase().includes('webm')) {
 					const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
 					const url = URL.createObjectURL(blob);
