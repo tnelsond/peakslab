@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.4.5.7';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.5.8';   // ← Bump this on every deploy!
 
 const FILE_VERSIONS = {
   '/': 'v3',
@@ -19,6 +19,7 @@ const FILE_VERSIONS = {
   '/khmer/db/bible.peak.zst': 'v2',
   '/khmer/db/biblewordkm.peak.zst': 'v3',
   '/khmer/db/choukprov.peak.zst': 'v2',
+  '/khmer/db/cambogeo.peak.zst': 'v1',
   '/khmer/db/hymns7.peak.zst': 'v2',
   '/khmer/db/khmer92_h97.peak.zst': 'v2',
   '/khmer/db/kmULB.peak.zst': 'v4',
