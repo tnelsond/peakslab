@@ -13,7 +13,13 @@
 
 #include "stringzilla/stringzilla.h"
 #include "peak.h"
-#include <zstd.h>
+#include "zstd.h"
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#else
+#define EMSCRIPTEN_KEEPALIVE ;
+#endif
 
 typedef struct {
     uint32_t len, max;
@@ -125,7 +131,7 @@ static int ps_cmp(const void *a, const void *b){
 }
 
 
-int gsize = 0;
+uint32_t gsize = 0;
 VecChar textflat2 = {0, 0, NULL};
 VecChar textflat3 = {0, 0, NULL};
 
@@ -141,11 +147,13 @@ static int peakline_cmp(const void *pa, const void *pb){
 	return ps_cmp(textflat2.data + a->stroff, textflat2.data + b->stroff);
 }
 
-size_t peakslab_getsize(){
+EMSCRIPTEN_KEEPALIVE
+uint32_t peakslab_getsize(){
 	return gsize;
 }
 
-uint8_t * peakslab_gen(char *src, size_t len, const char *path){
+EMSCRIPTEN_KEEPALIVE
+uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 		VecU32 tagdef_idx = {0, 0, NULL};
 		VecChar tagdef = {0, 0, NULL};
 		vec_char_push(&tagdef, '\0');
@@ -225,8 +233,8 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path){
 		p->idx3start = 0;
 		for(int a = 0; a < textflat.len; ++a){
 			uint8_t c = textflat.data[a];
-			if(!c){
-				vec_char_push(&textflat2, c); // null delimited strings
+			if(!c || (c == '\n' && !isslab)){
+				vec_char_push(&textflat2, '\0'); // null delimited strings
 				taggap = 0;
 				upper = 0;
 				pupper = 0;
@@ -506,6 +514,30 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path){
 	textflat3.max = 0;
 	textflat3.data = NULL;
 
+	if(compress){
+		printf("COMPRESSING\n");
+		size_t const cBound = ZSTD_compressBound(gsize);
+    uint8_t *comp = malloc(cBound);
+    if (!comp){
+			fprintf(stderr, "Out of memory\n");
+			free(uncomp);
+			return NULL;
+		}
+
+    size_t const clen = ZSTD_compress(comp, cBound, uncomp, gsize, 19);
+    if (ZSTD_isError(clen)) {
+        fprintf(stderr, "Zstd compression error: %s\n", ZSTD_getErrorName(clen));
+        free(comp);
+				free(uncomp);
+        return NULL;
+    }
+		printf("Compressed from %ld -> %zu bytes (%.2f%%)\n", gsize, clen, 100.0 * clen / gsize);
+		gsize = clen;
+
+		free(uncomp);
+		return comp;
+	}
+
 	return uncomp;
 }
 
@@ -516,22 +548,21 @@ int main(int argc, char **argv) {
 	}
 	const char *path = argv[1];
 	struct stat st;
-	uint8_t *uncomp = NULL;
+	uint8_t *data = NULL;
+	int compress = endswith(argv[2], ".zst");
 	if (stat(path, &st) != 0) {
 			perror("stat failed");
 			fprintf(stderr, "Cannot access: %s\n", path);
 			return 1;
 	}
 	if(S_ISDIR(st.st_mode)){
-		uncomp = peakslab_gen(NULL, 0, path);
+		data = peakslab_gen(NULL, 0, path, compress);
 	}
   else if (S_ISREG(st.st_mode)) {
 		FILE *f = fopen(argv[1], "r");
 		if (!f) { perror("open input"); return 1; }
 		
-	
 		int c;
-
 		VecChar raw_tsv = {0, 0, NULL};
 		while((c = fgetc(f)) != EOF){
 			if(c == '\n'){
@@ -542,37 +573,14 @@ int main(int argc, char **argv) {
 		}
 
 		fclose(f);
-		uncomp = peakslab_gen(raw_tsv.data, raw_tsv.len, NULL);
+		data = peakslab_gen(raw_tsv.data, raw_tsv.len, NULL, compress);
 		free(raw_tsv.data);
 	}
 
 	FILE *out = fopen(argv[2], "wb");
-	size_t ulen = peakslab_getsize();
-	if(endswith(argv[2], ".zst")){
-		printf("COMPRESSING\n");
-		size_t const cBound = ZSTD_compressBound(ulen);
-    uint8_t *comp = malloc(cBound);
-    if (!comp){
-			fprintf(stderr, "Out of memory\n");
-			free(uncomp);
-			return -7;
-		}
-
-    size_t const clen = ZSTD_compress(comp, cBound, uncomp, ulen, 19);
-    if (ZSTD_isError(clen)) {
-        fprintf(stderr, "Zstd compression error: %s\n", ZSTD_getErrorName(clen));
-        free(comp);
-				free(uncomp);
-        return 1;
-    }
-
-    fwrite(comp, 1, clen, out);
-    printf("Compressed from %ld -> %zu bytes (%.2f%%)\n", ulen, clen, 100.0 * clen / ulen);
-    free(comp);
-	}else{
-		fwrite(uncomp, 1, ulen, out);
-	}
-  free(uncomp);
+	size_t len = peakslab_getsize();
+	fwrite(data, 1, len, out);
+	free(data);
 	fclose(out);
 
 	return 0;

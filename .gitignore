@@ -2,3 +2,4 @@
 *.slab
 peak
 peakgen
+*.o

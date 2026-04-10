@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PeakSlab Generator</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #f8f9fa; }
+        .container { background: white; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.12); padding: 40px; }
+        h1 { text-align: center; color: #1a73e8; }
+        .upload-area { border: 3px dashed #1a73e8; border-radius: 12px; padding: 50px 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: #fafcff; }
+        .upload-area:hover, .upload-area.dragover { background: #e8f0fe; border-color: #1557b0; }
+        button { background: #1a73e8; color: white; border: none; padding: 14px 32px; font-size: 16px; border-radius: 8px; cursor: pointer; margin: 10px 5px; }
+        button:hover:not(:disabled) { background: #1557b0; }
+        button:disabled { background: #9aa0a6; cursor: not-allowed; }
+        .status { margin: 25px 0; text-align: center; font-size: 15px; min-height: 28px; }
+        .success { color: #137333; }
+        .error { color: #d93025; }
+        .info { background: #f1f3f4; border-radius: 8px; padding: 18px; font-size: 14px; margin-top: 30px; }
+        .download-btn { display: none; margin: 25px auto 0; width: 100%; max-width: 420px; }
+        .filename { font-family: monospace; background: #f1f3f4; padding: 3px 8px; border-radius: 4px; }
+        #log { background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 13px; max-height: 220px; overflow-y: auto; white-space: pre-wrap; margin-top: 15px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PeakSlab Generator</h1>
+
+        <div id="uploadArea" class="upload-area">
+            <input type="file" id="fileInput" accept=".tsv,.txt">
+            <div id="uploadText">
+                <h3>Drop your .tsv file here</h3>
+                <p>or click to select</p>
+            </div>
+        </div>
+
+        <div style="text-align: center;">
+            <button id="processBtn" disabled>Generate .peak (uncompressed)</button>
+            <button id="processZstBtn" disabled style="background:#34a853;">Generate .peak.zst (compressed)</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div id="log"></div>
+
+        <a id="downloadLink" class="download-btn" download>
+            <button style="background:#34a853; width:100%;">⬇️ Download Result</button>
+        </a>
+
+    </div>
+
+    <script>
+        let Module = null;
+        let selectedFile = null;
+        let isProcessing = false;
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+        const processZstBtn = document.getElementById('processZstBtn');
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+        const downloadLink = document.getElementById('downloadLink');
+
+        function log(msg) {
+            console.log(msg);
+            logEl.style.display = 'block';
+            logEl.textContent += msg + '\n';
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        async function loadWasm() {
+            if (Module) return Module;
+            statusEl.textContent = 'Loading WebAssembly...';
+            log('Loading peakgen.js + wasm...');
+
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'peakgen.js';
+                script.onload = () => {
+                    peakgen().then(mod => {
+                        Module = mod;
+                        log('✓ WebAssembly loaded');
+                        statusEl.textContent = 'Ready';
+                        resolve(mod);
+                    }).catch(reject);
+                };
+                script.onerror = () => reject(new Error('Failed to load peakgen.js'));
+                document.head.appendChild(script);
+            });
+        }
+
+        function handleFile(file) {
+            if (!file.name.toLowerCase().match(/\.(tsv|txt)$/)) {
+                alert('Please select a .tsv or .txt file');
+                return;
+            }
+            selectedFile = file;
+            document.getElementById('uploadText').innerHTML = `
+                <h3>Selected: <span class="filename">${file.name}</span></h3>
+                <p>Size: ${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+            `;
+            processBtn.disabled = processZstBtn.disabled = false;
+            downloadLink.style.display = 'none';
+            logEl.textContent = ''; logEl.style.display = 'none';
+        }
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => e.target.files[0] && handleFile(e.target.files[0]));
+        uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', e => {
+            e.preventDefault(); uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+        });
+
+        async function processFile(compress = false) {
+            if (!selectedFile || isProcessing || !Module) return;
+            isProcessing = true;
+            processBtn.disabled = processZstBtn.disabled = true;
+            statusEl.textContent = 'Processing large file... (this may take a while)';
+            log(`Starting ${compress ? 'compressed' : 'uncompressed'} processing`);
+
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const inputData = new Uint8Array(arrayBuffer);
+                log(`Input: ${inputData.length.toLocaleString()} bytes`);
+
+                const inputPtr = Module._malloc(inputData.length);
+                if (!inputPtr) throw new Error("malloc failed for input");
+
+                Module.HEAPU8.set(inputData, inputPtr);
+
+                // Call peakslab_gen
+                const resultPtr = Module._peakslab_gen(inputPtr, inputData.length, 0, compress ? 1 : 0);
+                const resultSize = Module._peakslab_getsize();
+
+                if (!resultPtr || resultSize === 0) {
+                    throw new Error(`peakslab_gen failed (size = ${resultSize})`);
+                }
+
+                log(`Output size: ${resultSize.toLocaleString()} bytes`);
+
+                // CRITICAL FIX: Create a fresh copy immediately after the call
+                // This prevents truncation if memory grows later
+                const outputView = new Uint8Array(Module.HEAPU8.buffer, resultPtr, resultSize);
+                const outputCopy = new Uint8Array(outputView);   // <--- deep copy
+
+                // Create blob from the safe copy
+                const blob = new Blob([outputCopy], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+
+                const ext = compress ? '.peak.zst' : '.peak';
+                const outputName = selectedFile.name.replace(/\.(tsv|txt)$/i, '') + ext;
+
+                downloadLink.href = url;
+                downloadLink.download = outputName;
+                downloadLink.style.display = 'block';
+
+                statusEl.innerHTML = `✅ Success!<br><strong>${outputName}</strong> — ${(resultSize/1024/1024).toFixed(2)} MB`;
+                statusEl.className = 'status success';
+
+                log(`Download ready (${outputName})`);
+
+                // Cleanup
+                Module._free(inputPtr);
+                // Optional: if you add a free function in C (e.g. peakslab_free(resultPtr)), call it here
+
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = '❌ Error: ' + err.message;
+                statusEl.className = 'status error';
+                log('ERROR: ' + err.message);
+            } finally {
+                isProcessing = false;
+                processBtn.disabled = processZstBtn.disabled = false;
+            }
+        }
+
+        processBtn.addEventListener('click', () => processFile(false));
+        processZstBtn.addEventListener('click', () => processFile(true));
+
+        window.addEventListener('load', () => {
+            loadWasm().catch(err => {
+                statusEl.textContent = 'Failed to load WASM. Check console.';
+                statusEl.className = 'status error';
+                console.error(err);
+            });
+        });
+    </script>
+<p>This online version of the generator is mostly AI generated because AI can do it fine, it's a simple thing. And I can't be bothered to write a tool like this that I would never use.</p>
+</body>
+</html>
