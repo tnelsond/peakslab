@@ -13,6 +13,7 @@
 
 #include "stringzilla/stringzilla.h"
 #include "peak.h"
+#include <zstd.h>
 
 typedef struct {
     uint32_t len, max;
@@ -50,6 +51,20 @@ static int bytes_req(uint32_t val){
 	return 1;
 }
 
+int endswith(char *haystack, char *needle){
+	char *he = haystack;
+	char *ne = needle;
+	while(*he)
+		he++;
+	while(*ne)
+		ne++;
+	while(he > haystack && ne > needle && *he == *ne){
+		--he;
+		--ne;
+	}
+	return *ne == *he;
+}
+
 static void vec_u32_push(VecU32 *v, uint32_t val) {
     if (v->len >= v->max) {
         v->max = v->max ? v->max * 2 : 1024;
@@ -77,11 +92,6 @@ static void vec_peakline_expand(VecPeakline *v){
 		v->len++;
 }
 
-/*
-static void vec_char_append(VecChar *v, const char *s) {
-    while (*s) vec_char_push(v, *s++);
-}*/
-
 static uint32_t get_tagid(VecU32 *tagidx, VecChar *tag){
     for (uint32_t i = 3; i < tagidx->len-1; i++) {
         if (strcmp(&tag->data[tagidx->items[i]], &tag->data[tagidx->items[tagidx->len-1]]) == 0){
@@ -92,18 +102,6 @@ static uint32_t get_tagid(VecU32 *tagidx, VecChar *tag){
     }
 		return tagidx->len - 1;
 }
-
-/*
-static int ps_cmp(const void *a, const void *b){
-	char *sa = (char*)a;
-	char *sb = (char*)b;
-	while(*sa && *sb && tolower(*sa) == tolower(*sb)){
-		sa++; sb++;	
-	}
-	char x = *sa < 0x7F ? tolower(*sa) : *sa;
-	char y = *sb < 0x7F ? tolower(*sb) : *sb;
-	return x - y;
-}*/
 
 // gen 1:10 - gen 1:2
 static int ps_cmp(const void *a, const void *b){
@@ -126,58 +124,28 @@ static int ps_cmp(const void *a, const void *b){
 	return sa[i] - sb[i];
 }
 
-/*
-static int ps_cmp(const void *a, const void *b){
-	char *sa = (char*)a;
-	char *sb = (char*)b;
-	return strnatcasecmp(sa, sb);
-}
-*/
 
-VecChar textflat = {0, 0, NULL}; // Global so we can lazily use it in qsort
+int gsize = 0;
 VecChar textflat2 = {0, 0, NULL};
 VecChar textflat3 = {0, 0, NULL};
 
 static int idx_cmp(const void *pa, const void *pb){
 	uint32_t a = *(uint32_t*)pa;
 	uint32_t b = *(uint32_t*)pb;
-	//int alen = strlen(a->data);
-	//int blen = strlen(b->data);
-	//return sz_order(a->data, alen, b->data, blen);
 	return ps_cmp(&textflat3.data[a], &textflat3.data[b]);
-}
-
-static int vec_char_cmp(const void *pa, const void *pb){
-	VecChar *a = (VecChar*)pa;
-	VecChar *b = (VecChar*)pb;
-	//int alen = strlen(a->data);
-	//int blen = strlen(b->data);
-	//return sz_order(a->data, alen, b->data, blen);
-	return ps_cmp(a->data, b->data);
 }
 
 static int peakline_cmp(const void *pa, const void *pb){
 	Peakline *a = (Peakline*)pa;
 	Peakline *b = (Peakline*)pb;
-	//printf("###a: %s\n###b: %s\n", textflat2.data + a->stroff, textflat2.data + b->stroff);
 	return ps_cmp(textflat2.data + a->stroff, textflat2.data + b->stroff);
 }
 
-int main(int argc, char **argv) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: peakgen input.tsv output.peak\n\tpeakgen dir/ output.slab\n");
-        return 1;
-    }
+size_t peakslab_getsize(){
+	return gsize;
+}
 
-		const char *path = argv[1];
-    struct stat st;
-
-    if (stat(path, &st) != 0) {
-        perror("stat failed");
-        fprintf(stderr, "Cannot access: %s\n", path);
-        return 1;
-    }
-
+uint8_t * peakslab_gen(char *src, size_t len, const char *path){
 		VecU32 tagdef_idx = {0, 0, NULL};
 		VecChar tagdef = {0, 0, NULL};
 		vec_char_push(&tagdef, '\0');
@@ -205,13 +173,14 @@ int main(int argc, char **argv) {
 		char buf[BUF_LEN]; // For slab
 		int path_prefix_len = 0;
 
-		int isslab = S_ISDIR(st.st_mode);
+		int isslab = path != NULL;
+		VecChar textflat = {len, len, src};
     if (isslab) {
 			//printf("Files found:\n");
 			DIR *dir = opendir(path);
 			if (!dir) {
 					perror("opendir failed");
-					return 1;
+					return NULL;
 			}
 
 			struct dirent *entry;
@@ -221,21 +190,14 @@ int main(int argc, char **argv) {
 					if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
 							continue;
 
-					//vec_str_startnew(&files);
 					char *c;
 					for(c = entry->d_name; *c; ++c){
 						vec_char_push(&textflat, *c);
-						//vec_str_pushc(&files, *c);
 					}
 					vec_char_push(&textflat, *c); // '\0'
-					//vec_str_pushc(&files, '\0');
-					//printf("  %s\n", entry->d_name);
 			}
 
 			closedir(dir);
-
-			//qsort(files.line, files.len, sizeof(files.line[0]), vec_char_cmp);
-			//qsort(text.line, text.len, sizeof(text.line[0]), vec_char_cmp);
 
 			int i;
 			for(i=0; path[i]; ++i){
@@ -244,24 +206,6 @@ int main(int argc, char **argv) {
 			path_prefix_len = i;
 		}
 			
-
-    if (S_ISREG(st.st_mode)) {
-			FILE *f = fopen(argv[1], "r");
-			if (!f) { perror("open input"); return 1; }
-			
-		
-			int c;
-			while((c = fgetc(f)) != EOF){
-				if(c == '\n'){
-					vec_char_push(&textflat, '\0');
-					continue;
-				}
-				vec_char_push(&textflat, c);
-			}
-
-			fclose(f);
-		}
-
 		VecPeakline peaklines = {0, 0, NULL};
 		VecU32 line_idx = {0, 0, NULL};
 		VecU32 idx2 = {0, 0, NULL};
@@ -272,7 +216,6 @@ int main(int argc, char **argv) {
 		int pupper = 0;
 		int upper_idx = 0;
 		int inside = 0;
-		//printf("\n");
 		vec_peakline_expand(&peaklines);
 		Peakline *p = peaklines.line;
 		p->stroff = 0;
@@ -281,12 +224,9 @@ int main(int argc, char **argv) {
 		p->idx2start = 0;
 		p->idx3start = 0;
 		for(int a = 0; a < textflat.len; ++a){
-			//vec_u32_push(&line_idx, textflat.len);
-			//vec_u32_push(&tag_idx, tag.len/2);
 			uint8_t c = textflat.data[a];
 			if(!c){
 				vec_char_push(&textflat2, c); // null delimited strings
-				//printf("##: %s\n", textflat2.data + p->stroff);
 				taggap = 0;
 				upper = 0;
 				pupper = 0;
@@ -333,10 +273,8 @@ int main(int argc, char **argv) {
 					vec_char_push(&tagdef, '\0');
 					uint32_t tagid = get_tagid(&tagdef_idx, &tagdef);
 					vec_u32_push(&tag, taggap);
-					//printf("taggap %d\n", taggap);
 					taggap = 0;
 					vec_u32_push(&tag, tagid);
-					//printf("tagid: %u - %u\n", tag.items[tag.len-2], tag.items[tag.len-1]);
 				}
 			}else if(c == '@'){
 				if(idx2.len && textflat2.len == idx2.items[idx2.len-1]){ // If there's an escaped/doubled @, remove the previous idx2 and put one @ back in.
@@ -368,7 +306,6 @@ int main(int argc, char **argv) {
 			}else{
 				if(upper){
 					int x = textflat2.len - upper_idx + 1;
-					//printf("CAP RUN: %d ", x);
 					if(x > 1){
 						tag.items[pupper] = CAPITAL_RUN_START;
 						vec_u32_push(&tag, taggap);
@@ -380,22 +317,14 @@ int main(int argc, char **argv) {
 				vec_char_push(&textflat2, c);
 				taggap++;
 			}
-			uint8_t *uc = textflat2.data;
+			uint8_t *uc = (uint8_t *)textflat2.data;
 			if(uc[textflat2.len-1] == 0x8b && uc[textflat2.len-2] == 0x80 && uc[textflat2.len-3] == 0xe2){
 				textflat2.len -= 3;
 				taggap -= 3;
 				vec_u32_push(&tag, taggap);
 				vec_u32_push(&tag, ZWS);
 				taggap = 0;
-			}/*else if(textflat.data[textflat.len-1] < 0 && textflat.data[textflat.len-2] == ' ' && textflat.data[textflat.len-3] < 0){
-				printf("\nXXXXX %d %d %d\n", taggap, textflat.len, tag.len);
-				textflat.data[textflat.len-2] = textflat.data[textflat.len-1];
-				--textflat.len;
-				vec_u32_push(&tag, taggap-2);
-				vec_u32_push(&tag, PSPACE);
-				taggap = 1;
 			}
-			}*/
 			if(taggap > 255){ // Before this was broken and was putting just out of reach tags, hopefully this fixes it.
 				vec_u32_push(&tag, taggap-1);
 				vec_u32_push(&tag, NOP);
@@ -403,6 +332,12 @@ int main(int argc, char **argv) {
 			}
 		}
 		peaklines.len--; //Remove empty last line
+
+		if(!isslab){
+			textflat.data = NULL;
+			textflat.len = 0;
+			textflat.max = 0;
+		}
 
 		printf("Ok\n");
 
@@ -424,7 +359,7 @@ int main(int argc, char **argv) {
 			for(int i=p->idx3start; i < p->idx3start + p->idx3len; ++i){
 				idx3.items[i] += textflat3.len; // Introduce proper offset into sorted lines
 			}
-			uint8_t *str = textflat2.data + p->stroff;
+			uint8_t *str = (uint8_t*) textflat2.data + p->stroff;
 			uint32_t temp = textflat3.len;
 			do{
 				vec_char_push(&textflat3, *str);
@@ -451,8 +386,19 @@ int main(int argc, char **argv) {
 			}
 		}
 
+		free(textflat2.data);
+		textflat2.data = NULL;
+		textflat2.len = 0;
+		textflat2.max = 0;
+		if(isslab){
+			free(textflat.data);
+			textflat.data = NULL;
+			textflat.len = 0;
+			textflat.max = 0;
+		}
+
 		vec_u32_push(&line_idx, textflat3.len); // Extra for bounds checking
-		vec_u32_push(&tag_idx, tag2.len/2); // There's an extra one for the bounds checking
+		vec_u32_push(&tag_idx, tag2.len/2); 
 
 		if(idx2.len){
 			qsort(idx2.items, idx2.len, sizeof(idx2.items[0]), idx_cmp);
@@ -461,57 +407,6 @@ int main(int argc, char **argv) {
 			qsort(idx3.items, idx3.len, sizeof(idx3.items[0]), idx_cmp);
 		}
 
-		/* For testing
-		printf("\nTAGS DATA: (%d lines)\n", tag_idx.len);
-		if(tag.len > 0){
-			for(int i = 0; i < tag_idx.len - 1; ++i){
-				//putchar('\n');
-				uint32_t t = tag_idx.items[i]*2;
-				char *c = &textflat.data[line_idx.items[i]];
-				int upper = 0;
-				uint32_t j = 0;
-				uint32_t tend = tag_idx.items[i+1]*2;
-				//printf("\ntag range %d-%d\n", t, tend);
-				if(tend < t){
-					printf("ERROR with tag order!!!\n");
-				}
-				while(*c || t + 1 < tend){
-					while(j == tag.items[t] && t+1 < tend){
-						switch(tag.items[t+1]){
-							case CAPITAL_SINGLE:
-								upper = 1; break;
-							case CAPITAL_RUN_START:
-								upper = 2; break;
-							case CAPITAL_RUN_END:
-								upper = 0; break;
-							default:
-								break;
-						}
-						//printf("<%u-%u>", tag.items[t], tag.items[t+1]);
-						//printf("%s", &tagdef.data[tagdef_idx.items[tag.items[t+1]]]);
-						t += 2;
-						j = 0;
-					}
-					if(*c){
-						putchar(upper ? toupper(*c) : *c);
-						upper = upper == 1 ? 0 : upper;
-						c++;
-						++j;
-					}
-					else if(j != tag.items[t]){
-						//printf("\nIMPOSSIBLE!\n");
-						break;
-					}
-				}
-			}
-		}
-		*/
-
-		/*printf("Line starts %d# ", line_idx.len);
-		for(int i = 0; i < line_idx.len; ++i){
-			printf("%d..", line_idx.items[i]);
-		}
-		printf("\n");*/
 
 	struct peakslab h = {0, {0xF2, 0xFC, 0xF3}, {'P', 'e', 'a', 'k'},
 		0x2, isslab ? SLAB : PEAK, bytes_req(tagdef.len),
@@ -526,115 +421,158 @@ int main(int argc, char **argv) {
 		0, idx3.len
 	};
 
-//	binarybyte; magicnum; magicstr;
-//	version; features; btagdef_idx;
-//	btag_idx; btag1; btag2; bline_idx;
-//	tagdef_idx_start; tagdef_idx_len;
-//  tagdef_start; tagdef_len; 
-//  tag_idx_start; tag_idx_len;
-//  tag_start; tag_len; 
-//	line_idx_start; line_idx_len;
-//	line_start; line_len;
-//	idx2_start; idx2_len;
-//	idx3_start; idx3_len;
-
 	h.tagdef_idx_start = sizeof(struct peakslab);
 	h.tagdef_start = h.tagdef_idx_start + h.tagdef_idx_len * h.btagdef_idx;
 	h.tag_idx_start = h.tagdef_start + h.tagdef_len * sizeof(char);
 	h.tag_start = h.tag_idx_start + h.tag_idx_len * h.btag_idx;
-	/*h.idx2_start = h.tag_start + h.tag_len * (h.btag1 + h.btag2);
-	h.idx3_start = h.idx2_start + h.idx2_len * h.bline_idx;
-	h.line_idx_start = h.idx3_start + h.idx3_len * h.bline_idx;*/
 	h.idx2_start = (h.tag_start + h.tag_len * (h.btag1 + h.btag2) + 3) & ~3u;
 	h.idx3_start = (h.idx2_start + h.idx2_len * h.bline_idx + 3) & ~3u;
 	h.line_idx_start = (h.idx3_start + h.idx3_len * h.bline_idx + 3) & ~3u;
 
 	h.line_start = h.line_idx_start + h.line_idx_len * h.bline_idx;
 
-	uint32_t size = 0;
-	FILE *out = fopen(argv[2], "wb");
-	fwrite(&h, sizeof(struct peakslab), 1, out);
-	size += sizeof(struct peakslab);
-	printf("tagdef_idx: %d\n", size);
-	for(int i=0; i<tagdef_idx.len; ++i){
-		fwrite(&tagdef_idx.items[i], h.btagdef_idx, 1, out);
-		size += h.btagdef_idx;
+	uint8_t *uncomp = malloc(h.line_start + textflat3.len);
+	if(!uncomp){
+		exit(-8);
 	}
-	printf("tagdef: %d\n", size);
-	//fwrite(&tagdef.data[0], sizeof(char), 15, out);
-	fwrite(tagdef.data, sizeof(char), tagdef.len, out);
-	size += sizeof(char) * tagdef.len;
-	printf("tag_idx: %d\n", size);
+	gsize = 0;
+	memcpy(uncomp + gsize, &h, sizeof(struct peakslab));
+	gsize += sizeof(struct peakslab);
+	printf("tagdef_idx: %d\n", gsize);
+	for(int i=0; i<tagdef_idx.len; ++i){
+		memcpy(uncomp + gsize, &tagdef_idx.items[i], h.btagdef_idx);
+		gsize += h.btagdef_idx;
+	}
+	printf("tagdef: %d\n", gsize);
+	memcpy(uncomp + gsize, tagdef.data, tagdef.len);
+	gsize += sizeof(char) * tagdef.len;
+	printf("tag_idx: %d\n", gsize);
 	printf("btag_idx: %d\n", h.btag_idx);
 	printf("bline_idx: %d\n", h.bline_idx);
 	for(int i=0; i<tag_idx.len; ++i){
-		/*printf("line %d, tag_idx: %d\n", i, tag_idx.items[i]);
-		if(i+1 < tag_idx.len){
-			uint32_t tagnum = tag_idx.items[i+1] - tag_idx.items[i];
-			printf("%d, (%d) items on line: %d\n", tag_idx.items[i], tagnum, i);
-		}*/
-		fwrite(&tag_idx.items[i], h.btag_idx, 1, out);
-		size += h.btag_idx; 
+		memcpy(uncomp + gsize, &tag_idx.items[i], h.btag_idx);
+		gsize += h.btag_idx; 
 	}
 
 	putchar('\n');
-	printf("tag: %d\n", size);
+	printf("tag: %d\n", gsize);
 	for(int i=0; i<tag2.len; ++i){
 		int el = (i & 1) ? h.btag2 : h.btag1;
-		fwrite(&tag2.items[i], el, 1, out);
-		size += el; 
+		memcpy(uncomp + gsize, &tag2.items[i], el);
+		gsize += el;
 	}
 	uint32_t x0 = 0;
-	printf("size: %d\n", size);
-	while(size < h.idx2_start){
-		fwrite(&x0, 1, 1, out);
-		++size;
+	printf("size: %d\n", gsize);
+	while(gsize < h.idx2_start){
+		memcpy(uncomp + gsize, &x0, 1);
+		++gsize;
 	}
-	printf("size: %d\n", size);
-	printf("idx2_start: %d\n", size);
+	printf("size: %d\n", gsize);
+	printf("idx2_start: %d\n", gsize);
 	for(int i=0; i<idx2.len; ++i){
-		fwrite(&idx2.items[i], h.bline_idx, 1, out);
-		size += h.bline_idx;
+		memcpy(uncomp + gsize, &idx2.items[i], h.bline_idx);
+		gsize += h.bline_idx;
 	}
-	printf("size: %d\n", size);
-	while(size < h.idx3_start){
-		fwrite(&x0, 1, 1, out);
-		++size;
+	printf("size: %d\n", gsize);
+	while(gsize < h.idx3_start){
+		memcpy(uncomp + gsize, &x0, 1);
+		++gsize;
 	}
-	printf("size: %d\n", size);
-	printf("idx3_start: %d\n", size);
+	printf("size: %d\n", gsize);
+	printf("idx3_start: %d\n", gsize);
 	for(int i=0; i<idx3.len; ++i){
-		fwrite(&idx3.items[i], h.bline_idx, 1, out);
-		size += h.bline_idx;
+		memcpy(uncomp + gsize, &idx3.items[i], h.bline_idx);
+		gsize += h.bline_idx;
 	}
-	printf("size: %d\n", size);
-	while(size < h.line_idx_start){
-		fwrite(&x0, 1, 1, out);
-		++size;
+	printf("size: %d\n", gsize);
+	while(gsize < h.line_idx_start){
+		memcpy(uncomp + gsize, &x0, 1);
+		++gsize;
 	}
-	printf("size: %d\n", size);
-	printf("line_idx_start: %d\n", size);
+	printf("size: %d\n", gsize);
+	printf("line_idx_start: %d\n", gsize);
 	for(int i=0; i<line_idx.len; ++i){
-		fwrite(&line_idx.items[i], h.bline_idx, 1, out);
+		memcpy(uncomp + gsize, &line_idx.items[i], h.bline_idx);
+		gsize += h.bline_idx; 
 	}
-	size += line_idx.len * h.bline_idx; 
-	printf("text_flat_start: %d\n", size);
+	printf("text_flat_start: %d\n", gsize);
 
-	fwrite(textflat3.data, sizeof(char), textflat3.len, out);
-	size += 1 * textflat3.len; 
-	printf("text_flat_end: %d\n", size);
+	memcpy(uncomp + gsize, textflat3.data, textflat3.len);
+	gsize += textflat3.len; 
+	printf("text_flat_end: %d\n", gsize);
 
-	/*printf("Line starts %d# ", line_idx.len);
-	for(int i = 0; i < line_idx.len; ++i){
-		printf("%d..", line_idx.items[i]);
+	free(textflat3.data);
+	textflat3.len = 0;
+	textflat3.max = 0;
+	textflat3.data = NULL;
+
+	return uncomp;
+}
+
+int main(int argc, char **argv) {
+	if (argc != 3) {
+			fprintf(stderr, "Usage: peakgen input.tsv output.peak\n\tpeakgen dir/ output.slab\n");
+			return 1;
 	}
-	printf("\n");*/
+	const char *path = argv[1];
+	struct stat st;
+	uint8_t *uncomp = NULL;
+	if (stat(path, &st) != 0) {
+			perror("stat failed");
+			fprintf(stderr, "Cannot access: %s\n", path);
+			return 1;
+	}
+	if(S_ISDIR(st.st_mode)){
+		uncomp = peakslab_gen(NULL, 0, path);
+	}
+  else if (S_ISREG(st.st_mode)) {
+		FILE *f = fopen(argv[1], "r");
+		if (!f) { perror("open input"); return 1; }
+		
+	
+		int c;
 
-	//for(int i=0; i<tagdef_idx.len; ++i){
-		//printf("%d @%s@\n", i, tagdef.data + tagdef_idx.items[i]);
-	//}
+		VecChar raw_tsv = {0, 0, NULL};
+		while((c = fgetc(f)) != EOF){
+			if(c == '\n'){
+				vec_char_push(&raw_tsv, '\0');
+				continue;
+			}
+			vec_char_push(&raw_tsv, c);
+		}
 
+		fclose(f);
+		uncomp = peakslab_gen(raw_tsv.data, raw_tsv.len, NULL);
+		free(raw_tsv.data);
+	}
 
+	FILE *out = fopen(argv[2], "wb");
+	size_t ulen = peakslab_getsize();
+	if(endswith(argv[2], ".zst")){
+		printf("COMPRESSING\n");
+		size_t const cBound = ZSTD_compressBound(ulen);
+    uint8_t *comp = malloc(cBound);
+    if (!comp){
+			fprintf(stderr, "Out of memory\n");
+			free(uncomp);
+			return -7;
+		}
+
+    size_t const clen = ZSTD_compress(comp, cBound, uncomp, ulen, 19);
+    if (ZSTD_isError(clen)) {
+        fprintf(stderr, "Zstd compression error: %s\n", ZSTD_getErrorName(clen));
+        free(comp);
+				free(uncomp);
+        return 1;
+    }
+
+    fwrite(comp, 1, clen, out);
+    printf("Compressed from %ld -> %zu bytes (%.2f%%)\n", ulen, clen, 100.0 * clen / ulen);
+    free(comp);
+	}else{
+		fwrite(uncomp, 1, ulen, out);
+	}
+  free(uncomp);
 	fclose(out);
 
 	return 0;

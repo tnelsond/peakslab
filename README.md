@@ -86,6 +86,7 @@ These peak files can then be compressed using zstdandard compression which is ve
 - Make an online peakgen.
 - <strike>Fix strcmp bugs.</strike>
 - <strike>Fix context menu.</strike>
+- Make a custom regex-like language for substitution and character unfolding.
 - Make it so that files to be included in the slab file can have a metadata file so that there can be  attribution or alttext attached to the file.
 - Make the combiner combine the entries with the same headword in order
 	- Enable custom html for the combining of dictionary entries.
