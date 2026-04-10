@@ -61,6 +61,8 @@ The slab format is just like the peak format with a tab delimited header, howeve
 
 These peak files can then be compressed using zstdandard compression which is very quick for decompressing and has a good compression ratio.
 
+There's an <a href="https://peakslab.org/peakgen.html">online version of the PeakSlab Generator</a> because I hate when a dictionary converter stops working or has 100 dependencies and you can't compile it any more without rewriting it. (Only works for Peak files at the moment).
+
 ## Completed Features
 - System TTS integration
 - Narrow and wide search
@@ -83,7 +85,8 @@ These peak files can then be compressed using zstdandard compression which is ve
 - <strike>Make it more modular to make porting languages and data easier.</strike>
 - <strike>Rewrite the AI's rust code in C</strike>
 - Bundle zstd compressor with peakgen.
-- Make an online peakgen.
+- <strike>Make an online peakgen.</strike>
+- Add .slab support to online peakgen.
 - <strike>Fix strcmp bugs.</strike>
 - <strike>Fix context menu.</strike>
 - Make a custom regex-like language for substitution and character unfolding.
