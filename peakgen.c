@@ -347,10 +347,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 			textflat.max = 0;
 		}
 
-		printf("Ok\n");
-
 		qsort(peaklines.line, peaklines.len, sizeof(Peakline), peakline_cmp);
-		printf("Sorted\n");
 		printf("tag_idx.len: %d\n", tag_idx.len);
 
 		for(int x=0; x<peaklines.len; ++x){
@@ -388,10 +385,10 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 					printf("File not found!: %s\n", buf);
 				}
 			}
-			printf("!!!%s\n", textflat3.data + temp);
+		/*	printf("!!!%s\n", textflat3.data + temp);
 			for(int i=p->idx2start; i < p->idx2start + p->idx2len; ++i){
 				printf("@@@%.25s\n", textflat3.data + idx2.items[i]);
-			}
+			}*/
 		}
 
 		free(textflat2.data);
