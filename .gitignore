@@ -3,3 +3,4 @@
 peak
 peakgen
 *.o
+*.o.wasm

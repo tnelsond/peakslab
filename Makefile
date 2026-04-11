@@ -2,9 +2,12 @@ peakgen : peakgen.c peak.h zstd.o zstd.h
 	gcc -DDEBUG -Wall -O3 -D_GNU_SOURCE peakgen.c zstd.o -o peakgen
 zstd.o : zstd.c
 	gcc -Wall -O3 -D_GNU_SOURCE zstd.c -c
-peakgen.wasm : peakgen.c peak.h
-	emcc peakgen.c zstd.c -o peakgen.js \
+zstd.o.wasm : zstd.c
+	emcc zstd.c -c -Oz -flto -o zstd.o.wasm
+peakgen.wasm : peakgen.c peak.h zstd.o.wasm
+	emcc peakgen.c zstd.o.wasm -o peakgen.js \
 	-flto \
+	-s MALLOC="emmalloc" \
   -s EXPORTED_FUNCTIONS="['_peakslab_gen','_peakslab_getsize','_malloc','_free']" \
   -s EXPORTED_RUNTIME_METHODS="['HEAPU8']" \
   -s ALLOW_MEMORY_GROWTH=1 \
@@ -18,6 +21,7 @@ peak.wasm : peak.c zstddeclib.c peak.h
 	-msimd128 \
 	-mrelaxed-simd \
   -msse4.2 -mavx -mavx2 \
+	-s MALLOC="emmalloc" \
   -s ENVIRONMENT=web \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s MODULARIZE=1 \
@@ -28,4 +32,4 @@ peak.wasm : peak.c zstddeclib.c peak.h
 peak : peak.c peak.h zstddeclib.c
 	gcc -DDEBUG peak.c -o peak
 
-all : zstd.o peakgen peakgen.wasm peak.wasm peak
+all : peakgen peakgen.wasm peak.wasm peak
