@@ -8,7 +8,7 @@ A project to make offline (PWA) dictionary webapps and tools for building those 
 
 Current languages:
 - Khmer (Cambodian)
-- English (This is just so that we can load English resources to combine with other dictionaries.)
+- English (This is mainly so that we can load English resources to combine with other dictionaries.)
 - Lao (Laos)
 - Chitonga (Tonga)
 - Lozi (Silozi)
@@ -69,6 +69,7 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 - Offline
 - Selection Menu
 - Image and Audio support
+- Online Peak Generator from .tsv source
 
 ## Todo
 - Regex or Glob support
@@ -79,7 +80,8 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 - History and bookmarking
 - <strike>Selection to TTS</strike>
 - Sheet music (ABC files)
-- Cite sources
+- <strike>Cite sources</strike>
+- Allow users to upload their own custom PeakSlab files which will stay cached in Indexeddb.
 - <strike>Rework databases</strike>
 - Rewrite the AI's service worker.
 - <strike>Make it more modular to make porting languages and data easier.</strike>
@@ -111,4 +113,4 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 - Started using zstd wasm modules for decompression, good, but transferring the memory from wasm to javascript was incurring a cost or impossible to implement right.
 - Because Grok sucks at writing C wasm modules I switched to rust for the wasm backend. Suddenly had really good speed, kept all the major processing in one wasm module. Thought that 150kb module was much better than the 1MB sqlite wasm module.
 - Refactored everything to work with lazy loading and lazy searching to make the app more seamless and less inefficient.
-- Rewrote everything from scratch in C because I understand it better, it's faster and most of my previous rust code was unsafe code anyway. Rewrote the html and javascript too. Got the size of the peak decoder from 150kb in rust to 58kb of C.
+- Rewrote everything from scratch in C because I understand it better, it's faster and most of my previous rust code was unsafe code anyway. Rewrote the html and javascript too. Got the size of the peak decoder binary from 150kb in rust to 52kb in C.
