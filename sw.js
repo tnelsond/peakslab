@@ -1,7 +1,7 @@
-const CURRENT_CACHE = 'peakslab-0.4.5.8';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.5.9';   // ← Bump this on every deploy!
 
 const FILE_VERSIONS = {
-  '/': 'v3',
+  '/': 'v4',
   '/app.js': 'v10.7',
   '/peak.js': 'v2',
   '/peakworker.js': 'v5',
@@ -11,6 +11,9 @@ const FILE_VERSIONS = {
   '/peak192x192.png': 'v1',
   '/peak512x512.png': 'v1',
   '/style.css': 'v7.2',
+  '/peakgen.wasm': 'v1',
+  '/peakgen.html': 'v1',
+  '/peakgen.js': 'v1',
 
   '/khmer/config.js': 'v4',
   '/khmer/': 'v3',
@@ -49,6 +52,12 @@ const FILE_VERSIONS = {
   '/lozi/': 'v2',
   '/lozi/db/lozi.peak.zst': 'v2',
   '/lozi/manifest.json': 'v3',
+
+  '/german/config.js': 'v1',
+  '/german/': 'v1',
+  '/german/db/oxford-de.peak.zst': 'v1',
+  '/german/db/deuSchBible.peak.zst': 'v1',
+  '/german/manifest.json': 'v1',
 
   '/english/config.js': 'v1',
   '/english/': 'v2',
