@@ -1,4 +1,4 @@
-#!/bin/dash
+#!/bin/sh
 
 new_dir="db/"
 new_ext="peak.zst"
@@ -10,4 +10,3 @@ for arg in "$@"; do
 	new_filepath="$new_dir/$filename_no_ext.$new_ext"
   ../peakgen $arg $new_filepath
 done
-
