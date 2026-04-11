@@ -12,6 +12,8 @@ Current languages:
 - Lao (Laos)
 - Chitonga (Tonga)
 - Lozi (Silozi)
+- German
+- Spanish
 
 # License
 
