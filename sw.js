@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.4.6.3';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.6.4';   // ← Bump this on every deploy!
 
 const FILE_VERSIONS = {
   '/': 'v5',
@@ -66,7 +66,7 @@ const FILE_VERSIONS = {
   '/spanish/db/esULB.peak.zst': 'v1',
   '/spanish/manifest.json': 'v1',
 
-  '/indonesian/config.js': 'v1',
+  '/indonesian/config.js': 'v2',
   '/indonesian/': 'v1',
   '/indonesian/db/kaikki-ind.peak.zst': 'v1',
   '/indonesian/db/indTB.peak.zst': 'v1',
