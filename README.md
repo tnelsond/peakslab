@@ -14,6 +14,7 @@ Current languages:
 - Lozi (Silozi)
 - German
 - Spanish
+- Indonesian
 
 # License
 
