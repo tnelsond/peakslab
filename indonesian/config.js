@@ -2,7 +2,8 @@ const tablayout = [
 	{name: "Dict", dicts: [
 		["indonesian/db/kaikki-ind.peak.zst", "kaikki", 8*1024, `Kaikki Indonesian Dictionary from <a href="https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN">freemdict</a>`],
 		["indonesian/db/KBBI_EN.peak.zst", "KBBI En", 8*1024, `KBBI English Indonesian Dictionary from <a href="https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN">freemdict</a>`],
-		["indonesian/db/ind-eng.peak.zst", "ind-eng", 2*1024, ` Indonesian English Dictionary from <a href="https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN">freemdict</a>`],
+		["indonesian/db/ind-eng2.peak.zst", "ind-eng2", 2*1024, ` Indonesian English Dictionary 2 from <a href="https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN">freemdict</a>`],
+		["indonesian/db/ind-eng3.peak.zst", "ind-eng3", 2*1024, ` Indonesian English Dictionary 3 from <a href="https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN">freemdict</a>`],
 		]},
 	{name: "Bible", dicts: [
 		["indonesian/db/indTB.peak.zst", "Bible TB", 8*1024, `Alkitab Terjemahan Baru Indonesian bible from<a href="https://biblics.com/id/alkitab/alkitab-terjemahan-baru">biblics</a>`],
