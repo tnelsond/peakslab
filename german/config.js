@@ -1,6 +1,7 @@
 const tablayout = [
 	{name: "Dict", dicts: [
 		["german/db/oxford-de.peak.zst", "Oxford-de", 4*1024, `Oxford German English Dictionary (German Edition) version 3.0 from <a href="https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs">freemdict</a>`],
+		["german/db/duden.peak.zst", "de-de", 6*1024, `Duden - Das große Wörterbuch der deutschen Sprache from <a href="https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs">freemdict</a>`],
 	]},
 	{name: "Bible", dicts: [
 		["german/db/deuSchBible.peak.zst", "deBible", 4*1024, `Die Schlachter Bibel 1951 from <a href="https://ebible.org/details.php?id=deu1951">ebible</a>`],

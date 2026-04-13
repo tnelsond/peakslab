@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.4.7.1';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.4.7.2';   // ← Bump this on every deploy!
 
 const FILE_VERSIONS = {
   '/': 'v6',
@@ -53,9 +53,10 @@ const FILE_VERSIONS = {
   '/lozi/db/lozi.peak.zst': 'v2',
   '/lozi/manifest.json': 'v3',
 
-  '/german/config.js': 'v1',
+  '/german/config.js': 'v2',
   '/german/': 'v1',
   '/german/db/oxford-de.peak.zst': 'v3',
+  '/german/db/duden.peak.zst': 'v1',
   '/german/db/deuSchBible.peak.zst': 'v1',
   '/german/manifest.json': 'v1',
 
