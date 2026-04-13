@@ -50,6 +50,18 @@ function cleanup(container = out){
 	container.innerHTML = "";
 }
 
+function highlightText(html, query) {
+    if (!query || !html) return html;
+    const escapedQuery = escapeRegExp(query);
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return html.replace(/<[^>]+>|([^<]+)/g, (match, textContent) => {
+        if (textContent) {
+            return textContent.replace(regex, '<mark>$1</mark>');
+        }
+        return match; // It's a tag → leave unchanged
+    });
+}
+
 let i = 0;
 workers.forEach((w) => {
 	w.postMessage({type: "setid", id: i});
@@ -120,9 +132,8 @@ workers.forEach((w) => {
 					div.innerHTML += `${e.data.filetype}<br> filetype not supported`;
 				}
 			}else{
-				const regex = new RegExp(escapeRegExp(e.data.query), 'gi'); // 'g' for global, 'i' for case-insensitive
 				if(mark){
-					div.innerHTML += `${e.data.body.replace(regex, match => `<mark>${match}</mark>`)}`;
+					div.innerHTML += highlightText(e.data.body, e.data.query);
 				} else{
 					div.innerHTML += `${e.data.body}`;
 				}
@@ -687,4 +698,4 @@ class PaElement extends HTMLElement {
 customElements.define('p-a', PaElement);
 createSelMenu();
 
-document.body.appendChild(document.createTextNode("v10.6"));
+document.body.appendChild(document.createTextNode(" v10.8"));
