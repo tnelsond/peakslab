@@ -62,13 +62,14 @@ function highlightText(html, query) {
     });
 }
 
-let i = 0;
+let i = 1;
 workers.forEach((w) => {
 	w.postMessage({type: "setid", id: i});
 	++i;
 	w.onmessage = function(e){
 		//console.log(e.data);
 		if(e.data.type == "loaded"){
+			console.log(e.data);
 			++nloaded;
 			timingDiv.innerHTML += `${e.data.msg}<br>`;
 			loadProgress.textContent = `Loaded ${nloaded}/${dicts.length} dictionaries.`;
@@ -80,7 +81,7 @@ workers.forEach((w) => {
 		}
 		else if(e.data.type == "nomore"){
 			if(e.data.st == st){
-				worker_code[e.data.id] = true;
+				worker_code[e.data.id-1] = true;
 				if(!worker_code.includes(false)){
 					if(nextst()){
 						continueSearch();
@@ -113,31 +114,44 @@ workers.forEach((w) => {
 					});
 				}
 			}
+			let el = document.createElement('p-e');
+			const sortid = e.data.did*workers.length+e.data.id;
+			el.setAttribute('data-id', sortid);
 			if(debug)
-				div.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}'</p-h>`;
+				el.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}' #${sortid}</p-h>`;
 			if(first)
 				div.innerHTML += `<h2>${e.data.header}</h2>`;
-			else
-				div.innerHTML += `<hr>`;
 			if(e.data.filetype){
 				if (e.data.filetype.toLowerCase().includes('webp')) {
 					const blob = new Blob([e.data.body], { type: 'image/webp' });
 					const url = URL.createObjectURL(blob);
-					div.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
+					el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
 				}else if (e.data.filetype.toLowerCase().includes('webm')) {
 					const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
 					const url = URL.createObjectURL(blob);
-					div.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.header}.${e.data.filetype}"></audio>`;
+					el.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.header}.${e.data.filetype}"></audio>`;
 				}else{
-					div.innerHTML += `${e.data.filetype}<br> filetype not supported`;
+					el.innerHTML += `${e.data.filetype}<br> filetype not supported`;
 				}
 			}else{
 				if(mark){
-					div.innerHTML += highlightText(e.data.body, e.data.query);
+					el.innerHTML += highlightText(e.data.body, e.data.query);
 				} else{
-					div.innerHTML += `${e.data.body}`;
+					el.innerHTML += `${e.data.body}`;
 				}
 			}
+			
+			const children = Array.from(div.children);
+			const insertBeforeElement = children.find(child => {
+				const childId = parseInt(child.dataset.id);
+				return childId > sortid;
+			});
+			if (insertBeforeElement) {
+				div.insertBefore(el, insertBeforeElement);
+			} else {
+				div.appendChild(el);
+			}
+
 			let place = e.data.dest == "popup" ? popupResults : resultsDiv;
 			if(first){
 				if(place == resultsDiv){
@@ -162,6 +176,7 @@ const loadProgress = document.getElementById('loadProgress');
 loadProgress.textContent = `Loaded 0/${dicts.length} dictionaries.`;
 for(let i=0; i<dicts.length; ++i){
 	workers[i%workers.length].postMessage({type: 'init', did: Math.floor(i/workers.length), msg: dicts[i]});
+	console.log(`did: ${Math.floor(i/workers.length)} dict: ${dicts[i]}`);
 }
 
 let last = null;

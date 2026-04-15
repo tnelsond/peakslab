@@ -24,7 +24,7 @@ let st = 0;
 self.onmessage = async (e) => {
 	//console.log(e.data);
 	if(e.data.type == "init"){
-		dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2]);
+		dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did);
 	}
 	else if(e.data.type == "setquery"){
 		query = e.data.query;
@@ -65,12 +65,12 @@ self.onmessage = async (e) => {
 					d.module._init_search(e.data.st, 0);
 					while(d.getResult(e.data.dest == "popup" ? 1 : 0) != -1){
 						if(!d.slab)
-							self.postMessage({type: "result", dict: d.name, query: e.data.query, st: e.data.st, header: d.getHeader(),  body: d.getBodyStr(), dest: e.data.dest});
+							self.postMessage({type: "result", id: id, did: i, dict: d.name, query: e.data.query, st: e.data.st, header: d.getHeader(),  body: d.getBodyStr(), dest: e.data.dest});
 						else{
 							let header = d.getHeader().split('\t');
 							const filetype = header[header.length-1];
 							header = header[0];
-							self.postMessage({type: "result", query: e.data.query, dict: d.name, st: e.data.st, header: header, filetype: filetype, body: d.getBytes(), dest: e.data.dest});
+							self.postMessage({type: "result", id: id, did: i, query: e.data.query, dict: d.name, st: e.data.st, header: header, filetype: filetype, body: d.getBytes(), dest: e.data.dest});
 						}
 					}
 					d.switchState(); // Switched it back :D
@@ -83,13 +83,13 @@ self.onmessage = async (e) => {
 			if(adicts[cdic] && dicts[cdic] && dicts[cdic].getResult() > 0){
 				//console.log("give!");
 				if(!dicts[cdic].slab){
-					self.postMessage({type: "result", dict: dicts[cdic].name, query: query, st: st, header: dicts[cdic].getHeader(), body: dicts[cdic].getBodyStr()});
+					self.postMessage({type: "result", id: id, did: cdic, dict: dicts[cdic].name, query: query, st: st, header: dicts[cdic].getHeader(), body: dicts[cdic].getBodyStr()});
 				}else{
 					let header = dicts[cdic].getHeader().split('\t');
 					const filetype = header[header.length-1];
 					header = header[0];
 					//header = header.substring(0, header.indexOf(9));
-					self.postMessage({type: "result", dict: dicts[cdic].name, query: query, header: header, st: st, filetype: filetype, body: dicts[cdic].getBytes()});
+					self.postMessage({type: "result", id: id, did: cdic, dict: dicts[cdic].name, query: query, header: header, st: st, filetype: filetype, body: dicts[cdic].getBytes()});
 				}
 				++num;
 			}
@@ -108,9 +108,10 @@ self.onmessage = async (e) => {
 }
 
 class Dic{
-	constructor(filename, name, bufsize){
+	constructor(filename, name, bufsize, did){
 		this.filename = filename;
 		this.name = name;
+		this.did = did;
 		this.bufmax = bufsize;
 		this.qmax = bufsize > 1024 ? 255 : Math.floor(bufsize/3);
 		this.qptr = null;
@@ -156,7 +157,7 @@ class Dic{
 			//console.log(`${this.filename} peak_init returned: ${initRet}`);
 			this.loadtime = Math.round(end - start);
 			//timingDiv.innerHTML += `${this.filename} ${this.loadtime}ms<br>`;
-			self.postMessage({type: "loaded", msg: `${this.name} ${this.loadtime}ms`})
+			self.postMessage({type: "loaded", id: id, did: this.did * id, msg: `${this.name} ${this.loadtime}ms`})
 			/*this.setQuery("ghost");
 			this.module._init_search(0);
 			while(this.getResult() > 0){

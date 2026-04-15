@@ -18,6 +18,8 @@ const tablayout = [
 		["khmer/db/biblewordkm.peak.zst", "Words Km", 64*1024, `Translation words from <a href="https://door43.org/">door43</a>`],
 		["english/db/bibleworden.peak.zst", "Words En", 64*1024, `Translation words from <a href="https://door43.org/">door43</a>`],
 		["khmer/db/kmULB.peak.zst", "Km_ULB", 32*1024, `Khmer Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`],
+		["khmer/db/khsv.peak.zst", "Khsv", 32*1024, `Khmer Standard Version from <a href="https://ebible.org/study/content/texts/khm/">eBible</a>`],
+		["khmer/db/khov.peak.zst", "Khov", 32*1024, `Khmer Old Version (Hammond 1954) from <a href="https://ebible.org/study/content/texts/khm-h/">eBible</a>`],
 		["english/db/engULB.peak.zst", "En_ULB", 8*1024, `English Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`],
 		["english/db/strongs.peak.zst", "Strongs", 2*1024, `<a href="https://github.com/openscriptures/strongs">Strongs by Openscriptures</a>`],
 	]},
