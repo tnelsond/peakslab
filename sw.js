@@ -1,22 +1,22 @@
-const CURRENT_CACHE = 'peakslab-0.4.7.2';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.2.4';   // ← Bump this on every deploy!
 
 const FILE_VERSIONS = {
   '/': 'v6',
-  '/app.js': 'v10.8',
+  '/app.js': 'v12.2.0',
   '/peak.js': 'v2',
-  '/peakworker.js': 'v5',
+  '/peakworker.js': 'v6',
   '/peak.wasm': 'v2',
   '/peakslab.svg': 'v1',
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
   '/peak512x512.png': 'v1',
-  '/style.css': 'v7.2',
+  '/style.css': 'v8.6',
   '/peakgen.wasm': 'v1',
   '/peakgen.html': 'v1',
   '/peakgen.js': 'v1',
 
-  '/khmer/config.js': 'v4',
-  '/khmer/': 'v3',
+  '/khmer/config.js': 'v5',
+  '/khmer/': 'v4',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
@@ -26,6 +26,8 @@ const FILE_VERSIONS = {
   '/khmer/db/hymns7.peak.zst': 'v2',
   '/khmer/db/khmer92_h97.peak.zst': 'v2',
   '/khmer/db/kmULB.peak.zst': 'v4',
+  '/khmer/db/khsv.peak.zst': 'v1',
+  '/khmer/db/khov.peak.zst': 'v1',
   '/khmer/db/nath2022_8.peak.zst': 'v2',
   '/khmer/db/plantdict.peak.zst': 'v2',
   '/khmer/db/seacount.peak.zst': 'v2',
@@ -95,6 +97,32 @@ const FILE_VERSIONS = {
   '/chitonga/manifest.json': 'v2',
 };
 
+async function getCachedFilesList() {
+  const cacheNames = await caches.keys();
+  const allFiles = [];
+
+  for (const cacheName of cacheNames) {
+    const cache = await caches.open(cacheName);
+    const requests = await cache.keys();
+    
+    requests.forEach(request => {
+      allFiles.push({
+        cacheName: cacheName,
+        url: request.url
+      });
+    });
+  }
+  return allFiles;
+}
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'getstatus') {
+		getCachedFilesList().then(files => {
+			event.source.postMessage({type: 'status', version: CURRENT_CACHE, files: files});
+		});
+	}
+});
+
 const isVersionedFile = (url) => {
   const path = new URL(url).pathname.replace(/\/$/, '') || '/';
   return FILE_VERSIONS[path] !== undefined;
@@ -109,12 +137,6 @@ async function sendCacheVersion() {
   const clients = await self.clients.matchAll();
   clients.forEach(client => client.postMessage({ type: 'version', version: CURRENT_CACHE }));
 }
-
-self.addEventListener('message', event => {
-  if (event.data?.type === 'get version') {
-    event.source.postMessage({ type: 'version', version: CURRENT_CACHE });
-  }
-});
 
 self.addEventListener('install', event => {
   event.waitUntil(

@@ -13,7 +13,7 @@ let mark = true;
 let loader = null;
 let isLoading = false;
 let st = 2;
-let nloaded = 0;
+let nload = 0;
 const timingDiv  = document.getElementById('timing');
 const tabs  = document.getElementById('tabs');
 const hidetabs = document.getElementById('hidetabs');
@@ -21,7 +21,8 @@ const hidetabs = document.getElementById('hidetabs');
 let dicts = tablayout.flatMap(table => table.dicts);
 let workers = dicts.length > 1 ? [new Worker('/peakworker.js'), new Worker('/peakworker.js')] : [new Worker('/peakworker.js')];
 let worker_code = new Array(workers.length).fill(false);
-let dict_code = new Array(dicts.length).fill(false);
+let dict_master_code = new Array(dicts.length).fill(true);
+let dict_code = [...dict_master_code];
 
 let tabDictIndices = [];
 let allIndices = [];
@@ -69,15 +70,19 @@ workers.forEach((w) => {
 	w.onmessage = function(e){
 		//console.log(e.data);
 		if(e.data.type == "loaded"){
-			console.log(e.data);
-			++nloaded;
+			const d = e.data.did*workers.length + e.data.id - 1;
+			dict_master_code[d] = false;
+			document.getElementById(`${d}`).classList.remove('down');
 			timingDiv.innerHTML += `${e.data.msg}<br>`;
-			loadProgress.textContent = `Loaded ${nloaded}/${dicts.length} dictionaries.`;
-			if(nloaded == dicts.length){
-				timingDiv.innerHTML += `All ${Math.round(performance.now() - tstart)}ms`;
+			--nload;
+			loadProgress.textContent = `Loading ${nload} more dictionaries.`;
+			timingDiv.innerHTML += `${Math.round(performance.now() - tstart)}ms`;
+			if(nload == 0){
 				loadProgress.style.display = 'none';
-				startSearch();
+			}else{
+				loadProgress.style.display = 'block';
 			}
+			startSearch();
 		}
 		else if(e.data.type == "nomore"){
 			if(e.data.st == st){
@@ -172,12 +177,58 @@ workers.forEach((w) => {
 	}
 });
 
+const queryInput = document.getElementById('queryInput');
+const statusDiv  = document.getElementById('status');
+const resultsDiv = document.getElementById('results');
+const popupOverlay = document.getElementById('popupOverlay');
+const popupQuery = document.getElementById('popupQuery');
+const popupResults = document.getElementById('popupResults');
+const popupClose = document.getElementById('popupClose');
+
 const loadProgress = document.getElementById('loadProgress');
-loadProgress.textContent = `Loaded 0/${dicts.length} dictionaries.`;
-for(let i=0; i<dicts.length; ++i){
-	workers[i%workers.length].postMessage({type: 'init', did: Math.floor(i/workers.length), msg: dicts[i]});
-	console.log(`did: ${Math.floor(i/workers.length)} dict: ${dicts[i]}`);
+loadProgress.textContent = `Loading dictionaries.`;
+
+let temp = `<p-d><h3>${appname.toUpperCase()} Dictionary List:</h3><ol id="dictlist">`;
+dicts.forEach((dict, val) =>{
+	temp += `<li data-id="${dict[0]}">
+<input type="checkbox" class="fcheckbox down" data-id="${val}" ${dict[4] == true || dict[4] == undefined ? "checked" : ""} onchange="updateDictList(this)" id="${val}"><label for="${val}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+});
+temp += `</ol></p-d>`;
+let listDiv = document.createElement('div');
+listDiv.innerHTML = temp;
+resultsDiv.append(listDiv);
+const dictlist = document.getElementById('dictlist');
+
+/* Fix it later so it works on localhost */
+/*if(navigator.online){
+	dictlist.querySelectorAll('.fcheckbox').forEach((b) =>{
+		if(b.classList.contains('down')){
+			b.disabled = true;
+		}
+	});
+}*/
+
+function ack(url){
+	const x = dicts.findIndex(y => y[0] == url);
+	if(x >= 0){
+		const y = document.getElementById(`${x}`)
+		y.classList.remove('down');
+		y.disabled = false;
+	}
 }
+
+function loadDict(i){
+	workers[i%workers.length].postMessage({type: 'init', did: Math.floor(i/workers.length), msg: dicts[i]});
+	++nload;
+}
+
+const checkboxes = document.querySelectorAll('.fcheckbox');
+checkboxes.forEach((box) =>{
+	if(box.checked){
+		const i = box.dataset.id;
+		loadDict(i);
+	}
+});
 
 let last = null;
 let tabBtns = [];
@@ -270,22 +321,19 @@ function selectSub(gi, si) {
 }
 
 let query = null;
-const queryInput = document.getElementById('queryInput');
-const statusDiv  = document.getElementById('status');
-const resultsDiv = document.getElementById('results');
-const popupOverlay = document.getElementById('popupOverlay');
-const popupQuery = document.getElementById('popupQuery');
-const popupResults = document.getElementById('popupResults');
-const popupClose = document.getElementById('popupClose');
 let out = resultsDiv;
 let mainQuery = null;
 
-let temp = `<p-d><h3>${appname.toUpperCase()} Dictionary List:</h3><ol>`;
-dicts.forEach((dict) =>{
-	temp += `<li><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
-});
-temp += `</ol></p-d>`;
-resultsDiv.innerHTML = temp;
+function updateDictList(checkbox){
+	const d = parseInt(checkbox.dataset.id);
+	if(checkbox.checked){
+		loadDict(d);
+	}else{
+		workers[d%workers.length].postMessage({type: 'destroy', did: Math.floor(d/workers.length)});
+		dict_master_code[d] = true;
+	}
+}
+
 
 function openPopupSearch(text){
 	cleanup(popupResults);
@@ -402,7 +450,7 @@ function startSearch() {
 	window.scrollTo(0, 0);
 	worker_code.fill(false);
 	st = 2;
-	dict_code.fill(false);
+	dict_code = [...dict_master_code];
 
 	if(ctab === ngroups){
 		allIndices.forEach(ind => dict_code[ind] = true);
@@ -420,6 +468,8 @@ function startSearch() {
 	statusDiv.textContent = "Searching...";
 
 	if(!query){
+		resultsDiv.innerHTML = "";
+		resultsDiv.append(listDiv);
 		return;
 	}
 	if (!loader) {
@@ -468,19 +518,24 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.error('Registration failed:', err));
   })});
 	navigator.serviceWorker.addEventListener('message', event => {
-		if (event.data && event.data.type === 'version') {
-			const version = event.data.version;
-			console.log('Current cache version:', version);
-			const el = document.getElementById('version');
-			if (el) {
-				el.textContent = version;
+		if(event.data){
+			if(event.data.type === 'status') {
+				const version = event.data.version;
+				console.log('Current cache version:', version);
+				const el = document.getElementById('version');
+				if (el) {
+					el.textContent = version;
+				}
+				event.data.files.forEach((file) =>{
+					ack(file.url.replace(/^https*:\/\/[^\/]*\//, ''));
+				});
 			}
 		}
 	});
 }
 function requestCacheVersion() {
   if (navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({ type: 'get version' });
+    navigator.serviceWorker.controller.postMessage({ type: 'getstatus' });
   }
 }
 window.addEventListener('load', requestCacheVersion);
@@ -551,7 +606,6 @@ document.getElementById('debugToggle')?.addEventListener('click', () => {
 
 
 document.getElementById('showtabs')?.addEventListener('click', () => {
-		console.log("hide");
     document.getElementById('tabs').classList.toggle('hide');
     localStorage.setItem('hidetabs', tabs?.classList.contains('hide'));
 });
@@ -699,7 +753,6 @@ if(window.navigator.standalone){
 }
 
 window.addEventListener('appinstalled', () => {
-		console.log('PWA installed');
 		document.getElementById('install-button').style.display = 'none';
 });
 

@@ -612,8 +612,16 @@ int get_result(int skip){
 // Clean up
 EMSCRIPTEN_KEEPALIVE
 void free_peak(void) {
-    free(g_d);
+		if(g_d){
+			free(g_d);
+			g_d = NULL;
+		}
 		ps_h = NULL;
+		if(iowa.qloc){
+			free(iowa.qloc);
+			iowa.qloc = NULL;
+		}
+		wis.qloc = NULL;
 }
 
 int p_endswith(uint8_t *a, uint8_t *b){

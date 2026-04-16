@@ -116,6 +116,84 @@ body {
 		height: 10em;
 }
 
+input[type="checkbox"]{
+    display: none;
+}
+
+.modern-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+		margin-right: 0.5em;
+    cursor: pointer;
+    user-select: none;
+    padding: 0;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+} 
+  
+.modern-toggle:hover {
+    background: transparent;
+} 
+  
+.modern-toggle .toggle-switch {
+    position: relative;
+    width: 52px;
+    height: 28px;
+    background: #cbd5e0;
+    border-radius: 14px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.modern-toggle .toggle-switch::after {
+    content: attr(sym) !important;     /* Download symbol */
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input[type="checkbox"]:checked + .modern-toggle .toggle-switch {
+    background: #10b981;
+}
+
+input[type="checkbox"]:checked + .modern-toggle .toggle-switch::after {
+    left: 26px;
+}
+
+input[type="checkbox"].down + .modern-toggle .toggle-switch::after {
+    content: " ⬇" !important;
+		color: red;
+}
+input[type="checkbox"].down:checked + .modern-toggle .toggle-switch::after {
+  content: "↻" !important; /* or any content you want */
+	color: green;
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+p-q,p-q2{
+	display: block;
+	border-left: 2px solid var(--accent-color);
+	margin-left: 1em;
+	padding-left: 1em;
+}
+
 p-m {
   position: relative;
   min-width: 1.5em; /* Matches min-width of ::before to ensure space in text flow */

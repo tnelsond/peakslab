@@ -24,7 +24,13 @@ let st = 0;
 self.onmessage = async (e) => {
 	//console.log(e.data);
 	if(e.data.type == "init"){
-		dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did);
+		if(!dicts[e.data.did]){
+			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did);
+		}
+	}else if(e.data.type == "destroy"){
+		console.log(`Destroyed! ${dicts[e.data.did].name}`);
+		//dicts[e.data.did].destroy();
+		dicts[e.data.did] = null;
 	}
 	else if(e.data.type == "setquery"){
 		query = e.data.query;
@@ -124,6 +130,9 @@ class Dic{
 		this.slab = filename.includes(".slab");
 		this.init();
 	}
+	destroy(){
+		this.module._free_peak();
+	}
 	async init() {
 		try{
 			const wasmBinary = await getCachedWasmBinary();
@@ -157,7 +166,7 @@ class Dic{
 			//console.log(`${this.filename} peak_init returned: ${initRet}`);
 			this.loadtime = Math.round(end - start);
 			//timingDiv.innerHTML += `${this.filename} ${this.loadtime}ms<br>`;
-			self.postMessage({type: "loaded", id: id, did: this.did * id, msg: `${this.name} ${this.loadtime}ms`})
+			self.postMessage({type: "loaded", id: id, did: this.did, msg: `${this.name} ${this.loadtime}ms`})
 			/*this.setQuery("ghost");
 			this.module._init_search(0);
 			while(this.getResult() > 0){

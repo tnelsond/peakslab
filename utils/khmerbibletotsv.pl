@@ -30,7 +30,7 @@ while(<>){
 		($book) = /(?:ព្រះគម្ពីរខ្មែរបច្ចុប្បន្ន ២០០៥|ព្រះគម្ពីរខ្មែរបកប្រែចាស់ ១៩៥៤) ([^<]*)/;
 		$book =~ s/(.*) [0-9]+/$1/;
 	}elsif(/data-id=.*v-num/){
-		s#^<span.*data-id='(..)([0-9]+)_([0-9]+)'><span[^>]*>([^&]*)[^>]*>(.*)</span>#$data{$1} $2:$3\t\@$book $chapter:$4\t<$stack[-1]$5#;
+		s#^<span.*data-id='(..)([0-9]+)_([0-9]+)'><span[^>]*>([^&]*)[^>]*>(.*)</span>#$data{$1} $2:$3\t\@<p-n>$book $chapter:$4</p-n>\t<$stack[-1]$5#;
 		s#(?<=</)div>#pop @stack#e;
 		s#<span class='nd'>([^<]*)</span>#<b>$1</b>#g;
 		s#</div>##g;
@@ -46,6 +46,12 @@ while(<>){
 		push @stack, "p-$1>";
 	}elsif(/<div class='p'>/){
 		push @stack, "p>";
+	}elsif(/<div class='nb'>/){
+		push @stack, "p>";
+	}elsif(/<div class='m'>/){
+		push @stack, "p>";
+	}elsif(/<div class='s'>/){
+		push @stack, "h3>";
 	}elsif(/<span class='qt'>/){
 		push @stack, "p-qt>";
 	}
