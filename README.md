@@ -2,6 +2,8 @@
 
 # Peakslab
 
+Defeating AI by making knowledge accessible to Humans.
+
 See it <a href="https://peakslab.org">live</a>.
 
 A project to make offline (PWA) dictionary webapps and tools for building those for obscure languages.
@@ -15,6 +17,10 @@ Current languages:
 - German
 - Spanish
 - Indonesian
+
+# AI Rant
+
+People go through great effort to gather proper data for AI to learn, so my question is, why don't we make knowledge and data accessible to humans instead so that we can learn? I'm sick of people using AI as a dictionary, it's slow, internet dependent, prone to hallucinations, and untrustworthy. The only advantage AI has versus us is more data and better ways to access it, so let's remedy that.
 
 # License
 
@@ -76,7 +82,7 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 
 ## Todo
 - Regex or Glob support
-- Expand Exact Search to work with 2nd index too.
+- <strike>Expand Exact Search to work with 2nd index too.</strike>
 - make an online editor
 - <strike>media support in dictionary</strike>
 - <strike>ignore zero width spaces in search</strike>
@@ -89,15 +95,15 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 - Rewrite the AI's service worker.
 - <strike>Make it more modular to make porting languages and data easier.</strike>
 - <strike>Rewrite the AI's rust code in C</strike>
-- Bundle zstd compressor with peakgen.
+- <strike>Bundle zstd compressor with peakgen.</strike>
 - <strike>Make an online peakgen.</strike>
 - Add .slab support to online peakgen.
 - <strike>Fix strcmp bugs.</strike>
 - <strike>Fix context menu.</strike>
 - Make a custom regex-like language for substitution and character unfolding.
 - Make it so that files to be included in the slab file can have a metadata file so that there can be  attribution or alttext attached to the file.
-- Make the combiner combine the entries with the same headword in order
-	- Enable custom html for the combining of dictionary entries.
+- <strike>Make the combiner combine the entries with the same headword in order</strike>
+- Enable custom html for the combining of dictionary entries.
 
 ## Changes
 - Moved from SQLite's wasm backend to a brand new engine and file format. This format allows for really good compression and lightning fast speed as well as speed and lazy loading.
@@ -106,7 +112,7 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 ## History
 - Be me, a missionary in Cambodia. All the Khmer dictionary apps are full of ads, or require internet connection or just incomplete. So I decide to make my own Khmer dictionary modules for Aard. The process is messy and it's difficult to share with other people. There's no  Aard dictionary app on iOS.
 - Tried Stardict and other things, a lot of the programs were outdated and just didn't work anymore; so I decided to make my own.
-- Tried SQLite, it worked pretty good. But the database files were too large and the runtime was too bloated. Editing databases was a pain. Left join right join all join? I figured out that github pages would send a compressed form if I saved the database file with a **.html** extension. Still downloads really slowly on iOS. Decide that I don't need all the features that SQLite offers, I just need to be able to read from the database.
+- Tried SQLite, it worked pretty good. But the database files were too large and the runtime was too bloated. (Though when properly compressed SQLite files are 10% smaller than Peak files, but I think this is because my peakslab indexes are more thorough then the default of no indexes in SQLite) Editing databases was a pain. Left join right join all join? I figured out that github pages would send a compressed form if I saved the database file with a **.html** extension. Still downloads really slowly on iOS. Decide that I don't need all the features that SQLite offers, I just need to be able to read from the database. Also wanted the ability to remove tags and such from search without having duplicated data.
 - Started using Grok to help me prototype a lot of ideas.
 - Tried Pouchdb with javascript, too slow to load from a file.
 - Tried rolling my own database from Javascript, parsing was too slow, startup too slow.
