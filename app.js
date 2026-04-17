@@ -48,7 +48,12 @@ function cleanup(container = out){
 		URL.revokeObjectURL(el.src);
 		el.src = '';
 	});
-	container.innerHTML = "";
+	if(container == resultsDiv){
+		listDiv.style.display = 'none';
+		resultsDiv.replaceChildren(listDiv);
+	}else{
+		container.innerHTML = "";
+	}
 }
 
 function highlightText(html, query) {
@@ -79,12 +84,11 @@ workers.forEach((w) => {
 			timingDiv.innerHTML += `${Math.round(performance.now() - tstart)}ms`;
 			if(nload == 0){
 				loadProgress.style.display = 'none';
+				saveState();
 			}else{
 				loadProgress.style.display = 'block';
 			}
-			if(nload <= 0){ // We've loaded all the dictionaries we wanted
-				saveState();
-			}
+			query = ""; // Triggers a search
 			startSearch();
 		}
 		else if(e.data.type == "nomore"){
@@ -346,7 +350,7 @@ for(let gi = 0; gi < ngroups; gi++) {
 	newTab(tablayout[gi].name, gi);
 }
 let ctab = ngroups;
-let currentSub = -1;
+let csub = -1;
 
 function newTab(name, num, active=false){
 	let btn = document.createElement('button');
@@ -362,16 +366,14 @@ function newTab(name, num, active=false){
     } else {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
-			if(dict_master_code[num]){
-				setCheckbox(btn.dataset.index, true);	
-				loadDict(btn.dataset.index);
-			}
-      ctab = num;
-      currentSub = -1;
+			const index = parseInt(btn.dataset.index);
+      ctab = index;
+      csub = -1;
       btn.textContent = name;
       query = null;
       startSearch();
     }
+		queryInput.focus();
 	});
 	tabBtns[num] = btn;
 	tabs.appendChild(btn);
@@ -396,6 +398,10 @@ function showDropdown(gi, anchor) {
 		let item = document.createElement('button');
 		item.textContent = d[1];
 		item.addEventListener('click', () => {
+			if(dict_master_code[si]){
+				setCheckbox(si, true);	
+				loadDict(si);
+			}
 			selectSub(gi, si);
 			menu.remove();
 		});
@@ -421,7 +427,7 @@ function selectSub(gi, si) {
 		tabBtns[gi].classList.add('active');
 		ctab = gi;
 	}
-	currentSub = si;
+	csub = si;
 	let group = tablayout[gi];
   let tabText = group.name;
   if (si >= 0) {
@@ -561,6 +567,14 @@ function startSearch() {
 	if(query == (query = updateQuery())){
 		return;
 	}
+	if(nload == 0){
+		loadProgress.style.display = 'none';
+	}
+	if(csub >= 0 && dict_master_code[csub]){
+		setCheckbox(csub, true);	
+		loadDict(csub);
+	}
+
 	window.scrollTo(0, 0);
 	worker_code.fill(false);
 	st = 3;
@@ -570,18 +584,18 @@ function startSearch() {
 		allIndices.forEach(ind => dict_code[ind] = true);
 	}else{
 		let indices = tabDictIndices[ctab];
-		if(currentSub === -1){
+		if(csub === -1){
 			indices.forEach(ind => dict_code[ind] = true);
 		}else{
-			dict_code[indices[currentSub]] = true;
+			dict_code[indices[csub]] = true;
 		}
 	}
 
 	statusDiv.textContent = "Searching...";
 
 	if(!query){
-		resultsDiv.innerHTML = "";
-		resultsDiv.append(listDiv);
+		listDiv.style.display = 'block';
+		resultsDiv.replaceChildren(listDiv);
 		return;
 	}
 	loader = null;
@@ -654,12 +668,9 @@ window.addEventListener('load', requestCacheVersion);
 document.addEventListener('touchend', function(e) {
   const active = document.activeElement;
 
-  // Only proceed if something is focused AND it's an input-like element
   if (!active || !['INPUT','TEXTAREA'].includes(active.tagName)) {
     return;
   }
-
-  // Check if the touch landed inside the currently focused element
   let touchedInside = false;
   let el = e.target;
 
@@ -670,8 +681,6 @@ document.addEventListener('touchend', function(e) {
     }
     el = el.parentElement;
   }
-
-  // If touch was NOT inside the active input → blur it (hides keyboard)
   if (!touchedInside) {
     active.blur();
   }

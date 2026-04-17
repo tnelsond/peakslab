@@ -160,7 +160,7 @@ input[type="checkbox"]{
 }
 
 input[type="checkbox"]:checked + .modern-toggle .toggle-switch {
-    background: #10b981;
+    background: var(--accent-color);
 }
 
 input[type="checkbox"]:checked + .modern-toggle .toggle-switch::after {
