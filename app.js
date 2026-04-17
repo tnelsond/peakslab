@@ -166,7 +166,7 @@ workers.forEach((w) => {
 
 			let place = e.data.dest == "popup" ? popupResults : resultsDiv;
 			if(first){
-				if(place == resultsDiv){
+				if(place == resultsDiv && loader){
 					place.insertBefore(div, loader); 
 				}else{
 					place.appendChild(div); 
@@ -564,11 +564,20 @@ window.addEventListener('scroll', throttledCheck, { passive: true });
 window.addEventListener('resize', throttledCheck);
 
 function startSearch() {
-	if(query == (query = updateQuery())){
-		return;
-	}
+	const prevquery = query;
+	query = updateQuery();
 	if(nload == 0){
 		loadProgress.style.display = 'none';
+	}
+	if(!query){
+		loader = null;
+		statusDiv.textContent = "";
+		listDiv.style.display = 'block';
+		resultsDiv.replaceChildren(listDiv);
+		return;
+	}
+	if(query == prevquery){
+		return;
 	}
 	if(csub >= 0 && dict_master_code[csub]){
 		setCheckbox(csub, true);	
@@ -593,11 +602,6 @@ function startSearch() {
 
 	statusDiv.textContent = "Searching...";
 
-	if(!query){
-		listDiv.style.display = 'block';
-		resultsDiv.replaceChildren(listDiv);
-		return;
-	}
 	loader = null;
 	loader = document.createElement('p-d');
 	loader.id = 'loader';
