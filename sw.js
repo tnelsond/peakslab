@@ -16,7 +16,7 @@ const FILE_VERSIONS = {
   '/peakgen.js': 'v1',
 
   '/khmer/config.js': 'v5',
-  '/khmer/': 'v4',
+  '/khmer/': 'v5',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
@@ -40,7 +40,7 @@ const FILE_VERSIONS = {
   '/khmermusic/manifest.json': 'v2',
 
   '/lao/config.js': 'v2',
-  '/lao/': 'v2',
+  '/lao/': 'v3',
   '/lao/db/agrilao.peak.zst': 'v2',
   '/lao/db/csea.peak.zst': 'v2',
   '/lao/db/kerr4.peak.zst': 'v2',
@@ -51,26 +51,26 @@ const FILE_VERSIONS = {
   '/lao/manifest.json': 'v2',
 
   '/lozi/config.js': 'v1',
-  '/lozi/': 'v2',
+  '/lozi/': 'v3',
   '/lozi/db/lozi.peak.zst': 'v2',
   '/lozi/manifest.json': 'v3',
 
   '/german/config.js': 'v2',
-  '/german/': 'v1',
+  '/german/': 'v2',
   '/german/db/oxford-de.peak.zst': 'v3',
   '/german/db/duden.peak.zst': 'v1',
   '/german/db/deuSchBible.peak.zst': 'v1',
   '/german/manifest.json': 'v1',
 
   '/spanish/config.js': 'v1',
-  '/spanish/': 'v1',
+  '/spanish/': 'v2',
   '/spanish/db/esoxford.peak.zst': 'v1',
   '/spanish/db/es_biblewords.peak.zst': 'v1',
   '/spanish/db/esULB.peak.zst': 'v1',
   '/spanish/manifest.json': 'v1',
 
   '/indonesian/config.js': 'v5',
-  '/indonesian/': 'v1',
+  '/indonesian/': 'v2',
   '/indonesian/db/kaikki-ind.peak.zst': 'v4',
   '/indonesian/db/indTB.peak.zst': 'v1',
   '/indonesian/db/ind-eng2.peak.zst': 'v2',
@@ -79,7 +79,7 @@ const FILE_VERSIONS = {
   '/indonesian/manifest.json': 'v1',
 
   '/english/config.js': 'v1',
-  '/english/': 'v2',
+  '/english/': 'v3',
   '/english/db/bibleworden.peak.zst': 'v5',
   '/english/db/eng-bsb.peak.zst': 'v2',
   '/english/db/eng-kjv.peak.zst': 'v2',
@@ -89,7 +89,7 @@ const FILE_VERSIONS = {
   '/english/manifest.json': 'v3',
 
   '/chitonga/config.js': 'v1',
-  '/chitonga/': 'v2',
+  '/chitonga/': 'v3',
   '/chitonga/db/tnouns.peak.zst': 'v2',
   '/chitonga/db/toibible.peak.zst': 'v2',
   '/chitonga/db/tother.peak.zst': 'v2',

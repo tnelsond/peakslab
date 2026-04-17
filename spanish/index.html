@@ -20,7 +20,7 @@
   <div id="searchContainer">
 		<a href="/">
 		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"><div class="logooverlay" id="appname"></div></div></a>
-    <input type="text" id="queryInput" value="" placeholder="Type your query here..." autofocus autocomplete="off" onchange="startSearch();">
+    <input type="search" id="queryInput" value="" placeholder="Type your query here..." autofocus autocomplete="off" onchange="startSearch();">
   </div>
 	<div id="tabs" class="hide"></div>
 </header>
@@ -48,12 +48,10 @@
             <div id="diagnostics">
 		<div id="timing"></div>
 </div>
-            <label><input type="checkbox" id="reverse"> Reverse order</label><br>
             <button class="setting" id="showtabs">Toggle tabs</button>
             <button class="setting" id="markToggle">Toggle marks</button>
             <button class="setting" id="darkModeToggle">Toggle Dark Mode</button>
             <button class="setting" id="debugToggle">Toggle Debug</button>
-            <button class="setting" id="uninstall">Uninstall Service Worker</button>
         </div>
     </div>
     <div id="popupOverlay">

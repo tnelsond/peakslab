@@ -64,6 +64,16 @@ a:visited{
 		border-radius: 5px;
 		cursor: pointer;
 }
+.setting{
+	background-color: #007bff;
+	font-size: 15px;
+	width: 8em;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	padding: 10px;
+}
 p-eg{
 	background: #ff9;
 	border: 2px solid green;
