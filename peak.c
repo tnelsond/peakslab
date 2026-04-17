@@ -147,7 +147,7 @@ static int ps_cmpe(const void *a, const void *b){
 	while(*sa && *sb && *sa == *sb){
 		sa++; sb++;	
 	}
-	if(!*sb && (*sa == '\t' || *sa == '.' || !*sa)){ // For exact search
+	if(!*sb && (*sa == '\t' || !*sa)){ // For exact search
 		printf("Exact: %c:%c\n", *sa, *sb);
 		printf("\n*%.15s", a);
 		printf("\n**%.15s", b);
@@ -177,7 +177,7 @@ int load_peak(uint8_t *src, size_t srcSize, int compressed) {
 	if(compressed){
 		unsigned long long fullSize = ZSTD_getFrameContentSize(src, srcSize);
 		if (fullSize == ZSTD_CONTENTSIZE_UNKNOWN) return -1;
-		if (fullSize == ZSTD_CONTENTSIZE_ERROR)   return -4;
+		if (fullSize == ZSTD_CONTENTSIZE_ERROR)   return -5;
 		if (fullSize > 512 * 1024 * 1024)         return -2;
 
 		buf = (uint8_t*)malloc(fullSize);

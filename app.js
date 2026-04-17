@@ -113,7 +113,7 @@ workers.forEach((w) => {
 			if(first){
 				div = document.createElement('p-d');
 				div.id = `${idpre}-${nheader}`;
-				if(idpre == "mid"){
+				if(idpre == "mid" || e.data.st == 2){
 					let temp_dict_code = new Array(dicts.length).fill(true);
 					temp_dict_code[dicts.findIndex(file => file[1] === e.data.dict)] = false;
 					workers.forEach((w, i) =>{
@@ -262,6 +262,13 @@ function saveState() {
     request.onerror = (e) => console.error('Error saving state:', e.target.error);
 }
 
+function setCheckbox(index, checked){
+	const checkbox = document.getElementById(index);
+	if (checkbox) {
+			checkbox.checked = checked;
+	}
+}
+
 function loadSavedState() {
     if (!db) {
         console.warn('DB not ready, skipping loadSavedState');
@@ -283,16 +290,13 @@ function loadSavedState() {
 
             dicts.forEach((dict, index) => {
                 const filename = dict[0];
-                const checkbox = document.getElementById(index);
 
                 const shouldEnable = savedMap.has(filename) 
                     ? savedMap.get(filename) 
                     : (dict[4] === true || dict[4] === undefined); // default from dict definition
 
-                if (checkbox) {
-                    checkbox.checked = shouldEnable;
-                }
-
+								setCheckbox(index, shouldEnable);
+                
                 // Load the dictionary immediately if enabled
                 if (shouldEnable) {
                     loadDict(index);
@@ -358,6 +362,10 @@ function newTab(name, num, active=false){
     } else {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
+			if(dict_master_code[num]){
+				setCheckbox(btn.dataset.index, true);	
+				loadDict(btn.dataset.index);
+			}
       ctab = num;
       currentSub = -1;
       btn.textContent = name;
