@@ -15,7 +15,7 @@ static uint8_t* g_d = NULL;
 static size_t g_d_size = 0;
 
 enum searchtype{
-	FULL=0, EXACT, INDEX1, INDEX2, INDEX3
+	FULL=0, EXACT1, EXACT2, INDEX1, INDEX2, INDEX3
 };
 #define MAX_RESULT_TRACK 100
 
@@ -222,6 +222,7 @@ void continue_search(enum searchtype st){
 	psa->line = 0;
 	psa->st = st;
 	switch(psa->st){
+		case EXACT2:
 		case INDEX2:
 			psa->idx = ps_h->idx2_start;
 			psa->idxlen = ps_h->idx2_len;
@@ -230,6 +231,7 @@ void continue_search(enum searchtype st){
 			psa->idx = ps_h->idx3_start;
 			psa->idxlen = ps_h->idx3_len;
 			break;
+		case EXACT1:
 		default:
 			psa->idx = ps_h->line_idx_start;
 			psa->idxlen = ps_h->line_idx_len;
@@ -237,11 +239,6 @@ void continue_search(enum searchtype st){
 	}
 }
 
-// Resets search state and sets new query
-// Returns:
-//  0  = success
-// -3  = not loaded
-// -4  =	empty query 
 EMSCRIPTEN_KEEPALIVE
 int init_search(enum searchtype st, int clear) {
 	if(clear){
@@ -285,7 +282,7 @@ uint32_t p_read_bytes(const uint8_t *src, size_t offset_start, size_t i, size_t 
 }*/
 
 uint8_t *p_linetostr(int linenum, enum searchtype st){
-	if(st == INDEX2)
+	if(st == INDEX2 || st == EXACT2)
 		return (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->idx2_start, linenum, ps_h->bline_idx));
 	else if(st == INDEX3)
 		return (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->idx3_start, linenum, ps_h->bline_idx));
@@ -457,7 +454,7 @@ int p_binarysearch(){
 		printf("/");
 		guess = p_linetostr(psa->line, psa->st);
 		//printf("guess %d: %s\n", l, guess);
-		if(psa->st == EXACT){
+		if(psa->st == EXACT1 || psa->st == EXACT2){
 			cmpr = ps_cmpe(guess, psa->qloc);
 		}else{
 			cmpr = ps_cmp_basic(guess, psa->qloc);
@@ -489,7 +486,7 @@ int p_binarysearch(){
 		}
 	}
 	printf("Y\n");
-	if(psa->st == EXACT){
+	if(psa->st == EXACT1 || psa->st == EXACT2){
 		uint32_t offset = p_read_bytes(g_d, psa->idx, l, ps_h->bline_idx);
 		guess = (uint8_t*)(g_d + ps_h->line_start + offset);
 		if(!ps_cmpe(guess, psa->qloc))
@@ -731,7 +728,7 @@ int main(int argc, char **argv){
 		}while(len > 0 && num > 0);
 
 		printf("\n### Exact!!!\n\n");
-		init_search(EXACT, 1);
+		init_search(EXACT1, 1);
 		num = 3;
 		do{
 			--num;

@@ -28,9 +28,11 @@ self.onmessage = async (e) => {
 			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did);
 		}
 	}else if(e.data.type == "destroy"){
-		console.log(`Destroyed! ${dicts[e.data.did].name}`);
-		//dicts[e.data.did].destroy();
-		dicts[e.data.did] = null;
+		if(dicts[e.data.did]){
+			console.log(`Destroyed! ${dicts[e.data.did].name}`);
+			dicts[e.data.did].destroy();
+			dicts[e.data.did] = null;
+		}
 	}
 	else if(e.data.type == "setquery"){
 		query = e.data.query;

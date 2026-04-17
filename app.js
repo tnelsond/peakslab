@@ -12,7 +12,7 @@ let debug = false;
 let mark = true;
 let loader = null;
 let isLoading = false;
-let st = 2;
+let st = 3;
 let nload = 0;
 const timingDiv  = document.getElementById('timing');
 const tabs  = document.getElementById('tabs');
@@ -72,7 +72,7 @@ workers.forEach((w) => {
 		if(e.data.type == "loaded"){
 			const d = e.data.did*workers.length + e.data.id - 1;
 			dict_master_code[d] = false;
-			document.getElementById(`${d}`).classList.remove('down');
+			document.getElementById(`${d}`)?.classList.remove('down');
 			timingDiv.innerHTML += `${e.data.msg}<br>`;
 			--nload;
 			loadProgress.textContent = `Loading ${nload} more dictionaries.`;
@@ -81,6 +81,9 @@ workers.forEach((w) => {
 				loadProgress.style.display = 'none';
 			}else{
 				loadProgress.style.display = 'block';
+			}
+			if(nload <= 0){ // We've loaded all the dictionaries we wanted
+				saveState();
 			}
 			startSearch();
 		}
@@ -217,18 +220,119 @@ function ack(url){
 	}
 }
 
-function loadDict(i){
-	workers[i%workers.length].postMessage({type: 'init', did: Math.floor(i/workers.length), msg: dicts[i]});
-	++nload;
+let db = null;
+const dbRequest = indexedDB.open(appname, 1);
+
+dbRequest.onupgradeneeded = (event) => {
+    const upgradeDb = event.target.result;
+    if (!upgradeDb.objectStoreNames.contains(appname)) {
+        upgradeDb.createObjectStore(appname, { keyPath: 'id' });
+        console.log('Created new object store:', appname);
+    }
+};
+
+dbRequest.onsuccess = () => {
+    db = dbRequest.result;
+    console.log('IndexedDB opened successfully');
+    loadSavedState();           // Only call once here
+};
+
+dbRequest.onerror = (event) => {
+    console.error('Failed to open IndexedDB:', event.target.error);
+};
+
+function saveState() {
+    if (!db) {
+        console.warn('DB not ready yet, cannot save state');
+        return;
+    }
+
+    const state = dicts.map((dict, index) => ({
+        file: dict[0],                    // filename as stable key
+        enabled: !dict_master_code[index] // true = checkbox checked / dictionary loaded
+    }));
+
+    const transaction = db.transaction([appname], 'readwrite');
+    const store = transaction.objectStore(appname);
+
+    const data = { id: 1, array: state };
+
+    const request = store.put(data);
+    request.onsuccess = () => console.log('Dictionary state saved');
+    request.onerror = (e) => console.error('Error saving state:', e.target.error);
 }
 
-const checkboxes = document.querySelectorAll('.fcheckbox');
-checkboxes.forEach((box) =>{
-	if(box.checked){
-		const i = box.dataset.id;
-		loadDict(i);
-	}
-});
+function loadSavedState() {
+    if (!db) {
+        console.warn('DB not ready, skipping loadSavedState');
+        loadDicts(); // fallback
+        return;
+    }
+
+    const transaction = db.transaction([appname], 'readonly');
+    const store = transaction.objectStore(appname);
+    const request = store.get(1);
+
+    request.onsuccess = () => {
+        const result = request.result;
+
+        if (result && result.array && Array.isArray(result.array)) {
+            console.log('Loaded saved dictionary state from IndexedDB');
+
+            const savedMap = new Map(result.array.map(item => [item.file, !!item.enabled]));
+
+            dicts.forEach((dict, index) => {
+                const filename = dict[0];
+                const checkbox = document.getElementById(index);
+
+                const shouldEnable = savedMap.has(filename) 
+                    ? savedMap.get(filename) 
+                    : (dict[4] === true || dict[4] === undefined); // default from dict definition
+
+                if (checkbox) {
+                    checkbox.checked = shouldEnable;
+                }
+
+                // Load the dictionary immediately if enabled
+                if (shouldEnable) {
+                    loadDict(index);
+                }
+            });
+        } 
+        else {
+            console.log('No saved state found → using defaults from dict[4]');
+            loadDicts(); // load defaults
+        }
+    };
+
+    request.onerror = (event) => {
+        console.error('Error reading from IndexedDB:', event.target.error);
+        loadDicts(); // fallback to defaults
+    };
+}
+
+function loadDict(i) {
+    if (dict_master_code[i]) {
+        workers[i % workers.length].postMessage({
+            type: 'init',
+            did: Math.floor(i / workers.length),
+            msg: dicts[i]
+        });
+        ++nload;
+    }
+}
+
+function loadDicts(){
+	const checkboxes = document.querySelectorAll('.fcheckbox');
+	checkboxes.forEach((box) =>{
+		if(box.checked){
+			const i = box.dataset.id;
+			if(dict_master_code[i]){
+				loadDict(i);
+			}
+		}
+	});
+}
 
 let last = null;
 let tabBtns = [];
@@ -331,6 +435,7 @@ function updateDictList(checkbox){
 	}else{
 		workers[d%workers.length].postMessage({type: 'destroy', did: Math.floor(d/workers.length)});
 		dict_master_code[d] = true;
+		saveState();
 	}
 }
 
@@ -341,6 +446,7 @@ function openPopupSearch(text){
 	workers.forEach((w, i) =>{
 		let code = temp_dict_code.filter((_, index) => index % workers.length == i);
 		w.postMessage({type: "tempsearch", st: 1, query: updateQuery(text), dest: "popup", dicts: code});
+		w.postMessage({type: "tempsearch", st: 2, query: updateQuery(text), dest: "popup", dicts: code});
 	});
 }
 function popupOpen(){
@@ -362,10 +468,10 @@ function closePopup(){
 popupClose.addEventListener('click', closePopup);
 
 function nextst(){
-	if(st < 2)
+	if(!st || st == 2)
 		return false;
 	++st;
-	if(st > 4)
+	if(st > 5)
 		st = 0;
 	return true;
 }
@@ -449,7 +555,7 @@ function startSearch() {
 	}
 	window.scrollTo(0, 0);
 	worker_code.fill(false);
-	st = 2;
+	st = 3;
 	dict_code = [...dict_master_code];
 
 	if(ctab === ngroups){
@@ -463,8 +569,6 @@ function startSearch() {
 		}
 	}
 
-	loader = null;
-
 	statusDiv.textContent = "Searching...";
 
 	if(!query){
@@ -472,11 +576,10 @@ function startSearch() {
 		resultsDiv.append(listDiv);
 		return;
 	}
-	if (!loader) {
-		loader = document.createElement('p-d');
-		loader.id = 'loader';
-		loader.textContent = "Loading more…";
-	}
+	loader = null;
+	loader = document.createElement('p-d');
+	loader.id = 'loader';
+	loader.textContent = "Loading more…";
 
 	setQuery()
 	initSearch();
