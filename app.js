@@ -648,16 +648,19 @@ if ('serviceWorker' in navigator) {
   })});
 	navigator.serviceWorker.addEventListener('message', event => {
 		if(event.data){
-			if(event.data.type === 'status') {
+			if(event.data.type === 'new'){
+				console.log(`${event.data.url} is new!`);
+			}else if(event.data.type === 'status') {
 				const version = event.data.version;
 				console.log('Current cache version:', version);
 				const el = document.getElementById('version');
 				if (el) {
 					el.textContent = version;
 				}
-				event.data.files.forEach((file) =>{
-					ack(file.url.replace(/^https*:\/\/[^\/]*\//, ''));
-				});
+
+				for (const [url, ver] of Object.entries(event.data.files)) {
+					ack(url.replace(/^\//, ''));
+				}
 			}
 		}
 	});

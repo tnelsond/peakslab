@@ -126,6 +126,10 @@ body {
 		height: 10em;
 }
 
+#dictlist{
+	padding-left: 1em;
+}
+
 input[type="checkbox"]{
     display: none;
 }
