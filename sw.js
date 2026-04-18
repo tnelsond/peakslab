@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.5.1';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.5.3';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -166,44 +166,56 @@ self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
-// Activate: cleanup old caches + consolidate into OLD_CACHE (remove duplicates + non-FILE_VERSIONS files)
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const cacheNames = await caches.keys();
     const currentCache = await caches.open(CURRENT_CACHE);
     const oldCache = await caches.open(OLD_CACHE);
 
+    // 1. Migrate from any other old caches
     for (const cacheName of cacheNames) {
       if (cacheName === CURRENT_CACHE || cacheName === OLD_CACHE) continue;
 
-      const oldC = await caches.open(cacheName);
-      const requests = await oldC.keys();
+      const sourceCache = await caches.open(cacheName);
+      const requests = await sourceCache.keys();
 
       for (const req of requests) {
         const normReq = getNormalizedRequest(req);
         const normPath = new URL(normReq.url).pathname;
+        const response = await sourceCache.match(req);
 
-        const response = await oldC.match(req);
-        if (!response) continue;
-
-        if (normPath in FILE_VERSIONS) {
-          // Move to OLD_CACHE (will be promoted to CURRENT_CACHE on first use if version matches)
+        if (response && normPath in FILE_VERSIONS) {
           await oldCache.put(normReq, response.clone());
         }
-        // else: discard (no longer in FILE_VERSIONS)
       }
-
       await caches.delete(cacheName);
     }
 
-    // Remove duplicates: if a file exists in both CURRENT and OLD, delete from OLD
+    // 2. Deduplicate: If a file is in CURRENT_CACHE, remove it from OLD_CACHE
     const oldRequests = await oldCache.keys();
     for (const oldReq of oldRequests) {
       const normReq = getNormalizedRequest(oldReq);
-      const normPath = new URL(normReq.url).pathname;
-
       if (await currentCache.match(normReq)) {
         await oldCache.delete(oldReq);
+      }
+    }
+
+    // 3. Promote matching-version files from OLD_CACHE to CURRENT_CACHE
+    const remainingOldRequests = await oldCache.keys();
+    for (const oldReq of remainingOldRequests) {
+      const normReq = getNormalizedRequest(oldReq);
+      const normPath = new URL(normReq.url).pathname;
+      const response = await oldCache.match(oldReq);
+
+      if (response && normPath in FILE_VERSIONS) {
+        const cachedVersion = response.headers.get('X-File-Version') || null;
+        const expectedVersion = FILE_VERSIONS[normPath];
+
+        if (cachedVersion === expectedVersion || cachedVersion === null) {
+          const versionedResponse = addVersionHeader(response.clone(), expectedVersion);
+          await currentCache.put(normReq, versionedResponse);
+          await oldCache.delete(oldReq);
+        }
       }
     }
 
@@ -211,7 +223,6 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// Fetch: fully offline-first, background update only when missing from CURRENT_CACHE
 self.addEventListener('fetch', (event) => {
   const originalUrl = new URL(event.request.url);
   const normReq = getNormalizedRequest(event.request);
@@ -231,7 +242,7 @@ self.addEventListener('fetch', (event) => {
     );
   }
 
-  // Files not in FILE_VERSIONS → network only (no caching)
+  // Files not in FILE_VERSIONS → network only
   if (!(normPath in FILE_VERSIONS)) {
     return event.respondWith(fetch(event.request));
   }
@@ -239,7 +250,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     const expectedVersion = FILE_VERSIONS[normPath];
 
-    // 1. CURRENT_CACHE - fastest & preferred
+    // 1. CURRENT_CACHE
     const currentCache = await caches.open(CURRENT_CACHE);
     let response = await currentCache.match(normReq);
     if (response) {
@@ -249,21 +260,19 @@ self.addEventListener('fetch', (event) => {
       return response;
     }
 
-    // 2. OLD_CACHE (fallback when not in current)
+    // 2. OLD_CACHE (only if missing from current)
     const oldCache = await caches.open(OLD_CACHE);
     response = await oldCache.match(normReq);
     if (response) {
-      // Serve immediately from old cache
       const cachedVersion = response.headers.get('X-File-Version') || null;
 
-      // Background update only if version differs or no version header
+      // Background update + promote to CURRENT_CACHE if version changed or missing header
       if (cachedVersion !== expectedVersion) {
         fetch(normReq).then(async (netResp) => {
           if (netResp && netResp.ok) {
             const versionedResp = addVersionHeader(netResp.clone(), expectedVersion);
             await currentCache.put(normReq, versionedResp);
 
-            // Notify clients
             const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
             for (const client of clients) {
               client.postMessage({
@@ -273,12 +282,11 @@ self.addEventListener('fetch', (event) => {
               });
             }
 
-            // Clean up from OLD_CACHE since we now have it in CURRENT
             await oldCache.delete(normReq);
           }
         }).catch(() => {});
       } else {
-        // Same version → move it to CURRENT_CACHE and clean from OLD
+        // Same version → promote to CURRENT_CACHE
         const versionedResp = addVersionHeader(response.clone(), expectedVersion);
         await currentCache.put(normReq, versionedResp);
         await oldCache.delete(normReq);
@@ -287,17 +295,16 @@ self.addEventListener('fetch', (event) => {
       if (event.request.mode === 'navigate' || normPath === '/') {
         sendFileVersions();
       }
-      return response.clone(); // prevent body lock
+      return response.clone();
     }
 
-    // 3. Not in any cache → fetch from network
+    // 3. Network fetch (first time)
     try {
       const networkResponse = await fetch(normReq);
       if (networkResponse && networkResponse.ok) {
         const versionedResponse = addVersionHeader(networkResponse.clone(), expectedVersion);
         await currentCache.put(normReq, versionedResponse);
 
-        // Notify clients
         const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         for (const client of clients) {
           client.postMessage({
