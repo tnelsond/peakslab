@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.5.3';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.5.4';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -16,8 +16,13 @@ const FILE_VERSIONS = {
   '/peakgen.html': 'v1',
   '/peakgen.js': 'v1',
 
+	'/levantine/': 'v1',
+	'/levantine/config.js': 'v1',
+	'/levantine/manifest.json': 'v1',
+	'/levantine/db/vandyke.peak.zst': 'v1',
+
+	'/khmer/': 'v5',
   '/khmer/config.js': 'v5',
-  '/khmer/': 'v5',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
@@ -69,6 +74,13 @@ const FILE_VERSIONS = {
   '/spanish/db/es_biblewords.peak.zst': 'v1',
   '/spanish/db/esULB.peak.zst': 'v1',
   '/spanish/manifest.json': 'v1',
+
+  '/portuguese/config.js': 'v1',
+  '/portuguese/': 'v1',
+  '/portuguese/db/pt-oxford.peak.zst': 'v1',
+  '/portuguese/db/pt-biblewords.peak.zst': 'v1',
+  '/portuguese/db/esULB.peak.zst': 'v1',
+  '/portuguese/manifest.json': 'v1',
 
   '/indonesian/config.js': 'v5',
   '/indonesian/': 'v2',

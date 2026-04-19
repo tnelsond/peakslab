@@ -1,0 +1,30 @@
+{
+  "name": "PeakSlab Levantine",
+  "short_name": "PS Levantine",
+  "description": "A dictionary app for the Levantine language.",
+  "theme_color": "#664433",
+  "background_color": "#664433",
+  "display": "standalone",
+  "scope": "/levantine/",
+  "start_url": "/levantine/",
+  "icons": [
+  {
+    "src": "/peak32x32.png",
+    "sizes": "32x32",
+    "type": "image/png"
+  },
+  {
+    "src": "/peak192x192.png",
+    "sizes": "192x192",
+    "type": "image/png"
+  },
+  {
+    "src": "/peak512x512.png",
+    "sizes": "512x512",
+    "type": "image/png"
+  },
+	{
+    "src": "/peakslab.svg",
+    "sizes": "any"
+  }]
+}
