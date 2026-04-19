@@ -1,8 +1,8 @@
-const CURRENT_CACHE = 'peakslab-0.5.5.4';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.5.5';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
-  '/': 'v7',
+  '/': 'v8',
   '/app.js': 'v12.3.3',
   '/peak.js': 'v2',
   '/peakworker.js': 'v7',
