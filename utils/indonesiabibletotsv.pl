@@ -9,12 +9,13 @@ binmode STDERR, ":utf8";
 use open qw/ :std :encoding(UTF-8) /;
 
 my %data;
+my %num;
 open my $fh, '<', 'indo-book-list.tsv' or die "Cannot open indo-book-list.tsv: $!";
 while (my $line = <$fh>) {
     chomp $line;
     next if $line =~ /^\s*$/;        # skip empty lines
-    my ($key, $val1, $val2) = split /\t/, $line, 3;
-    $data{$key} = [$val1, $val2];
+    my ($n, $key, $val1, $val2) = split /\t/, $line, 4;
+    $data{$key} = [$val1, $val2, $n];
 }
 close $fh;
 
@@ -23,7 +24,7 @@ while(<>){
 		s#</p>##;
 		my ($book, $num, $rest) = m#(.[^0-9]*)([0-9:]+)\t(.*)#;
 		$book =~ s/\s+$//;
-		print "$data{$book}[1] $num\t<p-n>$data{$book}[0] $num</p-n>\t$rest\n";
+		print "($data{$book}[2]) \@$data{$book}[1] $num\t<p-n>$data{$book}[0] $num</p-n>\t$rest\n";
 	}
 	#if(/^\\id (.*)/){
 	#	$bookabr = $abr{$1};

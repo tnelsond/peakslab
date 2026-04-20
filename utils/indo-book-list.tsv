@@ -1,66 +1,66 @@
-kejadian	Kejadian	Gen
-keluaran	Keluaran	Exo
-imamat	Imamat	Lev
-bilangan	Bilangan	Num
-ulangan	Ulangan	Deu
-yosua	Yosua	Jos
-hakim-hakim	Hakim-Hakim	Jud
-rut	Rut	Rut
-1-samuel	1 Samuel	1Sa
-2-samuel	2 Samuel	2Sa
-1-raja-raja	1 Raja-Raja	1Ki
-2-raja-raja	2 Raja-Raja	2Ki
-1-tawarikh	1 Tawarikh	1Ch
-2-tawarikh	2 Tawarikh	2Ch
-ezra	Ezra	Ezr
-nehemia	Nehemia	Neh
-ester	Ester	Est
-ayub	Ayub	Job
-mazmur	Mazmur	Psa
-amsal	Amsal	Pro
-pengkhotbah	Pengkhotbah	Ecc
-kidung-agung	Kidung Agung	Sol
-yesaya	Yesaya	Isa
-yeremia	Yeremia	Jer
-ratapan	Ratapan	Lam
-yehezkiel	Yehezkiel	Eze
-daniel	Daniel	Dan
-hosea	Hosea	Hos
-yoel	Yoël	Joe
-amos	Amos	Amo
-obaja	Obaja	Oba
-yunus	Yunus	Jon
-mikha	Mikha	Mic
-nahum	Nahum	Nah
-habakuk	Habakuk	Hab
-zefanya	Zefanya	Zep
-hagai	Hagai	Hag
-zakharia	Zakharia	Zec
-maleakhi	Maleakhi	Mal
-matius	Matius	Mat
-markus	Markus	Mar
-lukas	Lukas	Luk
-yohanes	Yohanes	Joh
-kisah-para-rasul	Kisah Para Rasul	Act
-roma	Roma	Rom
-1-korintus	1 Korintus	1Co
-2-korintus	2 Korintus	2Co
-galatia	Galatia	Gal
-ef	Ef	Eph
-filipi	Filipi	Phi
-kolose	Kolose	Col
-1-tesalonika	1 Tesalonika	1Th
-2-tesalonika	2 Tesalonika	2Th
-1-timotius	1 Timotius	1Ti
-2-timotius	2 Timotius	2Ti
-titus	Titus	Tit
-filemon	Filemon	Phm
-ibrani	Ibrani	Heb
-yakobus	Yakobus	Jam
-1-petrus	1 Petrus	1Pe
-2-petrus	2 Petrus	2Pe
-1-yohanes	1 Yohanes	1Jo
-2-yohanes	2 Yohanes	2Jo
-3-yohanes	3 Yohanes	3Jo
-yudas	Yudas	Jud
-wahyu	Wahyu	Rev
+01	kejadian	Kejadian	Gen
+02	keluaran	Keluaran	Exo
+03	imamat	Imamat	Lev
+04	bilangan	Bilangan	Num
+05	ulangan	Ulangan	Deu
+06	yosua	Yosua	Jos
+07	hakim-hakim	Hakim-Hakim	Jud
+08	rut	Rut	Rut
+09	1-samuel	1 Samuel	1Sa
+10	2-samuel	2 Samuel	2Sa
+11	1-raja-raja	1 Raja-Raja	1Ki
+12	2-raja-raja	2 Raja-Raja	2Ki
+13	1-tawarikh	1 Tawarikh	1Ch
+14	2-tawarikh	2 Tawarikh	2Ch
+15	ezra	Ezra	Ezr
+16	nehemia	Nehemia	Neh
+17	ester	Ester	Est
+18	ayub	Ayub	Job
+19	mazmur	Mazmur	Psa
+20	amsal	Amsal	Pro
+21	pengkhotbah	Pengkhotbah	Ecc
+22	kidung-agung	Kidung Agung	Sol
+23	yesaya	Yesaya	Isa
+24	yeremia	Yeremia	Jer
+25	ratapan	Ratapan	Lam
+26	yehezkiel	Yehezkiel	Eze
+27	daniel	Daniel	Dan
+28	hosea	Hosea	Hos
+29	yoel	Yoël	Joe
+30	amos	Amos	Amo
+31	obaja	Obaja	Oba
+32	yunus	Yunus	Jon
+33	mikha	Mikha	Mic
+34	nahum	Nahum	Nah
+35	habakuk	Habakuk	Hab
+36	zefanya	Zefanya	Zep
+37	hagai	Hagai	Hag
+38	zakharia	Zakharia	Zec
+39	maleakhi	Maleakhi	Mal
+40	matius	Matius	Mat
+41	markus	Markus	Mar
+42	lukas	Lukas	Luk
+43	yohanes	Yohanes	Joh
+44	kisah-para-rasul	Kisah Para Rasul	Act
+45	roma	Roma	Rom
+46	1-korintus	1 Korintus	1Co
+47	2-korintus	2 Korintus	2Co
+48	galatia	Galatia	Gal
+49	ef	Ef	Eph
+50	filipi	Filipi	Phi
+51	kolose	Kolose	Col
+52	1-tesalonika	1 Tesalonika	1Th
+53	2-tesalonika	2 Tesalonika	2Th
+54	1-timotius	1 Timotius	1Ti
+55	2-timotius	2 Timotius	2Ti
+56	titus	Titus	Tit
+57	filemon	Filemon	Phm
+58	ibrani	Ibrani	Heb
+59	yakobus	Yakobus	Jam
+60	1-petrus	1 Petrus	1Pe
+61	2-petrus	2 Petrus	2Pe
+62	1-yohanes	1 Yohanes	1Jo
+63	2-yohanes	2 Yohanes	2Jo
+64	3-yohanes	3 Yohanes	3Jo
+65	yudas	Yudas	Jud
+66	wahyu	Wahyu	Rev

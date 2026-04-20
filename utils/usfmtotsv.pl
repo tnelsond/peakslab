@@ -8,7 +8,18 @@ binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 use open qw/ :std :encoding(UTF-8) /;
 
+my %data;
+open my $fh, '<', 'khmer-book-list.tsv' or die "Cannot open khmer-book-list.tsv: $!";
+while (my $line = <$fh>) {
+    chomp $line;
+    next if $line =~ /^\s*$/;        # skip empty lines
+    my ($n, $key, $val) = split /\t/, $line, 3;
+    $data{$key} = $val;
+}
+close $fh;
+
 my %abr = qw(JHN JOH
+						NAM NAH
 						JOL JOE
 						PHP PHI
 						EZK EZE
@@ -22,14 +33,18 @@ my $bookabr = "NULL";
 my $book = "NULL";
 my $chapter = "NULL";
 while(<>){
-	if(/^\\id (.*)/){
-		$bookabr = $abr{$1};
-		if(!$bookabr){$bookabr = $1}
+	s#\\f \+ \\ft#<p-fn>#g;
+	s#\\f\*#<\/p-fn>#g;
+	s#\\fqa#<p-q>#g;
+	s#\\fqa\*#<\/p-q>#g;
+	if(/^\\toc3 (.*)/){
+		$bookabr = $abr{uc($1)};
+		if(!$bookabr){$bookabr = uc $1}
 	}elsif(/^\\h (.*)/){
 		$book = $1;
 	}elsif(/^\\c (.*)/){
 		$chapter = $1;
 	}elsif(/^\\v ([0-9]+) (.*)/){
-		print "$bookabr $chapter:$1\t<p-n>\@$book $chapter:$1</p-n>\t$2\n"
+		print "($data{$bookabr}) \@$bookabr $chapter:$1\t<p-n>\@$book $chapter:$1</p-n>\t$2\n"
 	}
 }

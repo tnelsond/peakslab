@@ -9,32 +9,49 @@ binmode STDERR, ":utf8";
 use open qw/ :std :encoding(UTF-8) /;
 
 my %data;
+my %num;
 open my $fh, '<', 'khmer-book-list.tsv' or die "Cannot open khmer-book-list.tsv: $!";
 while (my $line = <$fh>) {
     chomp $line;
     next if $line =~ /^\s*$/;        # skip empty lines
-    my ($key, $val) = split /\t/, $line, 2;
+    my ($key, $val, $n) = split /\t/, $line, 3;
     $data{$key} = $val;
+		$num{$key} = $n;
 }
 close $fh;
 
 my $book = "";
 my $chapter = "";
 my @stack;
+my $section = "";
+my $d = "";
 
 while(<>){
 	chomp;
 	if(/^<div class='c'>/){
 		($chapter) = />([^<]+)/;
+	}elsif(s/^<div class='s'>([^<]*)<\/div>//g){
+		($section) = "<h3>$1</h3>";
+	}elsif(s/^<div class='d'>([^<]*)<\/div>//g){
+		($d) = "<h4>$1</h4>";
 	}elsif(/^<title>/){
 		($book) = /(?:ព្រះគម្ពីរខ្មែរបច្ចុប្បន្ន ២០០៥|ព្រះគម្ពីរខ្មែរបកប្រែចាស់ ១៩៥៤) ([^<]*)/;
 		$book =~ s/(.*) [0-9]+/$1/;
 	}elsif(/data-id=.*v-num/){
-		s#^<span.*data-id='(..)([0-9]+)_([0-9]+)'><span[^>]*>([^&]*)[^>]*>(.*)</span>#$data{$1} $2:$3\t\@<p-n>$book $chapter:$4</p-n>\t<$stack[-1]$5#;
+		s#^<span.*data-id='(..)([0-9]+)_([0-9]+)'><span[^>]*>([^&]*)[^>]*>(.*)</span>#($num{$1}) \@$data{$1} $2:$3\t\@<p-n>$book $chapter:$4</p-n>\t<$stack[-1]$5#;
 		s#(?<=</)div>#pop @stack#e;
 		s#<span class='nd'>([^<]*)</span>#<b>$1</b>#g;
 		s#</div>##g;
-		print "\n$_";
+		print "\n";
+		if($section){
+			s#.*\t#$&$section\t#;
+			$section = "";
+		}
+		if($d){
+			s#.*\t#$&$d\t#;
+			$d = "";
+		}
+		print $_;
 	}elsif(/data-id/ && !/lang='km'/){
 		s#^#<$stack[-1]#;
 		s#<span[^>]*>(.*)</span>#$1#;
@@ -50,8 +67,6 @@ while(<>){
 		push @stack, "p>";
 	}elsif(/<div class='m'>/){
 		push @stack, "p>";
-	}elsif(/<div class='s'>/){
-		push @stack, "h3>";
 	}elsif(/<span class='qt'>/){
 		push @stack, "p-qt>";
 	}
