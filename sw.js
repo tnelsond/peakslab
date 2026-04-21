@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.5.8';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.5.9';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
