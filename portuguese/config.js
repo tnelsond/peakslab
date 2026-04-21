@@ -17,4 +17,4 @@ const lang = [
 	{name: "Portuguese", val: 'pt_BR'},
 	{name: "English", val: 'en_US'}
 ];
-const appname = 'pt';
+const appname = 'po';
