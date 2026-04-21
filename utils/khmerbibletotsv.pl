@@ -34,14 +34,15 @@ while(<>){
 		($section) = "<h3>$1</h3>";
 	}elsif(s/^<div class='d'>([^<]*)<\/div>//g){
 		($d) = "<h4>$1</h4>";
-	}elsif(/^<title>/){
-		($book) = /(?:ព្រះគម្ពីរខ្មែរបច្ចុប្បន្ន ២០០៥|ព្រះគម្ពីរខ្មែរបកប្រែចាស់ ១៩៥៤) ([^<]*)/;
+	}elsif(/<a class='location/ && /<a class='home'/){
+		($book) = m#<a class='location[^>]*>([^<]*)<\/a>#;
 		$book =~ s/(.*) [0-9]+/$1/;
 	}elsif(/data-id=.*v-num/){
 		s#^<span.*data-id='(..)([0-9]+)_([0-9]+)'><span[^>]*>([^&]*)[^>]*>(.*)</span>#($num{$1}) \@$data{$1} $2:$3\t\@<p-n>$book $chapter:$4</p-n>\t<$stack[-1]$5#;
 		s#(?<=</)div>#pop @stack#e;
 		s#<span class='nd'>([^<]*)</span>#<b>$1</b>#g;
 		s#</div>##g;
+		s#<span[^>]*><a[^>]*>[^<]*</a> *</span>##g;
 		print "\n";
 		if($section){
 			s#.*\t#$&$section\t#;
@@ -52,12 +53,13 @@ while(<>){
 			$d = "";
 		}
 		print $_;
-	}elsif(/data-id/ && !/lang='km'/){
+	}elsif(/data-id/ && !/lang='/){
 		s#^#<$stack[-1]#;
 		s#<span[^>]*>(.*)</span>#$1#;
 		s#(?<=</)div>#pop @stack#e;
 		s#<span class='nd'>([^<]*)</span>#<b>$1</b>#g;
 		s#</div>##g;
+		s#<span[^>]*><a[^>]*>[^<]*</a> *</span>##g;
 		print $_;
 	}elsif(/<div class='(q.*)'>/){
 		push @stack, "p-$1>";
