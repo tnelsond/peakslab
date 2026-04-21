@@ -77,11 +77,12 @@ const FILE_VERSIONS = {
 
   '/portuguese/config.js': 'v3',
   '/portuguese/': 'v1',
+  '/portuguese/db/pt-eng.peak.zst': 'v1',
   '/portuguese/db/pt-oxford.peak.zst': 'v1',
   '/portuguese/db/pt-biblewords.peak.zst': 'v1',
-  '/portuguese/db/po-b-onv.peak.zst': 'v1',
-  '/portuguese/db/po-b-mundial.peak.zst': 'v1',
-  '/portuguese/db/po-b-livre.peak.zst': 'v1',
+  '/portuguese/db/pt-b-onv.peak.zst': 'v1',
+  '/portuguese/db/pt-b-mundial.peak.zst': 'v1',
+  '/portuguese/db/pt-b-livre.peak.zst': 'v1',
   '/portuguese/manifest.json': 'v1',
 
   '/indonesian/config.js': 'v5',
