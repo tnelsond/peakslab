@@ -1,5 +1,3 @@
-*.peak
-*.slab
 peak
 peakgen
 *.o
