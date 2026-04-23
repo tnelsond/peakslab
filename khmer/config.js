@@ -12,6 +12,7 @@ const tablayout = [
 	]},
 	{name: "♫", dicts: [
 		["khmer/db/hymns7.peak.zst", "Hymn", 32*1024, `<a href="https://www.khmerworship.com/">Khmer Worship</a>`, true],
+		["khmer/db/kora.slab", "Kora Praise", 64*1024, `<a href="https://www.korapraise.com/">Kora Praise</a>`, false],
 	]},
 	{name: "Bible", dicts: [
 		["khmer/db/bible.peak.zst", "Bible", 16*1024, "From my khsv bible and a blue bible dictionary.", true],

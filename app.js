@@ -43,8 +43,8 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function cleanup(container = out){
-	container.querySelectorAll('img[src^="blob:"], audio source[src^="blob:"]').forEach(el => {
+function cleanup(container = tout){
+	container.querySelectorAll('img[src^="blob:"], object[data^="blob:"], audio source[src^="blob:"]').forEach(el => {
 		URL.revokeObjectURL(el.src);
 		el.src = '';
 	});
@@ -66,6 +66,80 @@ function highlightText(html, query) {
         }
         return match; // It's a tag → leave unchanged
     });
+}
+
+let jbig2Module = null;
+let jbig2LoadingPromise = null;
+async function jbig2to1bpng(binaryData) {
+  // Load module if not already loaded
+  if (!jbig2Module) {
+    if (!jbig2LoadingPromise) {
+      jbig2LoadingPromise = loadJbig2Module();
+    }
+    jbig2Module = await jbig2LoadingPromise;
+  }
+
+  // Get the exported functions
+  const decode = jbig2Module._jbig2_decode_to_png;
+  const getPtr = jbig2Module._jbig2_get_result_ptr;
+  const getSize = jbig2Module._jbig2_get_result_size;
+  const freeRes = jbig2Module._jbig2_free_result;
+
+  // Convert binary data to Uint8Array if it's a string
+  const inputBytes = new Uint8Array(
+    typeof binaryData === 'string' 
+      ? binaryData.split('').map(c => c.charCodeAt(0))
+      : binaryData
+  );
+
+  // Allocate memory in WASM for input
+  const inputPtr = jbig2Module._malloc(inputBytes.length);
+  const inputHeap = new Uint8Array(
+    jbig2Module.HEAPU8.buffer,
+    inputPtr,
+    inputBytes.length
+  );
+  inputHeap.set(inputBytes);
+
+  // Decode JBIG2 to PNG
+  decode(inputPtr, inputBytes.length);
+
+  // Get the PNG result from WASM memory
+  const resultPtr = getPtr();
+  const resultSize = getSize();
+  const resultData = new Uint8Array(
+    jbig2Module.HEAPU8.buffer,
+    resultPtr,
+    resultSize
+  ).slice();
+
+  // Cleanup
+  jbig2Module._free(inputPtr);
+  freeRes();
+
+  // Return PNG as Blob
+  return new Blob([resultData], { type: 'image/png' });
+}
+
+function loadJbig2Module() {
+  return new Promise((resolve, reject) => {
+    // Set up Module object before loading the script
+    window.Module = {
+      onRuntimeInitialized: function() {
+        resolve(window.Module);
+      }
+    };
+
+    // Dynamically load the script
+    const script = document.createElement('script');
+    script.src = '/jbig2.js';
+    script.onerror = () => {
+      jbig2LoadingPromise = null;
+      reject(new Error('Failed to load jbig2.js'));
+    };
+
+    document.head.appendChild(script);
+  });
 }
 
 let i = 1;
@@ -107,8 +181,8 @@ workers.forEach((w) => {
 			}
 		}else if(e.data.type == "result"){
 			if(num == 0){
-				cleanup(out);
-				out.append(loader)
+				cleanup(tout);
+				tout.append(loader)
 			}
 			let idpre = e.data.dest == "popup" ? "pid" : "mid";
 			const nheader = updateQuery(e.data.header);
@@ -138,6 +212,11 @@ workers.forEach((w) => {
 					const blob = new Blob([e.data.body], { type: 'image/webp' });
 					const url = URL.createObjectURL(blob);
 					el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
+				}else if (e.data.filetype.toLowerCase().includes('jbig2')) {
+					jbig2to1bpng(e.data.body).then(blob => {
+						const url = URL.createObjectURL(blob);
+						el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
+					});
 				}else if (e.data.filetype.toLowerCase().includes('webm')) {
 					const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
 					const url = URL.createObjectURL(blob);
@@ -439,7 +518,7 @@ function selectSub(gi, si) {
 }
 
 let query = null;
-let out = resultsDiv;
+let tout = resultsDiv;
 let mainQuery = null;
 
 function updateDictList(checkbox){

@@ -11,6 +11,7 @@
     #define printf(...) ((void)0)
 #endif
 
+#define BUF_LEN 8096
 static uint8_t* g_d = NULL;
 static size_t g_d_size = 0;
 
@@ -148,9 +149,6 @@ static int ps_cmpe(const void *a, const void *b){
 		sa++; sb++;	
 	}
 	if(!*sb && (*sa == '\t' || !*sa)){ // For exact search
-		printf("Exact: %c:%c\n", *sa, *sb);
-		printf("\n*%.15s", a);
-		printf("\n**%.15s", b);
 		return 0;
 	}
 	return *sa - *sb;
@@ -335,33 +333,10 @@ int p_strncpyhead(uint8_t* dest, size_t dest_size, const uint8_t* src){
 //	idx3_start; idx3_len;
 int p_render(uint8_t *dest, size_t dest_size, size_t i){
 	int len = 0;
-	//uint32_t temp = 0;
-	/*printf("line %d\n", i);
-	char *tag_idx = g_d + ps_h->tag_idx_start;
-	for(int x=0; x<ps_h->tag_idx_len; ++x){
-		memcpy(&temp, tag_idx, ps_h->btag_idx);
-		tag_idx += ps_h->btag_idx;
-		printf("%d ", temp);
-	}
-	printf("\n");*/
-
 	uint8_t *str = p_linetostr(i, INDEX1);
-	//printf("str: %s\n", str);
 	uint8_t *tags = p_linetotags(i);
 	uint8_t *tagend = p_linetotags(i+1);
-	//uint8_t *tags = g_d + ps_h->tag_start;
-	//uint8_t *tagend = tags + (ps_h->btag1 + ps_h->btag2) * 1;
 	uint32_t tagoff, tagid;
-	/*uint8_t *test = tags;
-	while(test < tagend){
-		//printf("%d ", tags[0]);
-		//++tags;
-		p_loadtag(test, &tagoff, &tagid);
-		printf("(%ld, %ld)\n", tagoff, tagid);
-		test += ps_h->btag1 + ps_h->btag2;
-	}
-	printf("\n");*/
-	//uint32_t *t = g_d + ps_h->tag_start + p_read_bytes(g_d, ps_h->tag_idx_start, i, ps_h->btag_idx);
 	p_loadtag(tags, &tagoff, &tagid);
 	uint8_t *c = str;
 	int upper = 0;
@@ -439,19 +414,16 @@ int p_getline(uint8_t *match) {
 }
 
 int p_binarysearch(){
-	printf("#");
 	if(psa->line > psa->idxlen-1 || psa->line < 0){
 		return -1;
 	}
 	if(!psa->idxlen)
 		return -2;
-	printf("!");
 	int cmpr = -1;
 	int match = -1;
 	uint8_t *guess = NULL;
 	int l = psa->line;
 	if(l > 0){
-		printf("/");
 		guess = p_linetostr(psa->line, psa->st);
 		//printf("guess %d: %s\n", l, guess);
 		if(psa->st == EXACT1 || psa->st == EXACT2){
@@ -465,7 +437,6 @@ int p_binarysearch(){
 		else
 			return -1;
 	}
-	printf("x");
 	int r = psa->idxlen - 1;
 	while(l < r){
 		int m = l + (r - l) / 2;
@@ -485,7 +456,6 @@ int p_binarysearch(){
 			r = m;
 		}
 	}
-	printf("Y\n");
 	if(psa->st == EXACT1 || psa->st == EXACT2){
 		uint32_t offset = p_read_bytes(g_d, psa->idx, l, ps_h->bline_idx);
 		guess = (uint8_t*)(g_d + ps_h->line_start + offset);
@@ -549,30 +519,52 @@ int get_result(int skip){
 			return -4;
 		int tline = 0;
 		if(ps_h->features & SLAB){
-			if(psa->st == FULL) //implement later
-				return -1;
+			uint8_t* match = NULL;
+			uint8_t *start = NULL;
+			uint8_t *end = NULL;
+			int len = 0;
+			if(psa->st == FULL){
+				do{
+					tline = psa->line;
+					++psa->line;
+					if(tline+1 >= ps_h->line_idx_len-1){
+						psa->line = -1;
+						return -1;
+					}
+					start = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline, ps_h->bline_idx));
+					end = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline+1, ps_h->bline_idx));
+					//printf("len: %d\n", len);
+					len = end - start;
+					size_t header_len = (uint8_t*)sz_find_byte(start, len, "\0") - start;
+					match = (uint8_t*)sz_find(start, header_len, psa->qloc, psa->qlen);
+				}while(!match || !(skip || vec_u32_push_uniq(&results, tline)));
+			}
+			else{
 			//char* match = NULL;
-			do{
-				tline = psa->line = p_binarysearch();
-				if(psa->line < 0)
-					return -1;
-				//match = p_linetostr(bsea, psa->st);
-				++psa->line;
-			}while(!(skip || vec_u32_push_uniq(&results, tline)));
-
-			uint8_t *start = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline, ps_h->bline_idx));
-			uint8_t *end = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline+1, ps_h->bline_idx));
-			int len = end - start;
+				do{
+					tline = psa->line = p_binarysearch();
+					if(psa->line < 0)
+						return -1;
+					//match = p_linetostr(bsea, psa->st);
+					match = p_linetostr(psa->line, psa->st);
+					tline = p_getline(match);
+					++psa->line;
+				}while(!(skip || vec_u32_push_uniq(&results, tline)));
+				start = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline, ps_h->bline_idx));
+				end = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline+1, ps_h->bline_idx));
+				len = end - start;
+			}
 			if(g_result_max < len)
 				len =  g_result_max;
-			memcpy(g_result_loc, start, len);
-			return len;
+			if(match){
+				memcpy(g_result_loc, start, len);
+				return len;
+			}
 		}
 		uint8_t* match = NULL;
 		if(psa->st != FULL){
 			do{
 				psa->line = p_binarysearch();
-				printf("psa->line %d\n", psa->line);
 				if(psa->line < 0)
 					return -1;
 				match = p_linetostr(psa->line, psa->st);
@@ -592,6 +584,10 @@ int get_result(int skip){
 				//int ret = p_strncpy(out_buffer, out_capacity, g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
 				tline = psa->line = p_getline(match);
 				++psa->line;
+				if(psa->line >= ps_h->line_idx_len-1){
+					psa->line = -1;
+					return -1;
+				}
 			}while(!(skip || vec_u32_push_uniq(&results, tline)));
 		}
 		if(match){
@@ -628,7 +624,7 @@ int p_endswith(uint8_t *a, uint8_t *b){
 	if(j > i)
 		return 0;
 	i -= j;
-	while(a[i+j] == b[j] && j >= 0)
+	while(j >= 0 && a[i+j] == b[j])
 		--j;
 	return j<0;
 }
@@ -645,11 +641,11 @@ int main(int argc, char **argv){
 	size_t srcSize = 0;
 	uint8_t *src = NULL;
 	int c;
-	int i;
+	int i = 0;
 	while((c = fgetc(in)) != EOF){
-		if(i >= srcSize){
+		if(i+1 >= srcSize){
 			srcSize = srcSize < 8096 ? 8096 : srcSize * 2;
-			src = realloc(src, srcSize);
+			src = realloc(src, srcSize+1);
 			if(src == NULL){
 				//printf("Fatal error Drive B\n");
 				return -1;
@@ -663,7 +659,7 @@ int main(int argc, char **argv){
 	load_peak(src, i, compressed);
 	if(compressed)
 		free(src);
-	uint8_t * buf = malloc(8096);
+	uint8_t * buf = malloc(BUF_LEN);
 	int query_size = 256;
 	peak_init(buf, query_size, buf + query_size, query_size, buf + query_size*2, 8096 - query_size*2);
 
@@ -683,72 +679,53 @@ int main(int argc, char **argv){
 	}
 	printf("\n");
 
-	//printf("line_start %d; line_len %d;\n", ps_h->line_start, ps_h->line_len);
-	//printbytes(g_d + ps_h->line_idx_start, ps_h->bline_idx, ps_h->line_idx_len);
-
-	//printf("lines:\n");
-	/*for(i=0; i<ps_h->line_idx_len; ++i){
-		printf("line %d: %s\n", i, g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, i, ps_h->bline_idx));
-//char *start = g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx);
-	}*/
-
 	int quit = 0;
+	int st = 3;
+	int len = -1;
+	uint8_t buf2[query_size];
 	while(!quit){
-		printf("\n\n###  Query: ");
+		printf("\n\n###  Query (return for more): ");
 		i = 0;
 		while((c = fgetc(stdin)) != EOF){
 			if(c == '\n'){
 				break;
 			}
-			buf[i++] = c;
+			buf2[i++] = c;
 		}
-		buf[i] = '\0';
-		if(i == 4 && strncmp(buf, "quit", i) == 0){
+		buf2[i] = '\0';
+		printf("%d, %s\n", i, buf2);
+		if(i == 4 && strncmp(buf2, "quit", i) == 0){
+			quit = 1;
 			break;
 		}
-
-		init_search(INDEX1, 1);
-		int len;
-		int num = 3;
-		do{
-			--num;
+		if(i){
+			while(i >= 0){
+				psa->qloc[i] = buf2[i];
+				--i;
+			}
+			st = INDEX1;
+			init_search(st, 1);
+		}
+		else{
+			printf("%s\n", psa->qloc);
+		}
+		len = -1;
+		while(len < 0 && st != 2){
 			len = get_result(0);
-			if(len > 0)
-				printf("%d %s\n", len, g_result_loc);
-		}while(len > 0 && num > 0);
-
-		printf("\n### INDEX2!!!\n\n");
-		init_search(INDEX2, 1);
-		num = 3;
-		do{
-			--num;
-			len = get_result(0);
-			if(len > 0)
-				printf("%d %s\n", len, g_result_loc);
-		}while(len > 0 && num > 0);
-
-		printf("\n### Exact!!!\n\n");
-		init_search(EXACT1, 1);
-		num = 3;
-		do{
-			--num;
-			len = get_result(0);
-			if(len > 0)
-				printf("%d %s\n", len, g_result_loc);
-		}while(len > 0 && num > 0);
-
-
-
-		printf("\n### FULL SEARCH!\n");
-
-		num = 1;
-		init_search(FULL, 1);
-		do{
-			--num;
-			len = get_result(0);
-			if(len > 0)
-				printf("%d %s\n", len, g_result_loc);
-		}while(len > 0 && num > 0);
+			if(len < 0){
+				++st;
+				if(st > 5){
+					st = 0;
+				}
+				continue_search(st);
+			}
+		}
+		if(len > 0){
+			printf("(%d) %s\n", st, g_result_loc);
+		}
+		else{
+			printf("END OF RESULTS!\n");
+		}
 	}
 	return 0;
 }

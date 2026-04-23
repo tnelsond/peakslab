@@ -254,9 +254,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 				continue;
 			}
 			if(isslab){
-				if(c == '.'){
-					c = '\t';
-				}else if(c == ','){
+				if(c == '|'){
 					c = '\t';
 				}
 			}
