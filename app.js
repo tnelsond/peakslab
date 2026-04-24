@@ -192,6 +192,13 @@ workers.forEach((w) => {
 			if(first)
 				div.innerHTML += `<h2>${e.data.header}</h2>`;
 			if(e.data.filetype){
+				if(e.data.subheader){
+					let sh = e.data.subheader;	
+					if(subheader_trans && subheader_trans[e.data.dict]){
+						sh = subheader_trans[e.data.dict](sh);
+					}
+					el.innerHTML += `<h3>${sh.join(", ")}</h3>`;
+				}
 				if (e.data.filetype.toLowerCase().includes('webp')) {
 					const blob = new Blob([e.data.body], { type: 'image/webp' });
 					const url = URL.createObjectURL(blob);

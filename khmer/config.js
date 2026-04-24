@@ -12,7 +12,7 @@ const tablayout = [
 	]},
 	{name: "♫", dicts: [
 		["khmer/db/hymns7.peak.zst", "Hymn", 32*1024, `<a href="https://www.khmerworship.com/">Khmer Worship</a>`, true],
-		["khmer/db/kora.slab", "Kora Praise", 64*1024, `<a href="https://www.korapraise.com/">Kora Praise</a>`, false],
+		["khmer/db/kora.slab", "Kora", 64*1024, `<a href="https://www.korapraise.com/">Kora Praise</a>`, false],
 	]},
 	{name: "Bible", dicts: [
 		["khmer/db/bible.peak.zst", "Bible", 16*1024, "From my khsv bible and a blue bible dictionary.", true],
@@ -28,6 +28,19 @@ const tablayout = [
 		["khmer/db/zzz.slab.zst", "Assets", 256*1024, `Contains images from the plantsdictionarykh.com as well as audio from <a href="kheng.info">kheng.info</a>.`, true],
 	]}
 ];
+
+function trans_kora(sh){
+	console.log(sh);
+	if(sh && sh[sh.length-2]){
+		let num = sh[sh.length-2];
+		sh[sh.length-2] = `<a href="https://korapraise.com/sheet/${num}">Kora Praise ${num}</a>`;
+	}
+	return sh;
+}
+
+const subheader_trans = {
+	Kora : trans_kora
+};
 
 const scope = '/khmer/';
 const lang = [

@@ -73,12 +73,17 @@ These peak files can then be compressed using zstdandard compression which is ve
 
 There's an <a href="https://peakslab.org/peakgen.html">online version of the PeakSlab Generator</a> because I hate when a dictionary converter stops working or has 100 dependencies and you can't compile it any more without rewriting it. (Only works for Peak files at the moment).
 
+## input file support
+- tsv file
+- WEBP images
+- WEBM Opus audio
+- JBIG2 images via custom decoder
+
 ## Completed Features
 - System TTS integration
 - Narrow and wide search
 - Offline
 - Selection Menu
-- Image and Audio support
 - Online Peak Generator from .tsv source
 
 ## Todo
@@ -90,6 +95,8 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 - History and bookmarking
 - <strike>Selection to TTS</strike>
 - Sheet music (ABC files)
+- Remove javascript glue code for peak.wasm (peak.js).
+- <strike>JBIG2 image support</strike>
 - <strike>Cite sources</strike>
 - Allow users to upload their own custom PeakSlab files which will stay cached in Indexeddb.
 - <strike>Rework databases</strike>
@@ -107,8 +114,9 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 - Enable custom html for the combining of dictionary entries.
 
 ## Changes
-- Moved from SQLite's wasm backend to a brand new engine and file format. This format allows for really good compression and lightning fast speed as well as speed and lazy loading.
+- Added JBIG2 image support.
 - Rewrote the interface to be more intuitive and simpler.
+- Moved from SQLite's wasm backend to a brand new engine and file format. This format allows for really good compression and lightning fast speed as well as speed and lazy loading.
 
 ## History
 - Be me, a missionary in Cambodia. All the Khmer dictionary apps are full of ads, or require internet connection or just incomplete. So I decide to make my own Khmer dictionary modules for Aard. The process is messy and it's difficult to share with other people. There's no  Aard dictionary app on iOS.
@@ -125,3 +133,4 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 - Refactored everything to work with lazy loading and lazy searching to make the app more seamless and less inefficient.
 - Rewrote everything from scratch in C because I understand it better, it's faster and most of my previous rust code was unsafe code anyway. Rewrote the html and javascript too. Got the size of the peak decoder binary from 150kb in rust to 52kb in C.
 - Had 800mb of sheet music I wanted to compress down and looked around for jbig2 support. I could turn each page into a tiny pdf, but the pdfs don't open on mobile and I wanted them to show up just as an image with no controls or nonsense. Couldn't find any readily available jbig2 decoders for javascript or wasm. (Other than the ones inside pdf.js and pdfium etc. but getting those to work with my code wasn't happening. I tried using pdf.js but it was slow, huge, and still ugly. So I had Claude AI guide me through adapting ghostscript's jbig2dec. I was gonna use libpng but that made the wasm decoder 178kb, the largest part of PeakSlab yet. I didn't like that, so I had Claude write a new frontend to jbig2dec that did custom 1-bit PNG encoding from scratch. The wasm for that is down to 92kb and it works great.
+- Changed some compile flags, got the core peak wasm module down to 37kb. Used Claude AI to remove jbig2.js for more space savings.

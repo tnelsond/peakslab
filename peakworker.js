@@ -77,8 +77,9 @@ self.onmessage = async (e) => {
 						else{
 							let header = d.getHeader().split('\t');
 							const filetype = header[header.length-1];
+							let subheader = header.splice(1);
 							header = header[0];
-							self.postMessage({type: "result", id: id, did: i, query: e.data.query, dict: d.name, st: e.data.st, header: header, filetype: filetype, body: d.getBytes(), dest: e.data.dest});
+							self.postMessage({type: "result", id: id, did: i, query: e.data.query, dict: d.name, st: e.data.st, header: header, subheader: subheader, filetype: filetype, body: d.getBytes(), dest: e.data.dest});
 						}
 					}
 					d.switchState(); // Switched it back :D
@@ -95,9 +96,10 @@ self.onmessage = async (e) => {
 				}else{
 					let header = dicts[cdic].getHeader().split('\t');
 					const filetype = header[header.length-1];
+					let subheader = header.splice(1);
 					header = header[0];
 					//header = header.substring(0, header.indexOf(9));
-					self.postMessage({type: "result", id: id, did: cdic, dict: dicts[cdic].name, query: query, header: header, st: st, filetype: filetype, body: dicts[cdic].getBytes()});
+					self.postMessage({type: "result", id: id, did: cdic, dict: dicts[cdic].name, query: query, header: header, subheader: subheader, st: st, filetype: filetype, body: dicts[cdic].getBytes()});
 				}
 				++num;
 			}
