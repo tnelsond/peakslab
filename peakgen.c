@@ -11,7 +11,7 @@
     #define printf(...) ((void)0)
 #endif
 
-#include "stringzilla/stringzilla.h"
+#include "utils/stringzilla/stringzilla.h"
 #include "peak.h"
 #include "zstd.h"
 

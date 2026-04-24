@@ -1,6 +1,6 @@
 #define ZSTD_STATIC_LINKING_ONLY
 #include "zstddeclib.c"
-#include "stringzilla/stringzilla.h"
+#include "utils/stringzilla/stringzilla.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
