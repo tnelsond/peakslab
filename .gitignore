@@ -2,3 +2,4 @@ peak
 peakgen
 *.o
 *.o.wasm
+jbig2/dist

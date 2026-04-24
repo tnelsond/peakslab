@@ -3,7 +3,7 @@ const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
   '/': 'v8',
-  '/app.js': 'v12.3.4',
+  '/app.js': 'v12.3.5',
   '/peak.js': 'v2',
   '/peakworker.js': 'v8',
   '/peak.wasm': 'v5',
@@ -15,8 +15,7 @@ const FILE_VERSIONS = {
   '/peakgen.wasm': 'v2',
   '/peakgen.html': 'v1',
   '/peakgen.js': 'v1',
-	'/jbig2.js': 'v1',
-	'/jbig2.wasm': 'v1',
+	'/jbig2.wasm': 'v2',
 
 	'/levantine/': 'v1',
 	'/levantine/config.js': 'v1',
