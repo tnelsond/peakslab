@@ -94,7 +94,6 @@ self.onmessage = async (e) => {
 					self.postMessage({type: "result", id: id, did: cdic, dict: dicts[cdic].name, query: query, st: st, header: dicts[cdic].getHeader(), body: dicts[cdic].getBodyStr()});
 				}else{
 					let header = dicts[cdic].getHeader().split('\t');
-					console.log(header); // REMOVE LATER
 					const filetype = header[header.length-1];
 					header = header[0];
 					//header = header.substring(0, header.indexOf(9));

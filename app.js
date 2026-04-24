@@ -68,78 +68,62 @@ function highlightText(html, query) {
     });
 }
 
-let jbig2Module = null;
+let jbig2exports = null;
+let jbig2memory  = null;
 let jbig2LoadingPromise = null;
-async function jbig2to1bpng(binaryData) {
-  // Load module if not already loaded
-  if (!jbig2Module) {
-    if (!jbig2LoadingPromise) {
-      jbig2LoadingPromise = loadJbig2Module();
-    }
-    jbig2Module = await jbig2LoadingPromise;
-  }
-
-  // Get the exported functions
-  const decode = jbig2Module._jbig2_decode_to_png;
-  const getPtr = jbig2Module._jbig2_get_result_ptr;
-  const getSize = jbig2Module._jbig2_get_result_size;
-  const freeRes = jbig2Module._jbig2_free_result;
-
-  // Convert binary data to Uint8Array if it's a string
-  const inputBytes = new Uint8Array(
-    typeof binaryData === 'string' 
-      ? binaryData.split('').map(c => c.charCodeAt(0))
-      : binaryData
-  );
-
-  // Allocate memory in WASM for input
-  const inputPtr = jbig2Module._malloc(inputBytes.length);
-  const inputHeap = new Uint8Array(
-    jbig2Module.HEAPU8.buffer,
-    inputPtr,
-    inputBytes.length
-  );
-  inputHeap.set(inputBytes);
-
-  // Decode JBIG2 to PNG
-  decode(inputPtr, inputBytes.length);
-
-  // Get the PNG result from WASM memory
-  const resultPtr = getPtr();
-  const resultSize = getSize();
-  const resultData = new Uint8Array(
-    jbig2Module.HEAPU8.buffer,
-    resultPtr,
-    resultSize
-  ).slice();
-
-  // Cleanup
-  jbig2Module._free(inputPtr);
-  freeRes();
-
-  // Return PNG as Blob
-  return new Blob([resultData], { type: 'image/png' });
-}
 
 function loadJbig2Module() {
-  return new Promise((resolve, reject) => {
-    // Set up Module object before loading the script
-    window.Module = {
-      onRuntimeInitialized: function() {
-        resolve(window.Module);
-      }
-    };
-
-    // Dynamically load the script
-    const script = document.createElement('script');
-    script.src = '/jbig2.js';
-    script.onerror = () => {
-      jbig2LoadingPromise = null;
-      reject(new Error('Failed to load jbig2.js'));
-    };
-
-    document.head.appendChild(script);
+  if (jbig2LoadingPromise) return jbig2LoadingPromise;
+  jbig2LoadingPromise = WebAssembly.instantiateStreaming(fetch('/jbig2.wasm'), {
+    wasi_snapshot_preview1: {
+      fd_write:          () => 0,
+      fd_seek:           () => 0,
+      fd_close:          () => 0,
+      proc_exit:         (code) => { throw new Error('wasm exit ' + code); },
+      environ_get:       () => 0,
+      environ_sizes_get: () => 0,
+    },
+    env: {
+      abort: () => { throw new Error('wasm abort'); },
+  __assert_fail:   (msg, file, line, func) => { throw new Error('wasm assert failed'); },
+	_abort_js: () => { throw new Error('wasm abort'); },
+	emscripten_resize_heap: () => {throw new Error('wasm abort');},
+    },
+  }).then(({ instance }) => {
+    jbig2exports = instance.exports;
+    jbig2memory  = instance.exports.memory;
   });
+  return jbig2LoadingPromise;
+}
+
+async function jbig2to1bpng(binaryData) {
+  await loadJbig2Module();
+
+  const inputBytes = binaryData instanceof Uint8Array
+    ? binaryData
+    : new Uint8Array(typeof binaryData === 'string'
+        ? binaryData.split('').map(c => c.charCodeAt(0))
+        : binaryData);
+
+  const { malloc, free,
+          jbig2_decode_to_png,
+          jbig2_get_result_ptr,
+          jbig2_get_result_size,
+          jbig2_free_result } = jbig2exports;
+
+  const inputPtr = malloc(inputBytes.length);
+  if (!inputPtr) throw new Error('jbig2: malloc failed');
+  new Uint8Array(jbig2memory.buffer, inputPtr, inputBytes.length).set(inputBytes);
+
+  jbig2_decode_to_png(inputPtr, inputBytes.length);
+  free(inputPtr);
+
+  const resultPtr  = jbig2_get_result_ptr();
+  const resultSize = jbig2_get_result_size();
+  const out = new Uint8Array(jbig2memory.buffer, resultPtr, resultSize).slice();
+  jbig2_free_result();
+
+  return new Blob([out], { type: 'image/png' });
 }
 
 let i = 1;

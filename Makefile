@@ -16,20 +16,24 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
   -Oz
 peak.wasm : peak.c zstddeclib.c peak.h
 	emcc peak.c \
-  -Oz \
+	-DHUF_FORCE_DECOMPRESS_X1 \
+	-DZSTD_FORCE_DECOMPRESS_SEQUENCES_SHORT \
+	-DZSTD_NO_UNUSED_FUNCTIONS \
+	-Oz \
 	-flto \
 	-msimd128 \
 	-mrelaxed-simd \
-  -msse4.2 -mavx -mavx2 \
+	-msse4.2 -mavx -mavx2 \
 	-s MALLOC="emmalloc" \
-  -s ENVIRONMENT=web \
-  -s ALLOW_MEMORY_GROWTH=1 \
+	-s ENVIRONMENT=web \
+	-s ALLOW_MEMORY_GROWTH=1 \
   -s MODULARIZE=1 \
-  -s EXPORT_NAME='peak' \
-  -s EXPORTED_FUNCTIONS='["_load_peak","_peak_init","_init_search","_get_result","_free_peak","_malloc","_free"]' \
-  -s EXPORTED_RUNTIME_METHODS='["HEAPU8","UTF8ToString","stringToNewUTF8"]' \
-  -o peak.js
-peak : peak.c peak.h zstddeclib.c
-	gcc -DDEBUG peak.c -o peak
+  -s EXPORT_NAME="peak" \
+	-s EXPORTED_FUNCTIONS='["_load_peak","_peak_init","_init_search","_continue_search","_get_result","_free_peak","_malloc","_free","_switchstate"]' \
+  -s EXPORTED_RUNTIME_METHODS="['HEAPU8', 'UTF8ToString']" \
+	--no-entry \
+	-o peak.js
+peak : peak_cli.c peak.h peak.c zstddeclib.c
+	gcc -O3 -DDEBUG peak_cli.c -o peak
 
 all : peakgen peakgen.wasm peak.wasm peak

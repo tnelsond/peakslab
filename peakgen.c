@@ -253,6 +253,9 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 				p->idx3start = pold->idx3start + pold->idx3len;
 				continue;
 			}
+			if(c == ' ' && textflat2.data[textflat2.len-1] == ' '){
+				continue;
+			}
 			if(isslab){
 				if(c == '|'){
 					c = '\t';
@@ -282,6 +285,9 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 					taggap = 0;
 					vec_u32_push(&tag, tagid);
 				}
+			}else if(c == '\t' && textflat2.data[textflat2.len-1] == ' '){
+				--textflat2.len;
+				vec_char_push(&textflat2, c);
 			}else if(c == '@'){
 				if(idx2.len && textflat2.len == idx2.items[idx2.len-1]){ // If there's an escaped/doubled @, remove the previous idx2 and put one @ back in.
 					idx2.len--;

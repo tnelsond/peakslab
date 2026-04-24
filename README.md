@@ -17,6 +17,7 @@ Current languages:
 - German
 - Spanish
 - Indonesian
+- Levantine (Lebanese Arabic)
 
 # AI Rant
 
@@ -123,3 +124,4 @@ There's an <a href="https://peakslab.org/peakgen.html">online version of the Pea
 - Because Grok sucks at writing C wasm modules I switched to rust for the wasm backend. Suddenly had really good speed, kept all the major processing in one wasm module. Thought that 150kb module was much better than the 1MB sqlite wasm module.
 - Refactored everything to work with lazy loading and lazy searching to make the app more seamless and less inefficient.
 - Rewrote everything from scratch in C because I understand it better, it's faster and most of my previous rust code was unsafe code anyway. Rewrote the html and javascript too. Got the size of the peak decoder binary from 150kb in rust to 52kb in C.
+- Had 800mb of sheet music I wanted to compress down and looked around for jbig2 support. I could turn each page into a tiny pdf, but the pdfs don't open on mobile and I wanted them to show up just as an image with no controls or nonsense. Couldn't find any readily available jbig2 decoders for javascript or wasm. (Other than the ones inside pdf.js and pdfium etc. but getting those to work with my code wasn't happening. I tried using pdf.js but it was slow, huge, and still ugly. So I had Claude AI guide me through adapting ghostscript's jbig2dec. I was gonna use libpng but that made the wasm decoder 178kb, the largest part of PeakSlab yet. I didn't like that, so I had Claude write a new frontend to jbig2dec that did custom 1-bit PNG encoding from scratch. The wasm for that is down to 92kb and it works great.
