@@ -197,7 +197,7 @@ workers.forEach((w) => {
 					if(subheader_trans && subheader_trans[e.data.dict]){
 						sh = subheader_trans[e.data.dict](sh);
 					}
-					el.innerHTML += `<h3>${sh.join(", ")}</h3>`;
+					el.innerHTML += `<p-n>${sh.join(",<br>")}</p-n>`;
 				}
 				if (e.data.filetype.toLowerCase().includes('webp')) {
 					const blob = new Blob([e.data.body], { type: 'image/webp' });

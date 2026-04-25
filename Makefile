@@ -8,11 +8,14 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
 	emcc peakgen.c zstd.o.wasm -o peakgen.js \
 	-flto \
 	-s MALLOC="emmalloc" \
+	-s ENVIRONMENT=web \
   -s EXPORTED_FUNCTIONS="['_peakslab_gen','_peakslab_getsize','_malloc','_free']" \
   -s EXPORTED_RUNTIME_METHODS="['HEAPU8']" \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s MODULARIZE=1 \
+	-s FILESYSTEM=0 \
   -s EXPORT_NAME="peakgen" \
+	--no-entry \
   -Oz
 peak.wasm : peak.c zstddeclib.c peak.h
 	emcc peak.c \
