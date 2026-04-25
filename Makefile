@@ -6,6 +6,7 @@ zstd.o.wasm : zstd.c
 	emcc zstd.c -c -Oz -flto -o zstd.o.wasm
 peakgen.wasm : peakgen.c peak.h zstd.o.wasm
 	emcc peakgen.c zstd.o.wasm -o peakgen.js \
+  -Oz \
 	-flto \
 	-s MALLOC="emmalloc" \
 	-s ENVIRONMENT=web \
@@ -15,8 +16,7 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
   -s MODULARIZE=1 \
 	-s FILESYSTEM=0 \
   -s EXPORT_NAME="peakgen" \
-	--no-entry \
-  -Oz
+	--no-entry
 peak.wasm : peak.c zstddeclib.c peak.h
 	emcc peak.c \
 	-DHUF_FORCE_DECOMPRESS_X1 \

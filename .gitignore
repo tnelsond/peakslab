@@ -2,4 +2,4 @@ peak
 peakgen
 *.o
 *.o.wasm
-jbig2/dist
+utils/jbig2/dist

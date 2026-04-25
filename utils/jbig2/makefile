@@ -109,7 +109,6 @@ EM_FLAGS = \
     -s MODULARIZE=1                               \
     -s EXPORT_NAME=createJbig2Module              \
 		-s EXPORTED_FUNCTIONS='["_jbig2_decode_to_png","_jbig2_get_result_ptr","_jbig2_get_result_size","_jbig2_free_result","_malloc","_free"]' \
-    -s EXPORTED_RUNTIME_METHODS='["cwrap","getValue"]' \
     -s ALLOW_MEMORY_GROWTH=1                      \
     -s INITIAL_MEMORY=16777216                    \
     -s ENVIRONMENT=web                            \
