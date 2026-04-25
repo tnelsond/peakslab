@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.6.4';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.6.5';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -6,7 +6,7 @@ const FILE_VERSIONS = {
   '/app.js': 'v12.3.6',
   '/peak.js': 'v2',
   '/peakworker.js': 'v9',
-  '/peak.wasm': 'v5',
+  '/peak.wasm': 'v6',
   '/peakslab.svg': 'v1',
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
@@ -15,7 +15,7 @@ const FILE_VERSIONS = {
   '/peakgen.wasm': 'v2',
   '/peakgen.html': 'v1',
   '/peakgen.js': 'v1',
-	'/jbig2.wasm': 'v2',
+	'/jbig2.wasm': 'v3',
 
 	'/levantine/': 'v1',
 	'/levantine/config.js': 'v1',
@@ -23,7 +23,7 @@ const FILE_VERSIONS = {
 	'/levantine/db/vandyke.peak.zst': 'v2',
 
 	'/khmer/': 'v5',
-  '/khmer/config.js': 'v7',
+  '/khmer/config.js': 'v8',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
@@ -43,7 +43,7 @@ const FILE_VERSIONS = {
   '/khmer/db/kora.slab': 'v2',
   '/khmer/manifest.json': 'v2',
 
-  '/khmermusic/config.js': 'v3',
+  '/khmermusic/config.js': 'v4',
   '/khmermusic/': 'v2',
   '/khmermusic/manifest.json': 'v2',
 
