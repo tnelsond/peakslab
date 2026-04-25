@@ -53,19 +53,16 @@ OUTDIR   = dist
 LIB_SRCS = \
     $(SRCDIR)/jbig2.c             \
     $(SRCDIR)/jbig2_arith.c       \
-    $(SRCDIR)/jbig2_arith_iaid.c  \
-    $(SRCDIR)/jbig2_arith_int.c   \
     $(SRCDIR)/jbig2_generic.c     \
-    $(SRCDIR)/jbig2_halftone.c    \
-    $(SRCDIR)/jbig2_huffman.c     \
-    $(SRCDIR)/jbig2_hufftab.c     \
     $(SRCDIR)/jbig2_image.c       \
-    $(SRCDIR)/jbig2_mmr.c         \
     $(SRCDIR)/jbig2_page.c        \
-    $(SRCDIR)/jbig2_refinement.c  \
-    $(SRCDIR)/jbig2_segment.c     \
-    $(SRCDIR)/jbig2_symbol_dict.c \
-    $(SRCDIR)/jbig2_text.c
+    $(SRCDIR)/jbig2_segment.c     
+#$(SRCDIR)/jbig2_arith_iaid.c  \
+#$(SRCDIR)/jbig2_arith_int.c   \
+#$(SRCDIR)/jbig2_huffman.c     \
+#$(SRCDIR)/jbig2_hufftab.c     \
+#$(SRCDIR)/jbig2_symbol_dict.c
+#$(SRCDIR)/jbig2_text.c
 
 WASM_IFACE = $(SRCDIR)/jbig2_wasm.c
 
@@ -80,6 +77,11 @@ CFLAGS_BASE = \
     -I$(SRCDIR)          \
     -DMEMENTO_MUPDF_HACKS=0 \
 		-std=c99 \
+		-fno-exceptions \
+		-fno-unwind-tables \
+		-DJBIG2_DEBUG=0 \
+		-fvisibility=hidden \
+		-fno-rtti \
     -fno-exceptions      
 
 # LTO support
@@ -106,21 +108,20 @@ EXPORTED_FUNCTIONS = \
 EM_FLAGS = \
     -O$(OPT)                                      \
     -s WASM=1                                     \
-    -s MODULARIZE=1                               \
+		-s DYNAMIC_EXECUTION=0 \
+		-s ASSERTIONS=1 \
+		-s MINIMAL_RUNTIME=2 \
+		-s DISABLE_EXCEPTION_CATCHING=1 \
+		-s SUPPORT_LONGJMP=wasm \
     -s EXPORT_NAME=createJbig2Module              \
 		-s EXPORTED_FUNCTIONS='["_jbig2_decode_to_png","_jbig2_get_result_ptr","_jbig2_get_result_size","_jbig2_free_result","_malloc","_free"]' \
     -s ALLOW_MEMORY_GROWTH=1                      \
     -s INITIAL_MEMORY=16777216                    \
     -s ENVIRONMENT=web                            \
-    -s FILESYSTEM=0                               \
-    -s ASSERTIONS=0
+    -s FILESYSTEM=0                               
 
 ifeq ($(LTO),1)
 EM_FLAGS += -flto
-endif
-
-ifeq ($(CLOSURE),1)
-EM_FLAGS += --closure 1
 endif
 
 # ---------------------------------------------------------------------------
@@ -131,8 +132,8 @@ endif
 all: dev
 
 # ---- Development build: assertions + readable output --------------------
-dev: CFLAGS  += -g2 -DDEBUG
-dev: EM_FLAGS += -s ASSERTIONS=1 -g2
+dev: CFLAGS  += -g0
+dev: EM_FLAGS += -s ASSERTIONS=1 -g0
 dev: $(OUTDIR)/jbig2.js
 
 # ---- Release build: -Os, no debug info ----------------------------------
@@ -169,7 +170,7 @@ $(OUTDIR)/jbig2.js: $(LIB_OBJS) $(IFACE_OBJ)
 	$(CC) $(EM_FLAGS) $^ -o $@
 	@echo ""
 	@echo "Built: $@ + $(OUTDIR)/jbig2.wasm"
-	@ls -lh $(OUTDIR)/jbig2.wasm $(OUTDIR)/jbig2.js
+	@du -b $(OUTDIR)/jbig2.wasm $(OUTDIR)/jbig2.js
 
 # Standalone wasm-only (for tiny target)
 $(OUTDIR)/jbig2.wasm: $(LIB_OBJS) $(IFACE_OBJ)

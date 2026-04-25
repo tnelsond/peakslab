@@ -87,6 +87,8 @@ function loadJbig2Module() {
       abort: () => { throw new Error('wasm abort'); },
   __assert_fail:   (msg, file, line, func) => { throw new Error('wasm assert failed'); },
 	_abort_js: () => { throw new Error('wasm abort'); },
+	_setitimer_js: () => { throw new Error('wasm abort'); },
+	_emscripten_runtime_keepalive_clear: () => { throw new Error('wasm abort'); },
 	emscripten_resize_heap: () => {throw new Error('wasm abort');},
     },
   }).then(({ instance }) => {

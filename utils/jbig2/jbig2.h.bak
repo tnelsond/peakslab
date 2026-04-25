@@ -17,11 +17,6 @@
     jbig2dec
 */
 
-#ifndef DEBUG
-    #define printf(...) ((void)0)
-    #define fprintf(...) ((void)0)
-#endif
-
 
 #ifndef _JBIG2_H
 #define _JBIG2_H

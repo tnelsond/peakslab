@@ -6,7 +6,6 @@ const tablayout = [
 ];
 
 function trans_kora(sh){
-	console.log(sh);
 	if(sh && sh[sh.length-2]){
 		let num = sh[sh.length-2];
 		sh[sh.length-2] = `<a href="https://korapraise.com/sheet/${num}">Kora Praise ${num}</a>`;

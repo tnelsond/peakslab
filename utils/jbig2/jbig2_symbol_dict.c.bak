@@ -40,7 +40,7 @@
 #include "jbig2_huffman.h"
 #include "jbig2_image.h"
 #include "jbig2_mmr.h"
-//#include "jbig2_refinement.h"
+#include "jbig2_refinement.h"
 #include "jbig2_segment.h"
 #include "jbig2_symbol_dict.h"
 #include "jbig2_text.h"
@@ -48,6 +48,7 @@
 /* Table 13 */
 typedef struct {
     bool SDHUFF;
+    bool SDREFAGG;
     uint32_t SDNUMINSYMS;
     Jbig2SymbolDict *SDINSYMS;
     uint32_t SDNUMNEWSYMS;
@@ -284,6 +285,13 @@ jbig2_decode_symbol_dict(Jbig2Ctx *ctx,
             goto cleanup;
         }
         /* 6.5.5 (2) */
+        if (!params->SDREFAGG) {
+            SDNEWSYMWIDTHS = jbig2_new(ctx, uint32_t, params->SDNUMNEWSYMS);
+            if (SDNEWSYMWIDTHS == NULL) {
+                jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "failed to allocate symbol widths (%u)", params->SDNUMNEWSYMS);
+                goto cleanup;
+            }
+        } else {
             tparams.SBHUFFFS = jbig2_build_huffman_table(ctx, &jbig2_huffman_params_F);    /* Table B.6 */
             tparams.SBHUFFDS = jbig2_build_huffman_table(ctx, &jbig2_huffman_params_H);    /* Table B.8 */
             tparams.SBHUFFDT = jbig2_build_huffman_table(ctx, &jbig2_huffman_params_K);    /* Table B.11 */
@@ -295,6 +303,7 @@ jbig2_decode_symbol_dict(Jbig2Ctx *ctx,
                 jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "out of memory creating text region huffman decoder entries");
                 goto cleanup;
             }
+        }
     } else {
         IADH = jbig2_arith_int_ctx_new(ctx);
         IADW = jbig2_arith_int_ctx_new(ctx);
@@ -312,7 +321,24 @@ jbig2_decode_symbol_dict(Jbig2Ctx *ctx,
             jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to allocate text region arithmetic decoder contexts");
             goto cleanup;
         }
-
+        if (params->SDREFAGG) {
+            /* Values from Table 17, section 6.5.8.2 (2) */
+            tparams.IADT = jbig2_arith_int_ctx_new(ctx);
+            tparams.IAFS = jbig2_arith_int_ctx_new(ctx);
+            tparams.IADS = jbig2_arith_int_ctx_new(ctx);
+            tparams.IAIT = jbig2_arith_int_ctx_new(ctx);
+            /* Table 31 */
+            tparams.IARI = jbig2_arith_int_ctx_new(ctx);
+            tparams.IARDW = jbig2_arith_int_ctx_new(ctx);
+            tparams.IARDH = jbig2_arith_int_ctx_new(ctx);
+            if (tparams.IADT == NULL || tparams.IAFS == NULL ||
+                    tparams.IADS == NULL || tparams.IAIT == NULL ||
+                    tparams.IARI == NULL || tparams.IARDW == NULL ||
+                    tparams.IARDH == NULL) {
+                jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to allocate text region arith decoder contexts");
+                goto cleanup;
+            }
+        }
     }
     tparams.SBHUFF = params->SDHUFF;
     tparams.SBREFINE = 1;
@@ -424,12 +450,46 @@ jbig2_decode_symbol_dict(Jbig2Ctx *ctx,
             jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number, "SYMWIDTH = %u TOTWIDTH = %u", SYMWIDTH, TOTWIDTH);
 #endif
             /* 6.5.5 (4c.ii) */
-            if (!params->SDHUFF) {
+            if (!params->SDHUFF || params->SDREFAGG) {
 #ifdef JBIG2_DEBUG
+                jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number, "SDHUFF = %d; SDREFAGG = %d", params->SDHUFF, params->SDREFAGG);
 #endif
-                    /* 6.5.8.2 refinement/aggregate symbol */
+                /* 6.5.8 */
+                if (!params->SDREFAGG) {
+                    Jbig2GenericRegionParams region_params;
+                    int sdat_bytes;
 
-										 code = jbig2_arith_int_decode(ctx, IAAI, as, 0);
+                    /* Table 16 */
+                    region_params.MMR = 0;
+                    region_params.GBTEMPLATE = params->SDTEMPLATE;
+                    region_params.TPGDON = 0;
+                    region_params.USESKIP = 0;
+                    sdat_bytes = params->SDTEMPLATE == 0 ? 8 : 2;
+                    memcpy(region_params.gbat, params->sdat, sdat_bytes);
+
+                    image = jbig2_image_new(ctx, SYMWIDTH, HCHEIGHT);
+                    if (image == NULL) {
+                        code = jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to allocate image");
+                        goto cleanup;
+                    }
+
+                    code = jbig2_decode_generic_region(ctx, segment, &region_params, as, image, GB_stats);
+                    if (code < 0) {
+                        jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to decode generic region");
+                        goto cleanup;
+                    }
+
+                    SDNEWSYMS->glyphs[NSYMSDECODED] = image;
+                    image = NULL;
+                } else {
+                    /* 6.5.8.2 refinement/aggregate symbol */
+                    uint32_t REFAGGNINST;
+
+                    if (params->SDHUFF) {
+                        REFAGGNINST = jbig2_huffman_get(hs, params->SDHUFFAGGINST, &code);
+                    } else {
+                        code = jbig2_arith_int_decode(ctx, IAAI, as, (int32_t *) &REFAGGNINST);
+                    }
                     if (code < 0) {
                         code = jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to decode number of symbols in aggregate glyph");
                         goto cleanup;
@@ -438,8 +498,141 @@ jbig2_decode_symbol_dict(Jbig2Ctx *ctx,
                         code = jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "OOB in number of symbols in aggregate glyph");
                         goto cleanup;
                     }
+                    if ((int32_t) REFAGGNINST <= 0) {
+                        code = jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "invalid number of symbols in aggregate glyph");
+                        goto cleanup;
+                    }
 
-           }
+                    jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number, "aggregate symbol coding (%d instances)", REFAGGNINST);
+
+                    if (REFAGGNINST > 1) {
+                        tparams.SBNUMINSTANCES = REFAGGNINST;
+
+                        image = jbig2_image_new(ctx, SYMWIDTH, HCHEIGHT);
+                        if (image == NULL) {
+                            code = jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to allocate symbol image");
+                            goto cleanup;
+                        }
+
+                        /* multiple symbols are handled as a text region */
+                        code = jbig2_decode_text_region(ctx, segment, &tparams, (const Jbig2SymbolDict * const *)refagg_dicts,
+                                                        2, image, data, size, GR_stats, as, ws);
+                        if (code < 0) {
+                            jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to decode text region");
+                            goto cleanup;
+                        }
+
+                        SDNEWSYMS->glyphs[NSYMSDECODED] = image;
+                        image = NULL;
+                    } else {
+                        /* 6.5.8.2.2 */
+                        /* bool SBHUFF = params->SDHUFF; */
+                        Jbig2RefinementRegionParams rparams;
+                        uint32_t ID;
+                        int32_t RDX, RDY;
+                        int BMSIZE = 0;
+                        uint32_t ninsyms = params->SDNUMINSYMS;
+                        int code1 = 0;
+                        int code2 = 0;
+                        int code3 = 0;
+                        int code4 = 0;
+                        int code5 = 0;
+
+                        /* 6.5.8.2.2 (2, 3, 4, 5) */
+                        if (params->SDHUFF) {
+                            ID = jbig2_huffman_get_bits(hs, SBSYMCODELEN, &code1);
+                            RDX = jbig2_huffman_get(hs, tparams.SBHUFFRDX, &code2);
+                            RDY = jbig2_huffman_get(hs, tparams.SBHUFFRDY, &code3);
+                            BMSIZE = jbig2_huffman_get(hs, tparams.SBHUFFRSIZE, &code4);
+                            code5 = jbig2_huffman_skip(hs);
+                        } else {
+                            code1 = jbig2_arith_iaid_decode(ctx, tparams.IAID, as, (int32_t *) &ID);
+                            code2 = jbig2_arith_int_decode(ctx, tparams.IARDX, as, &RDX);
+                            code3 = jbig2_arith_int_decode(ctx, tparams.IARDY, as, &RDY);
+                        }
+
+                        if (code1 < 0 || code2 < 0 || code3 < 0 || code4 < 0 || code5 < 0) {
+                            code = jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to decode data");
+                            goto cleanup;
+                        }
+                        if (code1 > 0 || code2 > 0 || code3 > 0 || code4 > 0 || code5 > 0) {
+                            code = jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "OOB in single refinement/aggregate coded symbol data");
+                            goto cleanup;
+                        }
+
+                        if (ID >= ninsyms + NSYMSDECODED) {
+                            code = jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "refinement references unknown symbol %d", ID);
+                            goto cleanup;
+                        }
+
+                        jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number,
+                                    "symbol is a refinement of ID %d with the refinement applied at (%d,%d)", ID, RDX, RDY);
+
+                        image = jbig2_image_new(ctx, SYMWIDTH, HCHEIGHT);
+                        if (image == NULL) {
+                            code = jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to allocate symbol image");
+                            goto cleanup;
+                        }
+
+                        /* Table 18 */
+                        rparams.GRTEMPLATE = params->SDRTEMPLATE;
+                        rparams.GRREFERENCE = (ID < ninsyms) ? params->SDINSYMS->glyphs[ID] : SDNEWSYMS->glyphs[ID - ninsyms];
+                        /* SumatraPDF: fail on missing glyphs */
+                        if (rparams.GRREFERENCE == NULL) {
+                            code = jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "missing glyph %d/%d", ID, ninsyms);
+                            goto cleanup;
+                        }
+                        rparams.GRREFERENCEDX = RDX;
+                        rparams.GRREFERENCEDY = RDY;
+                        rparams.TPGRON = 0;
+                        memcpy(rparams.grat, params->sdrat, 4);
+                        code = jbig2_decode_refinement_region(ctx, segment, &rparams, as, image, GR_stats);
+                        if (code < 0) {
+                            jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to decode refinement region");
+                            goto cleanup;
+                        }
+
+                        SDNEWSYMS->glyphs[NSYMSDECODED] = image;
+                        image = NULL;
+
+                        /* 6.5.8.2.2 (7) */
+                        if (params->SDHUFF) {
+                            if (BMSIZE == 0)
+                                BMSIZE = (size_t) SDNEWSYMS->glyphs[NSYMSDECODED]->height *
+                                    SDNEWSYMS->glyphs[NSYMSDECODED]->stride;
+                            code = jbig2_huffman_advance(hs, BMSIZE);
+                            if (code < 0) {
+                                jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to advance after huffman decoding in refinement region");
+                                goto cleanup;
+                            }
+                        }
+                    }
+                }
+
+#ifdef OUTPUT_PBM
+                {
+                    char name[64];
+                    FILE *out;
+                    int code;
+
+                    snprintf(name, 64, "sd.%04d.%04d.pbm", segment->number, NSYMSDECODED);
+                    out = fopen(name, "wb");
+                    code = jbig2_image_write_pbm(SDNEWSYMS->glyphs[NSYMSDECODED], out);
+                    fclose(out);
+                    if (code < 0) {
+                        jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to write glyph");
+                        goto cleanup;
+                    }
+                    jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number, "writing out glyph as '%s' ...", name);
+                }
+#endif
+
+            }
+
+            /* 6.5.5 (4c.iii) */
+            if (params->SDHUFF && !params->SDREFAGG) {
+                SDNEWSYMWIDTHS[NSYMSDECODED] = SYMWIDTH;
+            }
 
             /* 6.5.5 (4c.iv) */
             NSYMSDECODED = NSYMSDECODED + 1;
@@ -449,7 +642,7 @@ jbig2_decode_symbol_dict(Jbig2Ctx *ctx,
         }                       /* end height class decode loop */
 
         /* 6.5.5 (4d) */
-        if (params->SDHUFF) {
+        if (params->SDHUFF && !params->SDREFAGG) {
             /* 6.5.9 */
             size_t BMSIZE;
             uint32_t j;
@@ -483,6 +676,13 @@ jbig2_decode_symbol_dict(Jbig2Ctx *ctx,
                 const int stride = (image->width >> 3) + ((image->width & 7) ? 1 : 0);
                 byte *dst = image->data;
 
+                /* SumatraPDF: prevent read access violation */
+                if (size < jbig2_huffman_offset(hs) || (size - jbig2_huffman_offset(hs) < (size_t) image->height * stride) || (size < jbig2_huffman_offset(hs))) {
+                    jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "not enough data for decoding uncompressed (%d/%li)", image->height * stride,
+                                (long) (size - jbig2_huffman_offset(hs)));
+                    goto cleanup;
+                }
+
                 BMSIZE = (size_t) image->height * stride;
                 jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number,
                             "reading %dx%d uncompressed bitmap for %d symbols (%li bytes)", image->width, image->height, NSYMSDECODED - HCFIRSTSYM, (long) BMSIZE);
@@ -492,7 +692,26 @@ jbig2_decode_symbol_dict(Jbig2Ctx *ctx,
                     dst += image->stride;
                     src += stride;
                 }
+            } else {
+                Jbig2GenericRegionParams rparams;
+
+                /* SumatraPDF: prevent read access violation */
+                if (size < jbig2_huffman_offset(hs) || size < BMSIZE || size - jbig2_huffman_offset(hs) < BMSIZE) {
+                    jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "not enough data for decoding (%li/%li)", (long) BMSIZE, (long) (size - jbig2_huffman_offset(hs)));
+                    goto cleanup;
+                }
+
+                jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number,
+                            "reading %dx%d collective bitmap for %d symbols (%li bytes)", image->width, image->height, NSYMSDECODED - HCFIRSTSYM, (long) BMSIZE);
+
+                rparams.MMR = 1;
+                code = jbig2_decode_generic_mmr(ctx, segment, &rparams, data + jbig2_huffman_offset(hs), BMSIZE, image);
+                if (code) {
+                    jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to decode MMR-coded generic region");
+                    goto cleanup;
+                }
             }
+
             /* advance past the data we've just read */
             code = jbig2_huffman_advance(hs, BMSIZE);
             if (code < 0) {
@@ -611,6 +830,9 @@ cleanup:
         jbig2_release_huffman_table(ctx, tparams.SBHUFFDT);
         jbig2_release_huffman_table(ctx, tparams.SBHUFFDS);
         jbig2_release_huffman_table(ctx, tparams.SBHUFFFS);
+        if (!params->SDREFAGG) {
+            jbig2_free(ctx->allocator, SDNEWSYMWIDTHS);
+        }
         jbig2_huffman_free(ctx, hs);
     } else {
         jbig2_arith_int_ctx_free(ctx, tparams.IARDY);
@@ -659,6 +881,7 @@ jbig2_symbol_dictionary(Jbig2Ctx *ctx, Jbig2Segment *segment, const byte *segmen
     memset(&params, 0, sizeof(Jbig2SymbolDictParams));
 
     params.SDHUFF = flags & 1;
+    params.SDREFAGG = (flags >> 1) & 1;
     params.SDTEMPLATE = (flags >> 10) & 3;
     params.SDRTEMPLATE = (flags >> 12) & 1;
 
@@ -736,6 +959,7 @@ jbig2_symbol_dictionary(Jbig2Ctx *ctx, Jbig2Segment *segment, const byte *segmen
             /* Custom table from referred segment */
             huffman_params = jbig2_find_table(ctx, segment, table_index);
             if (huffman_params == NULL) {
+                jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "custom REFAGG huffman table not found (%d)", table_index);
                 goto cleanup;
             }
             params.SDHUFFAGGINST = jbig2_build_huffman_table(ctx, huffman_params);
@@ -743,6 +967,10 @@ jbig2_symbol_dictionary(Jbig2Ctx *ctx, Jbig2Segment *segment, const byte *segmen
         } else {
             /* Table B.1 */
             params.SDHUFFAGGINST = jbig2_build_huffman_table(ctx, &jbig2_huffman_params_A);
+        }
+        if (params.SDHUFFAGGINST == NULL) {
+            jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to allocate REFAGG huffman table");
+            goto cleanup;
         }
     }
 
@@ -765,6 +993,12 @@ jbig2_symbol_dictionary(Jbig2Ctx *ctx, Jbig2Segment *segment, const byte *segmen
     offset = 2 + sdat_bytes;
 
     /* 7.4.2.1.3 */
+    if (params.SDREFAGG && !params.SDRTEMPLATE) {
+        if (offset + 4 > segment->data_length)
+            goto too_short;
+        memcpy(params.sdrat, segment_data + offset, 4);
+        offset += 4;
+    }
 
     if (offset + 8 > segment->data_length)
         goto too_short;
@@ -800,6 +1034,30 @@ jbig2_symbol_dictionary(Jbig2Ctx *ctx, Jbig2Segment *segment, const byte *segmen
         if (params.SDINSYMS != NULL) {
             params.SDNUMINSYMS = params.SDINSYMS->n_symbols;
         }
+    }
+
+    /* 7.4.2.2 (3, 4) */
+    if (flags & 0x0100) {
+        jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "segment marks bitmap coding context as used (NYI)");
+        goto cleanup;
+    } else {
+        int stats_size = params.SDTEMPLATE == 0 ? 65536 : params.SDTEMPLATE == 1 ? 8192 : 1024;
+
+        GB_stats = jbig2_new(ctx, Jbig2ArithCx, stats_size);
+        if (GB_stats == NULL) {
+            jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "failed to allocate arithmetic decoder states for generic regions");
+            goto cleanup;
+        }
+        memset(GB_stats, 0, sizeof (Jbig2ArithCx) * stats_size);
+
+        stats_size = params.SDRTEMPLATE ? 1 << 10 : 1 << 13;
+        GR_stats = jbig2_new(ctx, Jbig2ArithCx, stats_size);
+        if (GR_stats == NULL) {
+            jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "failed to allocate arithmetic decoder states for generic refinement regions");
+            jbig2_free(ctx->allocator, GB_stats);
+            goto cleanup;
+        }
+        memset(GR_stats, 0, sizeof (Jbig2ArithCx) * stats_size);
     }
 
     segment->result = (void *)jbig2_decode_symbol_dict(ctx, segment, &params, segment_data + offset, segment->data_length - offset, GB_stats, GR_stats);

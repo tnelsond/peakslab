@@ -30,7 +30,6 @@ peak.wasm : peak.c zstddeclib.c peak.h
 	-s MALLOC="emmalloc" \
 	-s ENVIRONMENT=web \
 	-s ALLOW_MEMORY_GROWTH=1 \
-  -s MODULARIZE=1 \
   -s EXPORT_NAME="peak" \
 	-s EXPORTED_FUNCTIONS='["_load_peak","_peak_init","_init_search","_continue_search","_get_result","_free_peak","_malloc","_free","_switchstate"]' \
   -s EXPORTED_RUNTIME_METHODS="['HEAPU8', 'UTF8ToString']" \

@@ -38,7 +38,7 @@
 #include "jbig2_arith.h"
 #include "jbig2_generic.h"
 #include "jbig2_image.h"
-//#include "jbig2_mmr.h"
+#include "jbig2_mmr.h"
 #include "jbig2_page.h"
 #include "jbig2_segment.h"
 
@@ -901,7 +901,6 @@ jbig2_decode_generic_template0_TPGDON(Jbig2Ctx *ctx,
                                       Jbig2Segment *segment,
                                       const Jbig2GenericRegionParams *params, Jbig2ArithState *as, Jbig2Image *image, Jbig2ArithCx *GB_stats)
 {
-		return 0;
     const uint32_t GBW = image->width;
     const uint32_t GBH = image->height;
     uint32_t CONTEXT;
@@ -1252,7 +1251,6 @@ jbig2_decode_generic_template3_TPGDON(Jbig2Ctx *ctx,
                                       Jbig2Segment *segment,
                                       const Jbig2GenericRegionParams *params, Jbig2ArithState *as, Jbig2Image *image, Jbig2ArithCx *GB_stats)
 {
-		return 0; // Shortcut the code to remove this whole function
     const uint32_t GBW = image->width;
     const uint32_t GBH = image->height;
     uint32_t CONTEXT;
@@ -1316,7 +1314,18 @@ jbig2_decode_generic_region_TPGDON(Jbig2Ctx *ctx,
                                    Jbig2Segment *segment,
                                    const Jbig2GenericRegionParams *params, Jbig2ArithState *as, Jbig2Image *image, Jbig2ArithCx *GB_stats)
 {
-	return 0;
+    switch (params->GBTEMPLATE) {
+    case 0:
+        return jbig2_decode_generic_template0_TPGDON(ctx, segment, params, as, image, GB_stats);
+    case 1:
+        return jbig2_decode_generic_template1_TPGDON(ctx, segment, params, as, image, GB_stats);
+    case 2:
+        return jbig2_decode_generic_template2_TPGDON(ctx, segment, params, as, image, GB_stats);
+    case 3:
+        return jbig2_decode_generic_template3_TPGDON(ctx, segment, params, as, image, GB_stats);
+    }
+
+    return jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "unsupported GBTEMPLATE (%d)", params->GBTEMPLATE);
 }
 
 /**
@@ -1342,11 +1351,40 @@ jbig2_decode_generic_region(Jbig2Ctx *ctx,
 {
     const int8_t *gbat = params->gbat;
 
+    if (!params->MMR && params->TPGDON)
+        return jbig2_decode_generic_region_TPGDON(ctx, segment, params, as, image, GB_stats);
+
     if (!params->MMR && params->GBTEMPLATE == 0) {
         if (!params->USESKIP && gbat[0] == +3 && gbat[1] == -1 && gbat[2] == -3 && gbat[3] == -1 && gbat[4] == +2 && gbat[5] == -2 && gbat[6] == -2 && gbat[7] == -2)
             return jbig2_decode_generic_template0(ctx, segment, params, as, image, GB_stats);
-   	} 
-		return 0;
+        else
+            return jbig2_decode_generic_template0_unopt(ctx, segment, params, as, image, GB_stats);
+    } else if (!params->MMR && params->GBTEMPLATE == 1) {
+        if (!params->USESKIP && gbat[0] == +3 && gbat[1] == -1)
+            return jbig2_decode_generic_template1(ctx, segment, params, as, image, GB_stats);
+        else
+            return jbig2_decode_generic_template1_unopt(ctx, segment, params, as, image, GB_stats);
+    }
+    else if (!params->MMR && params->GBTEMPLATE == 2) {
+        if (!params->USESKIP && gbat[0] == 2 && gbat[1] == -1)
+            return jbig2_decode_generic_template2(ctx, segment, params, as, image, GB_stats);
+        else
+            return jbig2_decode_generic_template2_unopt(ctx, segment, params, as, image, GB_stats);
+    } else if (!params->MMR && params->GBTEMPLATE == 3) {
+        if (!params->USESKIP && gbat[0] == 2 && gbat[1] == -1)
+            return jbig2_decode_generic_template3(ctx, segment, params, as, image, GB_stats);
+        else
+            return jbig2_decode_generic_template3_unopt(ctx, segment, params, as, image, GB_stats);
+    }
+
+    {
+        int i;
+
+        for (i = 0; i < 8; i++)
+            jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number, "gbat[%d] = %d", i, params->gbat[i]);
+    }
+
+    return jbig2_error(ctx, JBIG2_SEVERITY_FATAL, segment->number, "unsupported generic region (MMR=%d, GBTEMPLATE=%d)", params->MMR, params->GBTEMPLATE);
 }
 
 /**
@@ -1439,6 +1477,13 @@ jbig2_immediate_generic_region(Jbig2Ctx *ctx, Jbig2Segment *segment, const byte 
         return jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to allocate generic image");
     jbig2_error(ctx, JBIG2_SEVERITY_DEBUG, segment->number, "allocated %d x %d image buffer for region decode results", rsi.width, height);
 
+    if (params.MMR) {
+        code = jbig2_decode_generic_mmr(ctx, segment, &params, segment_data + offset, segment->data_length - offset, image);
+        if (code < 0) {
+            code = jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to decode MMR-coded generic region");
+            goto cleanup;
+        }
+    } else {
         int stats_size = jbig2_generic_stats_size(ctx, params.GBTEMPLATE);
 
         GB_stats = jbig2_new(ctx, Jbig2ArithCx, stats_size);
@@ -1463,6 +1508,7 @@ jbig2_immediate_generic_region(Jbig2Ctx *ctx, Jbig2Segment *segment, const byte 
             code = jbig2_error(ctx, JBIG2_SEVERITY_WARNING, segment->number, "failed to decode immediate generic region");
             goto cleanup;
         }
+    }
 
     code = jbig2_page_add_result(ctx, &ctx->pages[ctx->current_page], image, rsi.x, rsi.y, rsi.op);
     if (code < 0)

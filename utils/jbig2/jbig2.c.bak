@@ -86,7 +86,6 @@ jbig2_default_error(void *data, const char *msg, Jbig2Severity severity, uint32_
 int
 jbig2_error(Jbig2Ctx *ctx, Jbig2Severity severity, uint32_t segment_number, const char *fmt, ...)
 {
-		return -1;
     char buf[1024];
     va_list ap;
     int n;
@@ -100,7 +99,6 @@ jbig2_error(Jbig2Ctx *ctx, Jbig2Severity severity, uint32_t segment_number, cons
     return -1;
 }
 
-//This is very important, lol. Don't delete.
 Jbig2Ctx *
 jbig2_ctx_new_imp(Jbig2Allocator *allocator, Jbig2Options options, Jbig2GlobalCtx *global_ctx, Jbig2ErrorCallback error_callback, void *error_callback_data, int jbig2_version_major, int jbig2_version_minor)
 {
