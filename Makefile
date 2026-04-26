@@ -28,7 +28,8 @@ peak.wasm : peak.c zstddeclib.c peak.h
 	-mrelaxed-simd \
 	-msse4.2 -mavx -mavx2 \
 	-s MALLOC="emmalloc" \
-	-s ENVIRONMENT=web \
+	-s ENVIRONMENT=worker \
+  -s MODULARIZE=1 \
 	-s ALLOW_MEMORY_GROWTH=1 \
   -s EXPORT_NAME="peak" \
 	-s EXPORTED_FUNCTIONS='["_load_peak","_peak_init","_init_search","_continue_search","_get_result","_free_peak","_malloc","_free","_switchstate"]' \

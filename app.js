@@ -141,7 +141,7 @@ workers.forEach((w) => {
 			timingDiv.innerHTML += `${e.data.msg}<br>`;
 			--nload;
 			loadProgress.textContent = `Loading ${nload} more dictionaries.`;
-			timingDiv.innerHTML += `${Math.round(performance.now() - tstart)}ms`;
+			timingDiv.innerHTML += `${Math.round(performance.now())}ms `;
 			if(nload == 0){
 				loadProgress.style.display = 'none';
 				saveState();

@@ -535,8 +535,8 @@ int get_result(int skip){
 					end = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline+1, ps_h->bline_idx));
 					//printf("len: %d\n", len);
 					len = end - start;
-					size_t header_len = (uint8_t*)sz_find_byte(start, len, "\0") - start;
-					match = (uint8_t*)sz_find(start, header_len, psa->qloc, psa->qlen);
+					size_t header_len = (uint8_t*)sz_find_byte((const char *)start, len, "\0") - start;
+					match = (uint8_t*)sz_find((const char *)start, header_len, (const char *)psa->qloc, psa->qlen);
 				}while(!match || !(skip || vec_u32_push_uniq(&results, tline)));
 			}
 			else{
@@ -575,7 +575,7 @@ int get_result(int skip){
 			do{ // FULL
 				uint8_t *start = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
 				uint8_t *last = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, ps_h->line_idx_len-1, ps_h->bline_idx));
-				match = (uint8_t*)sz_find(start, last - start, psa->qloc, psa->qlen);
+				match = (uint8_t*)sz_find((const char *)start, last - start, (const char *)psa->qloc, psa->qlen);
 				if(!match){
 					psa->line = -1;
 					return -1;
