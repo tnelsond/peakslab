@@ -43,14 +43,11 @@ For these tests I ran my laptop connected to my Phone's hotspot to serve the pag
 |.tsv (src file)| 52mb      | 100%       |
 |SQLite3        | 84mb      | 162%       |
 |.peak          | **49mb**      | **94%**        |
-------------------------------------------
 |.tsv.zst       | **7.9mb**     | **15%**        |
 |SQLite3.zst    | 14mb      | 27%        |
 |.peak.zst      | 9.3mb     | 18%        |
-------------------------------------------
 |.tsv (split)   | 60mb      | 115%       |
 |.peak (split)  | 58mb      | 112%       |
-------------------------------------------
 |.tsv.zst (split)| 9.1mb    | 17%        |
 |.peak.zst (split)| 11mb    | 21%        |
 
@@ -59,7 +56,6 @@ For these tests I ran my laptop connected to my Phone's hotspot to serve the pag
 |-----------------|--------|---------|-----------------|--------|
 |PeakSlab SQLite3 | 832kb  | 384kb   |    **32kb**         | 1.3mb  |
 |PeakSlab PeakSlab| **40kb**   | **12kb**    |    40kb         | **92kb**   |
-|-----------------|--------|---------|-----------------|--------|
 |PeakSlab PeakSlab| **5%**     | **3%**      |    125%         | **7%**     |
 
 The SQLite3 version is the old version of PeakSlab before I wrote the custom file format. The advantages of the custom format are smaller file sizes, instant loading (cast to a struct), and versatile indexes. The reason that .peak slabs are smaller than .tsv files is because peak removes all capitalization and HTML tags and puts them in a tags (or dictionary) section to be reinserted on render.
