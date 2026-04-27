@@ -27,11 +27,17 @@ The peak format is basically a tsv file with tags (for substitutions, like a min
 	- idx3 (Same thing as idx2 but we use ^ instead.)
 	- line_idx (Main indexes)
 	- tsv file or binary slabs
+
+# Slab Format
  
 The slab format is just like the peak format with a tab delimited header, however that header is ended by a null character to signify the start of binary data.
 
 These peak files can then be compressed using zstdandard compression which is very quick for decompressing and has a good compression ratio.
 
+# Generate
+
 There's an <a href="https://peakslab.org/peakgen.html">online version of the PeakSlab Generator</a> because I hate when a dictionary converter stops working or has 100 dependencies and you can't compile it any more without rewriting it. (Only works for Peak files at the moment).
+
+[Docs on Generating Peak files](GENERATE_PEAK_FILE.md)
 
 
