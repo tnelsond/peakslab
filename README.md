@@ -1,6 +1,6 @@
 <img style="float:left; width:auto; height:200px" src="/peakslab.svg" alt="PeakSlab">
 
-# Peakslab
+# PeakSlab
 
 Defeating AI by making knowledge accessible to Humans.
 
@@ -20,6 +20,19 @@ Current languages:
 - Levantine (Lebanese Arabic)
 
 ![April 2026](docs/screenshot-2026-04-27.webp)
+
+# Using PeakSlab
+For the fullest example, try [PeakSlab.org/khmer](https://peakslab.org/khmer/) and enter something in the search bar. It'll search as you type pulling in definitions from all the dictionaries that you had enabled on the page. If you want to change the dictionaries loaded, simply clear the search bar and the Dictionary list will appear and you can enable and disable them individually.
+
+When you're searching something, e.g. `Gen 7` and you want to look up a word without losing your spot, select the word and push the *popup* button.
+
+![Selection Menu](docs/selection-menu.webp)
+
+If your system supports text to speech you'll also see options for that. The funnest thing you can do is select English text and have the Khmer TTS read it in a Khmer accent.
+
+The Khmer dictionary page is really the prototype and the reason for every other dictionary page.
+
+The files will be cached to your device, automatically, but since they're compressed it's not too bad. The 20 or so dictionaries included in the Khmer page are about 53mb all together. (26mb of that is the *Kora Praise* one because that has 1500 sheet music scans in it. I did not compress that file because it's negligible savings and the file is so big any way)
 
 # AI Rant
 
@@ -120,9 +133,15 @@ Adding support for other filetypes is trivial, but for right now I just have the
 - Selection Menu
 - Online Peak Generator from .tsv source
 
+## Non-features
+- No API, no POSTS, not scrapable by AI because it's all run clientside through javascript and wasm. (But if the AI was smart it'd just read the provided source tsv files.)
+- No frameworks, no React, no npm, no jQuery, no typescript, just vanilla javascript and C code.
+
 ## Todo
 - Regex or Glob support
 - Add a Codec2 audio decoder so we can get even smaller audio files.
+- Add chunking and http ranges to the service worker's download logic so we can resume and track big downloads.
+- Add search parameters so that we can quickly share searches.
 - ~~Expand Exact Search to work with 2nd index too.~~
 - make an online editor
 - ~~media support in dictionary~~
