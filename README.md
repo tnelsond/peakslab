@@ -23,6 +23,49 @@ Current languages:
 
 People go through great effort to gather proper data for AI to learn, so my question is, why don't we make knowledge and data accessible to humans instead so that we can learn? I'm sick of people using AI as a dictionary, it's slow, internet dependent, prone to hallucinations, and untrustworthy. The only advantage AI has versus us is more data and better ways to access it, so let's remedy that.
 
+# Mobile Benchmark
+For these tests I ran my laptop connected to my Phone's hotspot to serve the page. Files are cached to my Moto G Power 2024 running Brave and the page is refreshed at > 5 second intervals to measure load time from cache.
+
+## Load speed
+| Format    | Loadtime | Speed | Filesize |
+|-----------|----------|-------|----------|
+| SQLite3   | 789ms    | 1.0x  | 84mb     |
+| .peak     | 481ms    | 1.64x | 49mb     |
+| .peak split | **391ms**  | **2.02x** | 58mb     |
+| .peak split (dual worker)| 380ms  | 2.08x | 58mb     |
+| .peak.zst | 712ms    | 1.11x | **9.3mb**    |
+| .peak.zst split | 570ms  | 1.38x | 11mb     |
+| .peak.zst split (dual worker)| 479ms  | 1.65x | 11mb     |
+
+## Format File size 
+|  Format       | File size | Percentage |
+|---------------|-----------|------------|
+|.tsv (src file)| 52mb      | 100%       |
+|SQLite3        | 84mb      | 162%       |
+|.peak          | **49mb**      | **94%**        |
+------------------------------------------
+|.tsv.zst       | **7.9mb**     | **15%**        |
+|SQLite3.zst    | 14mb      | 27%        |
+|.peak.zst      | 9.3mb     | 18%        |
+------------------------------------------
+|.tsv (split)   | 60mb      | 115%       |
+|.peak (split)  | 58mb      | 112%       |
+------------------------------------------
+|.tsv.zst (split)| 9.1mb    | 17%        |
+|.peak.zst (split)| 11mb    | 21%        |
+
+## Runtime size
+|  Program        | Core   |   Glue  |  App HTML .js   |  Total |
+|-----------------|--------|---------|-----------------|--------|
+|PeakSlab SQLite3 | 832kb  | 384kb   |    **32kb**         | 1.3mb  |
+|PeakSlab PeakSlab| **40kb**   | **12kb**    |    40kb         | **92kb**   |
+|-----------------|--------|---------|-----------------|--------|
+|PeakSlab PeakSlab| **5%**     | **3%**      |    125%         | **7%**     |
+
+The SQLite3 version is the old version of PeakSlab before I wrote the custom file format. The advantages of the custom format are smaller file sizes, instant loading (cast to a struct), and versatile indexes. The reason that .peak slabs are smaller than .tsv files is because peak removes all capitalization and HTML tags and puts them in a tags (or dictionary) section to be reinserted on render.
+
+As you can see the runtime is drastically smaller, the files are smaller, and the load speed is faster even with decompressing the files on every load. Loading uncompressed files is 1.64x faster or 2x faster if the files are split (even though the split files take up more space than the one).
+
 # License
 
 This project is under the GPL3 license.
