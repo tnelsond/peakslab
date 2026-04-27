@@ -138,7 +138,7 @@ input[type="checkbox"]{
     display: inline-flex;
     align-items: center;
     gap: 8px;
-		margin-right: 0.5em;
+    margin-right: 0.5em;
     cursor: pointer;
     user-select: none;
     padding: 0;
@@ -158,10 +158,11 @@ input[type="checkbox"]{
     border-radius: 14px;
     transition: all 0.3s ease;
     flex-shrink: 0;
+    order: 1;                    /* Ensures switch comes first */
 }
 
 .modern-toggle .toggle-switch::after {
-    content: attr(sym) !important;     /* Download symbol */
+    content: attr(sym) !important;
     position: absolute;
     top: 2px;
     left: 2px;
@@ -171,8 +172,18 @@ input[type="checkbox"]{
     border-radius: 50%;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
 }
 
+/* Make sure the label text comes AFTER the switch */
+.modern-toggle label {
+    order: 2;
+}
+
+/* Checked state */
 input[type="checkbox"]:checked + .modern-toggle .toggle-switch {
     background: var(--accent-color);
 }
@@ -181,24 +192,24 @@ input[type="checkbox"]:checked + .modern-toggle .toggle-switch::after {
     left: 26px;
 }
 
+/* Download / Loading states */
 input[type="checkbox"].down + .modern-toggle .toggle-switch::after {
-    content: " ⬇" !important;
-		color: red;
+    content: "⬇" !important;
+    color: red;
 }
+
 input[type="checkbox"].down:checked + .modern-toggle .toggle-switch::after {
-  content: "↻" !important; /* or any content you want */
-	color: green;
-  display: inline-block;
-  animation: spin 1s linear infinite;
+    content: "↻" !important;
+    color: green;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
 
 p-q,p-q2{
