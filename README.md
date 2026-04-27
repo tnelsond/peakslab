@@ -19,6 +19,8 @@ Current languages:
 - Indonesian
 - Levantine (Lebanese Arabic)
 
+![April 2026](screenshot-2025-04-27.webp)
+
 # AI Rant
 
 People go through great effort to gather proper data for AI to learn, so my question is, why don't we make knowledge and data accessible to humans instead so that we can learn? I'm sick of people using AI as a dictionary, it's slow, internet dependent, prone to hallucinations, and untrustworthy. The only advantage AI has versus us is more data and better ways to access it, so let's remedy that.
@@ -36,6 +38,8 @@ For these tests I ran my laptop connected to my Phone's hotspot to serve the pag
 | .peak.zst | 712ms    | 1.11x | **9.3mb**    |
 | .peak.zst split | 570ms  | 1.38x | 11mb     |
 | .peak.zst split (dual worker)| 479ms  | 1.65x | 11mb     |
+
+![SQLite3 version. July 2025](screenshot-2025-07-15.webp)
 
 ## Format File size 
 |  Format       | File size | Percentage |
