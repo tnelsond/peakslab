@@ -19,7 +19,7 @@ Current languages:
 - Indonesian
 - Levantine (Lebanese Arabic)
 
-![April 2026](screenshot-2025-04-27.webp)
+![April 2026](docs/screenshot-2026-04-27.webp)
 
 # AI Rant
 
@@ -39,7 +39,7 @@ For these tests I ran my laptop connected to my Phone's hotspot to serve the pag
 | .peak.zst split | 570ms  | 1.38x | 11mb     |
 | .peak.zst split (dual worker)| 479ms  | 1.65x | 11mb     |
 
-![SQLite3 version. July 2025](screenshot-2025-07-15.webp)
+![SQLite3 version. July 2025](docs/screenshot-2025-07-15.webp)
 
 ## Format File size 
 |  Format       | File size | Percentage |
@@ -89,35 +89,17 @@ This project uses the following libraries:
 
 ## Peak file
 
-The peak format is basically a tsv file with tags (for substitutions, like a mini dictionary) and 3 indexes at the beginning. Very simple.
-(The first index set must be strictly linear to make data extraction simple, thus the lines are sorted in the generator so that the index is linear)
+This is a [custom format](docs/PEAK_FILE.md) built to be very fast to load (cast to a c-struct and done) and very fast to search with 3 binary search indexes built in. It's very similar to a TSV file and is generated from them.
 
-- 0-7: binarybyte (1 byte); 2: magicnum (3 bytes); 5: magicstr (4 bytes);
-- 8-15:	version (2 bytes); features (1 byte); btagdef_idx (1 byte); btag_idx (1 byte); btag1 (1 byte); btag2 (1 byte); bline_idx (1 byte);
-- 16-23: tagdef_idx_start (4 bytes); tagdef_idx_len (4 bytes);
-- 24-31:  tagdef_start (4 bytes); tagdef_len (4 bytes); 
-- 32-39:  tag_idx_start (4 bytes); tag_idx_len (4 bytes);
-- 40-47: tag_start (4 bytes); tag_len (4 bytes); 
-- 48-55: line_idx_start (4 bytes); line_idx_len (4 bytes);
-- 56-63: line_start (4 bytes); line_len (4 bytes);
-- 64-71: idx2_start (4 bytes); idx2_len (4 bytes);
-- 72-79: idx3_start (4 bytes); idx3_len (4 bytes);
-- 80+: Data, can be organized in any order because the header has offsets to all the points. But peakgen generates data in this order:
-
-	- tagdef_idx
-	- tagdef
-	- tag_idx
-	- tag
-	- idx2 (you can mark something to be added to this index by putting a '@' before the word. If you want to use an actuall @ in your tsv, double it to escape the index.)
-	- idx3 (Same thing as idx2 but we use ^ instead.)
-	- line_idx (Main indexes)
-	- tsv file or binary slabs
- 
-The slab format is just like the peak format with a tab delimited header, however that header is ended by a null character to signify the start of binary data.
+A Peak file is not a database, there's no transactions or inserts or writes, just _reads_, as it should be for ultimate speed and simplicity.
 
 These peak files can then be compressed using zstdandard compression which is very quick for decompressing and has a good compression ratio.
 
 There's an <a href="https://peakslab.org/peakgen.html">online version of the PeakSlab Generator</a> because I hate when a dictionary converter stops working or has 100 dependencies and you can't compile it any more without rewriting it. (Only works for Peak files at the moment).
+
+## Slab file
+
+A Slab file is like a peak file except instead of the data being text it's binaries. That allows for storing lots of little files with searchable headers that can seamlessly be integrated into the results of a search.
 
 ## input file support
 - tsv file

@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ $# -eq 0 ]; then
+    >&2 echo "USAGE: ./setupnewlang.sh NEWNAME LANG_CODE APPNAME"
+    exit 1
+fi
+
 cp -R chitonga $1
 capital=${1^}
 sed $1/config.js -e "s/chitonga/$1/g; s/Chitonga/$capital/g; s/toi_ZM/$3/g; s/tonga/$2/g" -i
