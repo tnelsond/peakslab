@@ -3,6 +3,8 @@
 The peak format is basically a tsv file with tags (for substitutions, like a mini dictionary) and 3 indexes at the beginning. Very simple.
 (The first index set must be strictly linear to make data extraction simple, thus the lines are sorted in the generator so that the index is linear)
 
+These peak files can then be compressed using zstdandard compression which is very quick for decompressing and has a good compression ratio. The Peak core has a zstd decoder built in.
+
 ## Peak Header
 <table>
 <tr><td>binarybyte: 0x0</td><td colspan="3">magicnum[3]: 0xF2,0xFC,0xF3</td><td colspan="4">magicstr[4]: 'P' 'e' 'a' 'k'</td></tr>
@@ -17,7 +19,7 @@ The peak format is basically a tsv file with tags (for substitutions, like a min
 <tr><td colspan="4">idx3\_start</td><td colspan="4">idx3\_len</td></tr>
 </table>
 
-- 80+: Data, can be organized in any order because the header has offsets to all the points. But peakgen generates data in this order:
+- After this header the data can be organized in any order because the header has offsets to all the points. But peakgen generates data in this order:
 
 	- tagdef_idx
 	- tagdef
@@ -31,8 +33,6 @@ The peak format is basically a tsv file with tags (for substitutions, like a min
 # Slab Format
  
 The slab format is just like the peak format with a tab delimited header, however that header is ended by a null character to signify the start of binary data.
-
-These peak files can then be compressed using zstdandard compression which is very quick for decompressing and has a good compression ratio.
 
 # Generate
 

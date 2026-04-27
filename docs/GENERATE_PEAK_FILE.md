@@ -3,8 +3,8 @@
 So first off, you take a tsv file that has inline HTML formatting and probably looks something like this:
 
 ```
-A eɪ  អេយ៍ <ul><li><p-n>(symbol)</p-n><ol><li><p-l> @ប្រើដើម្បីដាក់ឈ្មោះផ្នែក រឺ ចំណែកទី១ នៃវត្ថុអ្វីមួយតាមធម្មដាគេសរសេរ</p-l> a)<p-l> @រឺ</p-l> <p-n>(a)</p-n></li><li><p-l>@. (ប្រើនៅប្រទេសអង់គ្លេសដោយដាក់នៅមុខលេខផ្លូវ ដើម្បីសំគាល់ថាជាផ្លូវធំ)</p-l></li><li><p-l> @(ប្រើនៅពីមុខលេខដើម្បីបង្ហាញខ្នាតក្រដាស)</p-l> an A4<p-l> @ក្រដាស</p-l> A4 4 <p-n>(abbreviation)</p-n><p-l> @អំពែ,ចំលើយ</p-l></li></ol></li></ul> symbol
-a la mode ˌɑ:lɑ:ˈməʊd ˌអាឡា 'មូដ <ul><li><p-n>(adverb)</p-n><p-l> @ដោយចំណូលចិត្ត, ដោយនិយមយ៉ាងច្រើន</p-l><br/> dress ~<p-l> @តាមសម័យ (គំនិត, សំលៀកបំពាក់)</p-l></li><li><p-n>(adjective)</p-n><ol><li><p-l> @គំនិតដែលភ្ញាក់រលឹក </p-l></li><li><p-l> @នាមស្ថិតនៅជាប់ពីក្រោយ, (អាហារ) ដែលមានដាក់ការ៉េម </p-l><br/>pie ~<p-l> @មានដាក់ការ៉េមពីលើ </p-l></li></ol></li></ul> adverb
+A eɪ  អេយ៍ <ul><li><p-n>(symbol)</p-n><ol><li><p-l> @ប្រើដើម្បីដាក់ឈ្មោះផ្នែក រឺ ចំណែកទី១ នៃវត្ថុអ្វីមួយតាមធម្មដាគេសរសេរ</p-l> a)<p-l> រឺ</p-l> <p-n>(a)</p-n></li><li><p-l>(@ប្រើនៅប្រទេសអង់គ្លេសដោយដាក់នៅមុខលេខផ្លូវ ដើម្បីសំគាល់ថាជាផ្លូវធំ)</p-l></li><li><p-l> (@ប្រើនៅពីមុខលេខដើម្បីបង្ហាញខ្នាតក្រដាស)</p-l> an A4<p-l> @ក្រដាស</p-l> A4 4 <p-n>(abbreviation)</p-n><p-l> @អំពែ	,	ចំលើយ</p-l></li></ol></li></ul> symbol
+a la mode ˌɑ:lɑ:ˈməʊd ˌអាឡា 'មូដ <ul><li><p-n>(adverb)</p-n><p-l> @ដោយចំណូលចិត្ត, ដោយនិយមយ៉ាងច្រើន</p-l><br/> dress ~<p-l> @តាមសម័យ (គំនិត, សំលៀកបំពាក់)</p-l></li><li><p-n>(adjective)</p-n><ol><li><p-l> @គំនិតដែលភ្ញាក់រលឹក </p-l></li><li><p-l> @នាមស្ថិតនៅជាប់ពីក្រោយ, (អាហារ) ដែលមានដាក់ការ៉េម </p-l><br/>pie ~<p-l> @មានដាក់ការ៉េមពីលើ </p-l></li></ol></li></ul> ^adverb
 ```
 
 and you run `./peakgen file.tsv output.peak(.zst)` this will make you a peak file that can be loaded and searched by PeakSlab. PeakSlab will remove all the HTML tags and capital letters and zero-width-spaces and put references to them in the tag section of the peak file. This way the text can be searched without all the markup getting in the way.
