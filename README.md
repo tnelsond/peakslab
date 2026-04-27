@@ -97,6 +97,11 @@ These peak files can then be compressed using zstdandard compression which is ve
 
 There's an <a href="https://peakslab.org/peakgen.html">online version of the PeakSlab Generator</a> because I hate when a dictionary converter stops working or has 100 dependencies and you can't compile it any more without rewriting it. (Only works for Peak files at the moment).
 
+## Make it your own
+
+You want to quickly set up a new language?
+[Add a language](docs/ADD_LANGUAGE.md)
+
 ## Slab file
 
 A Slab file is like a peak file except instead of the data being text it's binaries. That allows for storing lots of little files with searchable headers that can seamlessly be integrated into the results of a search.
