@@ -62,8 +62,8 @@ For these tests I ran my laptop connected to my Phone's hotspot to serve the pag
 ## Runtime size
 |  Program        | Core   |   Glue  |  App HTML .js   |  Total |
 |-----------------|--------|---------|-----------------|--------|
-|PeakSlab SQLite3 | 832kb  | 384kb   |    **32kb**         | 1.3mb  |
-|PeakSlab PeakSlab| **40kb (5%)**   | **12kb (3%)**    |    40kb (125%)         | **92kb (7%)** |
+|PeakSlab SQLite3 | 851kb  | 391kb   |    **32kb**         | 1269kb |
+|PeakSlab PeakSlab| **37kb (4%)**   | **9kb (2%)**    |    39kb (122%)         | **85kb (7%)** |
 
 The SQLite3 version is the old version of PeakSlab before I wrote the custom file format. The advantages of the custom format are smaller file sizes, instant loading (cast to a struct), and versatile indexes. The reason that .peak slabs are smaller than .tsv files is because peak removes all capitalization and HTML tags and puts them in a tags (or dictionary) section to be reinserted on render.
 
@@ -118,29 +118,29 @@ Adding support for other filetypes is trivial, but for right now I just have the
 ## Todo
 - Regex or Glob support
 - Add a Codec2 audio decoder so we can get even smaller audio files.
-- <strike>Expand Exact Search to work with 2nd index too.</strike>
+- ~~Expand Exact Search to work with 2nd index too.~~
 - make an online editor
-- <strike>media support in dictionary</strike>
-- <strike>ignore zero width spaces in search</strike>
+- ~~media support in dictionary~~
+- ~~ignore zero width spaces in search~~
 - History and bookmarking
-- <strike>Selection to TTS</strike>
+- ~~Selection to TTS~~
 - Sheet music (ABC files)
 - Remove javascript glue code for peak.wasm (peak.js).
-- <strike>JBIG2 image support</strike>
-- <strike>Cite sources</strike>
+- ~~JBIG2 image support~~
+- ~~Cite sources~~
 - Allow users to upload their own custom PeakSlab files which will stay cached in Indexeddb.
-- <strike>Rework databases</strike>
+- ~~Rework databases~~
 - Rewrite the AI's service worker.
-- <strike>Make it more modular to make porting languages and data easier.</strike>
-- <strike>Rewrite the AI's rust code in C</strike>
-- <strike>Bundle zstd compressor with peakgen.</strike>
-- <strike>Make an online peakgen.</strike>
+- ~~Make it more modular to make porting languages and data easier.~~
+- ~~Rewrite the AI's rust code in C~~
+- ~~Bundle zstd compressor with peakgen.~~
+- ~~Make an online peakgen.~~
 - Add .slab support to online peakgen.
-- <strike>Fix strcmp bugs.</strike>
-- <strike>Fix context menu.</strike>
+- ~~Fix strcmp bugs.~~
+- ~~Fix context menu.~~
 - Make a custom regex-like language for substitution and character unfolding.
 - Make it so that files to be included in the slab file can have a metadata file so that there can be  attribution or alttext attached to the file.
-- <strike>Make the combiner combine the entries with the same headword in order</strike>
+- ~~Make the combiner combine the entries with the same headword in order~~
 - Enable custom html for the combining of dictionary entries.
 
 ## Changes
