@@ -25,7 +25,7 @@ const tablayout = [
 		["english/db/strongs.peak.zst", "Strongs", 2*1024, `<a href="https://github.com/openscriptures/strongs">Strongs by Openscriptures</a>`, false],
 	]},
 	{name: "Media", dicts: [
-		["khmer/db/zzz.slab.zst", "Assets", 256*1024, `Contains images from the plantsdictionarykh.com as well as audio from <a href="kheng.info">kheng.info</a>.`, true],
+		["khmer/db/media.slab.zst", "Media", 256*1024, `Contains images from the plantsdictionarykh.com as well as audio from <a href="kheng.info">kheng.info</a>.`, true],
 	]}
 ];
 

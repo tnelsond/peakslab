@@ -224,6 +224,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 		int pupper = 0;
 		int upper_idx = 0;
 		int inside = 0;
+		int lastperiod = -1;
 		vec_peakline_expand(&peaklines);
 		Peakline *p = peaklines.line;
 		p->stroff = 0;
@@ -234,6 +235,10 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 		for(int a = 0; a < textflat.len; ++a){
 			uint8_t c = textflat.data[a];
 			if(!c || (c == '\n' && !isslab)){
+				if(lastperiod >= 0){
+					textflat2.data[lastperiod] = '\t'; // Separate the extension from the name
+					lastperiod = -1;
+				}
 				vec_char_push(&textflat2, '\0'); // null delimited strings
 				taggap = 0;
 				upper = 0;
@@ -257,7 +262,9 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 				continue;
 			}
 			if(isslab){
-				if(c == '|'){
+				if(c == '.'){
+					lastperiod = textflat2.len;
+				}else if(c == '|'){
 					c = '\t';
 				}
 			}
