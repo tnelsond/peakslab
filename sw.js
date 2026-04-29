@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.7.6';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.7.8';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -6,7 +6,7 @@ const FILE_VERSIONS = {
   '/app.js': 'v12.3.8',
   '/peak.js': 'v2',
   '/peakworker.js': 'v9.0.1',
-  '/peak.wasm': 'v6',
+  '/peak.wasm': 'v8',
   '/peakslab.svg': 'v1',
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
@@ -112,7 +112,7 @@ const FILE_VERSIONS = {
   '/english/db/bibleworden.peak.zst': 'v5',
   '/english/db/eng-bsb.peak.zst': 'v4',
   '/english/db/eng-kjv.peak.zst': 'v4',
-  '/english/db/engULB.peak.zst': 'v4',
+  '/english/db/engULB.peak.zst': 'v5',
   '/english/db/opted.peak.zst': 'v2',
   '/english/db/strongs.peak.zst': 'v2',
   '/english/manifest.json': 'v3',

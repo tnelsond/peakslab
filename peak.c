@@ -219,8 +219,12 @@ EMSCRIPTEN_KEEPALIVE
 void continue_search(enum searchtype st){
 	psa->line = 0;
 	psa->st = st;
-	if((ps_h->features & NOSORT) && (st == INDEX1 || st == EXACT1)){ // Disable first index for non-sorted peak
-		psa->line = -1;
+	if((ps_h->features & NOSORT)){
+		if(st == INDEX1 || st == EXACT1){ // Disable first index for non-sorted peak
+			++psa->st;
+		}else if(st == INDEX2 || st == EXACT2){ // We moved the second index to the first, because the first is absent in NOSORT
+			psa->line = -1;
+		}
 	}
 	switch(psa->st){
 		case EXACT2:
