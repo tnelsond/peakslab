@@ -30,6 +30,8 @@ const FILE_VERSIONS = {
 	'/nepali/db/ne-gp.peak.zst': 'v1',
 	'/nepali/db/ne-kaikki.peak.zst': 'v1',
 	'/nepali/db/ne-sabdakosh.peak.zst': 'v1',
+	'/nepali/db/ne-ULB.peak.zst': 'v1',
+	'/nepali/db/biblewordne.peak.zst': 'v1',
 
 	'/khmer/': 'v5',
   '/khmer/config.js': 'v9',
