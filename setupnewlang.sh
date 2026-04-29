@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ $# -eq 0 ]; then
-    >&2 echo "USAGE: ./setupnewlang.sh NEWNAME LANG_CODE APPNAME"
+    >&2 echo "USAGE: ./setupnewlang.sh NEWNAME APPNAME LANG_CODE"
     exit 1
 fi
 

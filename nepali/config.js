@@ -14,7 +14,7 @@ const tablayout = [
 
 const scope = '/nepali/';
 const lang = [
-	{name: "Nepali", val: 'nep'},
+	{name: "Nepali", val: 'ne_NEP'},
 	{name: "English", val: 'en_US'}
 ];
-const appname = 'ne_NEP';
+const appname = 'nep';
