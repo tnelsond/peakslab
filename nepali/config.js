@@ -9,7 +9,7 @@ const tablayout = [
 		["english/db/eng-bsb.peak.zst", "en-BSB", 8*1024, `Berean Standard Bible from <a href="https://ebible.org">eBible</a>`],
 		["nepali/db/biblewordne.peak.zst", "neBibleWords", 32*1024, `Translation words from door43 via bibleineverylanguage`],
 		["english/db/bibleworden.peak.zst", "Bible tw", 32*1024, `Translation words from door43 via bibleineverylanguage`],
-	]}
+	]},
 	{name: "Media", dicts: [
 		["nepali/db/ne-audio.slab", "ne-Forvo", 16*1024, `Nepali Forvo audio from <a href="https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs">freemdict</a>`],
 	]}
