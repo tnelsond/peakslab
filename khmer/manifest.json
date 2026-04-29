@@ -26,5 +26,13 @@
 	{
     "src": "/peakslab.svg",
     "sizes": "any"
-  }]
+  }],
+	"share_target": {
+		"action": "https://peakslab.org/share-target",
+		"method": "GET",
+		"enctype": "application/x-www-form-urlencoded",
+		"params": {
+			"text": "text"
+		}
+	}
 }

@@ -52,7 +52,7 @@ const FILE_VERSIONS = {
   '/khmer/db/sonv3.peak.zst': 'v2',
   '/khmer/db/media.slab.zst': 'v1',
   '/khmer/db/kora.slab': 'v3',
-  '/khmer/manifest.json': 'v2',
+  '/khmer/manifest.json': 'v3',
 
   '/khmermusic/config.js': 'v4',
   '/khmermusic/': 'v2',

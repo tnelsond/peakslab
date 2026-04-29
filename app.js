@@ -6,6 +6,7 @@ if (meta) {
 }
 document.getElementById("appname").textContent = appname;
 document.title += appname.toUpperCase();
+
 let tstart = performance.now();
 let num = 0;
 let debug = false;
@@ -257,6 +258,10 @@ workers.forEach((w) => {
 });
 
 const queryInput = document.getElementById('queryInput');
+
+const params = new URLSearchParams(window.location.search);
+queryInput.value = params.get('text');
+
 const statusDiv  = document.getElementById('status');
 const resultsDiv = document.getElementById('results');
 const popupOverlay = document.getElementById('popupOverlay');
