@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.6.8';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.7.0';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -18,9 +18,11 @@ const FILE_VERSIONS = {
 	'/jbig2.wasm': 'v3',
 
 	'/levantine/': 'v1',
-	'/levantine/config.js': 'v1',
+	'/levantine/config.js': 'v2',
 	'/levantine/manifest.json': 'v1',
 	'/levantine/db/vandyke.peak.zst': 'v2',
+	'/levantine/db/livinglevantine.peak.zst': 'v1',
+	'/levantine/db/livinglevantineforms.peak.zst': 'v1',
 
 	'/khmer/': 'v5',
   '/khmer/config.js': 'v9',

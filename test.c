@@ -9,122 +9,113 @@ struct pat{
 	char *s;
 	uint8_t flags;
 	size_t len;
+	char *match;
+	int done;
 };
 
 #define segmax 10
-struct pat segments[segmax];
+struct pat seg[segmax];
 int seglen = 0;
 
 #define qmax 64
 char query[qmax];
 
-void init_segment(char *s){
-	segments[seglen].s = s;
-	segments[seglen].flags = 0;
-	segments[seglen].len = 0;
+void init_segment(int i, char *s){
+	seg[i].s = s;
+	seg[i].flags = 0;
+	seg[i].len = 0;
+	seg[i].match = NULL;
+	seg[i].done = 1;
 }
 
-char e[] = "Hello world. Do you like pie?\0Somewhere over the rainbow, way out there, somewhere that I dreamed of once in a lullaby.\0I love you.\0Do you love me?";
-size_t len = sizeof(e);
+char e[] = "hello world. Do you like pie?\0somewhere over the rainbow, way out there, somewhere that I dreamed of once in a lullaby.\0i love you.\0do you love me?\0jesus christ is lord.\0jesus is lord.\0jesus loves me.";
+size_t elen = sizeof(e);
+
 
 int main(int argc, char **argv){
 	char * l = e;
-	char * r = e + len;
+	char * r = e + elen;
 	putchar('\n');
-	for(int i=0; i<len; ++i){
+	for(int i=0; i<elen; ++i){
 			putchar(e[i] ? e[i] : '\n');
 	}
 	putchar('\n');
 	
 	while(1){
 		int c;
+		int lseg = 0;
 		int a = 0;
-		init_segment(query);
+		int inspace = 0;
+		init_segment(seglen, query);
 		while((c = getchar()) != EOF){
 			if(c == '\n')
 				break;
-			if(c == '*' || c == '+' || c == '-'){
-				if(a > 0 && query[a-1] == ' '){
-					--a;
-					--segments[seglen].len;
-				}
-				query[a] = '\0';
-				if(segments[seglen].len){
-					++seglen;
-					init_segment(query + a + 1);
-				}
-				if(seglen > sizeof(segments)){
-					printf("TOO MANY SEGMENTS!\n");
-				}
-				if(c == '*'){
-					segments[seglen].flags = 0;
-				}else if(c == '+'){
-					segments[seglen].flags = ANY;
-				}else if(c == '-'){
-					segments[seglen].flags = NOT;	
-				}
+			if(c == ' '){
+				inspace = 1;
 			}else{
-				query[a] = c;
+				if(c == '+' || c == '-' || c == '*'){
+					inspace = 0;
+					query[a++] = '\0';
+					if(seg[seglen].len > seg[lseg].len){
+						lseg = seglen;
+					}
+					++seglen;
+					init_segment(seglen, query+a);
+					seg[seglen].flags = c == '+' ? ANY : c == '-' ? NOT : 0;
+				}else if(inspace){
+					inspace = 0;
+					if(seg[seglen].len){
+						query[a++] = ' ';
+						++seg[seglen].len;
+					}
+					query[a++] = c;	
+					++seg[seglen].len;
+				}else{
+					query[a++] = c;	
+					++seg[seglen].len;
+				}
 			}
-			++segments[seglen].len;
-			++a;
 		}
 		query[a] = '\0';
 
 		for(int i=0; i<=seglen; ++i){
-			printf("(%d) len: %d; %s\n", segments[i].flags, segments[i].len, segments[i].s);
+			printf("(%d) len: %d; %s\n", seg[i].flags, seg[i].len, seg[i].s);
 		}
-		l = query;
-		r = query + a;
-		int fail = 0;
-		while(l < r && !fail){
+
+		int i = 0;
+		char *l = e;
+		char *r = e+elen;
+		char *nl = e;
+		while(1){
 			char *m = NULL;
-			for(int i=0; i<= seglen; ++i){
-				if(i > 0){
-					if(segments[i].flags | ANY){
-						m = (char *)sz_find(l, r-l, segments[i].s, segments[i].len);
-						if(((segments[i].flags | NOT) && m) || !m){
-							fail = 1;
-							break;
-						}
-					}else{
-						int b = m+segments[i-1].len+1;
-						m = (char *)sz_find(b, r-b, segments[i].s, segments[i].len);
-					}
-				}else{
-					m = (char *)sz_find(l, r-l, segments[i].s, segments[i].len);
-					if(!m){
-						fail = 1;
-						break;
-					}
-					l = (char *)sz_rfind_byte(e, ptr-e, "\0")+1;
-					r = (char *)sz_find_byte(ptr, e-ptr+len, "\0");
-				}
+			if(seg[i].match){
+				nl = seg[i].match + seg[i].len;
+			}else{
+				nl = l;
 			}
-			if(!fail){
+			if(!i){
+				r = e+elen;
+			}
+			seg[i].match = (char *)sz_find(nl, r-nl), seg[i].s, seg[i].len);
+			if(!i){
+				l = (char *)sz_rfind_byte(e, m-e, "\0")+1;
+			}
+			if(!seg[i].match){
+				seg[i].done = 1;
+				--i;
+				if(i < 0)
+					break;
+			}else if(i == seglen-1){
 				break;
 			}
-			l = r;
-			r = query + a;
+//	m = (char *)sz_find(b, r-b, seg[i].s, seg[i].len);
+//	l = (char *)sz_rfind_byte(e, m-e, "\0")+1;
 		}
-		if(fail){
-			printf("NO MATCH FOUND");
-		}
-		char *ptr = (char *)sz_find(l, len, "dream", 4);
-		if(!ptr){
-			break;
-		}
-		l = (char *)sz_rfind_byte(e, ptr-e, "\0")+1;
-		r = (char *)sz_find_byte(ptr, e-ptr+len, "\0");
-		char *ptr2 = (char *)sz_find(l, r-l, "once", 4);
-		if(ptr2){
-			printf(l);
-			break;
-		}
-		else{
-			l = r + 1;
-			if(l > e+len)
-				break;
+
+		if(seg[0].match){
+			printf("MATCH!: %s\n", match);
+		}else{
+			printf("NOT FOUND");
 		}
 	}
 	putchar('\n');
