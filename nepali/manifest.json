@@ -1,0 +1,30 @@
+{
+  "name": "PeakSlab Nepali",
+  "short_name": "PS Nepali",
+  "description": "A dictionary app for the Nepali language.",
+  "theme_color": "#664433",
+  "background_color": "#664433",
+  "display": "standalone",
+  "scope": "/nepali/",
+  "start_url": "/nepali/",
+  "icons": [
+  {
+    "src": "/peak32x32.png",
+    "sizes": "32x32",
+    "type": "image/png"
+  },
+  {
+    "src": "/peak192x192.png",
+    "sizes": "192x192",
+    "type": "image/png"
+  },
+  {
+    "src": "/peak512x512.png",
+    "sizes": "512x512",
+    "type": "image/png"
+  },
+	{
+    "src": "/peakslab.svg",
+    "sizes": "any"
+  }]
+}
