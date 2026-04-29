@@ -7,7 +7,7 @@ const tablayout = [
 	{name: "Bibles", dicts: [
 		["nepali/db/ne-ULB.peak.zst", "ne-ULB", 16*1024, `Nepali Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`],
 		["english/db/eng-bsb.peak.zst", "en-BSB", 8*1024, `Berean Standard Bible from <a href="https://ebible.org">eBible</a>`],
-		["english/db/biblewordne.peak.zst", "neBibleWords", 32*1024, `Translation words from door43 via bibleineverylanguage`],
+		["nepali/db/biblewordne.peak.zst", "neBibleWords", 32*1024, `Translation words from door43 via bibleineverylanguage`],
 		["english/db/bibleworden.peak.zst", "Bible tw", 32*1024, `Translation words from door43 via bibleineverylanguage`],
 	]}
 ];
