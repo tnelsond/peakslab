@@ -10,6 +10,7 @@
 #define PEAK 0x1
 #define SLAB 0x2
 #define PCOMP 0x4
+#define NOSORT 0x8
 
 #pragma pack(push, 1)
 struct peakslab{ // 80 Byte header, should be pretty future proof. We don't care about absolute smallest, because we're just gonna compress it all out anyway.
