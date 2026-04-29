@@ -1,9 +1,9 @@
-const CURRENT_CACHE = 'peakslab-0.5.7.5';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.7.6';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
   '/': 'v8.0',
-  '/app.js': 'v12.3.7',
+  '/app.js': 'v12.3.8',
   '/peak.js': 'v2',
   '/peakworker.js': 'v9.0.1',
   '/peak.wasm': 'v6',
@@ -52,7 +52,7 @@ const FILE_VERSIONS = {
   '/khmer/db/sonv3.peak.zst': 'v2',
   '/khmer/db/media.slab.zst': 'v1',
   '/khmer/db/kora.slab': 'v3',
-  '/khmer/manifest.json': 'v3',
+  '/khmer/manifest.json': 'v4',
 
   '/khmermusic/config.js': 'v4',
   '/khmermusic/': 'v2',
