@@ -197,8 +197,9 @@ workers.forEach((w) => {
 			if(e.data.filetype){
 				if(e.data.subheader){
 					let sh = e.data.subheader;	
-					if((!subheader_trans === undefined) && subheader_trans[e.data.dict]){
-						sh = subheader_trans[e.data.dict](sh);
+					if (typeof subheader_trans !== 'undefined' 
+							&& typeof subheader_trans[e.data.dict] === 'function') {
+							sh = subheader_trans[e.data.dict](sh);
 					}
 					el.innerHTML += `<p-n>${sh.join(",<br>")}</p-n>`;
 				}

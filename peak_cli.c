@@ -36,7 +36,6 @@ int main(int argc, char **argv){
 
 	printf("Loaded header:\n");
 	printf("  features       = %s %s %s\n", ps_h->features & SLAB ? "SLAB" : "", ps_h->features & PEAK ? "PEAK" : "", ps_h->features & NOSORT ? "NOSORT" : "");         
-	printf("  features num       = %d\n", ps_h->features);         
 	printf("  btag1          = %u\n", ps_h->btag1);         // should be 1
 	printf("  btag2          = %u\n", ps_h->btag2);         // should be 2
 	printf("  tagdef_idx_len = %u\n", ps_h->tagdef_idx_len); // ~514
