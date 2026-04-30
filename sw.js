@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.8.3';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.8.4';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -25,11 +25,11 @@ const FILE_VERSIONS = {
 	'/levantine/db/livinglevantineforms.peak.zst': 'v1',
 
 	'/nepali/': 'v1',
-	'/nepali/config.js': 'v6',
+	'/nepali/config.js': 'v7',
 	'/nepali/manifest.json': 'v1',
 	'/nepali/db/ne-gp.peak.zst': 'v1',
 	'/nepali/db/ne-kaikki.peak.zst': 'v1',
-	'/nepali/db/ne-sabdakosh.peak.zst': 'v1',
+	'/nepali/db/ne-sabdakosh.peak.zst': 'v2',
 	'/nepali/db/ne-ULB.peak.zst': 'v2',
 	'/nepali/db/biblewordne.peak.zst': 'v1',
 	'/nepali/db/ne-audio.slab': 'v1',

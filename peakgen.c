@@ -246,8 +246,8 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 
 	int skip = 0;
 	int nosort = 0;
-	while(textflat.data[skip]){
-		int beg = 1;
+	int beg = 1;
+	while(skip < len){
 		if(beg){
 			if(textflat.data[skip] == '#'){
 				if(!ps_cmpe(textflat.data+skip, "#no sort")){
@@ -259,7 +259,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 			}
 			beg = 0;
 		}else{
-			if(textflat.data[skip] == '\n'){
+			if(!textflat.data[skip]){
 				beg = 1;
 			}
 		}
@@ -420,7 +420,6 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 			idx3.items[i] += textflat3.len; // Introduce proper offset into sorted lines
 		}
 		uint8_t *str = (uint8_t*) textflat2.data + p->stroff;
-		uint32_t temp = textflat3.len;
 		do{
 			vec_char_push(&textflat3, *str);
 		}
