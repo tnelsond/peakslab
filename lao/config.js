@@ -8,7 +8,9 @@ const tablayout = [
 	]},
 	{name: "Bible", dicts: [
 		["lao/db/lo_ulb.peak.zst", "laoULB", 32*1024, `Lao Unlocked Literal Bible from <a href="https://bibleineverylanguage.org/resources/languages/lo">Bible in every language</a>.`, false],
-		["lao/db/lao2012bible.peak.zst", "lao2012", 32*1024, `Lao Bible 2012 (ພຣະຄຳພີສັກສິ)2012 United Bible Societies. All Rights Reserved. From <a href="https://github.com/Beblia/Holy-Bible-XML-Format">Beblia</a>.`, true],
+		["lao/db/lao2012bible.peak.zst", "lao2012", 32*1024, `Lao Bible 2012 (ພຣະຄຳພີສັກສິ) 2012 United Bible Societies. All Rights Reserved. From <a href="https://github.com/Beblia/Holy-Bible-XML-Format">Beblia</a>.`, true],
+		["lao/db/laomienbible.peak.zst", "laoMien", 32*1024, `Lao Bible (ฉบับอักษรลาว) Mien Bible (Lao Script) © 2007 Thailand Bible Society, 2007. From <a href="https://github.com/Beblia/Holy-Bible-XML-Format">Beblia</a>.`, false],
+		["lao/db/laoLCVbible.peak.zst", "laoLCV", 32*1024, `Lao 2023 NEW TESTAMENT ONLY (ພຣະຄຳພີລາວສະບັບສະໄໝໃໝ່) ພຣະຄຳພີ<200b>ລາວ<200b>ສະບັບ<200b>ສະໄໝ<200b>ໃໝ່™ ພັນທະສັນຍາໃໝ່ ສະຫງວນ<200b>ລິຂະສິດ © 2023 ໂດຍ Biblica, Inc. From <a href="https://github.com/Beblia/Holy-Bible-XML-Format">Beblia</a>.`, false],
 		["english/db/engULB.peak.zst", "enULB", 32*1024, `English Unlocked Literal Bible from <a href="https://bibleineverylanguage.org/resources/languages/en">Bible in every language</a>.`],
 	]},
 	{name: "Bible Notes", dicts: [

@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.8.5';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.8.6';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -68,6 +68,8 @@ const FILE_VERSIONS = {
   '/lao/db/laotech.peak.zst': 'v2',
   '/lao/db/lo_ulb.peak.zst': 'v4',
   '/lao/db/lao2012bible.peak.zst': 'v1',
+  '/lao/db/laoLCVbible.peak.zst': 'v1',
+  '/lao/db/laomienbible.peak.zst': 'v1',
   '/lao/db/pat4.peak.zst': 'v2',
   '/lao/manifest.json': 'v2',
 
