@@ -10,12 +10,11 @@ struct pat{
 	uint8_t flags;
 	size_t len;
 	char *match;
-	int done;
 };
 
 #define segmax 10
 struct pat seg[segmax];
-int seglen = 0;
+int segend = 0;
 
 #define qmax 64
 char query[qmax];
@@ -25,16 +24,14 @@ void init_segment(int i, char *s){
 	seg[i].flags = 0;
 	seg[i].len = 0;
 	seg[i].match = NULL;
-	seg[i].done = 1;
 }
 
-char e[] = "hello world. Do you like pie?\0somewhere over the rainbow, way out there, somewhere that I dreamed of once in a lullaby.\0i love you.\0do you love me?\0jesus christ is lord.\0jesus is lord.\0jesus loves me.";
+char e[] = "hello world. Do you like pie?\0somewhere over the rainbow, way out there, somewhere that I dreamed of once in a lullaby.\0i love you.\0do you love me?\0jesus christ is lord.\0jesus is lord.\0jesus loves me.\0dream team\0jesus knows you.";
 size_t elen = sizeof(e);
 
 
 int main(int argc, char **argv){
-	char * l = e;
-	char * r = e + elen;
+
 	putchar('\n');
 	for(int i=0; i<elen; ++i){
 			putchar(e[i] ? e[i] : '\n');
@@ -44,78 +41,106 @@ int main(int argc, char **argv){
 	while(1){
 		int c;
 		int lseg = 0;
+		segend = 0;
 		int a = 0;
 		int inspace = 0;
-		init_segment(seglen, query);
+		init_segment(segend, query);
 		while((c = getchar()) != EOF){
 			if(c == '\n')
 				break;
 			if(c == ' '){
 				inspace = 1;
 			}else{
-				if(c == '+' || c == '-' || c == '*'){
-					inspace = 0;
-					query[a++] = '\0';
-					if(seg[seglen].len > seg[lseg].len){
-						lseg = seglen;
+				if(c == '+' || c == '!' || c == '*'){
+					if(seg[segend].len){
+						inspace = 0;
+						if(a && query[a-1]){
+							query[a++] = '\0';
+						}
+						if(seg[segend].len > seg[lseg].len){
+							lseg = segend;
+						}
+						++segend;
+						init_segment(segend, query+a);
+						seg[segend].flags = c == '+' ? ANY : c == '!' ? NOT : 0;
+					}else{
+						seg[segend].flags = c == '+' ? ANY : c == '!' ? NOT : 0;
 					}
-					++seglen;
-					init_segment(seglen, query+a);
-					seg[seglen].flags = c == '+' ? ANY : c == '-' ? NOT : 0;
 				}else if(inspace){
 					inspace = 0;
-					if(seg[seglen].len){
+					if(seg[segend].len){
 						query[a++] = ' ';
-						++seg[seglen].len;
+						++seg[segend].len;
 					}
 					query[a++] = c;	
-					++seg[seglen].len;
+					++seg[segend].len;
 				}else{
 					query[a++] = c;	
-					++seg[seglen].len;
+					++seg[segend].len;
 				}
 			}
 		}
 		query[a] = '\0';
 
-		for(int i=0; i<=seglen; ++i){
-			printf("(%d) len: %d; %s\n", seg[i].flags, seg[i].len, seg[i].s);
+		for(int i=0; i<=segend; ++i){
+			printf("(%d) len: %d; %s\n", seg[i].flags, (int) seg[i].len, seg[i].s);
 		}
 
+		printf("!!!!!!!\n!!!!!!\n\n\n");
 		int i = 0;
 		char *l = e;
 		char *r = e+elen;
 		char *nl = e;
 		while(1){
-			char *m = NULL;
-			if(seg[i].match){
-				nl = seg[i].match + seg[i].len;
-			}else{
-				nl = l;
-			}
-			if(!i){
-				r = e+elen;
-			}
-			seg[i].match = (char *)sz_find(nl, r-nl), seg[i].s, seg[i].len);
-			if(!i){
-				l = (char *)sz_rfind_byte(e, m-e, "\0")+1;
-			}
-			if(!seg[i].match){
-				seg[i].done = 1;
-				--i;
-				if(i < 0)
-					break;
-			}else if(i == seglen-1){
+			if(nl < e || nl > e+elen){
+				seg[i].match = NULL;
 				break;
 			}
-//	m = (char *)sz_find(b, r-b, seg[i].s, seg[i].len);
-//	l = (char *)sz_rfind_byte(e, m-e, "\0")+1;
+			if(!i){
+				printf("r = e+elen;\n");
+				r = e+elen;
+			}
+			printf("$$ sz_find(nl: %d, r-nl: %d, seg[i].s:%s, seg[i].len:%d);\n", nl-e, r-nl-1, seg[i].s, seg[i].len);
+			if(seg[i].flags & ANY)
+				seg[i].match = (char *)sz_rfind(l, r-l, seg[i].s, seg[i].len);
+			else{
+				seg[i].match = (char *)sz_find(nl, r-nl, seg[i].s, seg[i].len);
+			}
+			printf("## %s : %s\n\n", seg[i].s, seg[i].match ? seg[i].match : "NULL");
+
+			if(seg[i].flags & NOT){
+				seg[i].match = seg[i].match ? NULL : nl;
+			}
+			if(seg[i].match && !i){
+				l = (char *)sz_rfind_byte(e, seg[i].match-e, "");
+				r = (char *)sz_find_byte(seg[i].match, e+elen-seg[i].match, "");
+				nl = seg[i].match + seg[i].len;
+				if(!l)
+					l = e;
+				else
+					++l;
+				printf("%s\n", l);
+			}
+			if(!seg[i].match){
+				if(!i)
+					break;
+				--i;
+			}else{
+				if(i >= segend){
+					break;
+				}
+				++i;
+			}
 		}
 
-		if(seg[0].match){
-			printf("MATCH!: %s\n", match);
+		printf("i: %d, segend:%d\n", i, segend);
+		if(seg[i].match){
+			printf("TRYING\n");
+			char *m = (char *)sz_rfind_byte(e, seg[i].match-e, "");
+			m = m ? m + 1 : e;
+			printf("MATCH!: %s\n", m);
 		}else{
-			printf("NOT FOUND");
+			printf("NOT FOUND\n");
 		}
 	}
 	putchar('\n');

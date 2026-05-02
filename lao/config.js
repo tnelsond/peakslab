@@ -7,7 +7,8 @@ const tablayout = [
 		["lao/db/laotech.peak.zst", "IT", 8*1024, `IT dictionary from`],
 	]},
 	{name: "Bible", dicts: [
-		["lao/db/lo_ulb.peak.zst", "laoULB", 32*1024, `Lao Unlocked Literal Bible from <a href="https://bibleineverylanguage.org/resources/languages/lo">Bible in every language</a>.`],
+		["lao/db/lo_ulb.peak.zst", "laoULB", 32*1024, `Lao Unlocked Literal Bible from <a href="https://bibleineverylanguage.org/resources/languages/lo">Bible in every language</a>.`, false],
+		["lao/db/lao2012bible.peak.zst", "lao2012", 32*1024, `Lao Bible 2012 (ພຣະຄຳພີສັກສິ)2012 United Bible Societies. All Rights Reserved. From <a href="https://github.com/Beblia/Holy-Bible-XML-Format">Beblia</a>.`, true],
 		["english/db/engULB.peak.zst", "enULB", 32*1024, `English Unlocked Literal Bible from <a href="https://bibleineverylanguage.org/resources/languages/en">Bible in every language</a>.`],
 	]},
 	{name: "Bible Notes", dicts: [
