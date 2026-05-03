@@ -7,7 +7,7 @@ const tablayout = [
 		["khmer/db/ant.peak.zst", "ANT", 32*1024, `<a href="https://antkh.com/">antkh.com</a>`, false],
 		["khmer/db/nath2022_8.peak.zst", "Km→Km", 32*1024, `2022 version of the <a href="https://play.google.com/store/apps/details?id=com.optimiskh.chuonnathdictionary&hl=en-US">Chuon Nath Digital Dictionary</a>.`, true],
 		["khmer/db/seacount.peak.zst", "Count", 1*1024, `via <a href="https://sealang.net/khmer/dictionary.htm">Sealang</a>.`, false],
-		["khmer/db/cambogeo.peak.zst", "Geo", 1*1024, `Village names.`, false],
+		["khmer/db/cambogeo.peak.zst", "Geo", 16*1024, `Village names.`, true],
 		["khmer/db/choukprov.peak.zst", "Proverbs", 8*1024, `Proverbs from <a href="https://choukhmer.wordpress.com/literature/descriptive-proverbs-kar/">Chouk Khmer</a>.`, true],
 	]},
 	{name: "♫", dicts: [
