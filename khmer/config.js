@@ -14,15 +14,22 @@ const tablayout = [
 		["khmer/db/hymns7.peak.zst", "Hymn", 32*1024, `<a href="https://www.khmerworship.com/">Khmer Worship</a>`, true],
 		["khmer/db/kora.slab", "Kora", 64*1024, `<a href="https://www.korapraise.com/">Kora Praise</a>`, false],
 	]},
-	{name: "Bible", dicts: [
+	{name: "Bible Dicts", dicts: [
 		["khmer/db/bible.peak.zst", "Bible", 16*1024, "From my khsv bible and a blue bible dictionary.", true],
 		["khmer/db/biblewordkm.peak.zst", "Words Km", 64*1024, `Translation words from <a href="https://door43.org/">door43</a>`, true],
 		["english/db/bibleworden.peak.zst", "Words En", 64*1024, `Translation words from <a href="https://door43.org/">door43</a>`, false],
+		["english/db/strongs.peak.zst", "Strongs", 2*1024, `<a href="https://github.com/openscriptures/strongs">Strongs by Openscriptures</a>`, false],
+	]},
+	{name: "Bible", dicts: [
 		["khmer/db/kmULB.peak.zst", "Km_ULB", 32*1024, `Khmer Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`, false],
 		["khmer/db/khsv.peak.zst", "Khsv", 32*1024, `Khmer Standard Version from <a href="https://ebible.org/study/content/texts/khm/">eBible</a>`, true],
 		["khmer/db/khov.peak.zst", "Khov", 32*1024, `Khmer Old Version (Hammond 1954) from <a href="https://ebible.org/study/content/texts/khm-h/">eBible</a>`, false],
+		["khmer/db/khov2016.peak.zst", "Khov2016", 32*1024, `Khmer Old Version 2016 from <a href="https://beblia.com">beblia</a>`, false],
+		["khmer/db/kcb2012.peak.zst", "KCB", 32*1024, `Khmer Christian Bible 2012 via <a href="https://beblia.com">beblia</a>`, false],
+		["khmer/db/gkb.peak.zst", "GKB", 32*1024, `Global Khmer Bible 2023 by Global Bible Initiative via <a href="https://beblia.com">beblia</a>`, false],
+		["khmer/db/khbiblemuslim.peak.zst", "KhMus", 32*1024, `A Khmer bible that uses the word "Allah" 2014 United Bible Societies  via <a href="https://beblia.com">beblia</a>`, false],
 		["english/db/engULB.peak.zst", "En_ULB", 8*1024, `English Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`, true],
-		["english/db/strongs.peak.zst", "Strongs", 2*1024, `<a href="https://github.com/openscriptures/strongs">Strongs by Openscriptures</a>`, false],
+		["english/db/eng-kjv.peak.zst", "EnKJV", 8*1024, `King James Version <a href="https://ebible.org">eBible</a>`, false],
 	]},
 	{name: "Media", dicts: [
 		["khmer/db/media.slab.zst", "Media", 256*1024, `Contains images from the plantsdictionarykh.com as well as audio from <a href="kheng.info">kheng.info</a>.`, true],

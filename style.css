@@ -126,8 +126,16 @@ body {
 		height: 10em;
 }
 
-#dictlist{
+.dictlist{
 	padding-left: 1em;
+}
+.dictlist h3{
+	background: var(--accent-color);
+	color: var(--card-bg);
+	margin-left: -1.5em;
+	margin-bottom: .3em;
+	padding: 3px 3px 3px 10px;
+	border-radius: 5px;
 }
 
 input[type="checkbox"]{

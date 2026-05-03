@@ -1,9 +1,9 @@
-const CURRENT_CACHE = 'peakslab-0.5.8.6';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.8.7';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
   '/': 'v8.0',
-  '/app.js': 'v12.4.0',
+  '/app.js': 'v12.4.1',
   '/peak.js': 'v2',
   '/peakworker.js': 'v9.0.1',
   '/peak.wasm': 'v8',
@@ -11,7 +11,7 @@ const FILE_VERSIONS = {
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
   '/peak512x512.png': 'v1',
-  '/style.css': 'v8.9',
+  '/style.css': 'v9.0',
   '/peakgen.wasm': 'v4',
   '/peakgen.html': 'v1',
   '/peakgen.js': 'v2',
@@ -35,7 +35,7 @@ const FILE_VERSIONS = {
 	'/nepali/db/ne-audio.slab': 'v1',
 
 	'/khmer/': 'v5',
-  '/khmer/config.js': 'v9',
+  '/khmer/config.js': 'v1.0',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
@@ -45,6 +45,10 @@ const FILE_VERSIONS = {
   '/khmer/db/hymns7.peak.zst': 'v3',
   '/khmer/db/khmer92_h97.peak.zst': 'v2',
   '/khmer/db/kmULB.peak.zst': 'v6',
+  '/khmer/db/kcb2012.peak.zst': 'v1',
+  '/khmer/db/gkb.peak.zst': 'v1',
+  '/khmer/db/khbiblemuslim.peak.zst': 'v1',
+  '/khmer/db/khov2016.peak.zst': 'v1',
   '/khmer/db/khsv.peak.zst': 'v3',
   '/khmer/db/khov.peak.zst': 'v3',
   '/khmer/db/nath2022_8.peak.zst': 'v2',
@@ -111,13 +115,15 @@ const FILE_VERSIONS = {
   '/indonesian/db/KBBI_EN.peak.zst': 'v2',
   '/indonesian/manifest.json': 'v1',
 
-  '/english/config.js': 'v1',
+  '/english/config.js': 'v2',
   '/english/': 'v3',
   '/english/db/bibleworden.peak.zst': 'v5',
   '/english/db/eng-bsb.peak.zst': 'v4',
   '/english/db/eng-kjv.peak.zst': 'v4',
-  '/english/db/engULB.peak.zst': 'v5',
+  '/english/db/engULB.peak.zst': 'v7',
   '/english/db/opted.peak.zst': 'v2',
+  '/english/db/oxford-a.slab': 'v1',
+  '/english/db/oxforden.peak.zst': 'v1',
   '/english/db/strongs.peak.zst': 'v2',
   '/english/manifest.json': 'v3',
 

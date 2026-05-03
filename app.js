@@ -273,16 +273,20 @@ const popupClose = document.getElementById('popupClose');
 const loadProgress = document.getElementById('loadProgress');
 loadProgress.textContent = `Loading dictionaries.`;
 
-let temp = `<p-d><h3>${appname.toUpperCase()} Dictionary List:</h3><ol id="dictlist">`;
-dicts.forEach((dict, val) =>{
-	temp += `<li data-id="${dict[0]}">
-<input type="checkbox" class="fcheckbox down" data-id="${val}" ${dict[4] == true || dict[4] == undefined ? "checked" : ""} onchange="updateDictList(this)" id="${val}"><label for="${val}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+i = 0;
+let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
+tablayout.forEach((gdict, gval) =>{
+	temp += `<h3>${gdict.name}</h3>`;
+	gdict.dicts.forEach((dict, val) =>{
+		temp += `<li data-id="${dict[0]}">
+<input type="checkbox" class="fcheckbox down" data-id="${i}" ${dict[4] == true || dict[4] == undefined ? "checked" : ""} onchange="updateDictList(this)" id="${i}"><label for="${i}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+	++i;
+	});
 });
 temp += `</ol></p-d>`;
 let listDiv = document.createElement('div');
 listDiv.innerHTML = temp;
 resultsDiv.append(listDiv);
-const dictlist = document.getElementById('dictlist');
 
 /* Fix it later so it works on localhost */
 /*if(navigator.online){
