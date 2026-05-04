@@ -47,6 +47,17 @@ static int vec_u32_push_uniq(struct VecU32 *v, uint32_t val) {
 	return 1;
 }
 
+#define SEGMAX 10
+enum flag{
+	ANY=1, NOT=2
+};
+struct tpat{
+	char *s;
+	uint8_t flags;
+	size_t len;
+	char *match;
+};
+
 struct pstate{
 	enum searchtype st;
 	uint32_t idx;
@@ -55,10 +66,13 @@ struct pstate{
 	uint8_t*  qloc;
 	uint32_t qlen;
 	size_t qmax;
+	struct tpat seg[SEGMAX];
+	uint8_t lseg;
+	uint8_t segend;
 };
 
-struct pstate iowa = {INDEX1, 0, 0, 0, NULL, 0};
-struct pstate wis = {INDEX1, 0, 0, 0, NULL, 0};
+struct pstate iowa = {INDEX1, 0, 0, 0, NULL, 0, 0, {0}, 0, 0};
+struct pstate wis = {INDEX1, 0, 0, 0, NULL, 0, 0, {0}, 0, 0};
 struct pstate *psa = &iowa;
 
 static uint8_t*  g_result_loc = NULL;
@@ -251,9 +265,66 @@ int init_search(enum searchtype st, int clear) {
 	}
 	continue_search(st);
 	psa->qlen = 0;
-	while (psa->qlen < psa->qmax && psa->qloc[psa->qlen] != '\0') {
-			psa->qlen++;
+
+	if(psa->st == FULL){
+		printf("HERE WE GO\n");
+		psa->lseg = 0;
+		int inspace = 0;
+		char c;
+		int i = 0;
+		psa->seg[i].flags = 0;
+		psa->seg[i].len = 0;
+		psa->seg[i].s = psa->qloc+psa->qlen;
+		while (psa->qlen < psa->qmax && psa->qloc[psa->qlen]){
+			c = psa->qloc[psa->qlen];
+			if(c == '+' || c == '!' || c == '*'){
+				if(psa->seg[i].len){
+					if(psa->qlen > 0 && psa->qloc[psa->qlen-1] == ' '){
+						--psa->seg[i].len;
+						psa->qloc[psa->qlen-1] = '\0';
+					}
+					psa->qloc[psa->qlen] = '\0';
+					if(psa->seg[i].len > psa->seg[psa->lseg].len && !(psa->seg[i].flags & NOT)){
+						psa->lseg = i;
+					}
+					++i;
+					if(i > SEGMAX-1){
+						i = SEGMAX-1;
+						printf("EXCEEDED MAX SEARCH GLOBS (%d)!\n", SEGMAX);
+						break;
+					}
+					psa->seg[i].flags = 0;
+				}
+				psa->seg[i].flags |= c == '+' ? ANY : c == '!' ? NOT : 0;
+				psa->seg[i].len = 0;
+				psa->seg[i].s = psa->qloc+psa->qlen+1;
+			}else if(c == ' ' && !psa->seg[i].len){
+				psa->seg[i].s = psa->qloc+psa->qlen+1;
+			}else{
+				++psa->seg[i].len;
+			}
+			++psa->qlen;
+		}
+		if(psa->seg[psa->lseg].flags & NOT){
+			psa->lseg = i;
+		}else if((psa->seg[i].len > psa->seg[psa->lseg].len) && !(psa->seg[i].flags & NOT)){
+			psa->lseg = i;
+		}
+		psa->segend = i;
+		for(int i=0; i<=psa->segend; ++i){
+			printf("(%d): %s #len: %d #flags: [%d]\n", i, psa->seg[i].s, psa->seg[i].len, psa->seg[i].flags);
+		}
+		printf("lseg: %d\n", psa->lseg);
+	}else{
+		while (psa->qlen < psa->qmax && psa->qloc[psa->qlen] != '\0') {
+				psa->qlen++;
+		}
+		psa->seg[0].len = psa->qlen;
+		psa->seg[0].s = psa->qloc;
+		psa->seg[0].flags = 0;
+		psa->lseg = psa->segend = 0;
 	}
+
 	if (!psa->qlen) return -4;
 	if (!g_d) return -3;
 	return 0;
@@ -477,39 +548,6 @@ int p_binarysearch(){
 	return match;
 }
 
-/*EMSCRIPTEN_KEEPALIVE
-int get_headword() {
-	if(!ps_h || !g_d)
-		return -3;
-
-	char *match = NULL;
-	if(psa->line >= 0){
-		if(psa->st != FULL){
-			int bsea = p_binarysearch();
-			if(bsea >= 0){
-				match = p_linetostr(bsea, psa->st);
-				psa->line = bsea;
-			}
-		}else{
-			char *start = (char*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
-			char *last = (char*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, ps_h->line_idx_len-1, ps_h->bline_idx));
-			match = (char*)sz_find(start, last - start, psa->qloc, psa->qlen);
-			psa->line = p_getline(match);
-		}
-		if(match){
-			char *str = p_linetostr(psa->line, INDEX1);
-			int ret = p_strncpyhead(g_result_loc, g_result_max, str);
-			//int ret = p_render(g_result_loc, g_result_max, p_getline(match));
-			++psa->line;
-			return ret;
-		}
-		else{
-			psa->line = -1;
-		}
-	}
-	return -1;
-}*/
-
 // Returns:
 //  >0  = bytes written to out_buffer (without null terminator)
 //  -1  = no more matches
@@ -580,21 +618,97 @@ int get_result(int skip){
 			}while(!(skip || vec_u32_push_uniq(&results, tline)));
 		}else{
 			do{ // FULL
-				uint8_t *start = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
-				uint8_t *last = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, ps_h->line_idx_len-1, ps_h->bline_idx));
-				match = (uint8_t*)sz_find((const char *)start, last - start, (const char *)psa->qloc, psa->qlen);
+
+				uint8_t *start = (uint8_t*) (g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
+				uint8_t *last = (uint8_t*) (g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, ps_h->line_idx_len-1, ps_h->bline_idx));
+				char *l = NULL;
+				char *lb = NULL;
+				char *le = NULL;
+				char *nlb = NULL;
+				char *nle = NULL;
+				char *r = NULL;
+				tline = psa->line;
+				int i=psa->lseg;
+				/* This goes through the glob segments starting with the longest one, then matches subsequent segments going backwards, then going forwards after that */
+				printf("FULL SEARCH\n");
+				while(i <= psa->segend){
+					printf("%d -> ", i);
+					if(psa->line >= ps_h->line_idx_len-1){
+						psa->line = -1;
+						return -1;
+					}
+					if(i == psa->lseg){
+						if(psa->seg[psa->lseg].flags & NOT){
+							printf("line: %d\n", psa->line);
+							l = p_linetostr(psa->line, psa->st);
+							r = p_linetostr(psa->line+1, psa->st);
+							match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
+							++psa->line;
+						}else{
+							if(l){
+								start = (uint8_t*) (g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
+							}
+							match = (uint8_t*)sz_find((const char *)start, last - start, (const char *)psa->seg[i].s, psa->seg[i].len);
+							if(match){
+								tline = psa->line = p_getline(match);
+								++psa->line;
+								nlb = l = p_linetostr(tline, psa->st);
+								nle = nlb + psa->seg[i].len;
+								r = p_linetostr(tline+1, psa->st);
+							}
+						}
+					}else{
+						if(psa->seg[i].flags & ANY || (!nle)){
+							match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
+						}else if(i > psa->lseg){
+							match = (uint8_t*)sz_find((const char *)nle, r - nle, (const char *)psa->seg[i].s, psa->seg[i].len);
+						}else{
+							match = (uint8_t*)sz_rfind((const char *)l, nlb-l, (const char *)psa->seg[i].s, psa->seg[i].len);
+						}
+					}
+					if(psa->seg[i].flags & NOT){
+						printf("NOT\n");
+						match = match ? NULL : l;
+					}
+					if(match){
+						if(!(psa->seg[i].flags & (NOT | ANY))){
+							if(i == psa->lseg){
+								nlb = lb = match;
+								nle = le = match + psa->seg[i].len;
+							}else{
+								nlb = match;
+								nle = match + psa->seg[i].len;
+							}
+						}
+						printf("(... %.40s ...)\n", match);
+						if(i == psa->lseg){
+							tline = psa->line = p_getline(match);
+							++psa->line;
+						}
+						if(i <= psa->lseg){
+							if(i){
+								--i;
+							}else{
+								i = psa->lseg+1;
+								nlb = lb;
+								nle = le;
+							}
+						}else{
+							++i;
+						}
+					}else if(i == psa->lseg && !(psa->seg[i].flags & NOT)){
+						return -1;
+					}else{
+						i = psa->lseg;
+					}
+				}
+
 				if(!match){
 					psa->line = -1;
 					return -1;
 				}
 				//char *match = sz_find(start, ps_h->line_len, gquery, gquery_len);
 				//int ret = p_strncpy(out_buffer, out_capacity, g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
-				tline = psa->line = p_getline(match);
-				++psa->line;
-				if(psa->line >= ps_h->line_idx_len-1){
-					psa->line = -1;
-					return -1;
-				}
 			}while(!(skip || vec_u32_push_uniq(&results, tline)));
 		}
 		if(match){
@@ -635,5 +749,3 @@ int p_endswith(uint8_t *a, uint8_t *b){
 		--j;
 	return j<0;
 }
-
-

@@ -576,7 +576,7 @@ function updateQuery(text = queryInput.value){
 	if (!text) {
 			return null;
 	}
-	text = text.toLowerCase().replaceAll("​", "");
+	text = text.toLowerCase().replaceAll("​", "").replaceAll("\\t", "\t");
 	return text;
 }
 
@@ -645,6 +645,8 @@ const throttledCheck = throttle(loadmore, 80);
 window.addEventListener('scroll', throttledCheck, { passive: true });
 window.addEventListener('resize', throttledCheck);
 
+const globreg = /[!+*]/;
+
 function startSearch() {
 	const prevquery = query;
 	query = updateQuery();
@@ -668,7 +670,7 @@ function startSearch() {
 
 	window.scrollTo(0, 0);
 	worker_code.fill(false);
-	st = 3;
+	st = globreg.test(query) ? 0 : 3;
 	dict_code = [...dict_master_code];
 
 	if(ctab === ngroups){
@@ -975,4 +977,4 @@ class PaElement extends HTMLElement {
 customElements.define('p-a', PaElement);
 createSelMenu();
 
-document.body.appendChild(document.createTextNode(" v10.8"));
+document.body.appendChild(document.createTextNode(" v10.9"));

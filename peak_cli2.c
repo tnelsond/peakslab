@@ -1,6 +1,13 @@
 #include "peak.c"
+#include <readline/readline.h>
+#include <readline/history.h>
+#include "termbox2.h"
+
+static void render(void);
+static void handle_readline(char *line);
 
 int main(int argc, char **argv){
+
 	if(argc < 2){
 		return 1;
 	}
@@ -55,14 +62,13 @@ int main(int argc, char **argv){
 	int st = 3;
 	int len = -1;
 	uint8_t buf2[query_size];
+	tb_init();
+	tb_printf(0, 0, TB_GREEN, 0, "hello from termbox");
+	tb_present();
 	while(!quit){
 		printf("\n\n###  Query (return for more): ");
 		i = 0;
-		int glob = 0;
 		while((c = fgetc(stdin)) != EOF){
-			if(c == '*' || c == '+' || c == '!'){
-				glob = 1;
-			}
 			if(c == '\n'){
 				break;
 			}
@@ -79,7 +85,7 @@ int main(int argc, char **argv){
 				psa->qloc[i] = buf2[i];
 				--i;
 			}
-			st = glob ? FULL : INDEX1;
+			st = INDEX1;
 			init_search(st, 1);
 		}
 		else{
@@ -103,5 +109,6 @@ int main(int argc, char **argv){
 			printf("END OF RESULTS!\n");
 		}
 	}
+	tb_shutdown();
 	return 0;
 }

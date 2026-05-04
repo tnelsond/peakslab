@@ -36,7 +36,9 @@ peak.wasm : peak.c zstddeclib.c peak.h
   -s EXPORTED_RUNTIME_METHODS="['HEAPU8', 'UTF8ToString']" \
 	--no-entry \
 	-o peak.js
+peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
+	gcc -DTB_IMPL -lreadline -ltinfo peak_cli2.c -o peak_tui
 peak : peak_cli.c peak.h peak.c zstddeclib.c
-	gcc -O3 -DDEBUG peak_cli.c -o peak
+	gcc -DDEBUG peak_cli.c -o peak
 
 all : peakgen peakgen.wasm peak.wasm peak

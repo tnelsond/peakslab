@@ -132,13 +132,14 @@ Adding support for other filetypes is trivial, but for right now I just have the
 - Offline
 - Selection Menu
 - Online Peak Generator from .tsv source
+- Glob search (* is indefinite number of wildcards, + is anywhere in the entry, ! negates, combine with *\* or +)
 
 ## Non-features
 - No API, no POSTS, not scrapable by AI because it's all run clientside through javascript and wasm. (But if the AI was smart it'd just read the provided source tsv files.)
 - No frameworks, no React, no npm, no jQuery, no typescript, just vanilla javascript and C code.
 
 ## Todo
-- Regex or Glob support
+- ~~Regex or Glob support~~
 - Add a Codec2 audio decoder so we can get even smaller audio files.
 - Add chunking and http ranges to the service worker's download logic so we can resume and track big downloads.
 - Add search parameters so that we can quickly share searches.
