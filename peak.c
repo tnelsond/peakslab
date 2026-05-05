@@ -632,7 +632,7 @@ int get_result(int skip){
 				/* This goes through the glob segments starting with the longest one, then matches subsequent segments going backwards, then going forwards after that */
 				while(i <= psa->segend){
 					uint32_t flags = psa->seg[psa->lseg].flags;
-					if(psa->line >= ps_h->line_idx_len-1){
+					if(psa->line >= ps_h->line_idx_len){
 						psa->line = -1;
 						return -1;
 					}
@@ -650,7 +650,7 @@ int get_result(int skip){
 									cmp = !cmp;
 								}
 								++psa->line;
-							}while(!cmp && psa->line+1 < ps_h->line_idx_len);
+							}while(!cmp && psa->line < ps_h->line_idx_len);
 							match = cmp ? l : NULL;
 							if(!match){
 								psa->line = -1;
@@ -663,7 +663,7 @@ int get_result(int skip){
 								r = p_linetostr(psa->line+1, psa->st);
 								match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
 								++psa->line;
-							}while(match && psa->line+1 < ps_h->line_idx_len);
+							}while(match && psa->line < ps_h->line_idx_len);
 							match = match ? NULL : l;
 						}else{
 							if(l){

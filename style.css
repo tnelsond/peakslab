@@ -650,6 +650,13 @@ p-n{
 	font-family: monospace;
 	color: #666;
 }
+p-fn{
+	display: block;
+	margin-top: 1em;
+	padding-top: .5em;
+	border-top: 2px solid #666;
+	font-size: 80%;
+}
 p-ipa{
 	font-size: 1.2em;
 	display: block;
