@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.5.9.5';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.9.6';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -115,9 +115,12 @@ const FILE_VERSIONS = {
   '/indonesian/db/KBBI_EN.peak.zst': 'v2',
   '/indonesian/manifest.json': 'v1',
 
-  '/english/config.js': 'v3',
+  '/english/config.js': 'v4',
   '/english/': 'v3',
   '/english/db/bibleworden.peak.zst': 'v5',
+  '/english/db/psascott.peak.zst': 'v1',
+  '/english/db/psa1562.peak.zst': 'v1',
+  '/english/db/psabradytate.peak.zst': 'v1',
   '/english/db/eng-bsb.peak.zst': 'v5',
   '/english/db/eng-kjv.peak.zst': 'v5',
   '/english/db/engULB.peak.zst': 'v8',
