@@ -192,6 +192,8 @@ workers.forEach((w) => {
 			el.setAttribute('data-id', sortid);
 			if(debug)
 				el.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}' #${sortid}</p-h>`;
+			else
+				el.innerHTML += `<p-h>${e.data.dict}</p-h>`;
 			if(first)
 				div.innerHTML += `<h2>${e.data.header}</h2>`;
 			if(e.data.filetype){
@@ -645,7 +647,7 @@ const throttledCheck = throttle(loadmore, 80);
 window.addEventListener('scroll', throttledCheck, { passive: true });
 window.addEventListener('resize', throttledCheck);
 
-const globreg = /[!+*]/;
+const globreg = /[!+*^]/;
 
 function startSearch() {
 	const prevquery = query;

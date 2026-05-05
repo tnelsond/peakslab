@@ -60,7 +60,7 @@ int main(int argc, char **argv){
 		i = 0;
 		int glob = 0;
 		while((c = fgetc(stdin)) != EOF){
-			if(c == '*' || c == '+' || c == '!'){
+			if(c == '*' || c == '+' || c == '!' || c == '^'){
 				glob = 1;
 			}
 			if(c == '\n'){

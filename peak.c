@@ -22,34 +22,38 @@ enum searchtype{
 
 struct peakslab *ps_h = NULL;
 
-struct VecU32 {
-    uint32_t len;
-		uint32_t max;
-    uint32_t items[MAX_RESULT_TRACK];
-};
+struct ptracker{
+	uint32_t bytes;
+	uint32_t *data;
+} tracker = {0, NULL};
 
-struct VecU32 results = {0, MAX_RESULT_TRACK};
-
-static void vec_u32_push(struct VecU32 *v, uint32_t val) {
-    if (v->len >= v->max){
-			v->len = v->max-10;
-    }
-    v->items[v->len++] = val;
+void tracker_init(uint32_t entries){
+	tracker.bytes = ((entries + 31)/32)*sizeof(uint32_t);
+	tracker.data = realloc(tracker.data, tracker.bytes);
 }
 
-static int vec_u32_push_uniq(struct VecU32 *v, uint32_t val) {
-	for(int i=v->len-1; i >= 0; --i){
-		if(v->items[i] == val){
-			return 0;
-		}
+void tracker_clear(){
+	if(tracker.data)
+		memset(tracker.data, 0, tracker.bytes);
+}
+
+static int tracker_add(uint32_t val) {
+	const int byte = val / 32;
+	const int bit = val % 32;
+	if(!tracker.data){
+		return 1;
 	}
-	vec_u32_push(v, val);
-	return 1;
+	if(tracker.data[byte] & (1 << bit)){
+		return 0;
+	}else{
+		tracker.data[byte] |= (1 << bit);
+		return 1;
+	}
 }
 
 #define SEGMAX 10
 enum flag{
-	ANY=1, NOT=2
+	ANY=1, NOT=2, BEGIN=4
 };
 struct tpat{
 	char *s;
@@ -209,6 +213,8 @@ int load_peak(uint8_t *src, size_t srcSize, int compressed) {
 	ps_h = (struct peakslab*) buf; 
 	g_d = buf;
 
+	tracker_init(ps_h->line_idx_len);
+
 	return 0;
 }
 
@@ -261,7 +267,7 @@ void continue_search(enum searchtype st){
 EMSCRIPTEN_KEEPALIVE
 int init_search(enum searchtype st, int clear) {
 	if(clear){
-		results.len = 0;
+		tracker_clear();
 	}
 	continue_search(st);
 	psa->qlen = 0;
@@ -277,14 +283,14 @@ int init_search(enum searchtype st, int clear) {
 		psa->seg[i].s = psa->qloc+psa->qlen;
 		while (psa->qlen < psa->qmax && psa->qloc[psa->qlen]){
 			c = psa->qloc[psa->qlen];
-			if(c == '+' || c == '!' || c == '*'){
+			if(c == '+' || c == '!' || c == '*' || c == '^'){
 				if(psa->seg[i].len){
 					if(psa->qlen > 0 && psa->qloc[psa->qlen-1] == ' '){
 						--psa->seg[i].len;
 						psa->qloc[psa->qlen-1] = '\0';
 					}
 					psa->qloc[psa->qlen] = '\0';
-					if(psa->seg[i].len > psa->seg[psa->lseg].len && !(psa->seg[i].flags & NOT)){
+					if((psa->seg[i].flags & BEGIN) || (!(psa->seg[psa->lseg].flags & BEGIN) && (psa->seg[i].len > psa->seg[psa->lseg].len) && !(psa->seg[i].flags & NOT))){
 						psa->lseg = i;
 					}
 					++i;
@@ -296,6 +302,7 @@ int init_search(enum searchtype st, int clear) {
 					psa->seg[i].flags = 0;
 				}
 				psa->seg[i].flags |= c == '+' ? ANY : c == '!' ? NOT : 0;
+				psa->seg[i].flags |= c == '^' ? BEGIN : 0;
 				psa->seg[i].len = 0;
 				psa->seg[i].s = psa->qloc+psa->qlen+1;
 			}else if(c == ' ' && !psa->seg[i].len){
@@ -305,9 +312,7 @@ int init_search(enum searchtype st, int clear) {
 			}
 			++psa->qlen;
 		}
-		if(psa->seg[psa->lseg].flags & NOT){
-			psa->lseg = i;
-		}else if((psa->seg[i].len > psa->seg[psa->lseg].len) && !(psa->seg[i].flags & NOT)){
+		if(!(psa->seg[psa->lseg].flags & BEGIN) && (psa->seg[i].len > psa->seg[psa->lseg].len) && !(psa->seg[i].flags & NOT)){
 			psa->lseg = i;
 		}
 		psa->segend = i;
@@ -582,7 +587,7 @@ int get_result(int skip){
 					len = end - start;
 					size_t header_len = (uint8_t*)sz_find_byte((const char *)start, len, "\0") - start;
 					match = (uint8_t*)sz_find((const char *)start, header_len, (const char *)psa->qloc, psa->qlen);
-				}while(!match || !(skip || vec_u32_push_uniq(&results, tline)));
+				}while(!match || !(skip || tracker_add(tline)));
 			}
 			else{
 			//char* match = NULL;
@@ -594,7 +599,7 @@ int get_result(int skip){
 					match = p_linetostr(psa->line, psa->st);
 					tline = p_getline(match);
 					++psa->line;
-				}while(!(skip || vec_u32_push_uniq(&results, tline)));
+				}while(!(skip || tracker_add(tline)));
 				start = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline, ps_h->bline_idx));
 				end = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline+1, ps_h->bline_idx));
 				len = end - start;
@@ -615,101 +620,94 @@ int get_result(int skip){
 				match = p_linetostr(psa->line, psa->st);
 				tline = p_getline(match);
 				++psa->line;
-			}while(!(skip || vec_u32_push_uniq(&results, tline)));
+			}while(!(skip || tracker_add(tline)));
 		}else{
 			do{ // FULL
 
 				uint8_t *start = (uint8_t*) (g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
 				uint8_t *last = (uint8_t*) (g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, ps_h->line_idx_len-1, ps_h->bline_idx));
 				char *l = NULL;
-				char *lb = NULL;
-				char *le = NULL;
-				char *nlb = NULL;
-				char *nle = NULL;
 				char *r = NULL;
-				tline = psa->line;
 				int i=psa->lseg;
 				/* This goes through the glob segments starting with the longest one, then matches subsequent segments going backwards, then going forwards after that */
-				printf("FULL SEARCH\n");
 				while(i <= psa->segend){
-					printf("%d -> ", i);
+					uint32_t flags = psa->seg[psa->lseg].flags;
 					if(psa->line >= ps_h->line_idx_len-1){
 						psa->line = -1;
 						return -1;
 					}
+
+					// FIRST (LONGEST) SEGMENT
 					if(i == psa->lseg){
-						if(psa->seg[psa->lseg].flags & NOT){
-							printf("line: %d\n", psa->line);
-							l = p_linetostr(psa->line, psa->st);
-							r = p_linetostr(psa->line+1, psa->st);
-							match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
-							++psa->line;
+						if(flags & BEGIN){
+							int cmp;
+							r = p_linetostr(psa->line, psa->st);
+							do{
+								l = r;
+								r = p_linetostr(psa->line+1, psa->st);
+								cmp = sz_equal((const char *)l, (const char *)psa->seg[i].s, psa->seg[i].len);
+								if(flags & NOT){
+									cmp = !cmp;
+								}
+								++psa->line;
+							}while(!cmp && psa->line+1 < ps_h->line_idx_len);
+							match = cmp ? l : NULL;
+							if(!match){
+								psa->line = -1;
+								return -1;
+							}
+						}else if(flags & NOT){
+							r = p_linetostr(psa->line, psa->st);
+							do{
+								l = r;
+								r = p_linetostr(psa->line+1, psa->st);
+								match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
+								++psa->line;
+							}while(match && psa->line+1 < ps_h->line_idx_len);
+							match = match ? NULL : l;
 						}else{
 							if(l){
 								start = (uint8_t*) (g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
 							}
 							match = (uint8_t*)sz_find((const char *)start, last - start, (const char *)psa->seg[i].s, psa->seg[i].len);
 							if(match){
-								tline = psa->line = p_getline(match);
-								++psa->line;
-								nlb = l = p_linetostr(tline, psa->st);
-								nle = nlb + psa->seg[i].len;
-								r = p_linetostr(tline+1, psa->st);
-							}
-						}
-					}else{
-						if(psa->seg[i].flags & ANY || (!nle)){
-							match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
-						}else if(i > psa->lseg){
-							match = (uint8_t*)sz_find((const char *)nle, r - nle, (const char *)psa->seg[i].s, psa->seg[i].len);
-						}else{
-							match = (uint8_t*)sz_rfind((const char *)l, nlb-l, (const char *)psa->seg[i].s, psa->seg[i].len);
-						}
-					}
-					if(psa->seg[i].flags & NOT){
-						printf("NOT\n");
-						match = match ? NULL : l;
-					}
-					if(match){
-						if(!(psa->seg[i].flags & (NOT | ANY))){
-							if(i == psa->lseg){
-								nlb = lb = match;
-								nle = le = match + psa->seg[i].len;
+								psa->line = p_getline(match);
+								l = p_linetostr(psa->line, psa->st);
+								r = p_linetostr(psa->line+1, psa->st);
 							}else{
-								nlb = match;
-								nle = match + psa->seg[i].len;
+								psa->line = -1;
+								return -1;
 							}
-						}
-						printf("(... %.40s ...)\n", match);
-						if(i == psa->lseg){
-							tline = psa->line = p_getline(match);
 							++psa->line;
 						}
-						if(i <= psa->lseg){
-							if(i){
-								--i;
-							}else{
-								i = psa->lseg+1;
-								nlb = lb;
-								nle = le;
-							}
-						}else{
-							++i;
+					}
+
+					// OTHER SEGMENTS
+					else{
+						match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
+						if(psa->seg[i].flags & NOT){
+							match = match ? NULL : l;
 						}
-					}else if(i == psa->lseg && !(psa->seg[i].flags & NOT)){
-						return -1;
+						if(!match){
+							i = psa->lseg;
+							continue;
+						}
+					}
+
+					if(i <= psa->lseg){
+						if(i){
+							--i;
+						}else{
+							i = psa->lseg+1;
+						}
 					}else{
-						i = psa->lseg;
+						++i;
 					}
 				}
-
-				if(!match){
-					psa->line = -1;
-					return -1;
-				}
+				tline = psa->line-1;
 				//char *match = sz_find(start, ps_h->line_len, gquery, gquery_len);
 				//int ret = p_strncpy(out_buffer, out_capacity, g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
-			}while(!(skip || vec_u32_push_uniq(&results, tline)));
+			}while(!(skip || tracker_add(tline)));
 		}
 		if(match){
 				//char *str = p_linetostr(psa->line);
@@ -736,6 +734,10 @@ void free_peak(void) {
 			iowa.qloc = NULL;
 		}
 		wis.qloc = NULL;
+		if(tracker.data){
+			free(tracker.data);
+			tracker.data = NULL;
+		}
 }
 
 int p_endswith(uint8_t *a, uint8_t *b){

@@ -457,7 +457,7 @@ mark {
     border-radius: 10px;
     cursor: pointer;
     font-size: 17px;
-    margin-top: 24px;
+    margin: 5px;
 }
 
 .but{
@@ -628,10 +628,9 @@ p-d h1, p-d h2, p-d h3 {
 }
 p-h{
 	background: var(--tab-bg);
-	display: inline;
+	display: block;
 	float: right;
 	margin: 0;
-	margin-top: -1.5em;
 	padding: 4px;
 	border-radius: 3px;
 	font-size: var(--font-size)*0.8;
