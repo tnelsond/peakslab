@@ -1,17 +1,7 @@
 "use strict";
-importScripts('./peak.js');
 
-let wasmBinaryPromise = null;
-async function getCachedWasmBinary() {
-    if (!wasmBinaryPromise) {
-        wasmBinaryPromise = (async () => {
-            const resp = await fetch('./peak.wasm');
-            if (!resp.ok) throw new Error(`Failed to fetch peak.wasm: ${resp.status}`);
-            return await resp.arrayBuffer();
-        })();
-    }
-    return wasmBinaryPromise;
-}
+let wasmModuleResolve = null;
+const wasmModulePromise = new Promise(resolve => { wasmModuleResolve = resolve; });
 
 let id = 0;
 let dicts = []
@@ -24,6 +14,9 @@ let st = 0;
 self.onmessage = async (e) => {
 	//console.log(e.data);
 	if(e.data.type == "init"){
+		id = e.data.id;
+		wasmModuleResolve(e.data.wasm);
+	}else if(e.data.type == "load"){
 		if(!dicts[e.data.did]){
 			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did);
 		}
@@ -112,9 +105,42 @@ self.onmessage = async (e) => {
 			}
 		}
 	}
-	else if(e.data.type == "setid"){
-		id = e.data.id;	
+}
+
+async function peak(wasmModule){
+	const requiredImports = WebAssembly.Module.imports(wasmModule);
+	const instance = await WebAssembly.instantiate(wasmModule, {env: {emscripten_notify_memory_growth: () => {}}});
+	const exp = instance.exports;
+	const mem = exp.memory;
+	if (!exp.memory) {
+			throw new Error("peak.wasm didn't export memory");
 	}
+ 
+	const decoder = new TextDecoder();
+ 
+	return {
+		_malloc:          exp.malloc,
+		_free:            exp.free,
+		_load_peak:       exp.load_peak,
+		_free_peak:       exp.free_peak,
+		_peak_init:       exp.peak_init,
+		_init_search:     exp.init_search,
+		_continue_search: exp.continue_search,
+		_get_result:      exp.get_result,
+		_switchstate:     exp.switchstate,
+ 
+		get HEAPU8() { return new Uint8Array(mem.buffer); },
+ 
+		UTF8ToString(ptr, len) {
+			const buf = new Uint8Array(mem.buffer);
+			if (len === undefined) {
+				let end = ptr;
+				while (buf[end] !== 0) end++;
+				len = end - ptr;
+			}
+			return decoder.decode(buf.subarray(ptr, ptr + len));
+		},
+	};
 }
 
 class Dic{
@@ -139,8 +165,8 @@ class Dic{
 	}
 	async init() {
 		try{
-			const wasmBinary = await getCachedWasmBinary();
-      this.module = await peak({wasmBinary});
+			const wasmBinary = await wasmModulePromise;
+      this.module = await peak(wasmBinary);
 			const resp = await fetch(this.filename);
 			//console.log(`filename: ${this.filename}`);
 			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -149,9 +175,16 @@ class Dic{
 
 			// Send the database to the module
 			const srcPtr = this.module._malloc(buf.byteLength);
+			console.log(`[${this.name}] file=${buf.byteLength} bytes, malloc ptr=${srcPtr}, memsize=${this.module.HEAPU8.byteLength}`);
+			if (srcPtr === 0) {
+					throw new Error(`[${this.name}] malloc returned NULL for ${buf.byteLength} bytes!`);
+			}
 			this.module.HEAPU8.set(new Uint8Array(buf), srcPtr);
+			console.log(`[${this.name}] set done, memsize now=${this.module.HEAPU8.byteLength}`);
+
 			let compressed = this.filename.includes(".zst");
 			const loadRet = this.module._load_peak(srcPtr, buf.byteLength, compressed);
+			console.log(`[${this.name}] _load_peak returned: ${loadRet}`);
 			//console.log(`load_peak returned: ${loadRet}`);
 			if(compressed)
 				this.module._free(srcPtr);

@@ -18,24 +18,24 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
   -s EXPORT_NAME="peakgen" \
 	--no-entry
 peak.wasm : peak.c zstddeclib.c peak.h
-	emcc peak.c \
+	emcc utils/walloc-master/walloc.c peak.c \
 	-DHUF_FORCE_DECOMPRESS_X1 \
 	-DZSTD_FORCE_DECOMPRESS_SEQUENCES_SHORT \
 	-DZSTD_NO_UNUSED_FUNCTIONS \
+	-s MALLOC="none" \
 	-Oz \
 	-flto \
 	-msimd128 \
 	-mrelaxed-simd \
-	-msse4.2 -mavx -mavx2 \
-	-s MALLOC="emmalloc" \
 	-s ENVIRONMENT=worker \
-  -s MODULARIZE=1 \
+	-msse4.2 -mavx -mavx2 \
 	-s ALLOW_MEMORY_GROWTH=1 \
-  -s EXPORT_NAME="peak" \
 	-s EXPORTED_FUNCTIONS='["_load_peak","_peak_init","_init_search","_continue_search","_get_result","_free_peak","_malloc","_free","_switchstate"]' \
-  -s EXPORTED_RUNTIME_METHODS="['HEAPU8', 'UTF8ToString']" \
 	--no-entry \
-	-o peak.js
+	-o peak.wasm
+	du -b peak.wasm
+peak2.wasm : peak.c zstddeclib.c peak.h Makefile
+	clang --target=wasm32 -Wl,--no-entry -Wl,--export-all -Oz peak.c -o peak2.wasm
 peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
 	gcc -DTB_IMPL -lreadline -ltinfo peak_cli2.c -o peak_tui
 peak : peak_cli.c peak.h peak.c zstddeclib.c

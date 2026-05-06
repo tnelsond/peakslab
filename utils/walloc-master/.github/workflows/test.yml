@@ -1,0 +1,17 @@
+name: Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: test
+      run: make test CC=clang LD="wasm-ld-10 --allow-undefined" JS=node

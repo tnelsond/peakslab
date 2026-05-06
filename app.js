@@ -19,8 +19,154 @@ const timingDiv  = document.getElementById('timing');
 const tabs  = document.getElementById('tabs');
 const hidetabs = document.getElementById('hidetabs');
 
+let sharedWasmModule = null;
+async function getSharedWasmModule() {
+    if (!sharedWasmModule) {
+        const resp = await fetch('/peak.wasm');
+        const buffer = await resp.arrayBuffer();
+        sharedWasmModule = await WebAssembly.compile(buffer);   // compile once
+    }
+    return sharedWasmModule;
+}
+
+// When creating your workers:
+async function createPeakWorker(id){
+    const w = new Worker('/peakworker.js');
+		workers.push(w);
+    w.postMessage({ type: "init", wasm: await getSharedWasmModule(), id: id});
+		w.onmessage = function(e){
+			//console.log(e.data);
+			if(e.data.type == "loaded"){
+				const d = e.data.did*workers.length + e.data.id - 1;
+				dict_master_code[d] = false;
+				document.getElementById(`${d}`)?.classList.remove('down');
+				timingDiv.innerHTML += `${e.data.msg}<br>`;
+				--nload;
+				loadProgress.textContent = `Loading ${nload} more dictionaries.`;
+				timingDiv.innerHTML += `${Math.round(performance.now())}ms `;
+				if(nload == 0){
+					loadProgress.style.display = 'none';
+					saveState();
+				}else{
+					loadProgress.style.display = 'block';
+				}
+				query = ""; // Triggers a search
+				startSearch();
+			}
+			else if(e.data.type == "nomore"){
+				if(e.data.st == st){
+					worker_code[e.data.id-1] = true;
+					if(!worker_code.includes(false)){
+						if(nextst()){
+							continueSearch();
+						}else{
+							if (loader) {
+								loader.remove();
+								loader = null;
+							}
+						}
+					}
+				}
+			}else if(e.data.type == "result"){
+				if(num == 0){
+					cleanup(tout);
+					tout.append(loader)
+				}
+				let idpre = e.data.dest == "popup" ? "pid" : "mid";
+				const nheader = updateQuery(e.data.header);
+				let div = document.getElementById(`${idpre}-${nheader}`);
+				const first = div === null;
+				if(first){
+					div = document.createElement('p-d');
+					div.id = `${idpre}-${nheader}`;
+					if(idpre == "mid" || e.data.st == 2){
+						let temp_dict_code = new Array(dicts.length).fill(true);
+						temp_dict_code[dicts.findIndex(file => file[1] === e.data.dict)] = false;
+						workers.forEach((w, i) =>{
+							let code = temp_dict_code.filter((_, index) => index % workers.length == i);
+							w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: e.data.dest, dicts: code});
+						});
+					}
+				}
+				let el = document.createElement('p-e');
+				const sortid = e.data.did*workers.length+e.data.id;
+				el.setAttribute('data-id', sortid);
+				if(debug)
+					el.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}' #${sortid}</p-h>`;
+				else
+					el.innerHTML += `<p-h>${e.data.dict}</p-h>`;
+				if(first)
+					div.innerHTML += `<h2>${e.data.header}</h2>`;
+				if(e.data.filetype){
+					if(e.data.subheader){
+						let sh = e.data.subheader;	
+						if (typeof subheader_trans !== 'undefined' 
+								&& typeof subheader_trans[e.data.dict] === 'function') {
+								sh = subheader_trans[e.data.dict](sh);
+						}
+						el.innerHTML += `<p-n>${sh.join(",<br>")}</p-n>`;
+					}
+					if (e.data.filetype.toLowerCase().includes('webp')) {
+						const blob = new Blob([e.data.body], { type: 'image/webp' });
+						const url = URL.createObjectURL(blob);
+						el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
+					}else if (e.data.filetype.toLowerCase().includes('jbig2')) {
+						jbig2to1bpng(e.data.body).then(blob => {
+							const url = URL.createObjectURL(blob);
+							el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
+						});
+					}else if (e.data.filetype.toLowerCase().includes('webm')) {
+						const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
+						const url = URL.createObjectURL(blob);
+						el.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.header}.${e.data.filetype}"></audio>`;
+					}else{
+						el.innerHTML += `${e.data.filetype}<br> filetype not supported`;
+					}
+				}else{
+					if(mark){
+						el.innerHTML += highlightText(e.data.body, e.data.query);
+					} else{
+						el.innerHTML += `${e.data.body}`;
+					}
+				}
+				
+				const children = Array.from(div.children);
+				const insertBeforeElement = children.find(child => {
+					const childId = parseInt(child.dataset.id);
+					return childId > sortid;
+				});
+				if (insertBeforeElement) {
+					div.insertBefore(el, insertBeforeElement);
+				} else {
+					div.appendChild(el);
+				}
+
+				let place = e.data.dest == "popup" ? popupResults : resultsDiv;
+				if(first){
+					if(place == resultsDiv && loader){
+						place.insertBefore(div, loader); 
+					}else{
+						place.appendChild(div); 
+					}
+					if(e.data.dest == "popup"){
+						popupOpen();
+						document.addEventListener('click', closePopupClick); 
+					}
+				}
+				++num;
+				queryInput.classList.remove("error");
+				statusDiv.textContent = `Found ${num}+ matching lines.`;
+				loadmore();
+			}
+		}
+}
+
 let dicts = tablayout.flatMap(table => table.dicts);
-let workers = dicts.length > 1 ? [new Worker('/peakworker.js'), new Worker('/peakworker.js')] : [new Worker('/peakworker.js')];
+let workers_num = dicts.length > 1 ? 2 : 1;
+let workers = [];
+for(let i=1; i<=workers_num; ++i){
+	createPeakWorker(i);
+}
 let worker_code = new Array(workers.length).fill(false);
 let dict_master_code = new Array(dicts.length).fill(true);
 let dict_code = [...dict_master_code];
@@ -129,137 +275,6 @@ async function jbig2to1bpng(binaryData) {
   return new Blob([out], { type: 'image/png' });
 }
 
-let i = 1;
-workers.forEach((w) => {
-	w.postMessage({type: "setid", id: i});
-	++i;
-	w.onmessage = function(e){
-		//console.log(e.data);
-		if(e.data.type == "loaded"){
-			const d = e.data.did*workers.length + e.data.id - 1;
-			dict_master_code[d] = false;
-			document.getElementById(`${d}`)?.classList.remove('down');
-			timingDiv.innerHTML += `${e.data.msg}<br>`;
-			--nload;
-			loadProgress.textContent = `Loading ${nload} more dictionaries.`;
-			timingDiv.innerHTML += `${Math.round(performance.now())}ms `;
-			if(nload == 0){
-				loadProgress.style.display = 'none';
-				saveState();
-			}else{
-				loadProgress.style.display = 'block';
-			}
-			query = ""; // Triggers a search
-			startSearch();
-		}
-		else if(e.data.type == "nomore"){
-			if(e.data.st == st){
-				worker_code[e.data.id-1] = true;
-				if(!worker_code.includes(false)){
-					if(nextst()){
-						continueSearch();
-					}else{
-						if (loader) {
-							loader.remove();
-							loader = null;
-						}
-					}
-				}
-			}
-		}else if(e.data.type == "result"){
-			if(num == 0){
-				cleanup(tout);
-				tout.append(loader)
-			}
-			let idpre = e.data.dest == "popup" ? "pid" : "mid";
-			const nheader = updateQuery(e.data.header);
-			let div = document.getElementById(`${idpre}-${nheader}`);
-			const first = div === null;
-			if(first){
-				div = document.createElement('p-d');
-				div.id = `${idpre}-${nheader}`;
-				if(idpre == "mid" || e.data.st == 2){
-					let temp_dict_code = new Array(dicts.length).fill(true);
-					temp_dict_code[dicts.findIndex(file => file[1] === e.data.dict)] = false;
-					workers.forEach((w, i) =>{
-						let code = temp_dict_code.filter((_, index) => index % workers.length == i);
-						w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: e.data.dest, dicts: code});
-					});
-				}
-			}
-			let el = document.createElement('p-e');
-			const sortid = e.data.did*workers.length+e.data.id;
-			el.setAttribute('data-id', sortid);
-			if(debug)
-				el.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}' #${sortid}</p-h>`;
-			else
-				el.innerHTML += `<p-h>${e.data.dict}</p-h>`;
-			if(first)
-				div.innerHTML += `<h2>${e.data.header}</h2>`;
-			if(e.data.filetype){
-				if(e.data.subheader){
-					let sh = e.data.subheader;	
-					if (typeof subheader_trans !== 'undefined' 
-							&& typeof subheader_trans[e.data.dict] === 'function') {
-							sh = subheader_trans[e.data.dict](sh);
-					}
-					el.innerHTML += `<p-n>${sh.join(",<br>")}</p-n>`;
-				}
-				if (e.data.filetype.toLowerCase().includes('webp')) {
-					const blob = new Blob([e.data.body], { type: 'image/webp' });
-					const url = URL.createObjectURL(blob);
-					el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
-				}else if (e.data.filetype.toLowerCase().includes('jbig2')) {
-					jbig2to1bpng(e.data.body).then(blob => {
-						const url = URL.createObjectURL(blob);
-						el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
-					});
-				}else if (e.data.filetype.toLowerCase().includes('webm')) {
-					const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
-					const url = URL.createObjectURL(blob);
-					el.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.header}.${e.data.filetype}"></audio>`;
-				}else{
-					el.innerHTML += `${e.data.filetype}<br> filetype not supported`;
-				}
-			}else{
-				if(mark){
-					el.innerHTML += highlightText(e.data.body, e.data.query);
-				} else{
-					el.innerHTML += `${e.data.body}`;
-				}
-			}
-			
-			const children = Array.from(div.children);
-			const insertBeforeElement = children.find(child => {
-				const childId = parseInt(child.dataset.id);
-				return childId > sortid;
-			});
-			if (insertBeforeElement) {
-				div.insertBefore(el, insertBeforeElement);
-			} else {
-				div.appendChild(el);
-			}
-
-			let place = e.data.dest == "popup" ? popupResults : resultsDiv;
-			if(first){
-				if(place == resultsDiv && loader){
-					place.insertBefore(div, loader); 
-				}else{
-					place.appendChild(div); 
-				}
-				if(e.data.dest == "popup"){
-					popupOpen();
-					document.addEventListener('click', closePopupClick); 
-				}
-			}
-			++num;
-			queryInput.classList.remove("error");
-			statusDiv.textContent = `Found ${num}+ matching lines.`;
-			loadmore();
-		}
-	}
-});
-
 const queryInput = document.getElementById('queryInput');
 
 const params = new URLSearchParams(window.location.search);
@@ -275,7 +290,7 @@ const popupClose = document.getElementById('popupClose');
 const loadProgress = document.getElementById('loadProgress');
 loadProgress.textContent = `Loading dictionaries.`;
 
-i = 0;
+let i = 0;
 let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
 tablayout.forEach((gdict, gval) =>{
 	temp += `<h3>${gdict.name}</h3>`;
@@ -406,7 +421,7 @@ function loadSavedState() {
 function loadDict(i) {
     if (dict_master_code[i]) {
         workers[i % workers.length].postMessage({
-            type: 'init',
+            type: 'load',
             did: Math.floor(i / workers.length),
             msg: dicts[i]
         });

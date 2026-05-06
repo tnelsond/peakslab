@@ -7,6 +7,7 @@ const tablayout = [
 		["english/db/eng-kjv.peak.zst", "Bible KJV", 8*1024, `KJV bible from <a href="https://ebible.org">eBible</a>`],
 		["english/db/eng-bsb.peak.zst", "Bible BSB", 8*1024, `Berean Standard Bible from <a href="https://ebible.org">eBible</a>`]]},
 	{name: "Music", dicts: [
+		["english/db/hymn-collection.slab", "hymns", 32*1024, `from <a href="https://www.music-folk-play-hymns.com/Hymn-Lead-Sheets.html">Music-Folk-Play-Hymns.com</a>`],
 		["english/db/psabradytate.peak.zst", "PsaBrady&Tate", 16*1024, `Psalter Brady & Tate from <a href="https://www.friendsofsabbath.org/cgmusic.com/workshop/index.htm">friends of sabbath</a>`],
 		["english/db/psa1562.peak.zst", "PsaOld", 16*1024, `Psalter Old Version <a href="https://www.friendsofsabbath.org/cgmusic.com/workshop/index.htm">friends of sabbath</a>`],
 		["english/db/psascott.peak.zst", "PsaScott", 16*1024, `The Scottish Psalter from <a href="https://www.friendsofsabbath.org/cgmusic.com/workshop/index.htm">friends of sabbath</a>`],

@@ -54,6 +54,8 @@ LIB_SRCS = \
     $(SRCDIR)/jbig2.c             \
     $(SRCDIR)/jbig2_arith.c       \
     $(SRCDIR)/jbig2_generic.c     \
+    ../walloc-master/walloc.c \
+    $(SRCDIR)/jbig2_generic.c     \
     $(SRCDIR)/jbig2_image.c       \
     $(SRCDIR)/jbig2_page.c        \
     $(SRCDIR)/jbig2_segment.c     
@@ -111,6 +113,7 @@ EM_FLAGS = \
 		-s DYNAMIC_EXECUTION=0 \
 		-s ASSERTIONS=1 \
 		-s MINIMAL_RUNTIME=2 \
+		-s MALLOC="none" \
 		-s DISABLE_EXCEPTION_CATCHING=1 \
 		-s SUPPORT_LONGJMP=wasm \
     -s EXPORT_NAME=createJbig2Module              \

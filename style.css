@@ -277,6 +277,11 @@ p-m::before {
 	width: auto;
 }
 
+img{
+	margin: 0px;
+	padding: 0px;
+}
+
 .logooverlay {
     position: absolute;
     top: 60%;

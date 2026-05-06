@@ -1,12 +1,11 @@
-const CURRENT_CACHE = 'peakslab-0.5.9.6';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.5.9.7';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
   '/': 'v8.0',
   '/app.js': 'v12.4.5',
-  '/peak.js': 'v2.0',
   '/peakworker.js': 'v9.0.1',
-  '/peak.wasm': 'v1.2',
+  '/peak.wasm': 'v1.3',
   '/peakslab.svg': 'v1',
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
@@ -15,7 +14,7 @@ const FILE_VERSIONS = {
   '/peakgen.wasm': 'v4',
   '/peakgen.html': 'v1',
   '/peakgen.js': 'v2',
-	'/jbig2.wasm': 'v3',
+	'/jbig2.wasm': 'v4',
 
 	'/levantine/': 'v1',
 	'/levantine/config.js': 'v2',
@@ -118,6 +117,7 @@ const FILE_VERSIONS = {
   '/english/config.js': 'v4',
   '/english/': 'v3',
   '/english/db/bibleworden.peak.zst': 'v5',
+  '/english/db/hymn-collection.slab': 'v1',
   '/english/db/psascott.peak.zst': 'v1',
   '/english/db/psa1562.peak.zst': 'v1',
   '/english/db/psabradytate.peak.zst': 'v1',

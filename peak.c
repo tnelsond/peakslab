@@ -1,7 +1,6 @@
 #define ZSTD_STATIC_LINKING_ONLY
 #include "zstddeclib.c"
 #include "utils/stringzilla/stringzilla.h"
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -11,7 +10,6 @@
     #define printf(...) ((void)0)
 #endif
 
-#define BUF_LEN 8096
 static uint8_t* g_d = NULL;
 static size_t g_d_size = 0;
 
@@ -29,7 +27,7 @@ struct ptracker{
 
 void tracker_init(uint32_t entries){
 	tracker.bytes = ((entries + 31)/32)*sizeof(uint32_t);
-	tracker.data = realloc(tracker.data, tracker.bytes);
+	tracker.data = malloc(tracker.bytes);
 }
 
 void tracker_clear(){
@@ -734,10 +732,8 @@ void free_peak(void) {
 			iowa.qloc = NULL;
 		}
 		wis.qloc = NULL;
-		if(tracker.data){
-			free(tracker.data);
-			tracker.data = NULL;
-		}
+		free(tracker.data);
+		tracker.data = NULL;
 }
 
 int p_endswith(uint8_t *a, uint8_t *b){

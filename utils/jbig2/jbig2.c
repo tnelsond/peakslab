@@ -46,6 +46,14 @@ jbig2_default_free(Jbig2Allocator *allocator, void *p)
     free(p);
 }
 
+// Did it myself
+void *realloc(void *v, size_t s){
+	void *r = malloc(s);
+	memcpy(r, v, s);
+	free(v);
+	return r;
+}
+
 static void *
 jbig2_default_realloc(Jbig2Allocator *allocator, void *p, size_t size)
 {

@@ -1,5 +1,7 @@
 #include "peak.c"
 
+#define BUF_LEN 8096
+
 int main(int argc, char **argv){
 	if(argc < 2){
 		return 1;

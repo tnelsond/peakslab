@@ -89,7 +89,6 @@
 
 #include <limits.h>
 #include <stddef.h>
-#include <string.h>
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 # define ZSTD_memcpy(d,s,l) __builtin_memcpy((d),(s),(l))
