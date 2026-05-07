@@ -76,7 +76,7 @@ For these tests I ran my laptop connected to my Phone's hotspot to serve the pag
 |  Program        | Core   |   Glue  |  .html .js .css   |  Total |
 |-----------------|--------|---------|-----------------|--------|
 |PeakSlab SQLite3 | 851kb  | 391kb   |    **45kb**         | 1287kb |
-|PeakSlab PeakSlab| **38kb (4%)**   | 0kb (0%)**    |    55kb (122%)         | **93kb (7%)** |
+|PeakSlab PeakSlab| **38kb (4%)**   | **0kb (0%)**    |    55kb (122%)         | **93kb (7%)** |
 
 The SQLite3 version is the old version of PeakSlab before I wrote the custom file format. The advantages of the custom format are smaller file sizes, instant loading (cast to a struct), and versatile indexes. The reason that .peak slabs are smaller than .tsv files is because peak removes all capitalization and HTML tags and puts them in a tags (or dictionary) section to be reinserted on render.
 
@@ -123,7 +123,7 @@ A Slab file is like a peak file except instead of the data being text it's binar
 - tsv file
 - WEBP images
 - WEBM Opus audio
-- JBIG2 images via custom wasm decoder (27kb)
+- JBIG2 images via custom wasm decoder (17kb)
 Adding support for other filetypes is trivial, but for right now I just have the most efficient and easy to use formats.
 
 ## Completed Features
@@ -136,7 +136,7 @@ Adding support for other filetypes is trivial, but for right now I just have the
 
 ## Non-features
 - No API, no POSTS, not scrapable by AI because it's all run clientside through javascript and wasm. (But if the AI was smart it'd just read the provided source tsv files.)
-- No frameworks, no React, no npm, no jQuery, no typescript, just vanilla javascript and C code.
+- No frameworks, no React, no npm, no cdn, no jQuery, no typescript, just vanilla javascript and C code.
 
 ## Todo
 - ~~Regex or Glob support~~
