@@ -45,12 +45,12 @@ For these tests I ran my laptop connected to my Phone's hotspot to serve the pag
 | Format    | Loadtime | Speed | Filesize |
 |-----------|----------|-------|----------|
 | SQLite3   | 789ms    | 1.0x  | 84mb     |
-| .peak     | 481ms    | 1.64x | 49mb     |
-| .peak split | **391ms**  | **2.02x** | 58mb     |
-| .peak split (dual worker)| 380ms  | 2.08x | 58mb     |
-| .peak.zst | 712ms    | 1.11x | **9.3mb**    |
-| .peak.zst split | 570ms  | 1.38x | 11mb     |
-| .peak.zst split (dual worker)| 479ms  | 1.65x | 11mb     |
+| .peak     | 434ms    | 1.81x | 49mb     |
+| .peak split | 385ms | 2.05x | 58mb     |
+| .peak split (dual worker)| **379ms**  | **2.08x** | 58mb     |
+| .peak.zst | 473ms    | 1.67x | **9.3mb**    |
+| .peak.zst split | 537ms  | 1.47x | 11mb     |
+| .peak.zst split (dual worker)| 418ms  | 1.89x | 11mb     |
 
 ![SQLite3 version. July 2025](docs/screenshot-2025-07-15.webp)
 
@@ -73,14 +73,14 @@ For these tests I ran my laptop connected to my Phone's hotspot to serve the pag
 |.peak.zst (split)| 11mb    | 21%        |
 
 ## Runtime size
-|  Program        | Core   |   Glue  |  App HTML .js   |  Total |
+|  Program        | Core   |   Glue  |  .html .js .css   |  Total |
 |-----------------|--------|---------|-----------------|--------|
-|PeakSlab SQLite3 | 851kb  | 391kb   |    **32kb**         | 1269kb |
-|PeakSlab PeakSlab| **37kb (4%)**   | **9kb (2%)**    |    39kb (122%)         | **85kb (7%)** |
+|PeakSlab SQLite3 | 851kb  | 391kb   |    **45kb**         | 1287kb |
+|PeakSlab PeakSlab| **38kb (4%)**   | 0kb (0%)**    |    55kb (122%)         | **93kb (7%)** |
 
 The SQLite3 version is the old version of PeakSlab before I wrote the custom file format. The advantages of the custom format are smaller file sizes, instant loading (cast to a struct), and versatile indexes. The reason that .peak slabs are smaller than .tsv files is because peak removes all capitalization and HTML tags and puts them in a tags (or dictionary) section to be reinserted on render.
 
-As you can see the runtime is drastically smaller, the files are smaller, and the load speed is faster even with decompressing the files on every load. Loading uncompressed files is 1.64x faster or 2x faster if the files are split (even though the split files take up more space than the one).
+As you can see the runtime is drastically smaller, the files are smaller, and the load speed is faster even with decompressing the files on every load. Loading uncompressed files is 1.81x faster or 2.08x faster if the files are split (even though the split files take up more space than the one). Even if we're loading compressed files, it's still 1.89x faster than SQLite3 loading uncompressed files.
 
 # License
 
@@ -190,3 +190,5 @@ Adding support for other filetypes is trivial, but for right now I just have the
 - Had 800mb of sheet music I wanted to compress down and looked around for jbig2 support. I could turn each page into a tiny pdf, but the pdfs don't open on mobile and I wanted them to show up just as an image with no controls or nonsense. Couldn't find any readily available jbig2 decoders for javascript or wasm. (Other than the ones inside pdf.js and pdfium etc. but getting those to work with my code wasn't happening. I tried using pdf.js but it was slow, huge, and still ugly. So I had Claude AI guide me through adapting ghostscript's jbig2dec. I was gonna use libpng but that made the wasm decoder 178kb, the largest part of PeakSlab yet. I didn't like that, so I had Claude write a new frontend to jbig2dec that did custom 1-bit PNG encoding from scratch. The wasm for that is down to 92kb and it works great.
 - Changed some compile flags, got the core peak wasm module down to 37kb. Used Claude AI to remove jbig2.js for more space savings.
 - Aggressively disabled code for the generation of jbig2.wasm, got it down to 26kb. 
+- Started using walloc in order to remove emscripten glue code that was dependent on emmalloc. Got jbig2.wasm down to 17kb and peak.wasm down to 38kb with no glue required.
+- Noticed that my peak.wasm module was being fetched and compiled multiple times, so I fixed that. After all that I noticed that loadtime was quite a bit faster and boosted decompression speeds.

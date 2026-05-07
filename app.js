@@ -19,15 +19,17 @@ const timingDiv  = document.getElementById('timing');
 const tabs  = document.getElementById('tabs');
 const hidetabs = document.getElementById('hidetabs');
 
-let sharedWasmModule = null;
-async function getSharedWasmModule() {
-    if (!sharedWasmModule) {
-        const resp = await fetch('/peak.wasm');
-        const buffer = await resp.arrayBuffer();
-        sharedWasmModule = await WebAssembly.compile(buffer);   // compile once
-    }
-    return sharedWasmModule;
-}
+const getSharedWasmModule = (() => {
+	let promise = null;
+	return async () => {
+			if (!promise) {
+					promise = fetch('/peak.wasm')
+							.then(resp => resp.arrayBuffer())
+							.then(buffer => WebAssembly.compile(buffer));
+			}
+			return promise;
+	};
+})();
 
 // When creating your workers:
 async function createPeakWorker(id){
@@ -40,10 +42,10 @@ async function createPeakWorker(id){
 				const d = e.data.did*workers.length + e.data.id - 1;
 				dict_master_code[d] = false;
 				document.getElementById(`${d}`)?.classList.remove('down');
-				timingDiv.innerHTML += `${e.data.msg}<br>`;
+				timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
 				--nload;
 				loadProgress.textContent = `Loading ${nload} more dictionaries.`;
-				timingDiv.innerHTML += `${Math.round(performance.now())}ms `;
+				newtiming.innerHTML = `${Math.round(performance.now())}ms `;
 				if(nload == 0){
 					loadProgress.style.display = 'none';
 					saveState();
@@ -994,4 +996,6 @@ class PaElement extends HTMLElement {
 customElements.define('p-a', PaElement);
 createSelMenu();
 
+let newtiming = document.createElement("div")
+document.body.appendChild(newtiming);
 document.body.appendChild(document.createTextNode(" v10.9"));
