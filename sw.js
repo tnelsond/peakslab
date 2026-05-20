@@ -1,9 +1,9 @@
-const CURRENT_CACHE = 'peakslab-0.6.0.0';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.6.0.1';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
   '/': 'v8.0',
-  '/app.js': 'v12.4.6',
+  '/app.js': 'v12.4.7',
   '/peakworker.js': 'v9.0.2',
   '/peak.wasm': 'v1.3',
   '/peakslab.svg': 'v1',
@@ -35,7 +35,7 @@ const FILE_VERSIONS = {
 	'/nepali/db/ne-audio.slab': 'v1',
 
 	'/khmer/': 'v5',
-  '/khmer/config.js': 'v1.3',
+  '/khmer/config.js': 'v1.4',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
