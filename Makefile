@@ -1,3 +1,40 @@
+.PHONY: all clean watch list web
+
+MINIFY = minify
+
+# Auto-detect language folders
+LANGUAGES := $(shell find . -maxdepth 1 -type d ! -name '.' \
+	! -name 'utils' ! -name 'test' ! -name 'template' ! -name 'build' \
+	-exec test -f '{}/config.js' \; -print | sed 's|^\./||')
+
+all: peakgen peakgen.wasm peak.wasm peak web
+
+web: $(foreach lang,$(LANGUAGES),$(lang)/index.html)
+
+list:
+	@echo "Detected languages: $(LANGUAGES)"
+
+template/index.html.mini : template/index.html
+	minify template/index.html > template/index.html.mini
+template/app.js.mini : template/app.js
+	minify template/app.js > template/app.js.mini
+template/style.css.mini : template/style.css
+	minify template/style.css > template/style.css.mini
+template/peakslab.svg.mini : template/peakslab.svg
+	minify template/peakslab.svg > template/peakslab.svg.mini
+
+# Build rule for each language
+define BUILD_LANG
+$(1)/index.html: template/index.html.mini template/style.css.mini template/app.js.mini template/peakslab.svg.mini $(1)/config.js
+	utils/makeminihtml.sh
+endef
+# Generate rules
+$(foreach lang,$(LANGUAGES),$(eval $(call BUILD_LANG,$(lang))))
+
+watch:
+	@echo "Watching for changes..."
+	@fswatch -o . | xargs -n1 make web
+
 peakgen : peakgen.c peak.h zstd.o zstd.h
 	gcc -DDEBUG -Wall -O3 -D_GNU_SOURCE peakgen.c zstd.o -o peakgen
 zstd.o : zstd.c

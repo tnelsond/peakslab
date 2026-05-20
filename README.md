@@ -124,6 +124,7 @@ A Slab file is like a peak file except instead of the data being text it's binar
 - WEBP images
 - WEBM Opus audio
 - JBIG2 images via custom wasm decoder (17kb)
+- Codec2 audio at 700C (700 bits per second) via custom codec2 decoder (64kb)
 Adding support for other filetypes is trivial, but for right now I just have the most efficient and easy to use formats.
 
 ## Completed Features
@@ -140,7 +141,7 @@ Adding support for other filetypes is trivial, but for right now I just have the
 
 ## Todo
 - ~~Regex or Glob support~~
-- Add a Codec2 audio decoder so we can get even smaller audio files.
+- ~~Add a Codec2 audio decoder so we can get even smaller audio files.~~
 - Add chunking and http ranges to the service worker's download logic so we can resume and track big downloads.
 - Add search parameters so that we can quickly share searches.
 - ~~Expand Exact Search to work with 2nd index too.~~
@@ -192,3 +193,4 @@ Adding support for other filetypes is trivial, but for right now I just have the
 - Aggressively disabled code for the generation of jbig2.wasm, got it down to 26kb. 
 - Started using walloc in order to remove emscripten glue code that was dependent on emmalloc. Got jbig2.wasm down to 17kb and peak.wasm down to 38kb with no glue required.
 - Noticed that my peak.wasm module was being fetched and compiled multiple times, so I fixed that. After all that I noticed that loadtime was quite a bit faster and boosted decompression speeds.
+- Used Claude AI to port codec2 audio decoder to wasm. The module is 64kb and I don't know if I can go any smaller since we need to maintain a table of non-algorithmed derived numbers to decode the audio.

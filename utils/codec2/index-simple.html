@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Codec2 Player</title>
+  <style>
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 20px; text-align: center; }
+    audio { width: 100%; max-width: 500px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <h2>Codec2 Player</h2>
+  <audio id="audio" controls></audio>
+
+  <script src="codec2.js"></script>
+  <script>
+    const FILE = 'mat700.c2';
+    const SAMPLE_RATE = 8000;
+    let Module, fileBytes, headerSize = 0;
+
+    async function init() {
+      Module = await Codec2Module();
+      const resp = await fetch(FILE);
+      fileBytes = new Uint8Array(await resp.arrayBuffer());
+
+      if (fileBytes[0] === 0xc0 && fileBytes[1] === 0xde && fileBytes[2] === 0xc2) {
+        headerSize = 7;
+      }
+
+      Module._codec2_init(8); // 700C
+
+      const bpf = Module._get_bytes_per_frame();
+      const spf = Module._get_samples_per_frame();
+      const numFrames = Math.floor((fileBytes.length - headerSize) / bpf);
+
+      const bitsPtr = Module._malloc(bpf);
+      const pcmPtr = Module._malloc(spf * 2);
+      const pcmFloat = new Float32Array(numFrames * spf);
+
+      for (let i = 0; i < numFrames; i++) {
+        const offset = headerSize + i * bpf;
+        Module.HEAPU8.set(fileBytes.subarray(offset, offset + bpf), bitsPtr);
+        Module._codec2_decode_frame(bitsPtr, pcmPtr);
+        const base = i * spf;
+        for (let s = 0; s < spf; s++) {
+          pcmFloat[base + s] = Module.HEAP16[(pcmPtr >> 1) + s] / 32768;
+        }
+      }
+
+      Module._free(bitsPtr);
+      Module._free(pcmPtr);
+
+      // Create WAV Blob
+      const wav = createWav(pcmFloat, SAMPLE_RATE);
+      document.getElementById('audio').src = URL.createObjectURL(wav);
+    }
+
+    function createWav(pcm, sampleRate) {
+      const buffer = new ArrayBuffer(44 + pcm.length * 2);
+      const view = new DataView(buffer);
+
+      const writeString = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      };
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + pcm.length * 2, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(36, 'data');
+      view.setUint32(40, pcm.length * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < pcm.length; i++) {
+        view.setInt16(offset, Math.max(-32768, Math.min(32767, pcm[i] * 32767)), true);
+        offset += 2;
+      }
+
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    init();
+  </script>
+</body>
+</html>

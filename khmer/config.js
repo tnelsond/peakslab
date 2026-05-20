@@ -33,6 +33,8 @@ const tablayout = [
 	]},
 	{name: "Media", dicts: [
 		["khmer/db/media.slab.zst", "Media", 256*1024, `Contains images from the plantsdictionarykh.com as well as audio from <a href="kheng.info">kheng.info</a>.`, true],
+		["khmer/db/khsv-ant.slab.zst", "khsv-a-nt", 128*1024, `Audio bible new testament KHSV in c2 format. Very small, but very low quality.`, false],
+		["khmer/db/khsv-aot.slab.zst", "khsv-a-ot", 256*1024, `Audio bible old testament KHSV in c2 format. Very small, but very low quality.`, false],
 	]}
 ];
 

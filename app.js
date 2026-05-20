@@ -121,6 +121,22 @@ async function createPeakWorker(id){
 						const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
 						const url = URL.createObjectURL(blob);
 						el.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.header}.${e.data.filetype}"></audio>`;
+					}else if (e.data.filetype.toLowerCase().includes('codec2') || e.data.filetype.toLowerCase().includes('c2')) {
+						const body = e.data.body;
+						const btn = document.createElement('button');
+						btn.textContent = '▶ Play';
+						btn.addEventListener('click', function onClick() {
+							btn.disabled = true;
+							btn.textContent = 'Decoding…';
+							codec2toWav(body).then(blob => {
+								const audio = document.createElement('audio');
+								audio.controls = true;
+								audio.src = URL.createObjectURL(blob);
+								btn.replaceWith(audio);
+								audio.play();
+							});
+						}, { once: true });
+						el.appendChild(btn);
 					}else{
 						el.innerHTML += `${e.data.filetype}<br> filetype not supported`;
 					}
@@ -275,6 +291,66 @@ async function jbig2to1bpng(binaryData) {
   jbig2_free_result();
 
   return new Blob([out], { type: 'image/png' });
+}
+
+let codec2exports = null;
+let codec2memory  = null;
+let codec2LoadingPromise = null;
+
+function loadCodec2Module() {
+  if (codec2LoadingPromise) return codec2LoadingPromise;
+  codec2LoadingPromise = WebAssembly.instantiateStreaming(fetch('/codec2.wasm'), {
+    wasi_snapshot_preview1: {
+      proc_exit: (code) => { throw new Error('wasm exit ' + code); },
+    },
+    env: {
+      abort:                  () => { throw new Error('wasm abort'); },
+      __assert_fail:          () => { throw new Error('wasm assert failed'); },
+      emscripten_resize_heap: () => 0,
+    },
+  }).then(({ instance }) => {
+    codec2exports = instance.exports;
+    codec2memory  = instance.exports.memory;
+  });
+  return codec2LoadingPromise;
+}
+
+async function codec2toWav(binaryData) {
+  await loadCodec2Module();
+
+  const inputBytes = binaryData instanceof Uint8Array
+    ? binaryData
+    : new Uint8Array(typeof binaryData === 'string'
+        ? binaryData.split('').map(c => c.charCodeAt(0))
+        : binaryData);
+
+  const { malloc, free, decode_to_wav } = codec2exports;
+
+  // 700C: bpf=4, spf=320
+  const BPF = 4, SPF = 320;
+  const headerSize = (inputBytes[0] === 0xc0 && inputBytes[1] === 0xde && inputBytes[2] === 0xc2) ? 7 : 0;
+  const numFrames  = Math.floor((inputBytes.length - headerSize) / BPF);
+  const outMax     = 44 + numFrames * SPF * 2;
+
+  const inputPtr = malloc(inputBytes.length);
+  if (!inputPtr) throw new Error('codec2: malloc failed');
+  new Uint8Array(codec2memory.buffer, inputPtr, inputBytes.length).set(inputBytes);
+
+  const outPtr = malloc(outMax);
+  if (!outPtr) { free(inputPtr); throw new Error('codec2: malloc failed'); }
+
+  const written = decode_to_wav(inputPtr, inputBytes.length, outPtr, outMax);
+  free(inputPtr);
+
+  if (written < 0) {
+    free(outPtr);
+    throw new Error('codec2: decode_to_wav failed, code ' + written);
+  }
+
+  const out = new Uint8Array(codec2memory.buffer, outPtr, written).slice();
+  free(outPtr);
+
+  return new Blob([out], { type: 'audio/wav' });
 }
 
 const queryInput = document.getElementById('queryInput');

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Codec2 Player</title>
+  <style>
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 20px; text-align: center; }
+    audio { width: 100%; max-width: 500px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <h2>Codec2 Player</h2>
+  <audio id="audio" controls></audio>
+
+  <script>
+    const FILE = 'mat700.c2';
+
+    async function init() {
+      const memory = new WebAssembly.Memory({ initial: 256, maximum: 1024 });
+
+      const imports = {
+        env: {
+          memory,
+          // walloc / emscripten may import these; provide no-op stubs
+          emscripten_resize_heap: () => 0,
+          __assert_fail: () => {},
+          abort: () => { throw new Error('wasm abort'); },
+        },
+        wasi_snapshot_preview1: {
+          proc_exit: () => {},
+        },
+      };
+
+      const [{ instance }, resp] = await Promise.all([
+        WebAssembly.instantiateStreaming(fetch('codec2.wasm'), imports),
+        fetch(FILE),
+      ]);
+
+      const { decode_to_wav, malloc, free } = instance.exports;
+      // Use the wasm's own memory if it exported one, otherwise use ours
+      const mem = instance.exports.memory || memory;
+      const heap = () => new Uint8Array(mem.buffer);
+
+      const c2Bytes = new Uint8Array(await resp.arrayBuffer());
+
+      // 700C: bpf=4, spf=320
+      const BPF = 4, SPF = 320;
+      const headerSize = (c2Bytes[0] === 0xc0 && c2Bytes[1] === 0xde && c2Bytes[2] === 0xc2) ? 7 : 0;
+      const numFrames  = Math.floor((c2Bytes.length - headerSize) / BPF);
+      const outMax     = 44 + numFrames * SPF * 2;
+
+      const inPtr  = malloc(c2Bytes.length);
+      const outPtr = malloc(outMax);
+
+      heap().set(c2Bytes, inPtr);
+
+      const written = decode_to_wav(inPtr, c2Bytes.length, outPtr, outMax);
+      free(inPtr);
+
+      if (written < 0) {
+        console.error('decode_to_wav failed, code', written);
+        free(outPtr);
+        return;
+      }
+
+      // Snapshot the heap view before freeing (slice copies the bytes out)
+      const wavBytes = heap().slice(outPtr, outPtr + written);
+      free(outPtr);
+
+      document.getElementById('audio').src =
+        URL.createObjectURL(new Blob([wavBytes], { type: 'audio/wav' }));
+    }
+
+    init().catch(console.error);
+  </script>
+</body>
+</html>

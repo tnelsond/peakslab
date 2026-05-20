@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Codec2 Player</title>
+  <style>
+    body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #1a1a2e; color: #eee; }
+    button { padding: 16px 40px; font-size: 1.2rem; border-radius: 8px; border: none; background: #e94560; color: white; cursor: pointer; margin-top: 20px; }
+    button:disabled { background: #555; cursor: default; }
+    #status { margin-top: 12px; color: #aaa; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h2>Codec2 Player</h2>
+  <button id="playBtn" disabled>▶ Play</button>
+  <p id="status">Loading...</p>
+
+  <script src="codec2.js"></script>
+  <script>
+    const FILE = 'mat700.c2';
+    const SAMPLE_RATE = 8000;
+
+    let Module, fileBytes, detectedMode, headerSize;
+
+    async function init() {
+      // Load WASM
+      Module = await Codec2Module();
+
+      // Fetch the c2 file
+      const resp = await fetch(FILE);
+      if (!resp.ok) { setStatus('Failed to fetch ' + FILE); return; }
+      const buf = await resp.arrayBuffer();
+      fileBytes = new Uint8Array(buf);
+
+			// Replace the header parsing block with this:
+			if (fileBytes[0] === 0xc0 && fileBytes[1] === 0xde && fileBytes[2] === 0xc2) {
+				headerSize = 7;
+			} else {
+				headerSize = 0;
+			}
+			detectedMode = 8; // always 700C, ignore header byte
+
+      // Init codec2 with detected mode
+      const ret = Module._codec2_init(detectedMode);
+      if (ret !== 0) { setStatus('codec2_init failed (mode ' + detectedMode + ')'); return; }
+
+      const bpf = Module._get_bytes_per_frame();
+      const spf = Module._get_samples_per_frame();
+      const frames = Math.floor((fileBytes.length - headerSize) / bpf);
+      const duration = (frames * spf / SAMPLE_RATE).toFixed(1);
+
+      setStatus(`Ready — mode ${detectedMode}, ${frames} frames, ~${duration}s`);
+      document.getElementById('playBtn').disabled = false;
+    }
+
+    document.getElementById('playBtn').addEventListener('click', async () => {
+      const bytesPerFrame   = Module._get_bytes_per_frame();
+      const samplesPerFrame = Module._get_samples_per_frame();
+      const numFrames = Math.floor((fileBytes.length - headerSize) / bytesPerFrame);
+
+      const bitsPtr = Module._malloc(bytesPerFrame);
+      const pcmPtr  = Module._malloc(samplesPerFrame * 2);
+
+      const pcmFloat = new Float32Array(numFrames * samplesPerFrame);
+
+      for (let i = 0; i < numFrames; i++) {
+        const offset = headerSize + i * bytesPerFrame;
+        Module.HEAPU8.set(fileBytes.subarray(offset, offset + bytesPerFrame), bitsPtr);
+        Module._codec2_decode_frame(bitsPtr, pcmPtr);
+        const base = i * samplesPerFrame;
+        for (let s = 0; s < samplesPerFrame; s++) {
+          pcmFloat[base + s] = Module.HEAP16[(pcmPtr >> 1) + s] / 32768.0;
+        }
+      }
+
+      Module._free(bitsPtr);
+      Module._free(pcmPtr);
+
+      const ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
+      const buffer = ctx.createBuffer(1, pcmFloat.length, SAMPLE_RATE);
+      buffer.copyToChannel(pcmFloat, 0);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.start();
+      setStatus('Playing...');
+      src.onended = () => { setStatus('Done.'); ctx.close(); };
+    });
+
+    function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+    init();
+  </script>
+</body>
+</html>

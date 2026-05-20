@@ -83,8 +83,7 @@ CFLAGS_BASE = \
 		-fno-unwind-tables \
 		-DJBIG2_DEBUG=0 \
 		-fvisibility=hidden \
-		-fno-rtti \
-    -fno-exceptions      
+		-fno-rtti
 
 # LTO support
 ifeq ($(LTO),1)

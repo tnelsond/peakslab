@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Audiobook Player</title>
+  <style>
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 20px; max-width: 600px; margin: 0 auto; }
+    h2 { margin-bottom: 4px; }
+    #status { color: #aaa; font-size: 0.9em; margin-bottom: 16px; }
+    #filepicker { margin-bottom: 20px; }
+    #player { display: none; }
+    audio { width: 100%; margin: 12px 0; }
+    #chapter-title { font-size: 1.1em; margin-bottom: 4px; }
+    #chapter-count { color: #aaa; font-size: 0.85em; }
+    #chapters { margin-top: 20px; }
+    .chapter-btn { display: block; width: 100%; text-align: left; background: #16213e; border: none; color: #eee;
+                   padding: 8px 12px; margin: 4px 0; cursor: pointer; border-radius: 4px; font-size: 0.9em; }
+    .chapter-btn:hover { background: #0f3460; }
+    .chapter-btn.active { background: #0f3460; border-left: 3px solid #e94560; padding-left: 9px; }
+  </style>
+</head>
+<body>
+  <h2>Audiobook Player</h2>
+  <div id="status">Choose a .slab file to begin.</div>
+  <input id="filepicker" type="file" accept=".slab">
+  <div id="player">
+    <div id="chapter-title"></div>
+    <div id="chapter-count"></div>
+    <audio id="audio" controls></audio>
+    <div id="chapters"></div>
+  </div>
+
+  <script>
+    // ── codec2 wasm ──────────────────────────────────────────────────────────
+    let codec2exports = null;
+    let codec2memory  = null;
+    let codec2LoadingPromise = null;
+
+    function loadCodec2Module() {
+      if (codec2LoadingPromise) return codec2LoadingPromise;
+      codec2LoadingPromise = WebAssembly.instantiateStreaming(fetch('/codec2.wasm'), {
+        wasi_snapshot_preview1: { proc_exit: (code) => { throw new Error('wasm exit ' + code); } },
+        env: {
+          abort:                  () => { throw new Error('wasm abort'); },
+          __assert_fail:          () => { throw new Error('wasm assert failed'); },
+          emscripten_resize_heap: () => 0,
+        },
+      }).then(({ instance }) => {
+        codec2exports = instance.exports;
+        codec2memory  = instance.exports.memory;
+      });
+      return codec2LoadingPromise;
+    }
+
+    async function codec2toWav(binaryData) {
+      await loadCodec2Module();
+      const inputBytes = binaryData instanceof Uint8Array ? binaryData : new Uint8Array(binaryData);
+      const { malloc, free, decode_to_wav } = codec2exports;
+      const BPF = 4, SPF = 320;
+      const headerSize = (inputBytes[0] === 0xc0 && inputBytes[1] === 0xde && inputBytes[2] === 0xc2) ? 7 : 0;
+      const numFrames  = Math.floor((inputBytes.length - headerSize) / BPF);
+      const outMax     = 44 + numFrames * SPF * 2;
+      const inputPtr   = malloc(inputBytes.length);
+      const outPtr     = malloc(outMax);
+      new Uint8Array(codec2memory.buffer, inputPtr, inputBytes.length).set(inputBytes);
+      const written = decode_to_wav(inputPtr, inputBytes.length, outPtr, outMax);
+      free(inputPtr);
+      if (written < 0) { free(outPtr); throw new Error('decode_to_wav failed: ' + written); }
+      const out = new Uint8Array(codec2memory.buffer, outPtr, written).slice();
+      free(outPtr);
+      return new Blob([out], { type: 'audio/wav' });
+    }
+
+    // ── player state ─────────────────────────────────────────────────────────
+    let chapters = [];   // [{ header, body }] sorted by sort id
+    let current  = -1;
+    let currentUrl = null;
+    const audio       = document.getElementById('audio');
+    const statusEl    = document.getElementById('status');
+    const playerEl    = document.getElementById('player');
+    const titleEl     = document.getElementById('chapter-title');
+    const countEl     = document.getElementById('chapter-count');
+    const chaptersEl  = document.getElementById('chapters');
+
+    async function playChapter(idx) {
+      if (idx < 0 || idx >= chapters.length) return;
+      current = idx;
+
+      // update UI
+      titleEl.textContent  = chapters[idx].header;
+      countEl.textContent  = `Chapter ${idx + 1} of ${chapters.length}`;
+      document.querySelectorAll('.chapter-btn').forEach((b, i) =>
+        b.classList.toggle('active', i === idx));
+
+      statusEl.textContent = 'Decoding…';
+      audio.src = '';
+      if (currentUrl) { URL.revokeObjectURL(currentUrl); currentUrl = null; }
+
+      const blob   = await codec2toWav(chapters[idx].body);
+      currentUrl   = URL.createObjectURL(blob);
+      audio.src    = currentUrl;
+      statusEl.textContent = '';
+      audio.play();
+    }
+
+    audio.addEventListener('ended', () => {
+      if (current + 1 < chapters.length) playChapter(current + 1);
+      else statusEl.textContent = 'Finished.';
+    });
+
+    // ── slab loading via peakworker ──────────────────────────────────────────
+    document.getElementById('filepicker').addEventListener('change', function() {
+      const file = this.files[0];
+      if (!file) return;
+
+      chapters = [];
+      chaptersEl.innerHTML = '';
+      playerEl.style.display = 'none';
+      statusEl.textContent = 'Loading…';
+
+      const worker = new Worker('/peakworker.js');
+
+      worker.onmessage = function(e) {
+        if (e.data.type === 'loaded') {
+          worker.terminate();
+
+          if (chapters.length === 0) {
+            statusEl.textContent = 'No codec2 chapters found in this file.';
+            return;
+          }
+
+          playerEl.style.display = 'block';
+          statusEl.textContent = `${chapters.length} chapters loaded.`;
+          playChapter(0);
+        }
+        else if (e.data.type === 'result') {
+          if (e.data.filetype && e.data.filetype.toLowerCase().includes('c2')) {
+            const idx = chapters.length;
+            chapters.push({ header: e.data.header, body: e.data.body });
+            const btn = document.createElement('button');
+            btn.className = 'chapter-btn';
+            btn.textContent = e.data.header;
+            btn.addEventListener('click', () => playChapter(idx));
+            chaptersEl.appendChild(btn);
+          }
+        }
+      };
+
+      worker.postMessage({ type: 'init', wasm: null, id: 1 });
+      worker.postMessage({ type: 'load', did: 0, msg: [file.name, file.name, null, null] });
+      worker.postMessage({ type: 'setquery', query: null });
+      worker.postMessage({ type: 'initsearch', st: 3, dicts: [false] });
+      worker.postMessage({ type: 'getresults' });
+    });
+  </script>
+</body>
+</html>
