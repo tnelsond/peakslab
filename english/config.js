@@ -4,8 +4,11 @@ const tablayout = [
 		["english/db/oxforden.peak.zst", "oxford", 3*1024, `Oxford English dictionary from <a href="https://dic.1963.ru">https://dic.1963.ru</a>`]]},
 	{name: "Bible", dicts: [
 		["english/db/engULB.peak.zst", "Bible En_ULB", 8*1024, `English Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`],
-		["english/db/eng-kjv.peak.zst", "Bible KJV", 8*1024, `KJV bible from <a href="https://ebible.org">eBible</a>`],
-		["english/db/eng-bsb.peak.zst", "Bible BSB", 8*1024, `Berean Standard Bible from <a href="https://ebible.org">eBible</a>`]]},
+		["english/db/eng-kjv.peak.zst", "Bible KJV", 8*1024, `KJV bible from <a href="https://ebible.org">eBible</a>`, false],
+		["english/db/eng-bsb.peak.zst", "Bible BSB", 8*1024, `Berean Standard Bible from <a href="https://ebible.org">eBible</a>`, false],
+		["english/db/eng-nasb.peak.zst", "Bible NASB", 8*1024, `New American Standard Bible from <a href="https://beblia.com">beblia</a>`, true],
+		["english/db/eng-nkjv.peak.zst", "Bible NKJV", 8*1024, `New King James Version bible from <a href="https://beblia.com">beblia</a>`, false],
+		["english/db/eng-amp.peak.zst", "Bible AMP", 8*1024, `Amplified bible from <a href="https://beblia.com">beblia</a>`, false]]},
 	{name: "Music", dicts: [
 		["english/db/hymn-collection.slab", "hymns", 32*1024, `from <a href="https://www.music-folk-play-hymns.com/Hymn-Lead-Sheets.html">Music-Folk-Play-Hymns.com</a>`],
 		["english/db/psabradytate.peak.zst", "PsaBrady&Tate", 16*1024, `Psalter Brady & Tate from <a href="https://www.friendsofsabbath.org/cgmusic.com/workshop/index.htm">friends of sabbath</a>`],

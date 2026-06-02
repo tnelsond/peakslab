@@ -9,7 +9,7 @@ binmode STDERR, ":utf8";
 use open qw/ :std :encoding(UTF-8) /;
 
 if($#ARGV < 1){
-	print "\nUSAGE: ./script.pl file.xml booknames.tsv\n";
+	print "\nUSAGE: ./script.pl booknames.tsv file.xml\n";
 	exit();
 }
 my ($booknames, $file) = @ARGV;

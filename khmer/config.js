@@ -29,6 +29,7 @@ const tablayout = [
 		["khmer/db/gkb.peak.zst", "GKB", 32*1024, `Global Khmer Bible 2023 by Global Bible Initiative via <a href="https://beblia.com">beblia</a>`, false],
 		["khmer/db/khbiblemuslim.peak.zst", "KhMus", 32*1024, `A Khmer bible that uses the word "Allah" 2014 United Bible Societies  via <a href="https://beblia.com">beblia</a>`, false],
 		["english/db/engULB.peak.zst", "En_ULB", 8*1024, `English Unlocked Literal Bible from <a href="https://door43.org">Door43</a>, Wycliffe Associates`, true],
+		["english/db/eng-nkjv.peak.zst", "En_NKJV", 8*1024, `New King James Version from <a href="https://beblia.com">Beblia</a>.`, false],
 		["english/db/eng-kjv.peak.zst", "EnKJV", 8*1024, `King James Version <a href="https://ebible.org">eBible</a>`, false],
 	]},
 	{name: "Media", dicts: [

@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.6.0.1';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.6.0.2';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -35,7 +35,7 @@ const FILE_VERSIONS = {
 	'/nepali/db/ne-audio.slab': 'v1',
 
 	'/khmer/': 'v5',
-  '/khmer/config.js': 'v1.4',
+  '/khmer/config.js': 'v1.5',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
@@ -84,7 +84,7 @@ const FILE_VERSIONS = {
   '/lozi/db/lozi.peak.zst': 'v2',
   '/lozi/manifest.json': 'v3',
 
-  '/german/config.js': 'v2',
+  '/german/config.js': 'v3',
   '/german/': 'v2',
   '/german/db/oxford-de.peak.zst': 'v3',
   '/german/db/duden.peak.zst': 'v1',
@@ -117,7 +117,7 @@ const FILE_VERSIONS = {
   '/indonesian/db/KBBI_EN.peak.zst': 'v2',
   '/indonesian/manifest.json': 'v1',
 
-  '/english/config.js': 'v4',
+  '/english/config.js': 'v5',
   '/english/': 'v3',
   '/english/db/bibleworden.peak.zst': 'v5',
   '/english/db/hymn-collection.slab': 'v1',
@@ -126,6 +126,9 @@ const FILE_VERSIONS = {
   '/english/db/psabradytate.peak.zst': 'v1',
   '/english/db/eng-bsb.peak.zst': 'v5',
   '/english/db/eng-kjv.peak.zst': 'v5',
+  '/english/db/eng-nkjv.peak.zst': 'v1',
+  '/english/db/eng-nasb.peak.zst': 'v1',
+  '/english/db/eng-amp.peak.zst': 'v1',
   '/english/db/engULB.peak.zst': 'v8',
   '/english/db/opted.peak.zst': 'v2',
   '/english/db/oxford-a.slab': 'v1',
