@@ -18,6 +18,7 @@ self.onmessage = async (e) => {
 		wasmModuleResolve(e.data.wasm);
 	}else if(e.data.type == "load"){
 		if(!dicts[e.data.did]){
+			console.log(e.data.msg); // disable later
 			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did);
 		}
 	}else if(e.data.type == "destroy"){
@@ -148,8 +149,8 @@ class Dic{
 		this.filename = filename;
 		this.name = name;
 		this.did = did;
-		this.bufmax = bufsize;
-		this.qmax = bufsize > 1024 ? 255 : Math.floor(bufsize/3);
+		this.bufmax = bufsize + 1024;
+		this.qmax = 512;
 		this.qptr = null;
 		this.qptr2 = null;
 		this.qptrc = null;

@@ -1,4 +1,26 @@
 "use strict";
+
+/* Khmer stuff we're gonna extract out later */
+function trans_kora(sh){
+	if(sh && sh[sh.length-2]){
+		let num = sh[sh.length-2];
+		sh[sh.length-2] = `<a href="https://korapraise.com/sheet/${num}">Kora Praise ${num}</a>`;
+	}
+	return sh;
+}
+const subheader_trans = {
+	Kora : trans_kora,
+	SnL : trans_kora,
+	Purple1 : trans_kora,
+	Purple2 : trans_kora
+};
+const scope = '/khmer/';
+const lang = [
+	{name: "Khmer", val: 'km_KH'},
+	{name: "English", val: 'en_US'}
+];
+const appname = 'kh';
+
 const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
 if (meta) {
   const current = meta.getAttribute('content') || '';  // Get existing content or empty string
@@ -6,6 +28,7 @@ if (meta) {
 }
 document.getElementById("appname").textContent = appname;
 document.title += appname.toUpperCase();
+
 
 let tstart = performance.now();
 let num = 0;
@@ -179,6 +202,126 @@ async function createPeakWorker(id){
 		}
 }
 
+const filesData = await fetch('/files.json').then(r => r.json());
+const pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
+
+// Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
+const currentParts = pagePath.split('/').filter(Boolean);
+
+// 1. Files whose path includes all current page segments (primary match)
+const filteredFiles = filesData.filter(([filename]) => {
+    const fileParts = filename.split('/');
+    return currentParts.every(seg => fileParts.includes(seg));
+});
+
+// Collect which top-level groups (first segment after /db/) exist in primary files
+const primaryGroups = new Set();
+for (const [filename] of filteredFiles) {
+    const m = filename.match(/\/db\/([^/]+)\//);
+    if (m) primaryGroups.add(m[1]);
+}
+
+// Helper: extract the group (first segment after /db/)
+function fileGroup(filename) {
+    const m = filename.match(/\/db\/([^/]+)\//);
+    return m ? m[1] : 'other';
+}
+
+// Helper: get sub-path segments after /db/GROUP/ and before filename
+function fileSubPath(filename) {
+    const parts = filename.split('/');
+    const dbIdx = parts.indexOf('db');
+    return dbIdx >= 0 ? parts.slice(dbIdx + 2, -1) : [];
+}
+
+// Helper: strip extension from basename
+function fileBasename(filename) {
+    return filename.split('/').pop().replace(/(\.(peak|slab)(\.zst)?$)/, '');
+}
+
+// Helper: determine default-enabled from priority + sub-path depth
+//   priority 1 or -1 → always enabled
+//   priority 2       → only enabled at top level (no sub-folders)
+//   anything else    → disabled
+function defaultEnabled(priority, subPathLength) {
+    const p = priority ?? 1;
+    if (p === 1 || p === -1) return true;
+    if (p === 2) return subPathLength === 0;
+    return false;
+}
+
+// Helper: get a human-readable origin label for a low-priority file,
+// e.g. the top-level path part that differs from currentParts ("english", "french" …)
+function originLabel(filename) {
+    const parts = filename.split('/').filter(Boolean);
+    return parts.find(p => p !== 'db' && !currentParts.includes(p)) ?? parts[0];
+}
+
+// 2. Low-priority files (priority <= 0) from OTHER paths, only if their group
+//    already exists in the primary set.
+const lowPriorityExtras = filesData.filter(([filename, , , priority]) => {
+    if ((priority ?? 1) > 0) return false;
+    if (filteredFiles.some(f => f[0] === filename)) return false;
+    const m = filename.match(/\/db\/([^/]+)\//);
+    return m && primaryGroups.has(m[1]);
+});
+
+// 3. Build tablayout.
+// dict entry: [filename, basename, buflen, description, enabled, originLabel|null]
+// originLabel is null for primary files, a string (e.g. "english") for low-priority extras.
+// All dicts (primary + extras) live in tab.dicts so workers see them all.
+const groupMap = new Map(); // group → dict[]
+
+for (const [filename, description, buflen, priority] of filteredFiles) {
+    const group = fileGroup(filename);
+    if (!groupMap.has(group)) groupMap.set(group, []);
+    const subPath = fileSubPath(filename);
+    groupMap.get(group).push([
+        filename,
+        fileBasename(filename),
+        buflen,
+        description,
+        defaultEnabled(priority, subPath.length),
+        null   // no origin label — primary file
+    ]);
+}
+
+for (const [filename, description, buflen, priority] of lowPriorityExtras) {
+    const group = fileGroup(filename);
+    if (!groupMap.has(group)) continue;
+    const subPath = fileSubPath(filename);
+    groupMap.get(group).push([
+        filename,
+        fileBasename(filename),
+        buflen,
+        description,
+        defaultEnabled(priority, subPath.length),
+        originLabel(filename)   // e.g. "english"
+    ]);
+}
+
+// Convert to tablayout array
+const tablayout = [];
+for (const [groupName, dicts] of groupMap) {
+    tablayout.push({
+        name: groupName.charAt(0).toUpperCase() + groupName.slice(1),
+        dicts
+    });
+}
+
+tablayout.sort((a, b) => a.name.localeCompare(b.name));
+tablayout.forEach(tab => {
+    // Sort: primary files first (originLabel null), then extras grouped by label — both alphabetically
+    tab.dicts.sort((a, b) => {
+        const la = a[5] ?? '';
+        const lb = b[5] ?? '';
+        if (la !== lb) return la.localeCompare(lb); // nulls ('') sort before labels
+        return a[1].localeCompare(b[1]);
+    });
+});
+
+console.log("Generated tablayout:", tablayout);
+
 let dicts = tablayout.flatMap(table => table.dicts);
 let workers_num = dicts.length > 1 ? 2 : 1;
 let workers = [];
@@ -188,6 +331,7 @@ for(let i=1; i<=workers_num; ++i){
 let worker_code = new Array(workers.length).fill(false);
 let dict_master_code = new Array(dicts.length).fill(true);
 let dict_code = [...dict_master_code];
+
 
 let tabDictIndices = [];
 let allIndices = [];
@@ -368,15 +512,79 @@ const popupClose = document.getElementById('popupClose');
 const loadProgress = document.getElementById('loadProgress');
 loadProgress.textContent = `Loading dictionaries.`;
 
-let i = 0;
+// Insert a dict entry into a path-keyed tree node.
+// Each node: { __primary: [], __extras: Map<label,[]>, <subfolder>: node }
+function insertIntoTree(node, subPath, dict, idx) {
+	if (subPath.length === 0) {
+		const label = dict[5]; // originLabel or null
+		if (label === null || label === undefined) {
+			if (!node.__primary) node.__primary = [];
+			node.__primary.push({ dict, idx });
+		} else {
+			if (!node.__extras) node.__extras = new Map();
+			if (!node.__extras.has(label)) node.__extras.set(label, []);
+			node.__extras.get(label).push({ dict, idx });
+		}
+	} else {
+		const [head, ...rest] = subPath;
+		if (!node[head]) node[head] = {};
+		insertIntoTree(node[head], rest, dict, idx);
+	}
+}
+
+// Walk the tree and collect flat list items (headings + file rows) in display order.
+// depth is stored on each item so renderItems can apply the correct indent.
+function collectListItems(node, depth, items) {
+	// 1. Primary files at this level
+	if (node.__primary) {
+		for (const entry of node.__primary) items.push({ type: 'file', entry, depth });
+	}
+	// 2. Sub-folders — heading is shown at the child depth so it aligns with its contents
+	for (const [seg, child] of Object.entries(node)) {
+		if (seg === '__primary' || seg === '__extras') continue;
+		const childDepth = depth + 1;
+		const tag = `h${Math.min(childDepth + 1, 6)}`;
+		items.push({ type: 'heading', tag, text: seg, depth: childDepth });
+		collectListItems(child, childDepth, items);
+	}
+	// 3. Extras at this level, each under a compact origin label heading
+	if (node.__extras) {
+		for (const [label, entries] of node.__extras) {
+			const tag = `h${Math.min(depth + 2, 6)}`;
+			items.push({ type: 'heading', tag, text: label, cls: 'dictlist-extra-label', depth });
+			for (const entry of entries) items.push({ type: 'file', entry, depth });
+		}
+	}
+}
+
+function renderItems(items) {
+	let html = '';
+	for (const item of items) {
+		// depth 0 = top of group (no indent), each step adds 0.5em
+		const indent = `padding-left:${item.depth * 0.5}em`;
+		if (item.type === 'heading') {
+			const cls = item.cls ? ` class="${item.cls}"` : '';
+			html += `<li class="dictlist-heading" style="${indent}"><${item.tag}${cls}>${item.text}</${item.tag}></li>`;
+		} else {
+			const { dict, idx } = item.entry;
+			html += `<li data-id="${dict[0]}" style="${indent}"><input type="checkbox" class="fcheckbox down" data-id="${idx}" ${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+		}
+	}
+	return html;
+}
+
+let dictIndex = 0;
 let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
-tablayout.forEach((gdict, gval) =>{
-	temp += `<h3>${gdict.name}</h3>`;
-	gdict.dicts.forEach((dict, val) =>{
-		temp += `<li data-id="${dict[0]}">
-<input type="checkbox" class="fcheckbox down" data-id="${i}" ${dict[4] == true || dict[4] == undefined ? "checked" : ""} onchange="updateDictList(this)" id="${i}"><label for="${i}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
-	++i;
+tablayout.forEach((gdict) => {
+	temp += `<li class="dictlist-heading"><h3>${gdict.name}</h3></li>`;
+	const groupNode = {};
+	gdict.dicts.forEach(dict => {
+		const idx = dictIndex++;
+		insertIntoTree(groupNode, fileSubPath(dict[0]), dict, idx);
 	});
+	const items = [];
+	collectListItems(groupNode, 0, items);
+	temp += renderItems(items);
 });
 temp += `</ol></p-d>`;
 let listDiv = document.createElement('div');
@@ -629,6 +837,7 @@ function updateDictList(checkbox){
 		saveState();
 	}
 }
+window.updateDictList = updateDictList;
 
 
 function openPopupSearch(text){

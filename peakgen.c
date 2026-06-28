@@ -234,7 +234,7 @@ int readmeta(char *s, int len){
 
 
 EMSCRIPTEN_KEEPALIVE
-uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
+uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress){
 	VecU32 tagdef_idx = {0, 0, NULL};
 	VecChar tagdef = {0, 0, NULL};
 	vec_char_push(&tagdef, '\0');
@@ -290,10 +290,9 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 					for(c = entry->d_name; *c; ++c){
 						vec_char_push(&meta, *c);
 					}
-					vec_char_push(&meta, *c); // '\0'
+					vec_char_push(&meta, '\0'); // '\0'
 					continue;
 				}
-
 				for(c = entry->d_name; *c; ++c){
 					vec_char_push(&textflat, *c);
 				}
@@ -316,13 +315,10 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 			if(f){
 				int c;
 				while((c = fgetc(f)) != EOF){
-					if(c == '\n'){
-						vec_char_push(&meta, '\0');
-					}else{
-						vec_char_push(&meta, c);
-					}
+					vec_char_push(&meta, c == '\n' ? '\0' : c);
 				}
-				vec_char_push(&meta, '\0');
+				if(meta.data[meta.len-1])
+					vec_char_push(&meta, '\0');
 				fclose(f);
 			}
 			else{
@@ -396,7 +392,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 			}
 			continue;
 		}
-		if(c == ' ' && textflat2.data[textflat2.len-1] == ' '){
+		if(textflat2.len > 0 && c == ' ' && textflat2.data[textflat2.len-1] == ' '){
 			continue;
 		}
 		if(isslab){
@@ -502,6 +498,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 
 	printf("tag_idx.len: %d\n", tag_idx.len);
 
+	int longtemp = 0;
 	for(int x=0; x<peaklines.len; ++x){
 		p = peaklines.line + x;
 		vec_u32_push(&tag_idx, tag2.len/2);
@@ -522,6 +519,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 		}
 		while(*str++);
 		if(isslab){
+			int len = 0;
 			buf[path_prefix_len] = '\0'; // Reset buf length
 			strncat(buf, textflat.data + p->sfileoff, BUF_LEN - path_prefix_len);
 			FILE *f = fopen(buf, "rb");
@@ -529,11 +527,15 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 				int c;
 				while((c = fgetc(f)) != EOF){
 					vec_char_push(&textflat3, c);
+					++len;
 				}
 				fclose(f);
 			}
 			else{
 				printf("File not found!: %s\n", buf);
+			}
+			if(len > longtemp){
+				longtemp = len;
 			}
 		}
 	/*	printf("!!!%s\n", textflat3.data + temp);
@@ -541,6 +543,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 			printf("@@@%.25s\n", textflat3.data + idx2.items[i]);
 		}*/
 	}
+	longest += longtemp;
 
 	free(textflat2.data);
 	textflat2.data = NULL;
@@ -662,7 +665,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 	textflat3.max = 0;
 	textflat3.data = NULL;
 
-	if(compress){
+	if(compress && wantcompress){
 		printf("COMPRESSING\n");
 		size_t const cBound = ZSTD_compressBound(gsize);
     uint8_t *comp = malloc(cBound);
@@ -844,6 +847,7 @@ int main(int argc, char **argv) {
 		fwrite(desc.data, 1, desc.len, out);
 		time_t t = time(NULL);
 		fprintf(out, "\n#t\t%ld\n", (long) t);
+		fprintf(out, "#b\t%d\n", longest);
 		fclose(out);
 	}
 

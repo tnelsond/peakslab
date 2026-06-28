@@ -42,6 +42,10 @@ body.dark-mode {
     --mark-fg: #fff;
     --control-btn-bg: #890;
 }
+.dictlist-heading {
+    list-style: none;
+    counter-increment: none;
+}
 a, p-a {
 		color: var(--link);
 		text-decoration: underline;
@@ -136,6 +140,29 @@ body {
 	margin-bottom: .3em;
 	padding: 3px 3px 3px 10px;
 	border-radius: 5px;
+}
+/* Sub-level headings — indent is applied inline on the <li> by depth */
+.dictlist h4 { font-size: 0.95em; color: var(--color1); margin: 0.4em 0 0.2em; }
+.dictlist h5 { font-size: 0.90em; color: var(--color1); margin: 0.4em 0 0.2em; }
+.dictlist h6 { font-size: 0.85em; color: var(--color1); margin: 0.4em 0 0.2em; }
+/* Extra-origin label (e.g. "english"): compact, with a line extending to the right */
+.dictlist-extra-label {
+	display: flex;
+	align-items: center;
+	counter-increment: none;
+	gap: 0.5em;
+	font-size: 0.75em;
+	font-weight: normal;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--maintext);
+	opacity: 0.6;
+	margin: 0.5em 0 0.15em;
+}
+.dictlist-extra-label::after {
+	content: '';
+	flex: 1;
+	border-top: 1px solid currentColor;
 }
 
 input[type="checkbox"]{
@@ -633,12 +660,12 @@ p-d h1, p-d h2, p-d h3 {
 }
 p-h{
 	background: var(--tab-bg);
-	display: block;
+	display: flex;
 	float: right;
 	margin: 0;
-	padding: 4px;
-	border-radius: 3px;
-	font-size: var(--font-size)*0.8;
+	padding: 3px;
+	border-radius: 5px;
+	font-size: 13;
 	user-select: none; /* For most browsers */
 	-webkit-user-select: none; /* For Safari */
 	-moz-user-select: none; /* For Firefox */

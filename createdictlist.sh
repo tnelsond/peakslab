@@ -14,6 +14,7 @@ while IFS= read -r -d '' metafile; do
     priority=""
     file=""
     timestamp=""
+		buflen=""
 
     while IFS= read -r line || [ -n "$line" ]; do
         line="${line%$'\r'}"  # strip Windows \r if present
@@ -22,6 +23,7 @@ while IFS= read -r -d '' metafile; do
             "#p"*)  priority="${line:3}"  ;;
             "#f"*)  file="${line:3}"      ;;
             "#t"*)  timestamp="${line:3}" ;;
+            "#b"*)  buflen="${line:3}" ;;
         esac
     done < "$metafile"
 
@@ -31,7 +33,7 @@ while IFS= read -r -d '' metafile; do
 
     [ "$FIRST" -eq 1 ] && FIRST=0 || printf ",\n" >> "$OUT"
 
-    printf '  ["%s", "%s", %s, %s]' "$file" "$desc" "$priority" "$timestamp" >> "$OUT"
+    printf '  ["%s", "%s", %s, %s, %s]' "$file" "$desc" "$buflen" "$priority" "$timestamp" >> "$OUT"
 
 done < <(find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z)
 
