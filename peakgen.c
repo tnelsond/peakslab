@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
+#include <errno.h>
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -30,6 +32,11 @@ typedef struct {
     uint32_t len, max;
     char *data;
 } VecChar;
+
+int longest = 0;
+int compress = 1;
+int nosort = 0;
+VecChar desc = {0, 0, NULL};
 
 typedef struct {
 	uint32_t stroff;
@@ -163,6 +170,69 @@ uint32_t peakslab_getsize(){
 	return gsize;
 }
 
+int readmeta(char *s, int len){
+	int beg = 1;
+	int skip = 0;
+	while(skip < len){
+		if(beg){
+			if(s[skip] == '#'){
+				if(!ps_cmpe(s+skip, "#no sort")){
+					printf("NO SORT enabled.\n");
+					nosort = 1;
+				}
+				else if(!ps_cmpe(s+skip, "#no compress")){
+					printf("NO COMPRESS enabled.\n");
+					compress = 0;
+				}
+				else if(!ps_cmpe(s+skip, "#desc")){
+					printf("##DESC: %s\n", s+skip);
+					vec_char_push(&desc, '#');
+					vec_char_push(&desc, 'd');
+					vec_char_push(&desc, '\t');
+					skip += 6;
+					while(s[skip] && skip < len){
+						vec_char_push(&desc, s[skip]);
+						++skip;
+					}
+					if(s[skip] > len)
+						break;
+					vec_char_push(&desc, '\n');
+					beg = 1;
+					++skip;
+					continue;
+				}
+				else if(!ps_cmpe(s+skip, "#priority")){
+					printf("##PRIORITY: %s\n", s+skip);
+					skip += 10;
+					vec_char_push(&desc, '#');
+					vec_char_push(&desc, 'p');
+					vec_char_push(&desc, '\t');
+					while(s[skip] && skip < len){
+						vec_char_push(&desc, s[skip]);
+						++skip;
+					}
+					if(skip > len)
+						break;
+					vec_char_push(&desc, '\n');
+					beg = 1;
+					++skip;
+					continue;
+				}
+			}else{
+				break;
+			}
+			beg = 0;
+		}else{
+			if(!s[skip]){
+				beg = 1;
+			}
+		}
+		++skip;
+	}
+	return skip;
+}
+
+
 EMSCRIPTEN_KEEPALIVE
 uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 	VecU32 tagdef_idx = {0, 0, NULL};
@@ -194,6 +264,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 
 	int isslab = path != NULL;
 	VecChar textflat = {len, len, src};
+	VecChar meta = {0, 0, NULL};
 	if (isslab) {
 		//printf("Files found:\n");
 		DIR *dir = opendir(path);
@@ -205,11 +276,24 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 		struct dirent *entry;
 
 		while ((entry = readdir(dir)) != NULL) {
-				// Skip . and ..
-				if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-						continue;
-
 				char *c;
+				// Skip . and ..
+				if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+						continue;
+				if(endswith(entry->d_name, ".meta") && !meta.len){
+					for(c = path; *c; ++c){
+						vec_char_push(&meta, *c);
+					}
+					if(meta.data[meta.len-1] != '/'){
+						vec_char_push(&meta, '/');
+					}
+					for(c = entry->d_name; *c; ++c){
+						vec_char_push(&meta, *c);
+					}
+					vec_char_push(&meta, *c); // '\0'
+					continue;
+				}
+
 				for(c = entry->d_name; *c; ++c){
 					vec_char_push(&textflat, *c);
 				}
@@ -222,7 +306,29 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 		for(i=0; path[i]; ++i){
 			buf[i] = path[i];
 		}
+		if(buf[i] != '/'){
+			buf[i++] = '/';
+		}
 		path_prefix_len = i;
+		if(meta.len){
+			FILE *f = fopen(meta.data, "rb");
+			meta.len = 0;
+			if(f){
+				int c;
+				while((c = fgetc(f)) != EOF){
+					if(c == '\n'){
+						vec_char_push(&meta, '\0');
+					}else{
+						vec_char_push(&meta, c);
+					}
+				}
+				vec_char_push(&meta, '\0');
+				fclose(f);
+			}
+			else{
+				printf("File not found!: %s\n", buf);
+			}
+		}
 	}
 		
 	VecPeakline peaklines = {0, 0, NULL};
@@ -245,31 +351,17 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 	p->idx3start = 0;
 
 	int skip = 0;
-	int nosort = 0;
-	int beg = 1;
-	while(skip < len){
-		if(beg){
-			if(textflat.data[skip] == '#'){
-				if(!ps_cmpe(textflat.data+skip, "#no sort")){
-					printf("NO SORT enabled.\n");
-					nosort = 1;
-				}
-			}else{
-				break;
-			}
-			beg = 0;
-		}else{
-			if(!textflat.data[skip]){
-				beg = 1;
-			}
-		}
-		++skip;
+	if(meta.len){
+		readmeta(meta.data, meta.len);
+	}else{
+		skip = readmeta(textflat.data, textflat.len);
 	}
 
 	if(nosort){
 		vec_u32_push(&idx2, 0); // First second index item
 	}
 
+	size_t cstart = skip;
 	for(int a = skip; a < textflat.len; ++a){
 		uint8_t c = textflat.data[a];
 		if(!c || (c == '\n' && !isslab)){
@@ -277,6 +369,11 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 				textflat2.data[lastperiod] = '\t'; // Separate the extension from the name
 				lastperiod = -1;
 			}
+			int clen = a - cstart;
+			if(clen > longest){
+				longest = clen;
+			}
+			cstart = a;
 			vec_char_push(&textflat2, '\0'); // null delimited strings
 			taggap = 0;
 			upper = 0;
@@ -592,47 +689,163 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int compress){
 	return uncomp;
 }
 
+int createpath(const char *path) {
+    char temp[1024];
+    strcpy(temp, path);
+    
+    if (temp[strlen(temp) - 1] == '/') {
+        temp[strlen(temp) - 1] = '\0';
+    }
+    
+    for (char *pos = temp + 1; *pos; pos++) {
+        if (*pos == '/') {
+            *pos = '\0';
+            if (mkdir(temp, 0755) == -1 && errno != EEXIST) {
+                return -1;  // Error creating directory
+            }
+            *pos = '/';
+        }
+    }
+    
+    if (mkdir(temp, 0755) == -1 && errno != EEXIST) {
+        return -1;
+    }
+    
+    return 0;
+}
+
+int setoutpath(char *src, char *buf, int buflen, char *suba, char *subb, char *ext){
+	int adjacent = 0;
+	int start = 0;
+	int srclen = strlen(src);
+	int subalen = strlen(suba);
+	char *subloc = sz_rfind(src, srclen, suba, subalen); 
+	if(subloc){
+		start = subloc - src;
+	}else{
+		adjacent = 1;
+	}
+	int i = 0;
+	while(i<start && i < buflen){
+		buf[i] = src[i];
+		++i;
+	}
+	if(!adjacent){
+		for(int j=0; subb[j] && (i < buflen); ++j){
+			buf[i++] = subb[j];
+		}
+		start += strlen(suba);
+	}
+	for(int j=0; i < buflen; ++j){
+		buf[i++] = src[start + j];
+		if(src[start + j] == '.' || !src[start+j]){
+			--i;
+			break;
+		}
+	}
+	int j = 0;
+	if(ext[j] && ext[j] == '.' && i > 3){
+		if(buf[i-1] == '/'){
+			--i;
+		}
+	}
+	while(i < buflen && (buf[i++] = ext[j++])){
+	}
+	return i;
+}
+
 int main(int argc, char **argv) {
-	if (argc != 3) {
-			fprintf(stderr, "Usage: peakgen input.tsv output.peak\n\tpeakgen dir/ output.slab\n");
+	if (argc < 2) {
+			fprintf(stderr, "Usage: peakgen input.tsv\n\tpeakgen dir/\n");
 			return 1;
 	}
-	const char *path = argv[1];
-	struct stat st;
-	uint8_t *data = NULL;
-	int compress = endswith(argv[2], ".zst");
-	if (stat(path, &st) != 0) {
-			perror("stat failed");
-			fprintf(stderr, "Cannot access: %s\n", path);
-			return 1;
-	}
-	if(S_ISDIR(st.st_mode)){
-		data = peakslab_gen(NULL, 0, path, compress);
-	}
-  else if (S_ISREG(st.st_mode)) {
-		FILE *f = fopen(argv[1], "r");
-		if (!f) { perror("open input"); return 1; }
-		
-		int c;
-		VecChar raw_tsv = {0, 0, NULL};
-		while((c = fgetc(f)) != EOF){
-			if(c == '\n'){
-				vec_char_push(&raw_tsv, '\0');
-				continue;
+
+	for(int carg = 1; carg < argc; ++carg){
+		longest = 0;
+		compress = 1;
+		nosort = 0;
+		desc.len = 0;
+
+		const char *path = argv[carg];
+		struct stat st;
+		uint8_t *data = NULL;
+		int slab = 0;
+		if (stat(path, &st) != 0) {
+				perror("stat failed");
+				fprintf(stderr, "Cannot access: %s\n", path);
+				return 1;
+		}
+		if(S_ISDIR(st.st_mode)){
+			data = peakslab_gen(NULL, 0, path, compress);
+			slab = 1;
+		}
+		else if (S_ISREG(st.st_mode)) {
+			FILE *f = fopen(argv[carg], "r");
+			if (!f) { perror("open input"); return 1; }
+			
+			int c;
+			VecChar raw_tsv = {0, 0, NULL};
+			while((c = fgetc(f)) != EOF){
+				if(c == '\n'){
+					vec_char_push(&raw_tsv, '\0');
+					continue;
+				}
+				vec_char_push(&raw_tsv, c);
 			}
-			vec_char_push(&raw_tsv, c);
+
+			fclose(f);
+			data = peakslab_gen(raw_tsv.data, raw_tsv.len, NULL, compress);
+			free(raw_tsv.data);
 		}
 
-		fclose(f);
-		data = peakslab_gen(raw_tsv.data, raw_tsv.len, NULL, compress);
-		free(raw_tsv.data);
-	}
+		char outpath[1024];
+		char *fileext = slab ?
+			(compress ? ".slab.zst" : ".slab") :
+			(compress ? ".peak.zst" : ".peak");
+		int outpathlen = setoutpath(argv[carg], outpath, 1024, "/src/", "/db/", fileext);
 
-	FILE *out = fopen(argv[2], "wb");
-	size_t len = peakslab_getsize();
-	fwrite(data, 1, len, out);
-	free(data);
-	fclose(out);
+		char *temp = sz_rfind(outpath, outpathlen, "/", 1);
+		if(temp){
+			*temp = '\0';
+			createpath(outpath);
+			*temp = '/';
+			++temp;
+		}
+		FILE *out = fopen(outpath, "wb");
+		if(!out){ perror("fopen output"); return 1; }
+		vec_char_push(&desc, '#');
+		vec_char_push(&desc, 'f');
+		vec_char_push(&desc, '\t');
+		for(int i=0; outpath[i]; ++i){
+			vec_char_push(&desc, outpath[i]);
+		}
+
+		size_t len = peakslab_getsize();
+		fwrite(data, 1, len, out);
+		free(data);
+		fclose(out);
+
+		// Write metadata file
+		if(desc.len){
+			printf("\nDescription: %.*s\n", desc.len, desc.data);
+		}
+		setoutpath(argv[0], outpath, 1024, "/peakgen", "/meta/", argv[carg]);
+		outpathlen = setoutpath(outpath, outpath, 1024, "/src/", "/", ".meta");
+		printf("%s\n", outpath);
+		temp = sz_rfind(outpath, outpathlen, "/", 1);
+		if(temp){
+			*temp = '\0';
+			createpath(outpath);
+			*temp = '/';
+			++temp;
+		}
+		out = fopen(outpath, "wb");
+		if(!out){ perror("fopen meta"); return 1; }
+		fwrite(desc.data, 1, desc.len, out);
+		time_t t = time(NULL);
+		fprintf(out, "\n#t\t%ld\n", (long) t);
+		fclose(out);
+	}
 
 	return 0;
 }

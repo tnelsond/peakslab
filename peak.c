@@ -602,10 +602,12 @@ int get_result(int skip){
 				end = (uint8_t*)(g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, tline+1, ps_h->bline_idx));
 				len = end - start;
 			}
-			if(g_result_max < len)
-				len =  g_result_max;
 			if(match){
-				memcpy(g_result_loc, start, len);
+				int ret = p_render(g_result_loc, g_result_max, tline);
+				if(g_result_max-ret < len)
+					len = g_result_max-ret;
+				start = (uint8_t*)sz_find_byte((const char *)start, len, "\0");
+				memcpy(g_result_loc+ret, start, len);
 				return len;
 			}
 		}
