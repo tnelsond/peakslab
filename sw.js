@@ -1,8 +1,9 @@
-const CURRENT_CACHE = 'peakslab-0.6.0.8';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.6.0.9';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
   '/': 'v8.0',
+  '/404.html': 'v1.0',
   '/app.js': 'v12.4.7',
   '/peakworker.js': 'v9.0.2',
   '/peak.wasm': 'v1.5',
@@ -140,7 +141,6 @@ const FILE_VERSIONS = {
   '/english/manifest.json': 'v3',
 
   '/chitonga/config.js': 'v1',
-  '/chitonga/': 'v3',
   '/chitonga/db/tnouns.peak.zst': 'v2',
   '/chitonga/db/toibible.peak.zst': 'v4',
   '/chitonga/db/tother.peak.zst': 'v2',
