@@ -1,11 +1,11 @@
-const CURRENT_CACHE = 'peakslab-0.6.0.2';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.6.0.8';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
   '/': 'v8.0',
   '/app.js': 'v12.4.7',
   '/peakworker.js': 'v9.0.2',
-  '/peak.wasm': 'v1.3',
+  '/peak.wasm': 'v1.5',
   '/peakslab.svg': 'v1',
   '/peak32x32.png': 'v1',
   '/peak192x192.png': 'v1',
@@ -14,7 +14,7 @@ const FILE_VERSIONS = {
   '/peakgen.wasm': 'v4',
   '/peakgen.html': 'v1',
   '/peakgen.js': 'v2',
-	'/jbig2.wasm': 'v4',
+	'/jbig2.wasm': 'v6',
 	'/codec2.wasm': 'v1',
 
 	'/levantine/': 'v1',
@@ -35,7 +35,7 @@ const FILE_VERSIONS = {
 	'/nepali/db/ne-audio.slab': 'v1',
 
 	'/khmer/': 'v5',
-  '/khmer/config.js': 'v1.5',
+  '/khmer/config.js': 'v1.7',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
@@ -56,12 +56,15 @@ const FILE_VERSIONS = {
   '/khmer/db/seacount.peak.zst': 'v2',
   '/khmer/db/sonv3.peak.zst': 'v2',
   '/khmer/db/media.slab.zst': 'v1',
-  '/khmer/db/kora.slab': 'v3',
+  '/khmer/db/kora-pb1.slab': 'v3',
+  '/khmer/db/kora-pb2.slab': 'v3',
+  '/khmer/db/kora-misc.slab': 'v3',
+  '/khmer/db/kora-snl.slab': 'v3',
   '/khmer/db/khsv-ant.slab.zst': 'v1',
   '/khmer/db/khsv-aot.slab.zst': 'v1',
   '/khmer/manifest.json': 'v4',
 
-  '/khmermusic/config.js': 'v4',
+  '/khmermusic/config.js': 'v8',
   '/khmermusic/': 'v2',
   '/khmermusic/manifest.json': 'v2',
 

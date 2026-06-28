@@ -12,7 +12,10 @@ const tablayout = [
 	]},
 	{name: "♫", dicts: [
 		["khmer/db/hymns7.peak.zst", "Hymn", 32*1024, `<a href="https://www.khmerworship.com/">Khmer Worship</a>`, true],
-		["khmer/db/kora.slab", "Kora", 64*1024, `<a href="https://www.korapraise.com/">Kora Praise</a>`, false],
+		["khmer/db/kora-pb1.slab", "Purple1", 64*1024, `First half of the purple book <a href="https://www.korapraise.com/">Kora Praise</a>`, false],
+		["khmer/db/kora-pb2.slab", "Purple2", 64*1024, `Second half of the purple book <a href="https://www.korapraise.com/">Kora Praise</a>`, true],
+		["khmer/db/kora-snl.slab", "SnL", 64*1024, `Other songs from <a href="https://www.korapraise.com/">Kora Praise</a>`, false],
+		["khmer/db/kora-misc.slab", "Kora", 64*1024, `Other songs from <a href="https://www.korapraise.com/">Kora Praise</a>`, false],
 	]},
 	{name: "Bible Dicts", dicts: [
 		["khmer/db/bible.peak.zst", "Bible", 16*1024, "From my khsv bible and a blue bible dictionary.", true],
@@ -48,7 +51,10 @@ function trans_kora(sh){
 }
 
 const subheader_trans = {
-	Kora : trans_kora
+	Kora : trans_kora,
+	SnL : trans_kora,
+	Purple1 : trans_kora,
+	Purple2 : trans_kora
 };
 
 const scope = '/khmer/';
