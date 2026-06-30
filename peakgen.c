@@ -398,6 +398,19 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 		if(isslab){
 			if(c == '.'){
 				lastperiod = textflat2.len;
+			}else if(c == '%'){ // Put the percent codes in	
+				if(a + 3 < textflat.len){
+					int te = textflat.data[a+3];
+					textflat.data[a+3] = '\0';
+					c = (char) strtol(textflat.data + a + 1, NULL, 16);
+					if(c){
+						printf("c: %c, SUBSTITUTE!\n", (char) c);
+						a += 2;
+					}else{
+						c = '%';
+					}
+					textflat.data[a+1] = te;
+				}
 			}else if(c == '|'){
 				c = '\t';
 			}

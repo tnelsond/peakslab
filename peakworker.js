@@ -233,22 +233,22 @@ class Dic{
 		return this.rlen;
 	}
 	getStr(){
-		if(!this.rlen)
+		if(this.rlen <= 0)
 			return null;
 		return this.module.UTF8ToString(this.rptr, this.rlen);
 	}
 	getBodyStr(){
-		if(!this.rlen)
+		if(this.rlen <= 0)
 			return null;
 		if (this._tabPos === -1)
 			this._computeTabPos();
-		if (this._tabPos === -1)
+		if (this._tabPos === -1 || this._tabPos >= this.rlen)
 			return null;
 		return this.module.UTF8ToString(this.rptr + this._tabPos+1, this.rlen - this._tabPos-1);
 	}
 	_computeTabPos() {
 		const arr = new Uint8Array(this.module.HEAPU8.buffer, this.rptr, this.rlen);
-		this._tabPos = arr.indexOf(this.slab ? 0 : 9);           // 9 = ASCII/UTF-8 for '\t'
+		this._tabPos = arr.indexOf(this.slab ? 0 : 9); // 9 = ASCII/UTF-8 for '\t'
 		if (this._tabPos === -1)
 			this._tabPos = this.rlen;              // no tab → headword = whole buffer
 	}
@@ -260,11 +260,11 @@ class Dic{
 		return this.module.UTF8ToString(this.rptr, this._tabPos).trim(); // The trimming should be done in the wasm instead, but this is a workaround for now
 	}
 	getBytes(){
-		if(!this.rlen)
+		if(this.rlen <= 0)
 			return null;
 		if (this._tabPos === -1)
 			this._computeTabPos();
-		if (this._tabPos === -1)
+		if (this._tabPos === -1 || this._tabPos >= this.rlen)
 			return null;
 		return new Uint8Array(this.module.HEAPU8.buffer, this.rptr + this._tabPos+1, this.rlen - this._tabPos-1);
 	}

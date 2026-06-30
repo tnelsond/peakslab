@@ -604,12 +604,13 @@ int get_result(int skip){
 			}
 			if(match){
 				int ret = p_render(g_result_loc, g_result_max, tline);
-				if(g_result_max-ret < len)
+				if(len > g_result_max-ret)
 					len = g_result_max-ret;
 				start = (uint8_t*)sz_find_byte((const char *)start, len, "\0");
 				memcpy(g_result_loc+ret, start, len);
-				return len;
+				return len + ret;
 			}
+			return -1;
 		}
 		uint8_t* match = NULL;
 		if(psa->st != FULL){
