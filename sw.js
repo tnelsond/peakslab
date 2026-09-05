@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'peakslab-0.6.1.0';   // ← Bump this on every deploy!
+const CURRENT_CACHE = 'peakslab-0.6.1.1';   // ← Bump this on every deploy!
 const OLD_CACHE = 'peakslab-old';
 
 const FILE_VERSIONS = {
@@ -36,7 +36,7 @@ const FILE_VERSIONS = {
 	'/nepali/db/ne-audio.slab': 'v1',
 
 	'/khmer/': 'v5',
-  '/khmer/config.js': 'v1.8',
+  '/khmer/config.js': 'v1.9',
   '/khmer/db/ant.peak.zst': 'v3',
   '/khmer/db/baby.peak.zst': 'v4',
   '/khmer/db/bible.peak.zst': 'v2',
@@ -51,6 +51,8 @@ const FILE_VERSIONS = {
   '/khmer/db/khbiblemuslim.peak.zst': 'v1',
   '/khmer/db/khov2016.peak.zst': 'v1',
   '/khmer/db/khsv.peak.zst': 'v3',
+  '/khmer/db/khwiki.peak.zst': 'v1',
+  '/khmer/db/khmerwiktionary.peak.zst': 'v1',
   '/khmer/db/khov.peak.zst': 'v3',
   '/khmer/db/nath2022_8.peak.zst': 'v2',
   '/khmer/db/plantdict.peak.zst': 'v2',
@@ -76,6 +78,8 @@ const FILE_VERSIONS = {
   '/lao/db/kerr4.peak.zst': 'v2',
   '/lao/db/laobibleword.peak.zst': 'v3',
   '/lao/db/laotech.peak.zst': 'v2',
+  '/lao/db/lowiki.peak.zst': 'v1',
+  '/lao/db/lowiktionary.peak.zst': 'v1',
   '/lao/db/lo_ulb.peak.zst': 'v4',
   '/lao/db/lao2012bible.peak.zst': 'v1',
   '/lao/db/laoLCVbible.peak.zst': 'v1',

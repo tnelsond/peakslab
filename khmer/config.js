@@ -2,13 +2,17 @@ const tablayout = [
 	{name: "Dict", dicts: [
 		["khmer/db/sonv3.peak.zst", "En→Km", 32*1024, `From <a href="https://play.google.com/store/apps/details?id=com.sonveasna.dictionary&hl=en">English Khmer Dictionary</a> by DroidSVS`, true],
 		["khmer/db/khmer92_h97.peak.zst", "Km→En", 32*1024, `<em>Cambodian-English Dictionary</em> by Robert K. Headley, Rath Chim, and Ok Soeum <em>(1997, Dunwoody Press, ISBN 0-931745-78-0)</em> via <a href="https://sealang.net/khmer/dictionary.htm">Sealang</a>.`, true],
+		["khmer/db/khmerwiktionary.peak.zst", "KmWikt", 8*1024, `Khmer Wiktionary.`, true],
 		["khmer/db/baby.peak.zst", "Baby", 4*1024, `Tovnah.com (URL stopped working)`, false],
 		["khmer/db/plantdict.peak.zst", "Plants", 3*1024, `<a href="https://www.plantsdictionarykh.com/">PlantsDictionaryKh.com</a>`, true],
 		["khmer/db/ant.peak.zst", "ANT", 32*1024, `<a href="https://antkh.com/">antkh.com</a>`, false],
 		["khmer/db/nath2022_8.peak.zst", "Km→Km", 32*1024, `2022 version of the <a href="https://play.google.com/store/apps/details?id=com.optimiskh.chuonnathdictionary&hl=en-US">Chuon Nath Digital Dictionary</a>.`, true],
 		["khmer/db/seacount.peak.zst", "Count", 1*1024, `via <a href="https://sealang.net/khmer/dictionary.htm">Sealang</a>.`, false],
 		["khmer/db/cambogeo.peak.zst", "Geo", 16*1024, `Village names.`, true],
+	]},
+	{name: "Ref", dicts: [
 		["khmer/db/choukprov.peak.zst", "Proverbs", 8*1024, `Proverbs from <a href="https://choukhmer.wordpress.com/literature/descriptive-proverbs-kar/">Chouk Khmer</a>.`, true],
+		["khmer/db/kmwiki.peak.zst", "Wikipedia", 30*1024, `Khmer Wikipedia.`, false],
 	]},
 	{name: "♫", dicts: [
 		["khmer/db/hymns7.peak.zst", "Hymn", 32*1024, `<a href="https://www.khmerworship.com/">Khmer Worship</a>`, true],
