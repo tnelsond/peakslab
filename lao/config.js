@@ -8,8 +8,8 @@ const tablayout = [
 		["lao/db/laotech.peak.zst", "IT", 8*1024, `IT dictionary from`],
 		["lao/db/lowiktionary.peak.zst", "Lowikt", 8*1024, `Lao Wiktionary`],
 	]},
-	{name: "Ref", dicts: [
-		["lao/db/lowiki.peak.zst", "Lowiki", 16*1024, `Lao Wikipedia`],
+	{name: "Music", dicts: [
+		["lao/db/mekong.peak.zst", "Mekong", 16*1024, `Lao Songbook from <a href="https://www.mekongchristian.com/laosongs/laoHymn">mekongchristian.com</a>`],
 	]},
 	{name: "Bible", dicts: [
 		["lao/db/lo_ulb.peak.zst", "laoULB", 32*1024, `Lao Unlocked Literal Bible from <a href="https://bibleineverylanguage.org/resources/languages/lo">Bible in every language</a>.`, false],
@@ -21,6 +21,9 @@ const tablayout = [
 	{name: "Bible Notes", dicts: [
 		["lao/db/laobibleword.peak.zst", "bibletran_lao", 32*1024, `Lao Bible translation words from <a href="https://bibleineverylanguage.org/resources/languages/lo?resource-type=tw">Bible in every language</a>.`],
 		["english/db/bibleworden.peak.zst", "bibletran_en", 32*1024, `English Bible translation words from <a href="https://bibleineverylanguage.org/resources/languages/lo?resource-type=tw">Bible in every language</a>.`],
+	]},
+	{name: "Ref", dicts: [
+		["lao/db/lowiki.peak.zst", "Lowiki", 16*1024, `Lao Wikipedia`],
 	]}
 ];
 
