@@ -1,26 +1,6 @@
 "use strict";
 
-/* Khmer stuff we're gonna extract out later */
-function trans_kora(sh){
-	if(sh && sh[sh.length-2]){
-		let num = sh[sh.length-2];
-		sh[sh.length-2] = `<a href="https://korapraise.com/sheet/${num}">Kora Praise ${num}</a>`;
-	}
-	return sh;
-}
-const subheader_trans = {
-	Kora : trans_kora,
-	SnL : trans_kora,
-	Purple1 : trans_kora,
-	Purple2 : trans_kora
-};
-const scope = '/khmer/';
-const lang = [
-	{name: "Khmer", val: 'km_KH'},
-	{name: "English", val: 'en_US'}
-];
-const appname = 'kh';
-
+let appname = "?";
 const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
 if (meta) {
   const current = meta.getAttribute('content') || '';  // Get existing content or empty string
@@ -125,10 +105,6 @@ async function createPeakWorker(id){
 				if(e.data.filetype){
 					if(e.data.subheader){
 						let sh = e.data.subheader;	
-						if (typeof subheader_trans !== 'undefined' 
-								&& typeof subheader_trans[e.data.dict] === 'function') {
-								sh = subheader_trans[e.data.dict](sh);
-						}
 						el.innerHTML += `<p-n>${sh.join(",<br>")}</p-n>`;
 					}
 					if (e.data.filetype.toLowerCase().includes('webp')) {
@@ -202,11 +178,36 @@ async function createPeakWorker(id){
 		}
 }
 
-const filesData = await fetch('/files.json').then(r => r.json());
+const filesJson = await fetch('/files.json').then(r => r.json());
+// Support both legacy array format and new { files, abbr } object
+const filesData = Array.isArray(filesJson) ? filesJson : (filesJson.files || []);
+const abbr = Array.isArray(filesJson) ? {} : (filesJson.abbr || filesJson.abbreviations || {});
 const pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
 
 // Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
 const currentParts = pagePath.split('/').filter(Boolean);
+
+// Build appname from symbolic abbreviations of path segments
+// e.g. khmer → ខ , khmer/music → ខ𝄞
+// Each abbr entry is [romanized, symbolic]; fall back to romanized then to the segment itself.
+(function setAppNameFromPath() {
+	const parts = currentParts.length ? currentParts : ['?'];
+	appname = parts.map(seg => {
+		const entry = abbr[seg];
+		if (Array.isArray(entry) && entry.length >= 2) return entry[1]; // symbolic
+		if (Array.isArray(entry) && entry.length >= 1) return entry[0]; // romanized
+		if (typeof entry === 'string') return entry;
+		return seg;
+	}).join('');
+	const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+	if (meta) {
+		const current = meta.getAttribute('content') || '';
+		meta.setAttribute('content', current + appname);
+	}
+	const el = document.getElementById("appname");
+	if (el) el.textContent = appname;
+	document.title = (document.title || '') + appname;
+})();
 
 // 1. Files whose path includes all current page segments (primary match)
 const filteredFiles = filesData.filter(([filename]) => {
@@ -214,24 +215,16 @@ const filteredFiles = filesData.filter(([filename]) => {
     return currentParts.every(seg => fileParts.includes(seg));
 });
 
-// Collect which top-level groups (first segment after /db/) exist in primary files
-const primaryGroups = new Set();
-for (const [filename] of filteredFiles) {
-    const m = filename.match(/\/db\/([^/]+)\//);
-    if (m) primaryGroups.add(m[1]);
-}
-
 // Helper: extract the group (first segment after /db/)
 function fileGroup(filename) {
-    const m = filename.match(/\/db\/([^/]+)\//);
+    const m = filename.match(/^([^/]+)\//);
     return m ? m[1] : 'other';
 }
+const primaryGroups = new Set(filteredFiles.map(([filename]) => fileGroup(filename)));
 
-// Helper: get sub-path segments after /db/GROUP/ and before filename
+// Helper: get sub-path segments between GROUP/ and the filename
 function fileSubPath(filename) {
-    const parts = filename.split('/');
-    const dbIdx = parts.indexOf('db');
-    return dbIdx >= 0 ? parts.slice(dbIdx + 2, -1) : [];
+    return filename.split('/').slice(1, -1);
 }
 
 // Helper: strip extension from basename
@@ -557,17 +550,17 @@ function collectListItems(node, depth, items) {
 	}
 }
 
+let dnum = 0;
 function renderItems(items) {
 	let html = '';
 	for (const item of items) {
-		// depth 0 = top of group (no indent), each step adds 0.5em
-		const indent = `padding-left:${item.depth * 0.5}em`;
 		if (item.type === 'heading') {
 			const cls = item.cls ? ` class="${item.cls}"` : '';
-			html += `<li class="dictlist-heading" style="${indent}"><${item.tag}${cls}>${item.text}</${item.tag}></li>`;
+			html += `<li><${item.tag}${cls}>${item.text}</${item.tag}></li>`;
 		} else {
+			++dnum;
 			const { dict, idx } = item.entry;
-			html += `<li data-id="${dict[0]}" style="${indent}"><input type="checkbox" class="fcheckbox down" data-id="${idx}" ${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+			html += `<li data-id="${dict[0]}">${dnum}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
 		}
 	}
 	return html;

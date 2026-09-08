@@ -1,0 +1,22 @@
+{
+  "khmer": ["km", "ខ"],
+  "lao": ["lo", "ລ"],
+  "english": ["en", "En"],
+  "german": ["de", "De"],
+  "indonesian": ["id", "Id"],
+  "portuguese": ["pt", "Pt"],
+  "spanish": ["es", "Es"],
+  "nepali": ["ne", "Ne"],
+  "chitonga": ["toi", "Toi"],
+  "levantine": ["lv", "Lv"],
+  "lozi": ["loz", "Loz"],
+  "bible": ["bib", "📖"],
+  "text": ["txt", "Txt"],
+  "dict": ["dic", "Dic"],
+  "media": ["med", "Med"],
+  "music": ["mus", "𝄞"],
+  "ref": ["ref", "Ref"],
+  "psalter": ["psa", "Psa"],
+  "chords": ["crd", "Crd"],
+  "sheet": ["sht", "Sht"]
+}

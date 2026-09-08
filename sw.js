@@ -16,7 +16,7 @@
  *   files.json falls back to the root index.html (SPA-style fallback).
  */
 
-const VERSION = "0.66.1";
+const VERSION = "0.66.2";
 const CACHE_PREFIX = 'peakslab';
 
 // Base manifest template - per-path manifests are derived from this.
