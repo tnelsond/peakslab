@@ -326,5 +326,3 @@ async function cacheFirst(request, pathname) {
     return new Response('Offline', { status: 503 });
   }
 }
-
-

@@ -126,27 +126,216 @@ body {
 		height: 10em;
 }
 
-.dictlist{
+
+/* ---- Dictionary list navigation headers ---- */
+.dictlist {
 	list-style: none;
-	padding-left: 1em;
+	padding-left: 0;
+	margin: 0;
 }
+
+.dictlist-item {
+	list-style: none;
+}
+
+/* Group-level language/folder headers (Khmer, English, …) */
+.dictlist-heading {
+	list-style: none;
+	margin: 1.1em 0 0.35em;
+	padding: 0;
+}
+.dictlist-heading h3 {
+	margin: 0;
+	padding: 0;
+	font-size: 1.15em;
+}
+.dictlist-heading .dictlist-link {
+	display: block;
+	padding: 0.45em 0.75em;
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--accent-color) 28%, var(--result-entry-bg));
+	color: var(--color1);
+	font-weight: 700;
+	text-decoration: none;
+	border-left: 4px solid var(--accent-color);
+	box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+	transition: background 0.15s, transform 0.1s;
+}
+.dictlist-heading .dictlist-link:hover {
+	background: color-mix(in srgb, var(--accent-color) 45%, var(--result-entry-bg));
+	text-decoration: none;
+	color: var(--color1);
+}
+.dictlist-heading .dictlist-link:visited {
+	color: var(--color1);
+}
+
+/* Nested folder headers — size & indent by depth */
+.dictlist-head {
+	margin: 0.35em 0 0.15em;
+}
+.dictlist-head h2,
+.dictlist-head h3,
+.dictlist-head h4,
+.dictlist-head h5,
+.dictlist-head h6 {
+	margin: 0;
+	padding: 0;
+	font-weight: 600;
+	color: var(--color1);
+}
+
+.dictlist-head .dictlist-link {
+	display: block;
+	text-decoration: none;
+	color: var(--color1);
+	border-radius: 6px;
+	border-left: 3px solid color-mix(in srgb, var(--accent-color) 70%, transparent);
+	background: color-mix(in srgb, var(--tab-bg) 55%, var(--result-entry-bg));
+	transition: background 0.15s;
+}
+.dictlist-head .dictlist-link:hover {
+	background: color-mix(in srgb, var(--accent-color) 30%, var(--result-entry-bg));
+	text-decoration: none;
+	color: var(--color1);
+}
+.dictlist-head .dictlist-link:visited {
+	color: var(--color1);
+}
+
+/* Depth scale: deeper = more indent, smaller type, softer bg */
+.dictlist-depth-0 .dictlist-link {
+	padding: 0.4em 0.7em;
+	font-size: 1em;
+}
+.dictlist-depth-1 {
+	padding-left: 0.75em;
+}
+.dictlist-depth-1 .dictlist-link {
+	padding: 0.32em 0.65em;
+	font-size: 0.95em;
+	background: color-mix(in srgb, var(--tab-bg) 50%, var(--result-entry-bg));
+}
+.dictlist-depth-2 {
+	padding-left: 1.5em;
+}
+.dictlist-depth-2 .dictlist-link {
+	padding: 0.28em 0.6em;
+	font-size: 0.88em;
+	font-weight: 600;
+	background: color-mix(in srgb, var(--tab-bg) 35%, var(--result-entry-bg));
+	border-left-width: 2px;
+}
+.dictlist-depth-3 {
+	padding-left: 2.25em;
+}
+.dictlist-depth-3 .dictlist-link {
+	padding: 0.22em 0.55em;
+	font-size: 0.82em;
+	font-weight: 500;
+	background: color-mix(in srgb, var(--tab-bg) 22%, var(--result-entry-bg));
+	border-left-width: 2px;
+	opacity: 0.95;
+}
+.dictlist-depth-4,
+.dictlist-depth-5,
+.dictlist-depth-6 {
+	padding-left: 3em;
+}
+.dictlist-depth-4 .dictlist-link,
+.dictlist-depth-5 .dictlist-link,
+.dictlist-depth-6 .dictlist-link {
+	padding: 0.18em 0.5em;
+	font-size: 0.78em;
+	font-weight: 500;
+	background: color-mix(in srgb, var(--tab-bg) 15%, var(--result-entry-bg));
+	border-left-width: 1px;
+	opacity: 0.9;
+}
+
+/* File rows also indent with depth */
+.dictlist-file.dictlist-depth-1 { padding-left: 0.75em; }
+.dictlist-file.dictlist-depth-2 { padding-left: 1.5em; }
+.dictlist-file.dictlist-depth-3 { padding-left: 2.25em; }
+.dictlist-file.dictlist-depth-4,
+.dictlist-file.dictlist-depth-5,
+.dictlist-file.dictlist-depth-6 { padding-left: 3em; }
+
+/* Extra/origin labels stay compact */
 .dictlist-extra-label {
 	display: flex;
 	align-items: center;
-	counter-increment: none;
 	gap: 0.5em;
 	font-size: 0.75em;
 	font-weight: normal;
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	color: var(--maintext);
-	opacity: 0.6;
+	opacity: 0.65;
 	margin: 0.5em 0 0.15em;
 }
-.dictlist-extra-label::after {
-	content: '';
-	flex: 1;
-	border-top: 2px solid currentColor;
+.dictlist-head.dictlist-extra-label .dictlist-link {
+	background: transparent;
+	border-left: none;
+	padding: 0.15em 0.35em;
+	font-size: inherit;
+	font-weight: normal;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	opacity: 0.75;
+	color: var(--maintext);
+}
+.dictlist-head.dictlist-extra-label .dictlist-link:hover {
+	opacity: 1;
+	background: color-mix(in srgb, var(--tab-bg) 40%, transparent);
+}
+
+/* Root folder nav (only on /) */
+.root-folders {
+	margin: 0.75em 0 1em;
+}
+.dictlist-root {
+	list-style: none;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.45em;
+	padding: 0;
+	margin: 0;
+}
+.dictlist-root li {
+	list-style: none;
+	margin: 0;
+}
+.dictlist-root .dictlist-link {
+	display: inline-block;
+	padding: 0.4em 0.85em;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--accent-color) 22%, var(--result-entry-bg));
+	color: var(--color1);
+	font-weight: 600;
+	font-size: 0.95em;
+	text-decoration: none;
+	border: 1px solid color-mix(in srgb, var(--accent-color) 45%, transparent);
+	transition: background 0.15s, box-shadow 0.15s;
+}
+.dictlist-root .dictlist-link:hover {
+	background: color-mix(in srgb, var(--accent-color) 40%, var(--result-entry-bg));
+	text-decoration: none;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+	color: var(--color1);
+}
+.dictlist-root .dictlist-link:visited {
+	color: var(--color1);
+}
+
+body.dark-mode .dictlist-heading .dictlist-link {
+	background: color-mix(in srgb, var(--accent-color) 22%, var(--result-entry-bg));
+}
+body.dark-mode .dictlist-head .dictlist-link {
+	background: color-mix(in srgb, var(--tab-bg) 40%, var(--result-entry-bg));
+}
+body.dark-mode .dictlist-root .dictlist-link {
+	background: color-mix(in srgb, var(--accent-color) 18%, var(--result-entry-bg));
 }
 
 input[type="checkbox"]{

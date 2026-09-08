@@ -1,12 +1,13 @@
 "use strict";
 
-const scope = '/khmer/';
-const lang = [
-	{name: "Khmer", val: 'km_KH'},
-	{name: "English", val: 'en_US'}
-];
-// appname is derived later from URL path + abbr map (symbolic form)
-let appname = '?';
+let appname = "?";
+const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+if (meta) {
+  const current = meta.getAttribute('content') || '';  // Get existing content or empty string
+  meta.setAttribute('content', current + appname.toUpperCase());  // Append and set
+}
+document.getElementById("appname").textContent = appname;
+document.title += appname.toUpperCase();
 
 
 let tstart = performance.now();
@@ -296,7 +297,6 @@ for (const [filename, description, buflen, priority] of lowPriorityExtras) {
 const tablayout = [];
 for (const [groupName, dicts] of groupMap) {
     tablayout.push({
-        key: groupName,  // lowercase path segment, e.g. "khmer"
         name: groupName.charAt(0).toUpperCase() + groupName.slice(1),
         dicts
     });
@@ -527,8 +527,7 @@ function insertIntoTree(node, subPath, dict, idx) {
 
 // Walk the tree and collect flat list items (headings + file rows) in display order.
 // depth is stored on each item so renderItems can apply the correct indent.
-// pathPrefix is the URL path segments leading to this node (e.g. ["khmer"] or ["khmer","bible"]).
-function collectListItems(node, depth, items, pathPrefix = []) {
+function collectListItems(node, depth, items) {
 	// 1. Primary files at this level
 	if (node.__primary) {
 		for (const entry of node.__primary) items.push({ type: 'file', entry, depth });
@@ -538,16 +537,14 @@ function collectListItems(node, depth, items, pathPrefix = []) {
 		if (seg === '__primary' || seg === '__extras') continue;
 		const childDepth = depth + 1;
 		const tag = `h${Math.min(childDepth + 1, 6)}`;
-		const href = '/' + [...pathPrefix, seg].join('/');
-		items.push({ type: 'heading', tag, text: seg, depth: childDepth, href });
-		collectListItems(child, childDepth, items, [...pathPrefix, seg]);
+		items.push({ type: 'heading', tag, text: seg, depth: childDepth });
+		collectListItems(child, childDepth, items);
 	}
 	// 3. Extras at this level, each under a compact origin label heading
-	//    (origin labels point at their own top-level path, e.g. /english)
 	if (node.__extras) {
 		for (const [label, entries] of node.__extras) {
 			const tag = `h${Math.min(depth + 2, 6)}`;
-			items.push({ type: 'heading', tag, text: label, cls: 'dictlist-extra-label', depth, href: '/' + label });
+			items.push({ type: 'heading', tag, text: label, cls: 'dictlist-extra-label', depth });
 			for (const entry of entries) items.push({ type: 'file', entry, depth });
 		}
 	}
@@ -557,48 +554,29 @@ let dnum = 0;
 function renderItems(items) {
 	let html = '';
 	for (const item of items) {
-		const depth = item.depth ?? 0;
 		if (item.type === 'heading') {
-			const extra = item.cls ? ` ${item.cls}` : '';
-			const inner = item.href
-				? `<a href="${item.href}" class="dictlist-link">${item.text}</a>`
-				: item.text;
-			html += `<li class="dictlist-item dictlist-depth-${depth} dictlist-head${extra}"><${item.tag}>${inner}</${item.tag}></li>`;
+			const cls = item.cls ? ` class="${item.cls}"` : '';
+			html += `<li><${item.tag}${cls}>${item.text}</${item.tag}></li>`;
 		} else {
 			++dnum;
 			const { dict, idx } = item.entry;
-			html += `<li class="dictlist-item dictlist-depth-${depth} dictlist-file" data-id="${dict[0]}">${dnum}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+			html += `<li data-id="${dict[0]}">${dnum}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
 		}
 	}
 	return html;
 }
 
 let dictIndex = 0;
-let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2>`;
-
-// At root (no path segments), show a compact nav of all top-level folders
-if (currentParts.length === 0 && tablayout.length > 0) {
-	temp += `<nav class="root-folders"><ul class="dictlist-root">`;
-	for (const g of tablayout) {
-		const href = '/' + (g.key || g.name.toLowerCase());
-		temp += `<li><a href="${href}" class="dictlist-link">${g.name}</a></li>`;
-	}
-	temp += `</ul></nav>`;
-}
-
-temp += `<ol class="dictlist">`;
+let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
 tablayout.forEach((gdict) => {
-	const groupKey = gdict.key || gdict.name.toLowerCase();
-	const groupHref = '/' + groupKey;
-	temp += `<li class="dictlist-heading"><h3><a href="${groupHref}" class="dictlist-link">${gdict.name}</a></h3></li>`;
+	temp += `<li class="dictlist-heading"><h3>${gdict.name}</h3></li>`;
 	const groupNode = {};
 	gdict.dicts.forEach(dict => {
 		const idx = dictIndex++;
 		insertIntoTree(groupNode, fileSubPath(dict[0]), dict, idx);
 	});
 	const items = [];
-	// pathPrefix starts with the group key so sub-headings become /khmer/bible etc.
-	collectListItems(groupNode, 0, items, [groupKey]);
+	collectListItems(groupNode, 0, items);
 	temp += renderItems(items);
 });
 temp += `</ol></p-d>`;
