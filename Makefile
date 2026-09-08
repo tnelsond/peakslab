@@ -1,39 +1,26 @@
-.PHONY: all clean watch list web
+# Find .tsv files - clean paths without leading ./
+TSV_FILES := $(shell find . -path '*/src/*' -name '*.tsv' ! -path '*/meta/*' 2>/dev/null | sed 's|^\./||' | sort)
 
-MINIFY = minify
+# Map to meta/ (strip /src/)
+META_FILES := $(foreach f,$(TSV_FILES),$(subst /src/,/,$(patsubst %.tsv,meta/%.meta,$(f))))
 
-# Auto-detect language folders
-LANGUAGES := $(shell find . -maxdepth 1 -type d ! -name '.' \
-	! -name 'utils' ! -name 'test' ! -name 'template' ! -name 'build' \
-	-exec test -f '{}/config.js' \; -print | sed 's|^\./||')
+files: meta peakgen $(META_FILES)
 
-all: peakgen peakgen.wasm peak.wasm peak web
+# Rule
+$(META_FILES): peakgen
+	@src=$$(find . -path '*/src/*' -name '$(notdir $(@:.meta=.tsv))' ! -path '*/meta/*' | sed 's|^\./||' | head -1); \
+	if [ -z "$$src" ]; then echo "No source for $@"; exit 1; fi; \
+	if [ ! -f "$@" ] || [ "$$src" -nt "$@" ]; then \
+		mkdir -p $(dir $@); \
+		./peakgen "$$src"; \
+		touch "$@"; \
+		echo "✓ Generated $@"; \
+	else \
+		echo "Up to date: $@"; \
+	fi
 
-web: $(foreach lang,$(LANGUAGES),$(lang)/index.html)
-
-list:
-	@echo "Detected languages: $(LANGUAGES)"
-
-template/index.html.mini : template/index.html
-	minify template/index.html > template/index.html.mini
-template/app.js.mini : template/app.js
-	minify template/app.js > template/app.js.mini
-template/style.css.mini : template/style.css
-	minify template/style.css > template/style.css.mini
-template/peakslab.svg.mini : template/peakslab.svg
-	minify template/peakslab.svg > template/peakslab.svg.mini
-
-# Build rule for each language
-define BUILD_LANG
-$(1)/index.html: template/index.html.mini template/style.css.mini template/app.js.mini template/peakslab.svg.mini $(1)/config.js
-	utils/makeminihtml.sh
-endef
-# Generate rules
-$(foreach lang,$(LANGUAGES),$(eval $(call BUILD_LANG,$(lang))))
-
-watch:
-	@echo "Watching for changes..."
-	@fswatch -o . | xargs -n1 make web
+meta:
+	mkdir -p meta
 
 peakgen : peakgen.c peak.h zstd.o zstd.h
 	gcc -DDEBUG -Wall -O3 -D_GNU_SOURCE peakgen.c zstd.o -o peakgen
@@ -60,7 +47,7 @@ peak.wasm : peak.c zstddeclib.c peak.h
 	-DZSTD_FORCE_DECOMPRESS_SEQUENCES_SHORT \
 	-DZSTD_NO_UNUSED_FUNCTIONS \
 	-s MALLOC="none" \
-	-Oz \
+	-O3 \
 	-flto \
 	-msimd128 \
 	-mrelaxed-simd \
@@ -79,3 +66,5 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 	gcc -Wall -DDEBUG peak_cli.c -o peak
 
 all : peakgen peakgen.wasm peak.wasm peak
+
+phony: all

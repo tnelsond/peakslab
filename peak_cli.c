@@ -61,11 +61,16 @@ int main(int argc, char **argv){
 		printf("\n\n###  Query (return for more): ");
 		i = 0;
 		int glob = 0;
+		int translate = 0;
 		while((c = fgetc(stdin)) != EOF){
 			if(c == '*' || c == '+' || c == '!' || c == '^'){
 				glob = 1;
 			}
-			if(c == '\n'){
+			else if(c == '#' && !i){
+				translate = 1;
+				continue;
+			}
+			else if(c == '\n'){
 				break;
 			}
 			buf2[i++] = c;
@@ -80,6 +85,12 @@ int main(int argc, char **argv){
 			while(i >= 0){
 				psa->qloc[i] = buf2[i];
 				--i;
+			}
+			if(translate){
+				st = translate;
+				init_search(st, 1);
+				p_translate();
+				continue;
 			}
 			st = glob ? FULL : INDEX1;
 			init_search(st, 1);

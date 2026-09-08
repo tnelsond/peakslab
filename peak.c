@@ -14,7 +14,7 @@ static uint8_t* g_d = NULL;
 static size_t g_d_size = 0;
 
 enum searchtype{
-	FULL=0, EXACT1, EXACT2, INDEX1, INDEX2, INDEX3
+	FULL=0, EXACT1, EXACT2, INDEX1, INDEX2, INDEX3, SPLIT=10,
 };
 #define MAX_RESULT_TRACK 100
 
@@ -494,6 +494,74 @@ int p_getline(uint8_t *match) {
 		return l;
 }
 
+int countmatchchar(char *a, char *b, int *len){
+	uint8_t *sa = (uint8_t*)a;
+	uint8_t *sb = (uint8_t*)b;
+	*len = 0;
+	while(*sa && *sb && *sa == *sb){
+		sa++; sb++;	++(*len);
+	}
+	if(!*sa || *sa == '\t'){ // For exact search
+		return 0;
+	}
+	int j = 0;
+	while(isdigit(sa[j]) && isdigit(sb[j])){
+		++j;
+	}
+	if(isdigit(sa[j]) && !isdigit(sb[j])){
+		return 1;
+	}
+	if(!isdigit(sa[j]) && isdigit(sb[j])){
+		return -1;
+	}
+	return *sa - *sb;
+}
+
+int p_translate(){
+	int qi = 0;
+	int st = ps_h->features & NOSORT ? INDEX2 : INDEX1;
+	while(qi < psa->qlen){
+		int cmpr = -1;
+		int match = -1;
+		uint8_t *guess = NULL;
+		int l = 0;
+		int maxlen = 0;
+		int r = psa->idxlen - 1;
+		while(l < r){
+			int m = l + (r - l) / 2;
+			guess = p_linetostr(m, st);
+			int templen;
+			cmpr = countmatchchar(guess, psa->qloc+qi, &templen);
+			if(!cmpr){
+				if(templen > maxlen){
+					maxlen = templen;
+					match = m;
+				}
+				l = m+1;
+			}else if(cmpr < 0){
+				l = m+1;
+			}else{
+				r = m;
+			}
+		}
+		if(match > -1){
+			char *w = p_linetostr(match, st);
+			while(*w && *w != '\t'){
+				++w;
+			}
+			if(*w){
+				++w;
+				printf("%s ", w);
+			}
+		}else{
+			putchar(psa->qloc[qi]);
+		}
+		qi += maxlen + (maxlen ? 0 : 1);
+		printf("\n#%s#\n", psa->qloc+qi);
+	}
+	return 0;
+}
+
 int p_binarysearch(){
 	if(psa->line > psa->idxlen-1 || psa->line < 0){
 		return -1;
@@ -504,7 +572,7 @@ int p_binarysearch(){
 	int match = -1;
 	uint8_t *guess = NULL;
 	int l = psa->line;
-	if(l > 0){
+	if(l > 0){ // For extra results after the first result is already found
 		guess = p_linetostr(psa->line, psa->st);
 		//printf("guess %d: %s\n", l, guess);
 		if(psa->st == EXACT1 || psa->st == EXACT2){
@@ -519,7 +587,7 @@ int p_binarysearch(){
 			return -1;
 	}
 	int r = psa->idxlen - 1;
-	while(l < r){
+	while(l < r){ // Our typical binary search algorithm
 		int m = l + (r - l) / 2;
 		uint32_t offset      = p_read_bytes(g_d, psa->idx, m,     ps_h->bline_idx);
 		//uint32_t next_offset = p_read_bytes(g_d, ps_h->line_idx_start, m + 1, ps_h->bline_idx);
@@ -544,6 +612,7 @@ int p_binarysearch(){
 			return l;
 		return -1;
 	}else if(match == -1){
+		printf("match == -1 : %s: %s\n", guess, psa->qloc);
 		if(!ps_cmp_basic(guess, psa->qloc)){
 			return l;
 		}

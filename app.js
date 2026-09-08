@@ -1021,6 +1021,10 @@ function debounce(fn, delay) {
 queryInput.addEventListener('input', debounce(startSearch, 140));
 
 if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then(reg => console.log('Root SW registered with scope:', reg.scope))
+    .catch(err => console.error('Registration failed:', err));
+
   navigator.serviceWorker.getRegistrations().then(registrations => {
     registrations.forEach(reg => {
 			const rootUrl = new URL('/', location.origin).href;  // e.g., 'https://peakslab.org/'
@@ -1028,12 +1032,7 @@ if ('serviceWorker' in navigator) {
         reg.unregister().then(() => console.log('Unregistered old SW:', reg.scope));
       }
     });
-  }).then(() => {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('Root SW registered with scope:', reg.scope))
-      .catch(err => console.error('Registration failed:', err));
-  })});
+  });
 	navigator.serviceWorker.addEventListener('message', event => {
 		if(event.data){
 			if(event.data.type === 'new'){
@@ -1271,6 +1270,18 @@ window.addEventListener('appinstalled', () => {
 		document.getElementById('install-button').style.display = 'none';
 });
 
+class PAs extends HTMLElement {
+  connectedCallback() {
+    const href = this.getAttribute('href');
+    const text = this.textContent;
+    const newHref = href + text;
+    const link = document.createElement('a');
+    link.href = newHref;
+    link.textContent = text;
+    this.replaceWith(link);
+  }
+}
+customElements.define('p-as', PAs);
 class PaElement extends HTMLElement {
 		connectedCallback() {
 				this.addEventListener('click', () => {

@@ -18,7 +18,6 @@ self.onmessage = async (e) => {
 		wasmModuleResolve(e.data.wasm);
 	}else if(e.data.type == "load"){
 		if(!dicts[e.data.did]){
-			console.log(e.data.msg); // disable later
 			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did);
 		}
 	}else if(e.data.type == "destroy"){
@@ -176,16 +175,16 @@ class Dic{
 
 			// Send the database to the module
 			const srcPtr = this.module._malloc(buf.byteLength);
-			console.log(`[${this.name}] file=${buf.byteLength} bytes, malloc ptr=${srcPtr}, memsize=${this.module.HEAPU8.byteLength}`);
+			//console.log(`[${this.name}] file=${buf.byteLength} bytes, malloc ptr=${srcPtr}, memsize=${this.module.HEAPU8.byteLength}`);
 			if (srcPtr === 0) {
 					throw new Error(`[${this.name}] malloc returned NULL for ${buf.byteLength} bytes!`);
 			}
 			this.module.HEAPU8.set(new Uint8Array(buf), srcPtr);
-			console.log(`[${this.name}] set done, memsize now=${this.module.HEAPU8.byteLength}`);
+			//console.log(`[${this.name}] set done, memsize now=${this.module.HEAPU8.byteLength}`);
 
 			let compressed = this.filename.includes(".zst");
 			const loadRet = this.module._load_peak(srcPtr, buf.byteLength, compressed);
-			console.log(`[${this.name}] _load_peak returned: ${loadRet}`);
+			//console.log(`[${this.name}] _load_peak returned: ${loadRet}`);
 			//console.log(`load_peak returned: ${loadRet}`);
 			if(compressed)
 				this.module._free(srcPtr);

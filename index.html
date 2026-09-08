@@ -1,64 +1,77 @@
-<!DOCTYPE html>
-<html lang="en-us">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link rel="stylesheet" href="/style.css">
-		<link rel="icon" type="image/png" sizes="32x32" href="/peak32x32.png" />
-		<link rel="icon" type="image/svg" sizes="any" href="/peakslab.svg" />
-		<title>PeakSlab</title>
-		<style>
-.logo{width: auto; height: 150px; padding: 0 0 0em 1em; margin-right: 2em;}
-body{background: #643;}
-		</style>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PeakSlab</title>
+	<link rel="stylesheet" href="/style.css">
+	<link rel="icon" type="image/png" sizes="32x32" href="/peak32x32.png" />
+	<link rel="icon" type="image/png" sizes="192x192" href="/peak192x192.png" />
+	<link rel="icon" type="image/png" sizes="512x512" href="/peak512x512.png" />
+	<link rel="icon" type="image/svg" sizes="any" href="/peakslab.svg" />
+	<link rel="manifest" id="link" href="manifest.json">
+	<meta name="theme-color" content="#000000" />
+	<meta name="apple-mobile-web-app-title" content="PeakSlab" />
+	<meta name="mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
 </head>
 <body>
-		<main style="margin-left: auto; margin-right: auto; max-width: 500px">
-						<img style="float:left" src="/peakslab.svg" class="logo" alt="PeakSlab">
-<h1 style="color:white">Peakslab</h1>
-<p-d>
-<div style="float:right; background: #dcb; padding: 5px; width: 50%;">
-<ul id="index">
-<li><a href="chitonga/">Chitonga dictionary</a></li>
-<li><a href="english/">English dictionary</a></li>
-<li><a href="khmer/">Khmer dictionary</a>
-<ul><li><a href="khmermusic/">Khmer Music</a></li>
-</ul></li>
-<li><a href="lao/">Lao dictionary</a></li>
-<li><a href="lozi/">Lozi dictionary</a></li>
-<li><a href="german/">German dictionary</a></li>
-<li><a href="spanish/">Spanish dictionary</a></li>
-<li><a href="indonesian/">Indonesian dictionary</a></li>
-<li><a href="portuguese/">Portuguese dictionary</a></li>
-<li><a href="levantine/">Levantine dictionary</a></li>
-<li><a href="nepali/">Nepali dictionary</a></li>
-</ul>
+	<header id="header">
+  <div id="searchContainer">
+		<a href="/">
+		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"><div class="logooverlay" id="appname"></div></div></a>
+    <input type="search" id="queryInput" value="" placeholder="Type your query here..." autofocus autocomplete="off" onchange="startSearch();">
+  </div>
+	<div id="tabs" class="hide"></div>
+</header>
+
+	<div id="content">
+		<div id="loadProgress"></div>
+		<div id="version">Peakslab version: </div>
+		<div id="status">Status: Ready</div>
+		<div id="results"></div>
+	</div>
+
+<div id="controls">
+				<button class="control-btn" id="install-button">Install App</button>
+        <button class="control-btn" id="fontDecrease" title="Decrease font size">−</button>
+        <button class="control-btn" id="fontIncrease" title="Increase font size">+</button>
+        <button class="control-btn" id="settingsBtn" title="Diagnostics & Settings">⚙</button>
+    </div>
+
+    <div id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings & Diagnostics</h2>
+                <button class="close-btn">×</button>
+            </div>
+            <div id="diagnostics">
+		<div id="timing"></div>
 </div>
-<p style="clear:left">
-<p-n>Defeating AI by making knowledge accessible to Humans.</p-n>
-</p>
-Peakslab is an offline dictionary and knowledge searching web app framework made to be small, lightweight, intuitive, and fast.
-</p>
-<p>
-What does Peakslab mean? Well it's two words, <em>peak</em> and <em>slab</em> which is the romanization of the Khmer words ពាក្យ and ស្លាប់ which mean <em>word</em> and <em>dead</em> respectively.
-<ol>
-<li><em>Peak</em> means <em>word</em> referring to dictionary entries.</li>
-<li><em>Slab</em> means <em>dead</em> which refers to the fact that this is just a dictionary and your language ability is not what defines you but instead it is the holy spirit which should define you.</li>
-<li><em>Peakslab</em> as a compound refers to the law, the ten commandments, thus the imagery in the logo.
-<blockquote><strong>2 Corinthians 3:2-8 ULB</strong> You yourselves are our letter of recommendation, written on our hearts, known and read by all people. You show that you are a letter from Christ, delivered by us. It was written not with ink but by the Spirit of the living God. It was not written on tablets of stone, but on tablets of human hearts.</blockquote><blockquote>
-And this is the confidence that we have through Christ before God. We are not competent in ourselves to claim anything as coming from us. Instead, our competence is from God. It is God who made us able to be servants of a new covenant. This is a covenant not of the letter but of the Spirit. For the letter kills, but the Spirit gives life.</blockquote><blockquote>
-Now the service that produced death—engraved in letters on stones—came in such glory that the people of Israel could not look directly at Moses' face. This is because of the glory of his face, a glory that was fading. How much more glorious will be the service that the Spirit does?
-</blockquote></li>
-<li><em>Peak</em> means <em>mountain</em> or <em>the best</em> in English. This refers to mount Sinai, but also to the goal of this project which is to be <em>the best</em> source of dictionary data in an offline web app.</li>
-<li>Likewise <em>Slab</em> means <em>slab of stone</em> going along with the ten commandments motif. But slab can also refer to an assortment of different dictionaries that are bundled together. (Though actually we put binary data in <em>.slab</em> files and text data in <em>.peak</em> files)</li>
-<li>Conveniently the first letter in ពាក្យ perfectly outlines the shape of the ten commandments. And the first letter in ស្លាប់ works great for the cracks in the ten commandments after Moses broke the tablets because he was angry with the people for building the golden calf.</li>
-</ol>
-</p>
-<h2>Technical Details</h2>
-<p>
-The code is all open source written from scratch with minimal help from AI (I used AI for rapid prototyping different ideas, and for asking it how to do things, but at the end of the day I have to write the code myself. Except for the service worker and the wasm conversion of the jbig2 decoder, that's all AI) View it on <a href="https://github.com/tnelsond/peakslab">github</a>.
-</p>
-	</p-d>
-        </main>
-    </body>
+            <button class="setting" id="showtabs">Toggle tabs</button>
+            <button class="setting" id="markToggle">Toggle marks</button>
+            <button class="setting" id="darkModeToggle">Toggle Dark Mode</button>
+            <button class="setting" id="debugToggle">Toggle Debug</button>
+        </div>
+    </div>
+    <div id="popupOverlay">
+        <div id="popupContent">
+						<button id="popupClose" class="close-btn">×</button>
+            <div id="popupResults"></div>
+        </div>
+    </div>
+
+    <div id="ios-instructions">
+        <p>To install this app on your iPhone or iPad:</p>
+        <ol>
+            <li>Tap the <strong>Share</strong> button in Safari.</li>
+            <li>Scroll down and select <strong>Add to Home Screen</strong>.</li>
+            <li>Follow the on-screen instructions.</li>
+        </ol>
+        <button id="ios-close-btn">
+            Got it
+        </button>
+    </div>
+
+<script src="/app.js" type="module"></script>
+</body>
 </html>

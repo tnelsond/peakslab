@@ -37,6 +37,10 @@ int longest = 0;
 int compress = 1;
 int nosort = 0;
 VecChar desc = {0, 0, NULL};
+VecChar sfiles = {0, 0, NULL};
+VecU32 sfiledx = {0, 0, NULL};
+VecChar stext = {0, 0, NULL};
+VecU32 sdx = {0, 0, NULL};
 
 typedef struct {
 	uint32_t stroff;
@@ -141,9 +145,11 @@ static int ps_cmpe(const void *a, const void *b){
 	uint8_t *sa = (uint8_t*)a;
 	uint8_t *sb = (uint8_t*)b;
 	while(*sa && *sb && *sa == *sb){
+		if(*sa == '\t' || *sb == '\t')
+			break;
 		sa++; sb++;	
 	}
-	if(!*sb && (*sa == '\t' || !*sa)){ // For exact search
+	if((!*sb || *sb == '\t') && (*sa == '\t' || !*sa)){ // For exact search
 		return 0;
 	}
 	return *sa - *sb;
@@ -152,17 +158,18 @@ static int ps_cmpe(const void *a, const void *b){
 uint32_t gsize = 0;
 VecChar textflat2 = {0, 0, NULL};
 VecChar textflat3 = {0, 0, NULL};
+char *pcmp = NULL;
 
 static int idx_cmp(const void *pa, const void *pb){
 	uint32_t a = *(uint32_t*)pa;
 	uint32_t b = *(uint32_t*)pb;
-	return ps_cmp(&textflat3.data[a], &textflat3.data[b]);
+	return ps_cmp(pcmp+a, pcmp+b); // Was textflat3.data but I made it use a pointer instead.
 }
 
 static int peakline_cmp(const void *pa, const void *pb){
 	Peakline *a = (Peakline*)pa;
 	Peakline *b = (Peakline*)pb;
-	return ps_cmp(textflat2.data + a->stroff, textflat2.data + b->stroff);
+	return ps_cmp(pcmp + a->stroff, pcmp + b->stroff); // Was textflat2.data
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -170,7 +177,7 @@ uint32_t peakslab_getsize(){
 	return gsize;
 }
 
-int readmeta(char *s, int len){
+int readmeta(char *s, int len, int header){
 	int beg = 1;
 	int skip = 0;
 	while(skip < len){
@@ -217,9 +224,35 @@ int readmeta(char *s, int len){
 					beg = 1;
 					++skip;
 					continue;
+				}else if(s[skip+1] == '#'){
+					//printf("%s\n", s + skip);
+					/* Get our slab substitution lines */
+					vec_u32_push(&sdx, stext.len);
+					while(s[skip] == '#'){
+						++skip;
+					}
+					int firsttab = 0;
+					while(s[skip] && skip < len){
+						if(s[skip] == '\t' && !firsttab){
+							firsttab = 1;
+							vec_char_push(&stext, '\0');
+						}else{
+							vec_char_push(&stext, s[skip]);
+						}
+						++skip;
+					}
+					if(skip > len)
+						break;
+					vec_char_push(&stext, '\0');
+					beg = 1;
+					++skip;
+					continue;
 				}
 			}else{
-				break;
+				if(header){
+					break;
+				}
+				++skip;
 			}
 			beg = 0;
 		}else{
@@ -232,6 +265,30 @@ int readmeta(char *s, int len){
 	return skip;
 }
 
+EMSCRIPTEN_KEEPALIVE
+char * pbinarysearch(char *q, VecU32 * idx, char * dict){
+    int l = 0;
+    int r = sdx.len - 1;
+    while (l <= r) {
+        int m = l + (r - l) / 2;
+				char * guess = dict + idx->items[m];
+				int cmp = ps_cmp(guess, q);
+        if (cmp == 0) {
+						while(*guess){
+							++guess;	
+						}
+						++guess;
+						return guess;
+        }
+        else if (cmp < 0) {
+            l = m + 1;
+        }
+        else {
+            r = m - 1;
+        }
+    }
+    return NULL;
+}
 
 EMSCRIPTEN_KEEPALIVE
 uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress){
@@ -348,13 +405,56 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 
 	int skip = 0;
 	if(meta.len){
-		readmeta(meta.data, meta.len);
+		readmeta(meta.data, meta.len, 0);
 	}else{
-		skip = readmeta(textflat.data, textflat.len);
+		skip = readmeta(textflat.data, textflat.len, 1);
 	}
 
 	if(nosort){
 		vec_u32_push(&idx2, 0); // First second index item
+	}
+
+	printf("stext.len: %d\n", stext.len);
+	if(stext.len){
+		pcmp = stext.data;
+		qsort(sdx.items, sdx.len, sizeof(sdx.items[0]), idx_cmp);
+
+		sfiles.data = malloc(sizeof(char) * textflat.len);
+		memcpy(sfiles.data, textflat.data, textflat.len);
+		sfiles.len = sfiles.max = textflat.len;
+		textflat.len = 0; // Rebuild textflat
+		int beg = 1;
+		int i = skip;
+		while(i<sfiles.len){
+			if(beg){
+				vec_u32_push(&sfiledx, i);
+				char *match = pbinarysearch(sfiles.data+i, &sdx, stext.data);
+				if(match){
+					//printf("%s, %s\n", sfiles.data+i, match);
+					while(*match){
+						vec_char_push(&textflat, *match);
+						++match;
+					}
+					while(sfiles.data[i] != '\t' && sfiles.data[i] != '\n' && sfiles.data[i]){
+						++i;
+					}
+					vec_char_push(&textflat, '\t');
+				}else{
+					printf("%s: NO MATCH\n", sfiles.data+i);
+				}
+				beg = 0;
+				continue;
+			}else{
+				if(sfiles.data[i] == '\n' || !sfiles.data[i]){
+					beg = 1;
+					vec_char_push(&textflat, sfiles.data[i]);
+				}else{
+					beg = 0;
+					vec_char_push(&textflat, sfiles.data[i]);
+				}
+			}
+			++i;
+		}
 	}
 
 	size_t cstart = skip;
@@ -383,7 +483,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 			p = peaklines.line + peaklines.len - 1;
 			inside = 0;
 			p->stroff = textflat2.len;
-			p->sfileoff = a + 1;
+			p->sfileoff = stext.len ? sfiledx.items[peaklines.len-1] : (a + 1);
 			p->tagstart = pold->tagstart + pold->taglen;
 			p->idx2start = pold->idx2start + pold->idx2len;
 			p->idx3start = pold->idx3start + pold->idx3len;
@@ -506,6 +606,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 	}
 
 	if(!nosort){
+		pcmp = textflat2.data;
 		qsort(peaklines.line, peaklines.len, sizeof(Peakline), peakline_cmp);
 	}
 
@@ -534,7 +635,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 		if(isslab){
 			int len = 0;
 			buf[path_prefix_len] = '\0'; // Reset buf length
-			strncat(buf, textflat.data + p->sfileoff, BUF_LEN - path_prefix_len);
+			strncat(buf, (stext.len ? sfiles.data : textflat.data) + p->sfileoff, BUF_LEN - path_prefix_len);
 			FILE *f = fopen(buf, "rb");
 			if(f){
 				int c;
@@ -572,13 +673,13 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 	vec_u32_push(&line_idx, textflat3.len); // Extra for bounds checking
 	vec_u32_push(&tag_idx, tag2.len/2); 
 
+	pcmp = textflat3.data;
 	if(idx2.len){
 		qsort(idx2.items, idx2.len, sizeof(idx2.items[0]), idx_cmp);
 	}
 	if(idx3.len){
 		qsort(idx3.items, idx3.len, sizeof(idx3.items[0]), idx_cmp);
 	}
-
 
 	struct peakslab h = {0, {0xF2, 0xFC, 0xF3}, {'P', 'e', 'a', 'k'},
 		0x2, (isslab ? SLAB : PEAK) | (nosort?NOSORT:0), bytes_req(tagdef.len),
@@ -818,7 +919,8 @@ int main(int argc, char **argv) {
 		char *fileext = slab ?
 			(compress ? ".slab.zst" : ".slab") :
 			(compress ? ".peak.zst" : ".peak");
-		int outpathlen = setoutpath(argv[carg], outpath, 1024, "/src/", "/db/", fileext);
+		int outpathlen = setoutpath(argv[carg], outpath, 1024, "/src/", "/", fileext);
+		printf("OUTPATH0: %s\n", outpath);
 
 		char *temp = sz_rfind(outpath, outpathlen, "/", 1);
 		if(temp){
@@ -846,8 +948,9 @@ int main(int argc, char **argv) {
 			printf("\nDescription: %.*s\n", desc.len, desc.data);
 		}
 		setoutpath(argv[0], outpath, 1024, "/peakgen", "/meta/", argv[carg]);
+		printf("OUTPATH1: %s\n", outpath);
 		outpathlen = setoutpath(outpath, outpath, 1024, "/src/", "/", ".meta");
-		printf("%s\n", outpath);
+		printf("OUTPATH2: %s\n", outpath);
 		temp = sz_rfind(outpath, outpathlen, "/", 1);
 		if(temp){
 			*temp = '\0';

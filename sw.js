@@ -1,380 +1,330 @@
-const CURRENT_CACHE = 'peakslab-0.6.0.4';   // ← Bump this on every deploy!
-const OLD_CACHE = 'peakslab-old';
+/*
+ * PeakSlab service worker
+ * ------------------------
+ * - Cache-first for everything.
+ * - files.json is the manifest of truth: [path, description, size, order, timestamp]
+ * - On install: build a NEW versioned cache (name derived from files.json content),
+ *   consolidating unchanged files straight out of any existing "peakslab*" caches
+ *   (no re-download) and fetching only new/updated files from the network.
+ * - On activate: delete every old "peakslab*" cache, leaving only the new one.
+ * - On fetch: serve from cache immediately. files.json is only re-checked when a new
+ *   service worker is installed (the browser's normal SW update check is what
+ *   triggers that) - there's no periodic polling while the app is just running.
+ * - manifest.json is never cached/fetched from the network - it's generated on the fly
+ *   for whatever path it was requested from (root or per-language sub-app).
+ * - Any HTML / navigation / directory request whose path isn't a known file in
+ *   files.json falls back to the root index.html (SPA-style fallback).
+ */
 
-const FILE_VERSIONS = {
-  '/': 'v8.0',
-  '/app.js': 'v12.4.7',
-  '/peakworker.js': 'v9.0.2',
-  '/peak.wasm': 'v1.4',
-  '/peakslab.svg': 'v1',
-  '/peak32x32.png': 'v1',
-  '/peak192x192.png': 'v1',
-  '/peak512x512.png': 'v1',
-  '/style.css': 'v9.3',
-  '/peakgen.wasm': 'v4',
-  '/peakgen.html': 'v1',
-  '/peakgen.js': 'v2',
-	'/jbig2.wasm': 'v5',
-	'/codec2.wasm': 'v1',
+const VERSION = "0.66.1";
+const CACHE_PREFIX = 'peakslab';
 
-	'/levantine/': 'v1',
-	'/levantine/config.js': 'v2',
-	'/levantine/manifest.json': 'v1',
-	'/levantine/db/vandyke.peak.zst': 'v3',
-	'/levantine/db/livinglevantine.peak.zst': 'v1',
-	'/levantine/db/livinglevantineforms.peak.zst': 'v1',
-
-	'/nepali/': 'v1',
-	'/nepali/config.js': 'v7',
-	'/nepali/manifest.json': 'v1',
-	'/nepali/db/ne-gp.peak.zst': 'v1',
-	'/nepali/db/ne-kaikki.peak.zst': 'v1',
-	'/nepali/db/ne-sabdakosh.peak.zst': 'v2',
-	'/nepali/db/ne-ULB.peak.zst': 'v2',
-	'/nepali/db/biblewordne.peak.zst': 'v1',
-	'/nepali/db/ne-audio.slab': 'v1',
-
-	'/khmer/': 'v5',
-  '/khmer/config.js': 'v1.7',
-  '/khmer/db/ant.peak.zst': 'v3',
-  '/khmer/db/baby.peak.zst': 'v4',
-  '/khmer/db/bible.peak.zst': 'v2',
-  '/khmer/db/biblewordkm.peak.zst': 'v3',
-  '/khmer/db/choukprov.peak.zst': 'v2',
-  '/khmer/db/cambogeo.peak.zst': 'v3',
-  '/khmer/db/hymns7.peak.zst': 'v3',
-  '/khmer/db/khmer92_h97.peak.zst': 'v2',
-  '/khmer/db/kmULB.peak.zst': 'v6',
-  '/khmer/db/kcb2012.peak.zst': 'v1',
-  '/khmer/db/gkb.peak.zst': 'v1',
-  '/khmer/db/khbiblemuslim.peak.zst': 'v1',
-  '/khmer/db/khov2016.peak.zst': 'v1',
-  '/khmer/db/khsv.peak.zst': 'v3',
-  '/khmer/db/khov.peak.zst': 'v3',
-  '/khmer/db/nath2022_8.peak.zst': 'v2',
-  '/khmer/db/plantdict.peak.zst': 'v2',
-  '/khmer/db/seacount.peak.zst': 'v2',
-  '/khmer/db/sonv3.peak.zst': 'v2',
-  '/khmer/db/media.slab.zst': 'v1',
-  '/khmer/db/kora-pb1.slab': 'v1',
-  '/khmer/db/kora-pb2.slab': 'v1',
-  '/khmer/db/kora-snl.slab': 'v1',
-  '/khmer/db/kora-misc.slab': 'v1',
-  '/khmer/db/khsv-ant.slab.zst': 'v1',
-  '/khmer/db/khsv-aot.slab.zst': 'v1',
-  '/khmer/manifest.json': 'v4',
-
-  '/khmermusic/config.js': 'v5',
-  '/khmermusic/': 'v2',
-  '/khmermusic/manifest.json': 'v2',
-
-  '/lao/config.js': 'v3',
-  '/lao/': 'v3',
-  '/lao/db/agrilao.peak.zst': 'v2',
-  '/lao/db/csea.peak.zst': 'v2',
-  '/lao/db/kerr4.peak.zst': 'v2',
-  '/lao/db/laobibleword.peak.zst': 'v3',
-  '/lao/db/laotech.peak.zst': 'v2',
-  '/lao/db/lo_ulb.peak.zst': 'v4',
-  '/lao/db/lao2012bible.peak.zst': 'v1',
-  '/lao/db/laoLCVbible.peak.zst': 'v1',
-  '/lao/db/laomienbible.peak.zst': 'v1',
-  '/lao/db/pat4.peak.zst': 'v2',
-  '/lao/manifest.json': 'v2',
-
-  '/lozi/config.js': 'v1',
-  '/lozi/': 'v3',
-  '/lozi/db/lozi.peak.zst': 'v2',
-  '/lozi/manifest.json': 'v3',
-
-  '/german/config.js': 'v3',
-  '/german/': 'v2',
-  '/german/db/oxford-de.peak.zst': 'v3',
-  '/german/db/duden.peak.zst': 'v1',
-  '/german/db/deuSchBible.peak.zst': 'v3',
-  '/german/manifest.json': 'v1',
-
-  '/spanish/config.js': 'v1',
-  '/spanish/': 'v2',
-  '/spanish/db/esoxford.peak.zst': 'v1',
-  '/spanish/db/es_biblewords.peak.zst': 'v1',
-  '/spanish/db/esULB.peak.zst': 'v3',
-  '/spanish/manifest.json': 'v1',
-
-  '/portuguese/config.js': 'v4',
-  '/portuguese/': 'v1',
-  '/portuguese/db/pt-eng.peak.zst': 'v2',
-  '/portuguese/db/pt-oxford.peak.zst': 'v1',
-  '/portuguese/db/pt-biblewords.peak.zst': 'v1',
-  '/portuguese/db/pt-b-onv.peak.zst': 'v2',
-  '/portuguese/db/pt-b-mundial.peak.zst': 'v2',
-  '/portuguese/db/pt-b-livre.peak.zst': 'v2',
-  '/portuguese/manifest.json': 'v1',
-
-  '/indonesian/config.js': 'v5',
-  '/indonesian/': 'v2',
-  '/indonesian/db/kaikki-ind.peak.zst': 'v4',
-  '/indonesian/db/indTB.peak.zst': 'v4',
-  '/indonesian/db/ind-eng2.peak.zst': 'v2',
-  '/indonesian/db/ind-eng3.peak.zst': 'v1',
-  '/indonesian/db/KBBI_EN.peak.zst': 'v2',
-  '/indonesian/manifest.json': 'v1',
-
-  '/english/config.js': 'v5',
-  '/english/': 'v3',
-  '/english/db/bibleworden.peak.zst': 'v5',
-  '/english/db/hymn-collection.slab': 'v1',
-  '/english/db/psascott.peak.zst': 'v1',
-  '/english/db/psa1562.peak.zst': 'v1',
-  '/english/db/psabradytate.peak.zst': 'v1',
-  '/english/db/eng-bsb.peak.zst': 'v5',
-  '/english/db/eng-kjv.peak.zst': 'v5',
-  '/english/db/eng-nkjv.peak.zst': 'v1',
-  '/english/db/eng-nasb.peak.zst': 'v1',
-  '/english/db/eng-amp.peak.zst': 'v1',
-  '/english/db/engULB.peak.zst': 'v8',
-  '/english/db/opted.peak.zst': 'v2',
-  '/english/db/oxford-a.slab': 'v1',
-  '/english/db/oxforden.peak.zst': 'v1',
-  '/english/db/strongs.peak.zst': 'v2',
-  '/english/manifest.json': 'v3',
-
-  '/chitonga/config.js': 'v1',
-  '/chitonga/': 'v3',
-  '/chitonga/db/tnouns.peak.zst': 'v2',
-  '/chitonga/db/toibible.peak.zst': 'v4',
-  '/chitonga/db/tother.peak.zst': 'v2',
-  '/chitonga/db/tverbs.peak.zst': 'v2',
-  '/chitonga/manifest.json': 'v2',
+// Base manifest template - per-path manifests are derived from this.
+const BASE_MANIFEST = {
+  name: 'PeakSlab',
+  short_name: 'PeakSlab',
+  description: 'A dictionary app.',
+  theme_color: '#664433',
+  background_color: '#664433',
+  display: 'standalone',
+  scope: '/',
+  start_url: '/',
+  icons: [
+    { src: '/peak32x32.png', sizes: '32x32', type: 'image/png' },
+    { src: '/peak192x192.png', sizes: '192x192', type: 'image/png' },
+    { src: '/peak512x512.png', sizes: '512x512', type: 'image/png' },
+    { src: '/peakslab.svg', sizes: 'any' }
+  ],
+  share_target: {
+    action: '/',
+    method: 'GET',
+    enctype: 'application/x-www-form-urlencoded',
+    params: { text: 'text' }
+  }
 };
 
-function normalizePathname(pathname) {
-  let p = pathname;
-  p = p.replace(/\/index\.html?$/, '/');
-  p = p.replace(/(\/[^\/.]+)$/, '$1/');
-  return p;
-}
+// ---- module state (rebuilt lazily if the worker is respawned) ----
+let filesMap = new Map();      // normalized path -> {description, size, order, timestamp}
+let cacheName = null;          // the cache this install created
+let cachedCacheName = null;    // memoized "current" cache name for fetch handling
 
-function getNormalizedRequest(request) {
-  const url = new URL(request.url);
-  url.search = '';
-  url.hash = '';
-  const normalizedPath = normalizePathname(url.pathname);
-  url.pathname = normalizedPath;
+self.addEventListener('install', event => {
+  self.skipWaiting();
+  event.waitUntil(doInstall());
+});
 
-  return new Request(url.toString(), {
-    method: request.method,
-    headers: request.headers,
-    credentials: request.credentials,
-    redirect: request.redirect,
-    referrer: request.referrer,
-    integrity: request.integrity,
-    cache: request.cache,
-  });
-}
-
-function addVersionHeader(response, version) {
-  const headers = new Headers(response.headers);
-  headers.set('X-File-Version', version);
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
-async function sendFileVersions() {
-  const currentCache = await caches.open(CURRENT_CACHE);
-  const cachedRequests = await currentCache.keys();
-  
-  const cachedFiles = {};
-  for (const req of cachedRequests) {
-    const normPath = new URL(req.url).pathname;
-    if (normPath in FILE_VERSIONS) {
-      cachedFiles[normPath] = FILE_VERSIONS[normPath];
-    }
-  }
-
-  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  for (const client of clients) {
-    client.postMessage({
-      type: 'status',
-      version: CURRENT_CACHE,
-      files: cachedFiles,
-    });
-  }
-}
+self.addEventListener('activate', event => {
+  event.waitUntil(doActivate());
+});
 
 self.addEventListener('message', event => {
-  if (event.data?.type === 'getstatus') {
-    sendFileVersions();
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
+    return;
+  }
+  if (event.data && event.data.type === 'getstatus') {
+    event.waitUntil(sendStatus(event.source));
   }
 });
 
-// Install
-self.addEventListener('install', () => {
-  self.skipWaiting();
+async function sendStatus(client) {
+  await ensureFilesLoaded();
+  const files = {};
+  for (const [path, meta] of filesMap.entries()) files[path] = meta.timestamp;
+  const message = { type: 'status', version: await getCurrentCacheName(), files };
+  if (client) {
+    client.postMessage(message);
+  } else {
+    const all = await self.clients.matchAll();
+    all.forEach(c => c.postMessage(message));
+  }
+}
+
+async function broadcastNew(path) {
+  const all = await self.clients.matchAll();
+  all.forEach(c => c.postMessage({ type: 'new', url: path }));
+}
+
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return; // let cross-origin pass through
+  event.respondWith(handleFetch(event.request, url));
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    const cacheNames = await caches.keys();
-    const currentCache = await caches.open(CURRENT_CACHE);
-    const oldCache = await caches.open(OLD_CACHE);
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
 
-    // 1. Migrate from any other old caches
-    for (const cacheName of cacheNames) {
-      if (cacheName === CURRENT_CACHE || cacheName === OLD_CACHE) continue;
+function normalizePath(p) {
+  return p.startsWith('/') ? p : '/' + p;
+}
 
-      const sourceCache = await caches.open(cacheName);
-      const requests = await sourceCache.keys();
+function parseFilesArray(arr) {
+  const map = new Map();
+  for (const entry of arr) {
+    const [path, description, size, order, timestamp] = entry;
+    map.set(normalizePath(path), { description, size, order, timestamp });
+  }
+  return map;
+}
 
-      for (const req of requests) {
-        const normReq = getNormalizedRequest(req);
-        const normPath = new URL(normReq.url).pathname;
-        const response = await sourceCache.match(req);
+async function simpleHash(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
 
-        if (response && normPath in FILE_VERSIONS) {
-          await oldCache.put(normReq, response.clone());
-        }
-      }
-      await caches.delete(cacheName);
-    }
-
-    // 2. Deduplicate: If a file is in CURRENT_CACHE, remove it from OLD_CACHE
-    const oldRequests = await oldCache.keys();
-    for (const oldReq of oldRequests) {
-      const normReq = getNormalizedRequest(oldReq);
-      if (await currentCache.match(normReq)) {
-        await oldCache.delete(oldReq);
-      }
-    }
-
-    // 3. Promote matching-version files from OLD_CACHE to CURRENT_CACHE
-    const remainingOldRequests = await oldCache.keys();
-    for (const oldReq of remainingOldRequests) {
-      const normReq = getNormalizedRequest(oldReq);
-      const normPath = new URL(normReq.url).pathname;
-      const response = await oldCache.match(oldReq);
-
-      if (response && normPath in FILE_VERSIONS) {
-        const cachedVersion = response.headers.get('X-File-Version') || null;
-        const expectedVersion = FILE_VERSIONS[normPath];
-
-        if (cachedVersion === expectedVersion || cachedVersion === null) {
-          const versionedResponse = addVersionHeader(response.clone(), expectedVersion);
-          await currentCache.put(normReq, versionedResponse);
-          await oldCache.delete(oldReq);
-        }
+// Loads files.json from the network; falls back to any existing cached copy
+// (from an old peakslab cache) if the network is unavailable.
+async function loadFilesJson() {
+  try {
+    const res = await fetch('/files.json', { cache: 'no-store' });
+    const text = await res.text();
+    const arr = JSON.parse(text);
+    return { arr, map: parseFilesArray(arr), text };
+  } catch (e) {
+    const keys = await caches.keys();
+    for (const key of keys.filter(k => k.startsWith(CACHE_PREFIX))) {
+      const cache = await caches.open(key);
+      const cached = await cache.match('/files.json');
+      if (cached) {
+        const text = await cached.text();
+        const arr = JSON.parse(text);
+        return { arr, map: parseFilesArray(arr), text };
       }
     }
+    throw e;
+  }
+}
 
-    await self.clients.claim();
-  })());
-});
+async function getCurrentCacheName() {
+  if (cachedCacheName) return cachedCacheName;
+  const keys = await caches.keys();
+  const peakCaches = keys.filter(k => k.startsWith(CACHE_PREFIX));
+  cachedCacheName = peakCaches[peakCaches.length - 1] || cacheName;
+  return cachedCacheName;
+}
 
-self.addEventListener('fetch', (event) => {
-  const originalUrl = new URL(event.request.url);
-  const normReq = getNormalizedRequest(event.request);
-  const normPath = new URL(normReq.url).pathname;
+async function ensureFilesLoaded() {
+  if (filesMap.size) return;
+  try {
+    const cache = await caches.open(await getCurrentCacheName());
+    const cached = await cache.match('/files.json');
+    if (cached) {
+      filesMap = parseFilesArray(await cached.json());
+    }
+  } catch (e) {
+    /* ignore - will retry on next request */
+  }
+}
 
-  // Trailing slash redirect for paths with no file extension
-  if (!originalUrl.pathname.match(/\.[^\/]+$/) && !originalUrl.pathname.endsWith('/')) {
-    const redirectTo = originalUrl.pathname + '/';
-    return event.respondWith(
-      new Response('', {
-        status: 301,
-        statusText: 'Moved Permanently',
-        headers: { 
-          'Location': redirectTo + originalUrl.search + originalUrl.hash 
-        }
-      })
-    );
+// ---------------------------------------------------------------------------
+// install: build the new cache, consolidating from old ones where possible
+// ---------------------------------------------------------------------------
+
+async function doInstall() {
+  const { arr, map, text } = await loadFilesJson();
+  filesMap = map;
+
+  const version = await simpleHash(text);
+  cacheName = `${CACHE_PREFIX}-${version}`;
+  const newCache = await caches.open(cacheName);
+
+  // Gather every existing peakslab cache so we can consolidate from them.
+  const existingKeys = await caches.keys();
+  const oldCacheNames = existingKeys.filter(k => k.startsWith(CACHE_PREFIX) && k !== cacheName);
+  const oldCaches = await Promise.all(oldCacheNames.map(n => caches.open(n)));
+
+  await newCache.put(
+    '/files.json',
+    new Response(text, { headers: { 'Content-Type': 'application/json' } })
+  );
+
+  const tasks = [];
+  for (const [path, meta] of filesMap.entries()) {
+    tasks.push(consolidateOrFetch(path, meta, newCache, oldCaches));
+  }
+  await Promise.allSettled(tasks);
+
+  // Alias '/' to the root index.html so direct root requests hit cache too.
+  const rootIndex = await newCache.match('/index.html');
+  if (rootIndex) await newCache.put('/', rootIndex.clone());
+
+  cachedCacheName = cacheName;
+}
+
+async function consolidateOrFetch(path, meta, newCache, oldCaches) {
+  // Try to pull an up-to-date copy out of any existing cache first - avoids
+  // re-downloading files that haven't changed.
+  for (const oc of oldCaches) {
+    const cached = await oc.match(path);
+    if (cached) {
+      const cachedTs = parseInt(cached.headers.get('x-peak-timestamp') || '0', 10);
+      if (cachedTs >= meta.timestamp) {
+        await newCache.put(path, cached.clone());
+        return;
+      }
+    }
+  }
+  // Missing or stale - fetch fresh from the network.
+  try {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (res && res.ok) {
+      const buf = await res.arrayBuffer();
+      const headers = new Headers(res.headers);
+      headers.set('x-peak-timestamp', String(meta.timestamp));
+      await newCache.put(path, new Response(buf, { status: res.status, statusText: res.statusText, headers }));
+      broadcastNew(path);
+    }
+  } catch (e) {
+    /* offline during install - will be picked up on the next SW update check */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// activate: drop old caches now that the new one has replaced them
+// ---------------------------------------------------------------------------
+
+async function doActivate() {
+  const keys = await caches.keys();
+  await Promise.all(
+    keys.filter(k => k.startsWith(CACHE_PREFIX) && k !== cacheName).map(k => caches.delete(k))
+  );
+  if (cacheName) cachedCacheName = cacheName;
+  await self.clients.claim();
+}
+
+// ---------------------------------------------------------------------------
+// fetch handling
+// ---------------------------------------------------------------------------
+
+async function handleFetch(request, url) {
+  const pathname = decodeURIComponent(url.pathname);
+
+  if (pathname === '/manifest.json' || pathname.endsWith('/manifest.json')) {
+    return generateManifestResponse(pathname);
   }
 
-  // Files not in FILE_VERSIONS → network only
-  if (!(normPath in FILE_VERSIONS)) {
-    return event.respondWith(fetch(event.request));
+  const isHtmlish =
+    request.mode === 'navigate' || pathname.endsWith('.html') || pathname.endsWith('/');
+
+  if (isHtmlish) {
+    return handleHtmlRequest(pathname);
   }
 
-  event.respondWith((async () => {
-    const expectedVersion = FILE_VERSIONS[normPath];
+  return cacheFirst(request, pathname);
+}
 
-    // 1. CURRENT_CACHE
-    const currentCache = await caches.open(CURRENT_CACHE);
-    let response = await currentCache.match(normReq);
-    if (response) {
-      if (event.request.mode === 'navigate' || normPath === '/') {
-        sendFileVersions();
-      }
-      return response;
+function generateManifestResponse(pathname) {
+  const segments = pathname.split('/').filter(Boolean);
+  const dir = segments.length > 1 ? segments[0] : '';
+
+  const manifest = JSON.parse(JSON.stringify(BASE_MANIFEST));
+  if (dir) {
+    const label = dir.charAt(0).toUpperCase() + dir.slice(1);
+    manifest.name = `${BASE_MANIFEST.name} ${label}`;
+    manifest.short_name = `PS ${label}`;
+    manifest.scope = `/${dir}/`;
+    manifest.start_url = `/${dir}/`;
+    manifest.share_target.action = `/${dir}/`;
+  }
+
+  return new Response(JSON.stringify(manifest, null, 2), {
+    status: 200,
+    headers: { 'Content-Type': 'application/manifest+json' }
+  });
+}
+
+async function handleHtmlRequest(pathname) {
+  await ensureFilesLoaded();
+  const cache = await caches.open(await getCurrentCacheName());
+
+  let targetPath = pathname === '/' ? '/index.html' : pathname;
+  if (targetPath.endsWith('/')) targetPath += 'index.html';
+
+  if (!filesMap.has(targetPath)) {
+    targetPath = '/index.html'; // fallback: unknown page/directory -> root SPA shell
+  }
+
+  const cached = await cache.match(targetPath);
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    const res = await fetch('/index.html');
+    return res;
+  } catch (e) {
+    return new Response('Offline', { status: 503 });
+  }
+}
+
+async function cacheFirst(request, pathname) {
+  await ensureFilesLoaded();
+  const cache = await caches.open(await getCurrentCacheName());
+
+  const cached = (await cache.match(pathname)) || (await cache.match(request));
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    const res = await fetch(request);
+    if (res && res.ok) {
+      const meta = filesMap.get(pathname);
+      const buf = await res.clone().arrayBuffer();
+      const headers = new Headers(res.headers);
+      headers.set('x-peak-timestamp', String(meta ? meta.timestamp : Date.now()));
+      await cache.put(pathname, new Response(buf, { status: res.status, statusText: res.statusText, headers }));
+      broadcastNew(pathname);
     }
+    return res;
+  } catch (e) {
+    return new Response('Offline', { status: 503 });
+  }
+}
 
-    // 2. OLD_CACHE (only if missing from current)
-    const oldCache = await caches.open(OLD_CACHE);
-    response = await oldCache.match(normReq);
-    if (response) {
-      const cachedVersion = response.headers.get('X-File-Version') || null;
 
-      // Background update + promote to CURRENT_CACHE if version changed or missing header
-      if (cachedVersion !== expectedVersion) {
-        fetch(normReq).then(async (netResp) => {
-          if (netResp && netResp.ok) {
-            const versionedResp = addVersionHeader(netResp.clone(), expectedVersion);
-            await currentCache.put(normReq, versionedResp);
-
-            const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-            for (const client of clients) {
-              client.postMessage({
-                type: 'new',
-                url: normReq.url,
-                version: expectedVersion,
-              });
-            }
-
-            await oldCache.delete(normReq);
-          }
-        }).catch(() => {});
-      } else {
-        // Same version → promote to CURRENT_CACHE
-        const versionedResp = addVersionHeader(response.clone(), expectedVersion);
-        await currentCache.put(normReq, versionedResp);
-        await oldCache.delete(normReq);
-      }
-
-      if (event.request.mode === 'navigate' || normPath === '/') {
-        sendFileVersions();
-      }
-      return response.clone();
-    }
-
-    // 3. Network fetch (first time)
-    try {
-      const networkResponse = await fetch(normReq);
-      if (networkResponse && networkResponse.ok) {
-        const versionedResponse = addVersionHeader(networkResponse.clone(), expectedVersion);
-        await currentCache.put(normReq, versionedResponse);
-
-        const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-        for (const client of clients) {
-          client.postMessage({
-            type: 'new',
-            url: normReq.url,
-            version: expectedVersion,
-          });
-        }
-      }
-
-      if (event.request.mode === 'navigate' || normPath === '/') {
-        sendFileVersions();
-      }
-      return networkResponse;
-    } catch (err) {
-      return new Response('You are offline and this file has not been cached yet.', {
-        status: 503,
-        statusText: 'Service Unavailable',
-        headers: { 'Content-Type': 'text/plain' },
-      });
-    }
-  })());
-});
