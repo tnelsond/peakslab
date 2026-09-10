@@ -13,7 +13,8 @@
  * - manifest.json is never cached/fetched from the network - it's generated on the fly
  *   for whatever path it was requested from (root or per-language sub-app).
  * - Any HTML / navigation / directory request whose path isn't a known file in
- *   files.json falls back to the root index.html (SPA-style fallback).
+ *   files.json falls back to 404.html, which doubles as the SPA shell (no
+ *   separate index.html - that duplication was removed).
  */
 
 const VERSION = "0.66.2";
@@ -99,9 +100,13 @@ function normalizePath(p) {
   return p.startsWith('/') ? p : '/' + p;
 }
 
-function parseFilesArray(arr) {
+function parseFilesArray(data) {
   const map = new Map();
-  for (const entry of arr) {
+  const filesToCache = [
+    ...(data.core || []),
+    ...(data.dicts || [])
+  ];
+  for (const entry of filesToCache) {
     const [path, description, size, order, timestamp] = entry;
     map.set(normalizePath(path), { description, size, order, timestamp });
   }
@@ -183,15 +188,28 @@ async function doInstall() {
     new Response(text, { headers: { 'Content-Type': 'application/json' } })
   );
 
+  // Only 'core' files are mandatory at install time. 'dicts' are large and
+  // potentially numerous - we don't want to force-download every dictionary
+  // just because the manifest changed. Dicts are consolidated forward from
+  // an old cache when already present (no network cost), but are otherwise
+  // left uncached and picked up lazily by cacheFirst() the first time the
+  // user actually requests them.
+  const coreSet = new Set((arr.core || []).map(([path]) => normalizePath(path)));
+
   const tasks = [];
   for (const [path, meta] of filesMap.entries()) {
-    tasks.push(consolidateOrFetch(path, meta, newCache, oldCaches));
+    if (coreSet.has(path)) {
+      tasks.push(consolidateOrFetch(path, meta, newCache, oldCaches));
+    } else {
+      tasks.push(consolidateOnly(path, meta, newCache, oldCaches));
+    }
   }
   await Promise.allSettled(tasks);
 
-  // Alias '/' to the root index.html so direct root requests hit cache too.
-  const rootIndex = await newCache.match('/index.html');
-  if (rootIndex) await newCache.put('/', rootIndex.clone());
+  // Alias '/' to 404.html - it's the single SPA shell now, so direct root
+  // requests hit cache too.
+  const shell = await newCache.match('/404.html');
+  if (shell) await newCache.put('/', shell.clone());
 
   cachedCacheName = cacheName;
 }
@@ -222,6 +240,24 @@ async function consolidateOrFetch(path, meta, newCache, oldCaches) {
   } catch (e) {
     /* offline during install - will be picked up on the next SW update check */
   }
+}
+
+// Like consolidateOrFetch, but never hits the network. Used for files (e.g.
+// dictionaries) that shouldn't be force-downloaded just because they're
+// listed in the manifest - only carried forward if already cached.
+async function consolidateOnly(path, meta, newCache, oldCaches) {
+  for (const oc of oldCaches) {
+    const cached = await oc.match(path);
+    if (cached) {
+      const cachedTs = parseInt(cached.headers.get('x-peak-timestamp') || '0', 10);
+      if (cachedTs >= meta.timestamp) {
+        await newCache.put(path, cached.clone());
+      }
+      return;
+    }
+  }
+  // Not previously cached anywhere - leave it uncached. cacheFirst() will
+  // fetch and cache it the first time it's actually requested.
 }
 
 // ---------------------------------------------------------------------------
@@ -282,11 +318,11 @@ async function handleHtmlRequest(pathname) {
   await ensureFilesLoaded();
   const cache = await caches.open(await getCurrentCacheName());
 
-  let targetPath = pathname === '/' ? '/index.html' : pathname;
-  if (targetPath.endsWith('/')) targetPath += 'index.html';
+  let targetPath = pathname === '/' ? '/404.html' : pathname;
+  if (targetPath.endsWith('/')) targetPath += '404.html';
 
   if (!filesMap.has(targetPath)) {
-    targetPath = '/index.html'; // fallback: unknown page/directory -> root SPA shell
+    targetPath = '/404.html'; // fallback: unknown page/directory -> SPA shell
   }
 
   const cached = await cache.match(targetPath);
@@ -295,7 +331,7 @@ async function handleHtmlRequest(pathname) {
   }
 
   try {
-    const res = await fetch('/index.html');
+    const res = await fetch('/404.html');
     return res;
   } catch (e) {
     return new Response('Offline', { status: 503 });

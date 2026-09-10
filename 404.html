@@ -16,7 +16,7 @@
 </head>
 <body>
 	<header id="header">
-  <div id="searchContainer">
+  <div id="searchContainer" class="hide">
 		<a href="/">
 		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"><div class="logooverlay" id="appname"></div></div></a>
     <input type="search" id="queryInput" value="" placeholder="Type your query here..." autofocus autocomplete="off" onchange="startSearch();">
@@ -24,14 +24,26 @@
 	<div id="tabs" class="hide"></div>
 </header>
 
-	<div id="content">
+	<div id="content" class="hide">
 		<div id="loadProgress"></div>
 		<div id="version">Peakslab version: </div>
 		<div id="status">Status: Ready</div>
 		<div id="results"></div>
 	</div>
 
-<div id="controls">
+	<div id="about">
+	<p-d>
+	<img src="/peakslab.svg" alt="PeakSlab" height="100px" align="left" style="padding-right:1em">
+	<h2>Peak Slab</h2>
+<div id="list" align="right">hel</div>
+	<h3>What is it?</h3>
+	<p>Peak Slab is an offline knowledge retrieval engine. (E.g. dictionaries, bibles, sheet music, media) The name comes from the Khmer words ពាក្យ ស្លាប់ which means <b>word</b> [that is] <b>dead</b>, a reference to the Ten Commandments which were written on <b>Slabs</b> of stone received on a mountain <b>Peak</b>.</p>
+	<h3>Technical Details</h3>
+	<p>Peak Slab is tiny (the core js, wasm, css, and html is under 128kb uncompressed) and very fast (runs multiple dictionaries in parallel even on old systems). <a href="https://github.com/tnelsond/peakslab">Learn more on Github</a>.
+	</p-d>
+	</div>
+
+<div id="controls" class="hide">
 				<button class="control-btn" id="install-button">Install App</button>
         <button class="control-btn" id="fontDecrease" title="Decrease font size">−</button>
         <button class="control-btn" id="fontIncrease" title="Increase font size">+</button>

@@ -126,8 +126,6 @@ body {
 		height: 10em;
 }
 
-
-/* ---- Dictionary list navigation headers ---- */
 .dictlist {
 	list-style: none;
 	padding-left: 0;
@@ -138,7 +136,6 @@ body {
 	list-style: none;
 }
 
-/* Group-level language/folder headers (Khmer, English, …) */
 .dictlist-heading {
 	list-style: none;
 	margin: 1.1em 0 0.35em;

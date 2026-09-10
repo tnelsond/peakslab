@@ -1,5 +1,13 @@
 {
-  "files": [
+  "core": [
+    ["404.html", 1788854378],
+    ["app.js", 1788854378],
+    ["peak.wasm", 1788854378],
+    ["peakslab.svg", 1788854378],
+    ["peakworker.js", 1788854378],
+    ["style.css", 1788854378]
+  ],
+  "dicts": [
     ["chitonga/bible/text/toibible.peak.zst", "TOI Chitonga Bible", 693, 1, 1788875079],
     ["chitonga/dict/tnouns.peak.zst", "Chitonga Nouns", 2086, 1, 1788854143],
     ["chitonga/dict/tother.peak.zst", "Chitonga other words", 2821, 1, 1788854143],
@@ -109,5 +117,4 @@
     "chords": ["crd", "Crd"],
     "sheet": ["sht", "Sht"]
   }
-
 }
