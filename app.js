@@ -229,7 +229,10 @@ if(root){
 	const abbr = filesJson.abbr || {};
 
 	// Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
-	const pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
+	let pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
+	if(pagePath.match("khmermusic")){
+		pagePath = "khmer/music";
+	}
 	const pParts = pagePath.split('/').filter(Boolean);
 
 	// The language segment(s) of the current path (usually just one, e.g. ["khmer"]),
