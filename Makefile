@@ -21,7 +21,6 @@ $(META_FILES): peakgen
 
 meta:
 	mkdir -p meta
-
 peakgen : peakgen.c peak.h zstd.o zstd.h
 	gcc -DDEBUG -Wall -O3 -D_GNU_SOURCE peakgen.c zstd.o -o peakgen
 zstd.o : zstd.c
@@ -58,13 +57,13 @@ peak.wasm : peak.c zstddeclib.c peak.h
 	--no-entry \
 	-o peak.wasm
 	du -b peak.wasm
-peak2.wasm : peak.c zstddeclib.c peak.h Makefile
-	clang --target=wasm32 -Wl,--no-entry -Wl,--export-all -Oz peak.c -o peak2.wasm
 peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
 	gcc -DTB_IMPL -lreadline -ltinfo peak_cli2.c -o peak_tui
 peak : peak_cli.c peak.h peak.c zstddeclib.c
 	gcc -Wall -DDEBUG peak_cli.c -o peak
+404.html : peakworker.js peak.html app.js style.css
+	node build.mjs --minify
 
-all : peakgen peakgen.wasm peak.wasm peak
+all : peakgen peakgen.wasm peak.wasm peak 404.html
 
 phony: all

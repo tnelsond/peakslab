@@ -1,11 +1,14 @@
 "use strict";
 
 const lang = [
-	{name: "Khmer", val: 'km_KH'},
 	{name: "English", val: 'en_US'}
 ];
-// appname is derived later from URL path + abbr map (symbolic form)
 let appname = '?';
+// Reused for every pin button (the fixed one and one per result) — defined
+// once so we're not rebuilding this markup on every streamed result.
+const pinIconSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg>';
+const pinCloseIconSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+const pinCloseIconSVGSmall = pinCloseIconSVG.replace(/width="20" height="20"/, 'width="16" height="16"');
 const filesJson = await fetch('/files.json').then(r => r.json());
 
 if ('serviceWorker' in navigator) {
@@ -15,7 +18,7 @@ if ('serviceWorker' in navigator) {
 
 	navigator.serviceWorker.getRegistrations().then(registrations => {
 		registrations.forEach(reg => {
-			const rootUrl = new URL('/', location.origin).href;  // e.g., 'https://peakslab.org/'
+			const rootUrl = new URL('/', location.origin).href;
 			if (reg.scope !== rootUrl) {
 				reg.unregister().then(() => console.log('Unregistered old SW:', reg.scope));
 			}
@@ -46,7 +49,6 @@ function requestCacheVersion() {
 	}
 }
 
-
 const root = window.location.pathname.length <= 1;
 if(root){
 	const tlangs = [...new Set(filesJson.dicts.map(arr => arr[0].split('/')[0]))];
@@ -66,8 +68,7 @@ if(root){
 	let st = 3;
 	let nload = 0;
 	const timingDiv  = document.getElementById('timing');
-	const tabs  = document.getElementById('tabs');
-	const hidetabs = document.getElementById('hidetabs');
+	document.getElementById('tabs')?.classList.add('hide'); // leftover container from the old tab bar, unused now
 
 	const getSharedWasmModule = (() => {
 		let promise = null;
@@ -148,7 +149,7 @@ if(root){
 					else
 						el.innerHTML += `<p-h>${e.data.dict}</p-h>`;
 					if(first)
-						div.innerHTML += `<h2>${e.data.header}</h2>`;
+						div.innerHTML += `<h2>${e.data.header} <button type="button" class="pin-btn" onclick="togglePin(this)" title="Pin this section" style="background:var(--control-btn-bg);border:none;border-radius:50%;width:22px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;vertical-align:middle;">${pinIconSVG}</button></h2>`;
 					if(e.data.filetype){
 						if(e.data.subheader){
 							let sh = e.data.subheader;	
@@ -225,17 +226,50 @@ if(root){
 			}
 	}
 
-	const abbr = Array.isArray(filesJson) ? {} : (filesJson.abbr || filesJson.abbreviations || {});
-	const pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
+	const abbr = filesJson.abbr || {};
 
 	// Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
-	const currentParts = pagePath.split('/').filter(Boolean);
+	const pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
+	const pParts = pagePath.split('/').filter(Boolean);
+
+	// The language segment(s) of the current path (usually just one, e.g. ["khmer"]),
+	// i.e. every path segment that isn't a category (used to build heading links).
+	const pLangParts = pParts.filter(part => {
+		for (const key in abbr) {
+			if (key === part && abbr[key][2]) return true; // it's a language segment (has a locale code)
+		}
+		return false;
+	});
+
+	// A file belongs on this page if its path contains every current-page segment ("primary").
+	// `category` is the path with the language folder stripped off, so e.g. a Khmer and an
+	// English Bible/Text dictionary both group under category ["bible","text"].
+	const allFiles = filesJson.dicts.map(f => {
+		const dirParts = f[0].split('/').slice(0, -1);
+		return { file: f, lang: dirParts[0], category: dirParts.slice(1), isPrimary: pParts.every(p => f[0].includes(p)) };
+	});
+
+	// Extras: low-priority (priority <= 0) files from other languages that share a category
+	// with at least one primary file on this page — whatever page depth we're browsing at.
+	const primaryCategories = new Set(allFiles.filter(x => x.isPrimary).map(x => x.category.join('/')));
+	const files = allFiles.filter(x =>
+		x.isPrimary || (x.file[3] <= 0 && primaryCategories.has(x.category.join('/')))
+	);
+
+	// Group by category, primary (current-page) language first, then extras grouped
+	// alphabetically by their own language.
+	files.sort((a, b) =>
+		a.category.join('/').localeCompare(b.category.join('/')) ||
+		(a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1) ||
+		a.lang.localeCompare(b.lang) ||
+		a.file[0].localeCompare(b.file[0])
+	);
 
 	// Build appname from symbolic abbreviations of path segments
 	// e.g. khmer → ខ , khmer/music → ខ𝄞
 	// Each abbr entry is [romanized, symbolic]; fall back to romanized then to the segment itself.
 	(function setAppNameFromPath() {
-		const parts = currentParts.length ? currentParts : ['?'];
+		const parts = pParts.length ? pParts : ['?'];
 		appname = parts.map(seg => {
 			const entry = abbr[seg];
 			if (Array.isArray(entry) && entry.length >= 2) return entry[1]; // symbolic
@@ -253,114 +287,26 @@ if(root){
 		document.title = (document.title || '') + appname;
 	})();
 
-	// 1. Files whose path includes all current page segments (primary match)
-	const filteredFiles = filesJson.dicts.filter(([filename]) => {
-			const fileParts = filename.split('/');
-			return currentParts.every(seg => fileParts.includes(seg));
-	});
-
-	// Helper: extract the group (first segment after /db/)
-	function fileGroup(filename) {
-			const m = filename.match(/^([^/]+)\//);
-			return m ? m[1] : 'other';
-	}
-	const primaryGroups = new Set(filteredFiles.map(([filename]) => fileGroup(filename)));
-
-	// Helper: get sub-path segments between GROUP/ and the filename
-	function fileSubPath(filename) {
-			return filename.split('/').slice(1, -1);
-	}
-
-	// Helper: strip extension from basename
+	// Strip extension from basename
 	function fileBasename(filename) {
 			return filename.split('/').pop().replace(/(\.(peak|slab)(\.zst)?$)/, '');
 	}
 
-	// Helper: determine default-enabled from priority + sub-path depth
-	//   priority 1 or -1 → always enabled
-	//   priority 2       → only enabled at top level (no sub-folders)
-	//   anything else    → disabled
-	function defaultEnabled(priority, subPathLength) {
-			const p = priority ?? 1;
-			if (p === 1 || p === -1) return true;
-			if (p === 2) return subPathLength === 0;
-			return false;
+	// Priority 1 (or -1, "always show first") dictionaries are enabled by default; everything else
+	// (including cross-language extras) starts unchecked and the user can opt in.
+	function defaultEnabled(priority) {
+			return priority === undefined || priority === 1 || priority === -1;
 	}
 
-	// Helper: get a human-readable origin label for a low-priority file,
-	// e.g. the top-level path part that differs from currentParts ("english", "french" …)
-	function originLabel(filename) {
-			const parts = filename.split('/').filter(Boolean);
-			return parts.find(p => !currentParts.includes(p)) ?? parts[0];
-	}
+	// dict entry: [filename, basename, buflen, description, enabled]
+	let dicts = files.map(({file: [filename, description, buflen, priority]}) => [
+			filename,
+			fileBasename(filename),
+			buflen,
+			description,
+			defaultEnabled(priority)
+	]);
 
-	// 2. Low-priority files (priority <= 0) from OTHER paths, only if their group
-	//    already exists in the primary set.
-	const lowPriorityExtras = filesJson.dicts.filter(([filename, , , priority]) => {
-			if ((priority ?? 1) > 0) return false;
-			if (filteredFiles.some(f => f[0] === filename)) return false;
-			const m = filename.match(/\/([^/]+)\//);
-			return m && primaryGroups.has(m[1]);
-	});
-
-	// 3. Build tablayout.
-	// dict entry: [filename, basename, buflen, description, enabled, originLabel|null]
-	// originLabel is null for primary files, a string (e.g. "english") for low-priority extras.
-	// All dicts (primary + extras) live in tab.dicts so workers see them all.
-	const groupMap = new Map(); // group → dict[]
-
-	for (const [filename, description, buflen, priority] of filteredFiles) {
-			const group = fileGroup(filename);
-			if (!groupMap.has(group)) groupMap.set(group, []);
-			const subPath = fileSubPath(filename);
-			groupMap.get(group).push([
-					filename,
-					fileBasename(filename),
-					buflen,
-					description,
-					defaultEnabled(priority, subPath.length),
-					null   // no origin label — primary file
-			]);
-	}
-
-	for (const [filename, description, buflen, priority] of lowPriorityExtras) {
-			const group = fileGroup(filename);
-			if (!groupMap.has(group)) continue;
-			const subPath = fileSubPath(filename);
-			groupMap.get(group).push([
-					filename,
-					fileBasename(filename),
-					buflen,
-					description,
-					defaultEnabled(priority, subPath.length),
-					originLabel(filename)   // e.g. "english"
-			]);
-	}
-
-	// Convert to tablayout array
-	const tablayout = [];
-	for (const [groupName, dicts] of groupMap) {
-			tablayout.push({
-					key: groupName,  // lowercase path segment, e.g. "khmer"
-					name: groupName.charAt(0).toUpperCase() + groupName.slice(1),
-					dicts
-			});
-	}
-
-	tablayout.sort((a, b) => a.name.localeCompare(b.name));
-	tablayout.forEach(tab => {
-			// Sort: primary files first (originLabel null), then extras grouped by label — both alphabetically
-			tab.dicts.sort((a, b) => {
-					const la = a[5] ?? '';
-					const lb = b[5] ?? '';
-					if (la !== lb) return la.localeCompare(lb); // nulls ('') sort before labels
-					return a[1].localeCompare(b[1]);
-			});
-	});
-
-	console.log("Generated tablayout:", tablayout);
-
-	let dicts = tablayout.flatMap(table => table.dicts);
 	let workers_num = dicts.length > 1 ? 2 : 1;
 	let workers = [];
 	for(let i=1; i<=workers_num; ++i){
@@ -370,19 +316,6 @@ if(root){
 	let dict_master_code = new Array(dicts.length).fill(true);
 	let dict_code = [...dict_master_code];
 
-
-	let tabDictIndices = [];
-	let allIndices = [];
-	let idx = 0;
-	tablayout.forEach(g => {
-		let groupIndices = [];
-		g.dicts.forEach(d => {
-			groupIndices.push(idx);
-			allIndices.push(idx);
-			++idx;
-		});
-		tabDictIndices.push(groupIndices);
-	});
 
 	function escapeRegExp(string) {
 		if(!string)
@@ -547,104 +480,103 @@ if(root){
 	const popupResults = document.getElementById('popupResults');
 	const popupClose = document.getElementById('popupClose');
 
+	// Pinning: pinning clones a p-d section into its own (non-persistent) view.
+	// The "Pinned" button matches the round control buttons and just shows an
+	// icon, no text. It only appears once there's at least one pin. The
+	// original section stays right where it was.
+	let pinned = [];
+	let showingPinned = false;
+	const pinnedDiv = document.createElement('div');
+	pinnedDiv.id = 'pinnedResults';
+	pinnedDiv.classList.add('hide');
+	resultsDiv.insertAdjacentElement('afterend', pinnedDiv);
+
+	const pinTabBtn = document.getElementById('pinTab');
+	pinTabBtn.addEventListener('click', () => {
+		showingPinned = !showingPinned;
+		// Swap to a red X so it's obvious this now closes the pinned view.
+		pinTabBtn.innerHTML = showingPinned ? pinCloseIconSVG : pinIconSVG;
+		pinTabBtn.style.background = showingPinned ? '#c0392b' : '';
+		pinTabBtn.title = showingPinned ? 'Close pins' : 'Pins';
+		resultsDiv.classList.toggle('hide', showingPinned);
+		pinnedDiv.classList.toggle('hide', !showingPinned);
+		// Pinned view is just a scrapbook of saved sections — hide the search
+		// bar and all the live-search diagnostics/status while looking at it.
+		document.getElementById('searchContainer')?.classList.toggle('hide', showingPinned);
+		document.getElementById('version')?.classList.toggle('hide', showingPinned);
+		statusDiv.classList.toggle('hide', showingPinned);
+		loadProgress.classList.toggle('hide', showingPinned);
+		newtiming.classList.toggle('hide', showingPinned);
+	});
+
+	function updatePinnedTab(){
+		pinTabBtn.classList.toggle('hide', pinned.length === 0);
+		if(pinned.length === 0 && showingPinned){
+			pinTabBtn.click(); // switch back to live results
+		}
+	}
+
+	window.togglePin = function(btn){
+		const pd = btn.closest('p-d');
+		if(!pd) return;
+		if(pd.parentElement === pinnedDiv){
+			// This is a pinned clone — unpin just removes it.
+			pinned = pinned.filter(p => p !== pd);
+			pd.remove();
+		}else{
+			// Clone the section; the original stays put.
+			const clone = pd.cloneNode(true);
+			clone.removeAttribute('id'); // avoid duplicate ids in the document
+			const cloneBtn = clone.querySelector('.pin-btn');
+			if(cloneBtn){
+				cloneBtn.innerHTML = pinCloseIconSVGSmall;
+				cloneBtn.title = 'Unpin';
+			}
+			pinned.push(clone);
+			pinnedDiv.appendChild(clone);
+		}
+		updatePinnedTab();
+	};
+
 	const loadProgress = document.getElementById('loadProgress');
 	loadProgress.textContent = `Loading dictionaries.`;
 
-	// Insert a dict entry into a path-keyed tree node.
-	// Each node: { __primary: [], __extras: Map<label,[]>, <subfolder>: node }
-	function insertIntoTree(node, subPath, dict, idx) {
-		if (subPath.length === 0) {
-			const label = dict[5]; // originLabel or null
-			if (label === null || label === undefined) {
-				if (!node.__primary) node.__primary = [];
-				node.__primary.push({ dict, idx });
-			} else {
-				if (!node.__extras) node.__extras = new Map();
-				if (!node.__extras.has(label)) node.__extras.set(label, []);
-				node.__extras.get(label).push({ dict, idx });
-			}
-		} else {
-			const [head, ...rest] = subPath;
-			if (!node[head]) node[head] = {};
-			insertIntoTree(node[head], rest, dict, idx);
-		}
+	// Dictionary list, nested by category (language folder stripped off, so every
+	// language's Bible/Text dictionaries share one heading). Every heading is an
+	// <h3> (same size at every depth); indentation is a plain inline margin, no
+	// per-depth classes. Extras from other languages get a small microheader.
+	let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
+
+	// The page's own language gets a heading of its own, once, at the top —
+	// everything else nests one level deeper below it.
+	if (pLangParts.length) {
+		const langHref = '/' + pLangParts.join('/');
+		const langLabel = pLangParts[pLangParts.length - 1];
+		temp += `<li class="dictlist-item dictlist-head" style="margin-left:0em"><h3><a href="${langHref}" class="dictlist-link">${langLabel}</a></h3></li>`;
 	}
+	const baseDepth = pLangParts.length ? 1 : 0;
 
-	// Walk the tree and collect flat list items (headings + file rows) in display order.
-	// depth is stored on each item so renderItems can apply the correct indent.
-	// pathPrefix is the URL path segments leading to this node (e.g. ["khmer"] or ["khmer","bible"]).
-	function collectListItems(node, depth, items, pathPrefix = []) {
-		// 1. Primary files at this level
-		if (node.__primary) {
-			for (const entry of node.__primary) items.push({ type: 'file', entry, depth });
+	let prevCategory = [];
+	let prevLang = null;
+	dicts.forEach((dict, idx) => {
+		const { category, isPrimary, lang } = files[idx];
+		let common = 0;
+		while (common < category.length && common < prevCategory.length && category[common] === prevCategory[common]) {
+			common++;
 		}
-		// 2. Sub-folders — heading is shown at the child depth so it aligns with its contents
-		for (const [seg, child] of Object.entries(node)) {
-			if (seg === '__primary' || seg === '__extras') continue;
-			const childDepth = depth + 1;
-			const tag = `h${Math.min(childDepth + 1, 6)}`;
-			const href = '/' + [...pathPrefix, seg].join('/');
-			items.push({ type: 'heading', tag, text: seg, depth: childDepth, href });
-			collectListItems(child, childDepth, items, [...pathPrefix, seg]);
+		for (let depth = common; depth < category.length; depth++) {
+			const href = '/' + [...pLangParts, ...category.slice(0, depth + 1)].join('/');
+			temp += `<li class="dictlist-item dictlist-head" style="margin-left:${baseDepth + depth}em"><h3><a href="${href}" class="dictlist-link">${category[depth]}</a></h3></li>`;
 		}
-		// 3. Extras at this level, each under a compact origin label heading
-		//    (origin labels point at their own top-level path, e.g. /english)
-		if (node.__extras) {
-			for (const [label, entries] of node.__extras) {
-				const tag = `h${Math.min(depth + 2, 6)}`;
-				items.push({ type: 'heading', tag, text: label, cls: 'dictlist-extra-label', depth, href: '/' + label });
-				for (const entry of entries) items.push({ type: 'file', entry, depth });
-			}
-		}
-	}
+		if (common < category.length) prevLang = null; // new category — restart language grouping
+		prevCategory = category;
 
-	let dnum = 0;
-	function renderItems(items) {
-		let html = '';
-		for (const item of items) {
-			const depth = item.depth ?? 0;
-			if (item.type === 'heading') {
-				const extra = item.cls ? ` ${item.cls}` : '';
-				const inner = item.href
-					? `<a href="${item.href}" class="dictlist-link">${item.text}</a>`
-					: item.text;
-				html += `<li class="dictlist-item dictlist-depth-${depth} dictlist-head${extra}"><${item.tag}>${inner}</${item.tag}></li>`;
-			} else {
-				++dnum;
-				const { dict, idx } = item.entry;
-				html += `<li class="dictlist-item dictlist-depth-${depth} dictlist-file" data-id="${dict[0]}">${dnum}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
-			}
+		if (!isPrimary && lang !== prevLang) {
+			temp += `<li class="dictlist-extra-label" style="margin-left:${baseDepth + category.length}em">${lang}</li>`;
 		}
-		return html;
-	}
+		prevLang = isPrimary ? null : lang; // next extra language (or the primary again) gets its own header
 
-	let dictIndex = 0;
-	let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2>`;
-
-	// At root (no path segments), show a compact nav of all top-level folders
-	if (currentParts.length === 0 && tablayout.length > 0) {
-		temp += `<nav class="root-folders"><ul class="dictlist-root">`;
-		for (const g of tablayout) {
-			const href = '/' + (g.key || g.name.toLowerCase());
-			temp += `<li><a href="${href}" class="dictlist-link">${g.name}</a></li>`;
-		}
-		temp += `</ul></nav>`;
-	}
-
-	temp += `<ol class="dictlist">`;
-	tablayout.forEach((gdict) => {
-		const groupKey = gdict.key || gdict.name.toLowerCase();
-		const groupHref = '/' + groupKey;
-		temp += `<li class="dictlist-heading"><h3><a href="${groupHref}" class="dictlist-link">${gdict.name}</a></h3></li>`;
-		const groupNode = {};
-		gdict.dicts.forEach(dict => {
-			const idx = dictIndex++;
-			insertIntoTree(groupNode, fileSubPath(dict[0]), dict, idx);
-		});
-		const items = [];
-		// pathPrefix starts with the group key so sub-headings become /khmer/bible etc.
-		collectListItems(groupNode, 0, items, [groupKey]);
-		temp += renderItems(items);
+		temp += `<li class="dictlist-item dictlist-file" style="margin-left:${baseDepth + category.length}em" data-id="${dict[0]}">${idx+1}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
 	});
 	temp += `</ol></p-d>`;
 	let listDiv = document.createElement('div');
@@ -787,105 +719,8 @@ if(root){
 		});
 	}
 
-	let last = null;
-	let tabBtns = [];
-	let ngroups = tablayout.length;
-	newTab("All", ngroups, true);
-	for(let gi = 0; gi < ngroups; gi++) {
-		newTab(tablayout[gi].name, gi);
-	}
-	let ctab = ngroups;
-	let csub = -1;
-
-	function newTab(name, num, active=false){
-		let btn = document.createElement('button');
-		btn.dataset.index = num;
-		btn.className = 'tab';
-		btn.textContent = name;
-		if(active)
-			btn.classList.add('active');
-		let hasSubs = name === "All" ? false : tablayout[num].dicts.length > 1;
-		btn.addEventListener('click', () => {
-			if (hasSubs) {
-				showDropdown(num, btn);
-			} else {
-				document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-				btn.classList.add('active');
-				const index = parseInt(btn.dataset.index);
-				ctab = index;
-				csub = -1;
-				btn.textContent = name;
-				query = null;
-				startSearch();
-			}
-			queryInput.focus();
-		});
-		tabBtns[num] = btn;
-		tabs.appendChild(btn);
-		last = btn;
-	}
-
-	function showDropdown(gi, anchor) {
-		document.querySelectorAll('.context-menu').forEach(m => m.remove());
-		let group = tablayout[gi];
-		let menu = document.createElement('div');
-		menu.className = 'context-menu';
-
-		let allItem = document.createElement('button');
-		allItem.textContent = "All";
-		allItem.addEventListener('click', () => {
-			selectSub(gi, -1);
-			menu.remove();
-		});
-		menu.appendChild(allItem);
-
-		group.dicts.forEach((d, si) => {
-			let item = document.createElement('button');
-			item.textContent = d[1];
-			item.addEventListener('click', () => {
-				if(dict_master_code[si]){
-					setCheckbox(si, true);	
-					loadDict(si);
-				}
-				selectSub(gi, si);
-				menu.remove();
-			});
-			menu.appendChild(item);
-		});
-		document.body.appendChild(menu);
-		let rect = anchor.getBoundingClientRect();
-		menu.style.left = `${rect.left}px`;
-		menu.style.top = `${rect.bottom}px`;
-
-		let outsideClick = (e) => {
-			if (!menu.contains(e.target) && !anchor.contains(e.target)) {
-				menu.remove();
-				document.removeEventListener('click', outsideClick);
-			}
-		};
-		document.addEventListener('click', outsideClick);
-	}
-
-	function selectSub(gi, si) {
-		if (ctab !== gi) {
-			document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-			tabBtns[gi].classList.add('active');
-			ctab = gi;
-		}
-		csub = si;
-		let group = tablayout[gi];
-		let tabText = group.name;
-		if (si >= 0) {
-			tabText += " - " + group.dicts[si][1];
-		}
-		tabBtns[gi].textContent = tabText;
-		query = null;
-		startSearch();
-	}
-
 	let query = null;
 	let tout = resultsDiv;
-	let mainQuery = null;
 
 	function updateDictList(checkbox){
 		const d = parseInt(checkbox.dataset.id);
@@ -990,6 +825,7 @@ if(root){
 	}
 
 	function loadmore(){
+		if(showingPinned) return;
 		if(wantloadmore(loader, 400) && worker_code.includes(false))
 			getResults();
 	}
@@ -1027,26 +863,10 @@ if(root){
 		if(query == prevquery){
 			return;
 		}
-		if(csub >= 0 && dict_master_code[csub]){
-			setCheckbox(csub, true);	
-			loadDict(csub);
-		}
-
 		window.scrollTo(0, 0);
 		worker_code.fill(false);
 		st = globreg.test(query) ? 0 : 3;
-		dict_code = [...dict_master_code];
-
-		if(ctab === ngroups){
-			allIndices.forEach(ind => dict_code[ind] = true);
-		}else{
-			let indices = tabDictIndices[ctab];
-			if(csub === -1){
-				indices.forEach(ind => dict_code[ind] = true);
-			}else{
-				dict_code[indices[csub]] = true;
-			}
-		}
+		dict_code = new Array(dicts.length).fill(true); // worker-side null checks skip dicts that aren't loaded
 
 		statusDiv.textContent = "Searching...";
 
@@ -1141,14 +961,6 @@ if(root){
 			debug = !debug;
 	});
 
-
-	document.getElementById('showtabs')?.addEventListener('click', () => {
-			document.getElementById('tabs').classList.toggle('hide');
-			localStorage.setItem('hidetabs', tabs?.classList.contains('hide'));
-	});
-	if (localStorage.getItem('hidetabs') === 'false') {
-			document.getElementById('tabs').classList.remove('hide');
-	}
 
 	// Settings modal
 	document.getElementById('settingsBtn')?.addEventListener('click', () => {

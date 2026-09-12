@@ -1,11 +1,11 @@
 {
   "core": [
-    ["404.html", 1788854378],
-    ["app.js", 1788854378],
-    ["peak.wasm", 1788854378],
-    ["peakslab.svg", 1788854378],
-    ["peakworker.js", 1788854378],
-    ["style.css", 1788854378]
+    ["404.html", 1789218089],
+    ["codec2.wasm", 1789218181],
+    ["files.json", 1789218132],
+    ["jbig2_nosymbols.wasm", 1789218124],
+    ["jbig2.wasm", 1789218129],
+    ["peakslab.svg", 1789218198]
   ],
   "dicts": [
     ["chitonga/bible/text/toibible.peak.zst", "TOI Chitonga Bible", 693, 1, 1788875079],
@@ -45,6 +45,7 @@
     ["khmer/bible/text/ulb.peak.zst", "Khmer Unlocked Literal Bible from <a href=\"https://door43.org\">Door43</a>, Wycliffe Associates", 13361, 3, 1788875318],
     ["khmer/dict/ant.peak.zst", "ANT dictionary from <a href=\"https://antkh.com\">antkh.com</a>", 3677, 3, 1788854505],
     ["khmer/dict/baby.peak.zst", "Baby name dictionary from tovnah.com. (URL broken)", 297, 3, 1788854505],
+    ["khmer/dict/g2k.peak.zst", "Goːgle Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/goːgle-khmer-lexicon\">seanghay</a> translated to G2K's phonetics.", 159, 2, 1789216401],
     ["khmer/dict/h97.peak.zst", "<em>Cambodian-English Dictionary</em> by Robert K. Headley, Rath Chim, and Ok Soeum <em>(1997, Dunwoody Press, ISBN 0-931745-78-0)</em> via <a href=\"https://sealang.net/khmer/dictionary.htm\">Sealang</a>", 2212, 1, 1788854513],
     ["khmer/dict/ipa.peak.zst", "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>.", 149, 2, 1788854515],
     ["khmer/dict/kmwiktionary.peak.zst", "<a href=\"https://km.wiktionary.org/\">Khmer Wiktionary</a>", 1528, 2, 1788857337],
@@ -99,14 +100,14 @@
     "khmer": ["km", "ខ", "km_KH"],
     "lao": ["lo", "ລ", "lo_LA"],
     "english": ["en", "E", "en_US"],
-    "german": ["de", "De, de_GE"],
+    "german": ["de", "ß", "de_GE"],
     "indonesian": ["id", "Id", "id_ID"],
     "portuguese": ["pt", "Pt", "pt_BR"],
     "spanish": ["es", "Es", "es_ES"],
     "nepali": ["ne", "Ne", "ne_NP"],
     "chitonga": ["toi", "Toi", "tih_ZM"],
     "levantine": ["lb", "Lb", "ar_LB"],
-    "lozi": ["loz", "lz", "loz_ZM"],
+    "lozi": ["loz", "Lz", "loz_ZM"],
     "bible": ["bib", "✝️"],
     "text": ["txt", "A"],
     "dict": ["dic", "D"],

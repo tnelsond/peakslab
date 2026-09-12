@@ -167,7 +167,7 @@ class Dic{
 		try{
 			const wasmBinary = await wasmModulePromise;
       this.module = await peak(wasmBinary);
-			const resp = await fetch(this.filename);
+			const resp = await fetch(new URL(this.filename, self.location.origin + '/'));
 			//console.log(`filename: ${this.filename}`);
 			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 			const buf = await resp.arrayBuffer();

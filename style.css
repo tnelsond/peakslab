@@ -136,38 +136,6 @@ body {
 	list-style: none;
 }
 
-.dictlist-heading {
-	list-style: none;
-	margin: 1.1em 0 0.35em;
-	padding: 0;
-}
-.dictlist-heading h3 {
-	margin: 0;
-	padding: 0;
-	font-size: 1.15em;
-}
-.dictlist-heading .dictlist-link {
-	display: block;
-	padding: 0.45em 0.75em;
-	border-radius: 8px;
-	background: color-mix(in srgb, var(--accent-color) 28%, var(--result-entry-bg));
-	color: var(--color1);
-	font-weight: 700;
-	text-decoration: none;
-	border-left: 4px solid var(--accent-color);
-	box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-	transition: background 0.15s, transform 0.1s;
-}
-.dictlist-heading .dictlist-link:hover {
-	background: color-mix(in srgb, var(--accent-color) 45%, var(--result-entry-bg));
-	text-decoration: none;
-	color: var(--color1);
-}
-.dictlist-heading .dictlist-link:visited {
-	color: var(--color1);
-}
-
-/* Nested folder headers — size & indent by depth */
 .dictlist-head {
 	margin: 0.35em 0 0.15em;
 }
@@ -185,11 +153,11 @@ body {
 .dictlist-head .dictlist-link {
 	display: block;
 	text-decoration: none;
-	color: var(--color1);
+	color: var(--card-text) !important;
 	border-radius: 6px;
-	border-left: 3px solid color-mix(in srgb, var(--accent-color) 70%, transparent);
-	background: color-mix(in srgb, var(--tab-bg) 55%, var(--result-entry-bg));
+	background: var(--accent-color);
 	transition: background 0.15s;
+	padding-left: 0.5em;
 }
 .dictlist-head .dictlist-link:hover {
 	background: color-mix(in srgb, var(--accent-color) 30%, var(--result-entry-bg));
@@ -211,7 +179,6 @@ body {
 .dictlist-depth-1 .dictlist-link {
 	padding: 0.32em 0.65em;
 	font-size: 0.95em;
-	background: color-mix(in srgb, var(--tab-bg) 50%, var(--result-entry-bg));
 }
 .dictlist-depth-2 {
 	padding-left: 1.5em;
@@ -220,8 +187,6 @@ body {
 	padding: 0.28em 0.6em;
 	font-size: 0.88em;
 	font-weight: 600;
-	background: color-mix(in srgb, var(--tab-bg) 35%, var(--result-entry-bg));
-	border-left-width: 2px;
 }
 .dictlist-depth-3 {
 	padding-left: 2.25em;
@@ -230,9 +195,6 @@ body {
 	padding: 0.22em 0.55em;
 	font-size: 0.82em;
 	font-weight: 500;
-	background: color-mix(in srgb, var(--tab-bg) 22%, var(--result-entry-bg));
-	border-left-width: 2px;
-	opacity: 0.95;
 }
 .dictlist-depth-4,
 .dictlist-depth-5,
@@ -245,12 +207,10 @@ body {
 	padding: 0.18em 0.5em;
 	font-size: 0.78em;
 	font-weight: 500;
-	background: color-mix(in srgb, var(--tab-bg) 15%, var(--result-entry-bg));
 	border-left-width: 1px;
 	opacity: 0.9;
 }
 
-/* File rows also indent with depth */
 .dictlist-file.dictlist-depth-1 { padding-left: 0.75em; }
 .dictlist-file.dictlist-depth-2 { padding-left: 1.5em; }
 .dictlist-file.dictlist-depth-3 { padding-left: 2.25em; }
@@ -258,7 +218,6 @@ body {
 .dictlist-file.dictlist-depth-5,
 .dictlist-file.dictlist-depth-6 { padding-left: 3em; }
 
-/* Extra/origin labels stay compact */
 .dictlist-extra-label {
 	display: flex;
 	align-items: center;
@@ -271,26 +230,7 @@ body {
 	opacity: 0.65;
 	margin: 0.5em 0 0.15em;
 }
-.dictlist-head.dictlist-extra-label .dictlist-link {
-	background: transparent;
-	border-left: none;
-	padding: 0.15em 0.35em;
-	font-size: inherit;
-	font-weight: normal;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	opacity: 0.75;
-	color: var(--maintext);
-}
-.dictlist-head.dictlist-extra-label .dictlist-link:hover {
-	opacity: 1;
-	background: color-mix(in srgb, var(--tab-bg) 40%, transparent);
-}
 
-/* Root folder nav (only on /) */
-.root-folders {
-	margin: 0.75em 0 1em;
-}
 .dictlist-root {
 	list-style: none;
 	display: flex;
@@ -323,16 +263,6 @@ body {
 }
 .dictlist-root .dictlist-link:visited {
 	color: var(--color1);
-}
-
-body.dark-mode .dictlist-heading .dictlist-link {
-	background: color-mix(in srgb, var(--accent-color) 22%, var(--result-entry-bg));
-}
-body.dark-mode .dictlist-head .dictlist-link {
-	background: color-mix(in srgb, var(--tab-bg) 40%, var(--result-entry-bg));
-}
-body.dark-mode .dictlist-root .dictlist-link {
-	background: color-mix(in srgb, var(--accent-color) 18%, var(--result-entry-bg));
 }
 
 input[type="checkbox"]{
@@ -446,13 +376,6 @@ p-m::before {
   text-align: center;
 }
 
-.no-results {
-    text-align: center;
-    color: #cc0000;
-    font-weight: bold;
-    padding: 2rem;
-}
-
 #header {
     position: fixed;
     top: 0;
@@ -525,43 +448,6 @@ img{
     background: var(--search-bg2);
 }
 
-#tabs {
-    display: flex;
-    margin: 1px 0 0 0;
-    overflow-x: auto;
-    white-space: nowrap;
-    scrollbar-width: none;
-    padding: 0px 0;
-		-webkit-user-select: text !important;
-		user-select: text !important;
-		-webkit-touch-callout: none !important;
-}
-
-#tabs::-webkit-scrollbar { display: none; }
-
-.tab {
-    padding: 3px 6px;
-    cursor: pointer;
-    background: var(--tab-bg);
-    color: var(--header-text);
-    font-size: 15px;
-    min-width: 70px;
-    border-radius: 8px 8px 0 0;
-		border: 0;
-    margin-right: 4px;
-}
-
-.tab.active {
-    background: var(--bg-color);
-    color: var(--header-accent);
-    font-weight: 700;
-		border-bottom: 0px;
-}
-
-.tab:hover:not(.active) {
-    background: rgba(0,0,0,0.08);
-}
-
 #content {
     margin-top: 88px;
     padding: 2px;
@@ -577,20 +463,17 @@ mark {
 		margin: 0;
 }
 
-#loading {
-    text-align: center;
-    padding: 60px;
-    font-size: 18px;
-    color: #666;
-}
-
-#controls {
+#extra-btn, #controls {
     position: fixed;
     bottom: 10px;
     right: 10px;
     display: flex;
     gap: 8px;
     z-index: 900;
+}
+
+#extra-btn {
+	top: 60px;
 }
 
 .control-btn {
@@ -661,19 +544,6 @@ mark {
     font-size: 17px;
     margin: 5px;
 }
-
-.but{
-    padding: 10px 14px;
-    background: var(--control-btn-bg);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 17px;
-    margin-top: 24px;
-}
-
-
 
 #popupOverlay {
     display: none;
@@ -750,34 +620,6 @@ p-d, #results, #popupResults, body {
     user-select: text;
     -webkit-touch-callout: default;   /* allows native callout + your menu */
 }
-
-.context-menu {
-    position: fixed;
-    background: var(--card-bg);
-    border: 1px solid var(--accent-color);
-    border-radius: 8px;
-    padding: 8px 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-    z-index: 4000;
-    font-size: 15px;
-		user-select: none; /* For most browsers */
-		-webkit-user-select: none; /* For Safari */
-		-moz-user-select: none; /* For Firefox */
-}
-.context-menu button {
-    display: block;
-    width: 100%;
-    padding: 10px 20px;
-    background: none;
-    border: none;
-    text-align: left;
-    color: var(--card-text);
-    cursor: pointer;
-}
-.context-menu button:hover {
-    background: rgba(139,172,15,0.2);
-}
-
 
 p-d {
 		display: block;

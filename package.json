@@ -1,0 +1,10 @@
+{
+  "name": "peakslab-bundle",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "terser": "^5.0.0",
+    "clean-css": "^5.0.0",
+    "html-minifier-terser": "^7.0.0"
+  }
+}

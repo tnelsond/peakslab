@@ -82,6 +82,11 @@ The SQLite3 version is the old version of PeakSlab before I wrote the custom fil
 
 As you can see the runtime is drastically smaller, the files are smaller, and the load speed is faster even with decompressing the files on every load. Loading uncompressed files is 1.81x faster or 2.08x faster if the files are split (even though the split files take up more space than the one). Even if we're loading compressed files, it's still 1.89x faster than SQLite3 loading uncompressed files.
 
+The size of all the files is much smaller once minified and compressed.
+|  Program        | Core   |  .html .js .css   |  Total |
+|-----------------|--------|-----------------|--------|
+|PeakSlab Compressed| 16kb | 13kb (0%)**  |    29kb** |
+
 # License
 
 This project is under the GPL3 license.
@@ -123,7 +128,7 @@ A Slab file is like a peak file except instead of the data being text it's binar
 - tsv file
 - WEBP images
 - WEBM Opus audio
-- JBIG2 images via custom wasm decoder (17kb)
+- JBIG2 images via custom wasm decoder (18kb, or 59kb with symbol support)
 - Codec2 audio at 700C (700 bits per second) via custom codec2 decoder (64kb)
 Adding support for other filetypes is trivial, but for right now I just have the most efficient and easy to use formats.
 
@@ -131,6 +136,7 @@ Adding support for other filetypes is trivial, but for right now I just have the
 - System TTS integration
 - Narrow and wide search
 - Offline
+- Pinning
 - Selection Menu
 - Online Peak Generator from .tsv source
 - Glob search (* is indefinite number of wildcards, + is anywhere in the entry, ! negates, combine with *\* or +)
@@ -194,3 +200,4 @@ Adding support for other filetypes is trivial, but for right now I just have the
 - Started using walloc in order to remove emscripten glue code that was dependent on emmalloc. Got jbig2.wasm down to 17kb and peak.wasm down to 38kb with no glue required.
 - Noticed that my peak.wasm module was being fetched and compiled multiple times, so I fixed that. After all that I noticed that loadtime was quite a bit faster and boosted decompression speeds.
 - Used Claude AI to port codec2 audio decoder to wasm. The module is 64kb and I don't know if I can go any smaller since we need to maintain a table of non-algorithmed derived numbers to decode the audio.
+- Made some more changes to remove the need for separate config.js files for each language, now there's a files.json that has all the languages instead. The app now can represent every single page using the same 404.html file.
