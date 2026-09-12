@@ -17,7 +17,7 @@
  *   separate index.html - that duplication was removed).
  */
 
-const VERSION = "0.66.2";
+const VERSION = "0.66.3";
 const CACHE_PREFIX = 'peakslab';
 
 // Base manifest template - per-path manifests are derived from this.
