@@ -1,9 +1,20 @@
 "use strict";
 
-const lang = [
+// Speech-synthesis language list for the selection-menu "speak" buttons.
+// Starts as an English-only fallback for the root page (which has no
+// per-page language context); repopulated below, once we know the current
+// page's language(s), from files.json's abbr table.
+let lang = [
 	{name: "English", val: 'en_US'}
 ];
 let appname = '?';
+// Set inside the non-root branch below, once `dicts` exists. Declared here
+// (module scope) because the service-worker 'message' listener below is
+// registered before that branch runs, and needs to be able to call it -
+// a `function ack(){...}` declared inside the later `else` block would be
+// block-scoped and invisible from here, silently throwing a ReferenceError
+// on every 'status' message instead of clearing the "not downloaded" state.
+let ack = null;
 // Reused for every pin button (the fixed one and one per result) — defined
 // once so we're not rebuilding this markup on every streamed result.
 const pinIconSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg>';
@@ -36,12 +47,24 @@ if ('serviceWorker' in navigator) {
 					el.textContent = version;
 				}
 
-				for (const [url, ver] of Object.entries(event.data.files)) {
-					ack(url.replace(/^\//, ''));
+				for (const url of Object.keys(event.data.files)) {
+					ack?.(url.replace(/^\//, ''));
 				}
 			}
 		}
 	});
+
+	// Ask right away rather than waiting for window's 'load' event: this
+	// script has a top-level await above (fetching files.json), and once a
+	// module script suspends on that it's a race whether 'load' fires before
+	// or after it resumes and gets around to registering that listener - if
+	// 'load' wins, requestCacheVersion() (and every ack() call downstream of
+	// it) never happens at all, which is why already-downloaded files could
+	// keep showing their "not downloaded" icon forever. A controller may
+	// also not exist yet on the very first controlled load, so retry once
+	// one shows up.
+	requestCacheVersion();
+	navigator.serviceWorker.addEventListener('controllerchange', requestCacheVersion);
 }
 function requestCacheVersion() {
 	if (navigator.serviceWorker.controller) {
@@ -54,17 +77,14 @@ if(root){
 	const tlangs = [...new Set(filesJson.dicts.map(arr => arr[0].split('/')[0]))];
 	const links = '<ul class="dictlist-root">' + tlangs.map(dir => `<li><a class="dictlist-link" href="/${dir}">${dir}</a></li>`).join(' ') + '</ul>';
 	document.getElementById("list").innerHTML = links;
-	console.log(tlangs);
 }else{
 	['searchContainer', 'content', 'about', 'controls'].forEach(id => {
 		document.getElementById(id).classList.toggle('hide');
 	});
-	let tstart = performance.now();
 	let num = 0;
 	let debug = false;
 	let mark = true;
 	let loader = null;
-	let isLoading = false;
 	let st = 3;
 	let nload = 0;
 	const timingDiv  = document.getElementById('timing');
@@ -88,7 +108,6 @@ if(root){
 			workers.push(w);
 			w.postMessage({ type: "init", wasm: await getSharedWasmModule(), id: id});
 			w.onmessage = function(e){
-				//console.log(e.data);
 				if(e.data.type == "loaded"){
 					const d = e.data.did*workers.length + e.data.id - 1;
 					dict_master_code[d] = false;
@@ -255,8 +274,9 @@ if(root){
 	// Extras: low-priority (priority <= 0) files from other languages that share a category
 	// with at least one primary file on this page — whatever page depth we're browsing at.
 	const primaryCategories = new Set(allFiles.filter(x => x.isPrimary).map(x => x.category.join('/')));
+	// A file's tuple is now [path, timestamp, description, buflen, priority].
 	const files = allFiles.filter(x =>
-		x.isPrimary || (x.file[3] <= 0 && primaryCategories.has(x.category.join('/')))
+		x.isPrimary || (x.file[4] <= 0 && primaryCategories.has(x.category.join('/')))
 	);
 
 	// Group by category, primary (current-page) language first, then extras grouped
@@ -267,6 +287,17 @@ if(root){
 		a.lang.localeCompare(b.lang) ||
 		a.file[0].localeCompare(b.file[0])
 	);
+
+	// Populate the speech-synthesis language list from the language(s) this
+	// page is actually for (pLangParts) plus any cross-language "extra"
+	// dictionaries shown alongside them, using the locale codes from
+	// files.json's abbr table (abbr[key][2], e.g. "km_KH" for Khmer). This
+	// replaces the permanently-English-only default declared above.
+	const pageLangs = [...new Set([...pLangParts, ...files.map(f => f.lang)])];
+	const derivedLang = pageLangs
+		.filter(l => Array.isArray(abbr[l]) && abbr[l][2])
+		.map(l => ({ name: l.charAt(0).toUpperCase() + l.slice(1), val: abbr[l][2] }));
+	if (derivedLang.length) lang = derivedLang;
 
 	// Build appname from symbolic abbreviations of path segments
 	// e.g. khmer → ខ , khmer/music → ខ𝄞
@@ -302,7 +333,7 @@ if(root){
 	}
 
 	// dict entry: [filename, basename, buflen, description, enabled]
-	let dicts = files.map(({file: [filename, description, buflen, priority]}) => [
+	let dicts = files.map(({file: [filename, , description, buflen, priority]}) => [
 			filename,
 			fileBasename(filename),
 			buflen,
@@ -544,58 +575,42 @@ if(root){
 	const loadProgress = document.getElementById('loadProgress');
 	loadProgress.textContent = `Loading dictionaries.`;
 
-	// Dictionary list, nested by category (language folder stripped off, so every
-	// language's Bible/Text dictionaries share one heading). Every heading is an
-	// <h3> (same size at every depth); indentation is a plain inline margin, no
-	// per-depth classes. Extras from other languages get a small microheader.
+	// Dictionary list, grouped by full category path (language folder + category,
+	// e.g. "khmer / music / chords"). Each group gets a single flat heading with
+	// every path segment as its own clickable link, followed by its files as a
+	// plain list - no nesting or per-depth indentation. Extras from other
+	// languages get a small microheader within the group.
 	let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
 
-	// The page's own language gets a heading of its own, once, at the top —
-	// everything else nests one level deeper below it.
-	if (pLangParts.length) {
-		const langHref = '/' + pLangParts.join('/');
-		const langLabel = pLangParts[pLangParts.length - 1];
-		temp += `<li class="dictlist-item dictlist-head" style="margin-left:0em"><h3><a href="${langHref}" class="dictlist-link">${langLabel}</a></h3></li>`;
-	}
-	const baseDepth = pLangParts.length ? 1 : 0;
-
-	let prevCategory = [];
+	let prevGroupKey = null;
 	let prevLang = null;
 	dicts.forEach((dict, idx) => {
 		const { category, isPrimary, lang } = files[idx];
-		let common = 0;
-		while (common < category.length && common < prevCategory.length && category[common] === prevCategory[common]) {
-			common++;
+		const fullPath = [...pLangParts, ...category];
+		const groupKey = fullPath.join('/');
+
+		if (groupKey !== prevGroupKey) {
+			const crumbs = fullPath
+				.map((seg, i) => `<a href="/${fullPath.slice(0, i + 1).join('/')}" class="dictlist-crumb">${seg}</a>`)
+				.join('<span class="dictlist-crumb-sep"> / </span>');
+			temp += `<li class="dictlist-item dictlist-head"><h3 class="dictlist-crumbs">${crumbs}</h3></li>`;
+			prevGroupKey = groupKey;
+			prevLang = null; // new group — restart language grouping for extras
 		}
-		for (let depth = common; depth < category.length; depth++) {
-			const href = '/' + [...pLangParts, ...category.slice(0, depth + 1)].join('/');
-			temp += `<li class="dictlist-item dictlist-head" style="margin-left:${baseDepth + depth}em"><h3><a href="${href}" class="dictlist-link">${category[depth]}</a></h3></li>`;
-		}
-		if (common < category.length) prevLang = null; // new category — restart language grouping
-		prevCategory = category;
 
 		if (!isPrimary && lang !== prevLang) {
-			temp += `<li class="dictlist-extra-label" style="margin-left:${baseDepth + category.length}em">${lang}</li>`;
+			temp += `<li class="dictlist-extra-label">${lang}</li>`;
 		}
 		prevLang = isPrimary ? null : lang; // next extra language (or the primary again) gets its own header
 
-		temp += `<li class="dictlist-item dictlist-file" style="margin-left:${baseDepth + category.length}em" data-id="${dict[0]}">${idx+1}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+		temp += `<li class="dictlist-item dictlist-file" data-id="${dict[0]}">${idx+1}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
 	});
 	temp += `</ol></p-d>`;
 	let listDiv = document.createElement('div');
 	listDiv.innerHTML = temp;
 	resultsDiv.append(listDiv);
 
-	/* Fix it later so it works on localhost */
-	/*if(navigator.online){
-		dictlist.querySelectorAll('.fcheckbox').forEach((b) =>{
-			if(b.classList.contains('down')){
-				b.disabled = true;
-			}
-		});
-	}*/
-
-	function ack(url){
+	ack = function(url){
 		const x = dicts.findIndex(y => y[0] == url);
 		if(x >= 0){
 			const y = document.getElementById(`${x}`)
@@ -1092,7 +1107,7 @@ if(root){
 	document.getElementById('install-button').addEventListener('click', async () => {
 			if (deferredPrompt) {
 					deferredPrompt.prompt();
-					const { outcome } = await deferredPrompt.userChoice;
+					await deferredPrompt.userChoice;
 					deferredPrompt = null;
 			}
 			if(isIOS()){

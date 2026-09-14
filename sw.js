@@ -2,7 +2,9 @@
  * PeakSlab service worker
  * ------------------------
  * - Cache-first for everything.
- * - files.json is the manifest of truth: [path, description, size, order, timestamp]
+ * - files.json is the manifest of truth: core entries are [path, timestamp];
+ *   dicts entries are [path, timestamp, description, size, order]. timestamp
+ *   is always element[1] regardless of file type.
  * - On install: build a NEW versioned cache (name derived from files.json content),
  *   consolidating unchanged files straight out of any existing "peakslab*" caches
  *   (no re-download) and fetching only new/updated files from the network.
@@ -17,7 +19,6 @@
  *   separate index.html - that duplication was removed).
  */
 
-const VERSION = "0.66.4";
 const CACHE_PREFIX = 'peakslab';
 
 // Base manifest template - per-path manifests are derived from this.
@@ -70,8 +71,23 @@ self.addEventListener('message', event => {
 
 async function sendStatus(client) {
   await ensureFilesLoaded();
+  const cache = await caches.open(await getCurrentCacheName());
+
+  // Only report files that are actually in the cache right now - dicts are
+  // cached lazily (see consolidateOnly), so most of the manifest may not be
+  // downloaded yet and shouldn't be reported as available.
+  // Use cache.match(path) per entry (same lookup cacheFirst() uses) rather
+  // than comparing cache.keys() URLs against filesMap paths directly - the
+  // Cache API stores/returns percent-encoded URLs, so a raw string
+  // comparison silently fails to match anything with encoded characters.
   const files = {};
-  for (const [path, meta] of filesMap.entries()) files[path] = meta.timestamp;
+  await Promise.all(
+    Array.from(filesMap.entries()).map(async ([path, meta]) => {
+      const cached = await cache.match(path);
+      if (cached) files[path] = meta.timestamp;
+    })
+  );
+
   const message = { type: 'status', version: await getCurrentCacheName(), files };
   if (client) {
     client.postMessage(message);
@@ -102,12 +118,13 @@ function normalizePath(p) {
 
 function parseFilesArray(data) {
   const map = new Map();
-  const filesToCache = [
-    ...(data.core || []),
-    ...(data.dicts || [])
-  ];
-  for (const entry of filesToCache) {
-    const [path, description, size, order, timestamp] = entry;
+  // Both sections now put timestamp at index 1:
+  //   core:  [path, timestamp]
+  //   dicts: [path, timestamp, description, size, order]
+  for (const [path, timestamp] of (data.core || [])) {
+    map.set(normalizePath(path), { description: undefined, size: undefined, order: undefined, timestamp });
+  }
+  for (const [path, timestamp, description, size, order] of (data.dicts || [])) {
     map.set(normalizePath(path), { description, size, order, timestamp });
   }
   return map;
@@ -281,7 +298,7 @@ async function handleFetch(request, url) {
   const pathname = decodeURIComponent(url.pathname);
 
   if (pathname === '/manifest.json' || pathname.endsWith('/manifest.json')) {
-    return generateManifestResponse(pathname);
+    return generateManifestResponse(pathname, request.referrer);
   }
 
   const isHtmlish =
@@ -294,13 +311,41 @@ async function handleFetch(request, url) {
   return cacheFirst(request, pathname);
 }
 
-function generateManifestResponse(pathname) {
-  const segments = pathname.split('/').filter(Boolean);
-  const dir = segments.length > 1 ? segments[0] : '';
+function generateManifestResponse(pathname, referrer) {
+  // Prefer the referring page's own URL to determine the app directory.
+  // A <link rel="manifest" href="manifest.json"> is a *relative* reference,
+  // and the browser resolves it against the page URL's own directory - but
+  // our pages are addressed without a trailing slash (e.g. /khmer/music),
+  // so the browser treats "music" as a filename and resolves the relative
+  // link one level up, actually requesting /khmer/manifest.json. Stripping
+  // the trailing 'manifest.json' segment from *that* request pathname would
+  // then wrongly land one directory short. The referrer still holds the
+  // real, un-mangled page path, so use it whenever it's available.
+  let dirSegments = [];
+  if (referrer) {
+    try {
+      const refUrl = new URL(referrer);
+      if (refUrl.origin === self.location.origin) {
+        dirSegments = refUrl.pathname.split('/').filter(Boolean);
+      }
+    } catch (e) {
+      /* malformed/absent referrer - fall through to the pathname-based guess */
+    }
+  }
+  if (!dirSegments.length) {
+    // Fallback: no usable referrer, so fall back to the (possibly-mangled)
+    // request pathname itself, treating everything but the trailing
+    // 'manifest.json' segment as the app directory.
+    const segments = pathname.split('/').filter(Boolean);
+    dirSegments = segments.slice(0, -1);
+  }
+  const dir = dirSegments.join('/');
 
   const manifest = JSON.parse(JSON.stringify(BASE_MANIFEST));
   if (dir) {
-    const label = dir.charAt(0).toUpperCase() + dir.slice(1);
+    const label = dirSegments
+      .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+      .join(' ');
     manifest.name = `${BASE_MANIFEST.name} ${label}`;
     manifest.short_name = `PS ${label}`;
     manifest.scope = `/${dir}/`;

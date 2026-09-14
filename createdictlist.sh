@@ -5,7 +5,7 @@
 # Output format:
 # {
 #   "core":  [ [file, timestamp], ... ],
-#   "dicts": [ [file, description, buflen, priority, timestamp], ... ],
+#   "dicts": [ [file, timestamp, description, buflen, priority], ... ],
 #   "abbr": {
 #     "khmer": ["km", "ខ"],
 #     "music": ["mus", "𝄞"],
@@ -14,6 +14,8 @@
 # }
 # Dictionaries (.peak, .peak.zst, .slab, .slab.zst) go under "dicts".
 # All other files go under "core" (filename + timestamp only).
+# In both arrays, timestamp is always element[1] so it can be read the same
+# way regardless of file type.
 # Each abbr value is [romanized, symbolic] (or more elements if provided).
 # Each abbr entry is written on a single line.
 
@@ -67,7 +69,7 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
             else
                 printf ",\n" >> "$DICTS_TMP"
             fi
-            printf '    ["%s", "%s", %s, %s, %s]' "$file" "$desc" "$buflen" "$priority" "$timestamp" >> "$DICTS_TMP"
+            printf '    ["%s", %s, "%s", %s, %s]' "$file" "$timestamp" "$desc" "$buflen" "$priority" >> "$DICTS_TMP"
             ;;
         *)
             if [ "$CORE_FIRST" -eq 1 ]; then

@@ -5,6 +5,7 @@ TSV_FILES := $(shell find . -path '*/src/*' -name '*.tsv' ! -path '*/meta/*' 2>/
 META_FILES := $(foreach f,$(TSV_FILES),$(subst /src/,/,$(patsubst %.tsv,meta/%.meta,$(f))))
 
 files: meta peakgen $(META_FILES)
+	./createdictlist.sh
 
 # Rule
 $(META_FILES): peakgen
@@ -46,7 +47,7 @@ peak.wasm : peak.c zstddeclib.c peak.h
 	-DZSTD_FORCE_DECOMPRESS_SEQUENCES_SHORT \
 	-DZSTD_NO_UNUSED_FUNCTIONS \
 	-s MALLOC="none" \
-	-O3 \
+	-Oz \
 	-flto \
 	-msimd128 \
 	-mrelaxed-simd \
@@ -63,7 +64,8 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 	gcc -Wall -DDEBUG peak_cli.c -o peak
 404.html : peakworker.js peak.html app.js style.css
 	node build.mjs --minify
+	./createmeta.sh 404.html
 
-all : peakgen peakgen.wasm peak.wasm peak 404.html
+all : peakgen peakgen.wasm peak.wasm peak 404.html files.json
 
 phony: all
