@@ -172,7 +172,7 @@ if(root){
 					if(e.data.filetype){
 						if(e.data.subheader){
 							let sh = e.data.subheader;	
-							el.innerHTML += `<p-n>${sh.join(",<br>")}</p-n>`;
+							el.innerHTML += `<p-n>${sh.join(",<br>")}<br></p-n>`;
 						}
 						if (e.data.filetype.toLowerCase().includes('webp')) {
 							const blob = new Blob([e.data.body], { type: 'image/webp' });

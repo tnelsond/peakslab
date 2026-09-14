@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1789298728],
+    ["404.html", 1789365379],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2_nosymbols.wasm", 1789218124],
@@ -56,10 +56,10 @@
     ["khmer/media/audio.slab", 1788856838, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 4540, 1],
     ["khmer/media/images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2],
     ["khmer/music/chords/chords.peak.zst", 1788854550, "<a href=\"https://www.khmerworship.com/\">Khmer Worship</a>", 10958, 1],
-    ["khmer/music/sheet/kora-misc.slab", 1788853148, "Remaining songs from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 18418, 3],
-    ["khmer/music/sheet/kora-pb1.slab", 1788853806, "The first half of the purple book via <a href=\"https/www.korapraise.com\">Kora Praise</a>", 22055, 2],
-    ["khmer/music/sheet/kora-pb2.slab", 1788853808, "The second half of the purple book via <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 25721, 1],
-    ["khmer/music/sheet/kora-snl.slab", 1788853501, "The SnL songbook from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 35514, 2],
+    ["khmer/music/sheet/kora-misc.slab", 1789366310, "Remaining songs from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 22316, 3],
+    ["khmer/music/sheet/kora-pb1.slab", 1789364959, "The first half of the purple book via <a href=\"https/www.korapraise.com\">Kora Praise</a>", 24895, 2],
+    ["khmer/music/sheet/kora-pb2.slab", 1789364963, "The second half of the purple book via <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 26494, 1],
+    ["khmer/music/sheet/kora-snl.slab", 1789364966, "The SnL songbook from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 32462, 2],
     ["khmer/ref/cambogeo.peak.zst", 1788854552, "Cambodian village names.", 3528, 2],
     ["khmer/ref/choukprov.peak.zst", 1788854553, "Proverbs from <a href=\"https://choukhmer.wordpress.com/literature/descriptive-proverbs-kar/\">Chouk Khmer</a>", 12861, 2],
     ["khmer/ref/kmwiki.peak.zst", 1788857357, "<a href=\"https://km.wikipedia.org/wiki/\">Khmer Wikipedia</a>", 1678, 3],

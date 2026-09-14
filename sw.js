@@ -1,6 +1,5 @@
 /*
  * PeakSlab service worker
- * ------------------------
  * - Cache-first for everything.
  * - files.json is the manifest of truth: core entries are [path, timestamp];
  *   dicts entries are [path, timestamp, description, size, order]. timestamp
@@ -18,6 +17,7 @@
  *   files.json falls back to 404.html, which doubles as the SPA shell (no
  *   separate index.html - that duplication was removed).
  */
+
 
 const CACHE_PREFIX = 'peakslab';
 
