@@ -19,7 +19,7 @@
 # Each abbr value is [romanized, symbolic] (or more elements if provided).
 # Each abbr entry is written on a single line.
 
-OUT="files.json"
+OUT="files-src.json"
 SEARCH_DIR="${1:-meta}"
 ABBR_FILE="abbreviations.json"
 
