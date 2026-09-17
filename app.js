@@ -88,7 +88,6 @@ if(root){
 	let st = 3;
 	let nload = 0;
 	const timingDiv  = document.getElementById('timing');
-	document.getElementById('tabs')?.classList.add('hide'); // leftover container from the old tab bar, unused now
 
 	const getSharedWasmModule = (() => {
 		let promise = null;
@@ -363,8 +362,8 @@ if(root){
 			el.src = '';
 		});
 		if(container == resultsDiv){
-			listDiv.style.display = 'none';
-			resultsDiv.replaceChildren(listDiv);
+			settings.style.display = 'none';
+			resultsDiv.replaceChildren();
 		}else{
 			container.innerHTML = "";
 		}
@@ -580,7 +579,7 @@ if(root){
 	// every path segment as its own clickable link, followed by its files as a
 	// plain list - no nesting or per-depth indentation. Extras from other
 	// languages get a small microheader within the group.
-	let temp = `<p-d><h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
+	let temp = `<h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
 
 	let prevGroupKey = null;
 	let prevLang = null;
@@ -605,10 +604,9 @@ if(root){
 
 		temp += `<li class="dictlist-item dictlist-file" data-id="${dict[0]}">${idx+1}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
 	});
-	temp += `</ol></p-d>`;
-	let listDiv = document.createElement('div');
-	listDiv.innerHTML = temp;
-	resultsDiv.append(listDiv);
+	temp += `</ol>`;
+	let listDiv = document.getElementById('listDiv');
+	listDiv.innerHTML += temp;
 
 	ack = function(url){
 		const x = dicts.findIndex(y => y[0] == url);
@@ -806,6 +804,13 @@ if(root){
 		});
 	}
 
+	function showSettings(){
+		loader = null;
+		statusDiv.textContent = "";
+		settings.style.display = 'block';
+		resultsDiv.replaceChildren();
+	}
+
 	function initSearch(){
 		num = 0;
 		workers.forEach((w, i) =>{
@@ -872,10 +877,7 @@ if(root){
 			loadProgress.style.display = 'none';
 		}
 		if(!query){
-			loader = null;
-			statusDiv.textContent = "";
-			listDiv.style.display = 'block';
-			resultsDiv.replaceChildren(listDiv);
+			showSettings();
 			return;
 		}
 		if(query == prevquery){
@@ -960,14 +962,14 @@ if(root){
 	});
 
 	// Dark mode
-	document.getElementById('darkModeToggle')?.addEventListener('click', () => {
+	document.getElementById('darkT')?.addEventListener('click', () => {
 			document.body.classList.toggle('dark-mode');
 			localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
 	});
 	if (localStorage.getItem('darkMode') === 'true') {
 			document.body.classList.add('dark-mode');
 	}
-	document.getElementById('markToggle')?.addEventListener('click', () => {
+	document.getElementById('markT')?.addEventListener('click', () => {
 			mark = !mark;
 			localStorage.setItem('mark', document.body.classList.contains('mark'));
 	});
@@ -975,24 +977,13 @@ if(root){
 		mark = false;
 	}
 
-	document.getElementById('debugToggle')?.addEventListener('click', () => {
+	document.getElementById('debugT')?.addEventListener('click', () => {
 			debug = !debug;
 	});
 
-
-	// Settings modal
+	// Settings button
 	document.getElementById('settingsBtn')?.addEventListener('click', () => {
-			document.getElementById('settingsModal').style.display = 'flex';
-	});
-
-	document.querySelector('#settingsModal .close-btn')?.addEventListener('click', () => {
-			document.getElementById('settingsModal').style.display = 'none';
-	});
-
-	document.getElementById('settingsModal')?.addEventListener('click', e => {
-			if (e.target.id === 'settingsModal') {
-					e.target.style.display = 'none';
-			}
+		showSettings();
 	});
 
 	let voicetries = 2;

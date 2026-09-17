@@ -85,7 +85,7 @@ As you can see the runtime is drastically smaller, the files are smaller, and th
 The size of all the files is much smaller once minified and compressed.
 |  Program        | Core   |  .html .js .css   |  Total |
 |-----------------|--------|-----------------|--------|
-|PeakSlab Compressed| 16kb | 13kb (0%)**  |    29kb** |
+|PeakSlab Compressed| 16kb | 13kb (0%)** |  29kb |
 
 # License
 
@@ -157,7 +157,7 @@ Adding support for other filetypes is trivial, but for right now I just have the
 - History and bookmarking
 - ~~Selection to TTS~~
 - Sheet music (ABC files)
-- Remove javascript glue code for peak.wasm (peak.js).
+- ~~Remove javascript glue code for peak.wasm (peak.js).~~
 - ~~JBIG2 image support~~
 - ~~Cite sources~~
 - Allow users to upload their own custom PeakSlab files which will stay cached in Indexeddb.

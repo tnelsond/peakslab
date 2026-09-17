@@ -4,8 +4,9 @@ TSV_FILES := $(shell find . -path '*/src/*' -name '*.tsv' ! -path '*/meta/*' 2>/
 # Map to meta/ (strip /src/)
 META_FILES := $(foreach f,$(TSV_FILES),$(subst /src/,/,$(patsubst %.tsv,meta/%.meta,$(f))))
 
-files: meta peakgen $(META_FILES)
+files.json: meta peakgen $(META_FILES)
 	./createdictlist.sh
+	minify files.json > files.json
 
 # Rule
 $(META_FILES): peakgen
@@ -65,7 +66,9 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 404.html : peakworker.js peak.html app.js style.css
 	node build.mjs --minify
 	./createmeta.sh 404.html
+sw.js : sw-src.js
+	minify sw-src.js > sw.js
 
-all : peakgen peakgen.wasm peak.wasm peak 404.html files.json
+all : peakgen peakgen.wasm sw.js peak.wasm peak 404.html files.json
 
 phony: all
