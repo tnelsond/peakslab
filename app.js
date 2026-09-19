@@ -22,6 +22,22 @@ const pinCloseIconSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="w
 const pinCloseIconSVGSmall = pinCloseIconSVG.replace(/width="20" height="20"/, 'width="16" height="16"');
 const filesJson = await fetch('/files.json').then(r => r.json());
 
+// Ask the browser not to auto-evict our cached dictionaries/app-shell under
+// storage pressure. This is a request, not a guarantee - browsers grant it
+// based on heuristics like install/engagement state - but it costs nothing
+// to ask, and offline-first apps like this one are exactly the case it
+// exists for. It only affects eviction under low-disk-space pressure; it
+// doesn't help with cache entries that failed to download in the first
+// place (that's handled in the service worker).
+if ('storage' in navigator && 'persist' in navigator.storage) {
+	navigator.storage.persisted().then(async isPersisted => {
+		if (!isPersisted) {
+			const granted = await navigator.storage.persist();
+			console.log(granted ? 'Storage will persist' : 'Storage may be cleared under pressure');
+		}
+	});
+}
+
 if ('serviceWorker' in navigator) {
 	navigator.serviceWorker.register('/sw.js')
 		.then(reg => console.log('Root SW registered with scope:', reg.scope))
@@ -540,6 +556,14 @@ if(root){
 		statusDiv.classList.toggle('hide', showingPinned);
 		loadProgress.classList.toggle('hide', showingPinned);
 		newtiming.classList.toggle('hide', showingPinned);
+	});
+
+	let isfull = false;
+	const f4 = document.getElementById('f4');
+	f4.addEventListener('click', () => {
+		isfull = !isfull;
+		document.getElementById('controls')?.classList.toggle('hidev', isfull);
+		document.getElementById('searchContainer')?.classList.toggle('hide', isfull);
 	});
 
 	function updatePinnedTab(){

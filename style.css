@@ -442,6 +442,14 @@ mark {
 	top: 60px;
 }
 
+.hidev{
+	visibility: hidden;
+}
+
+#f4{
+	visibility: visible;
+}
+
 .control-btn {
     background: var(--control-btn-bg);
     color: white;
