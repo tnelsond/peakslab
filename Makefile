@@ -1,12 +1,16 @@
+all : peakgen peakgen.wasm sw.js peak.wasm peak 404.html files.json
+
 # Find .tsv files - clean paths without leading ./
 TSV_FILES := $(shell find . -path '*/src/*' -name '*.tsv' ! -path '*/meta/*' 2>/dev/null | sed 's|^\./||' | sort)
 
 # Map to meta/ (strip /src/)
 META_FILES := $(foreach f,$(TSV_FILES),$(subst /src/,/,$(patsubst %.tsv,meta/%.meta,$(f))))
 
-files.json: meta peakgen $(META_FILES)
+files-src.json: meta peakgen $(META_FILES) abbreviations.json
 	./createdictlist.sh
-	minify files.json > files.json
+
+files.json: files-src.json
+	minify files-src.json > files.json
 
 # Rule
 $(META_FILES): peakgen
@@ -69,6 +73,3 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 sw.js : sw-src.js
 	minify sw-src.js > sw.js
 
-all : peakgen peakgen.wasm sw.js peak.wasm peak 404.html files.json
-
-phony: all
