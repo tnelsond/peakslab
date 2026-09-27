@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1789901771],
+    ["404.html", 1790492743],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -51,7 +51,7 @@
     ["khmer/dict/nath2022.peak.zst", 1788854534, "2022 version of the <a href=\"https://play.google.com/store/apps/details?id=com.optimiskh.chuonnathdictionary&hl=en-US\">Chuon Nath Digital Dictionary</a>", 9953, 1],
     ["khmer/dict/plantdict.peak.zst", 1788854536, "<a href=\"https://www.plantsdictionarykh.com/\">PlantsDictionaryKh.com</a>", 4100, 2],
     ["khmer/dict/seacount.peak.zst", 1788854536, "number of occurrences of Khmer words via <a href=\"https://sealang.net/khmer/dictionary.htm\">Sealang</a>", 93, 2],
-    ["khmer/dict/sonv.peak.zst", 1788854548, "English to Khmer Dictionary from <a href=\"https://play.google.com/store/apps/details?id=com.sonveasna.dictionary&hl=en\">English Khmer Dictionary</a> by DroidSVS", 16932, 2],
+    ["khmer/dict/sonv.peak.zst", 1788854548, "English to Khmer Dictionary from <a href=\"https://play.google.com/store/apps/details?id=com.sonveasna.dictionary&hl=en\">English Khmer Dictionary</a> by DroidSVS", 16932, 1],
     ["khmer/media/audio.slab", 1788856838, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 4540, 1],
     ["khmer/media/images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2],
     ["khmer/music/chords/chords.peak.zst", 1788854550, "<a href=\"https://www.khmerworship.com/\">Khmer Worship</a>", 10958, 1],
