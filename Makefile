@@ -70,6 +70,7 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 404.html : peakworker.js peak.html app.js style.css
 	node build.mjs --minify
 	./createmeta.sh 404.html
+	cp 404.html index.html
 sw.js : sw-src.js
 	minify sw-src.js > sw.js
 

@@ -1,9 +1,8 @@
 {
   "core": [
-    ["404.html", 1789814390],
+    ["404.html", 1789901771],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
-    ["jbig2_nosymbols.wasm", 1789218124],
     ["jbig2.wasm", 1789218129],
     ["peakslab.svg", 1789218198]
   ],
