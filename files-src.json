@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1790492743],
+    ["404.html", 1791268075],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -44,7 +44,7 @@
     ["khmer/bible/text/ulb.peak.zst", 1788875318, "Khmer Unlocked Literal Bible from <a href=\"https://door43.org\">Door43</a>, Wycliffe Associates", 13361, 3],
     ["khmer/dict/ant.peak.zst", 1788854505, "ANT dictionary from <a href=\"https://antkh.com\">antkh.com</a>", 3677, 3],
     ["khmer/dict/baby.peak.zst", 1788854505, "Baby name dictionary from tovnah.com. (URL broken)", 297, 3],
-    ["khmer/dict/g2k.peak.zst", 1789216401, "Goːgle Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/goːgle-khmer-lexicon\">seanghay</a> translated to G2K's phonetics.", 159, 2],
+    ["khmer/dict/g2k.peak.zst", 1791268078, "Go̟ːgle Kʰmer Lexicon viᵃ: <a ʰref=\"ʰttps://ʰuggingface.co/datasets/seᵃngʰay/go̟ːgle-kʰmer-lexicon\">seᵃngʰay</a> translated to G2K's pʰonetics.", 171, ],
     ["khmer/dict/h97.peak.zst", 1788854513, "<em>Cambodian-English Dictionary</em> by Robert K. Headley, Rath Chim, and Ok Soeum <em>(1997, Dunwoody Press, ISBN 0-931745-78-0)</em> via <a href=\"https://sealang.net/khmer/dictionary.htm\">Sealang</a>", 2212, 1],
     ["khmer/dict/ipa.peak.zst", 1788854515, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>.", 149, 2],
     ["khmer/dict/kmwiktionary.peak.zst", 1788857337, "<a href=\"https://km.wiktionary.org/\">Khmer Wiktionary</a>", 1528, 2],
