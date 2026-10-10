@@ -1,5 +1,36 @@
 "use strict";
 
+// Startup is done here, off the page's main thread: as soon as this worker
+// starts it reads peak.wasm (and later each dictionary) straight from the
+// offline cache (Cache Storage). Only when the cache has no current copy
+// does it ask the page, which fetches through the service worker (which
+// downloads and caches it).
+const origin = self.location.origin + '/';
+async function fromCache(path, minTimestamp) {
+	try {
+		const hit = await caches.match(new URL(path, origin));
+		if (hit && parseInt(hit.headers.get('x-peak-timestamp') || '0', 10) >= minTimestamp) {
+			return await hit.arrayBuffer();
+		}
+	} catch (e) { /* no Cache API here */ }
+	return null;
+}
+// Bytes the page sends when asked ('needwasm' / 'needbytes').
+const fromPage = {};
+function askPage(key, msg) {
+	return new Promise(resolve => { fromPage[key] = resolve; self.postMessage(msg); });
+}
+
+// Start reading + compiling peak.wasm now; its timestamp is checked once
+// the page sends the expected one with 'init'.
+const cachedWasm = (async () => {
+	try {
+		const hit = await caches.match(new URL('peak.wasm', origin));
+		if (!hit) return null;
+		const ts = parseInt(hit.headers.get('x-peak-timestamp') || '0', 10);
+		return { ts, module: await WebAssembly.compile(await hit.arrayBuffer()) };
+	} catch (e) { return null; }
+})();
 let wasmModuleResolve = null;
 const wasmModulePromise = new Promise(resolve => { wasmModuleResolve = resolve; });
 
@@ -15,10 +46,17 @@ self.onmessage = async (e) => {
 	//console.log(e.data);
 	if(e.data.type == "init"){
 		id = e.data.id;
-		wasmModuleResolve(e.data.wasm);
+		const c = await cachedWasm;
+		wasmModuleResolve(c && c.ts >= e.data.wasmTimestamp
+			? c.module
+			: await askPage('wasm', {type: 'needwasm', id}));
+	}else if(e.data.type == "wasm"){
+		fromPage.wasm(e.data.wasm);
+	}else if(e.data.type == "bytes"){
+		fromPage['bytes' + e.data.did](e.data.buf);
 	}else if(e.data.type == "load"){
 		if(!dicts[e.data.did]){
-			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did, e.data.buf);
+			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did, e.data.timestamp);
 		}
 	}else if(e.data.type == "destroy"){
 		if(dicts[e.data.did]){
@@ -144,9 +182,9 @@ async function peak(wasmModule){
 }
 
 class Dic{
-	constructor(filename, name, bufsize, did, buf){
+	constructor(filename, name, bufsize, did, timestamp){
 		this.filename = filename;
-		this.buf = buf || null; // bytes fetched by the page (see loadDict in app.js)
+		this.timestamp = timestamp || 0; // from files.json: the cached copy must be at least this new
 		this.name = name;
 		this.did = did;
 		this.bufmax = bufsize + 1024;
@@ -164,17 +202,25 @@ class Dic{
 	destroy(){
 		this.module._free_peak();
 	}
+	async readBytes(){
+		const buf = await fromCache(this.filename, this.timestamp);
+		if (buf) return buf;
+		// Not cached yet or outdated: the page fetches it through the service worker.
+		const sent = await askPage('bytes' + this.did, {type: 'needbytes', id, did: this.did});
+		if (sent) return sent;
+		// Last resort (page fetch failed): try directly.
+		const resp = await fetch(new URL(this.filename, origin));
+		if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+		return resp.arrayBuffer();
+	}
 	async init() {
 		try{
+			// Start reading the bytes right away, in parallel with setting up
+			// the wasm instance.
+			const bytes = this.readBytes();
 			const wasmBinary = await wasmModulePromise;
       this.module = await peak(wasmBinary);
-			let buf = this.buf;
-			this.buf = null;
-			if (!buf) { // fallback: page couldn't fetch it
-				const resp = await fetch(new URL(this.filename, self.location.origin + '/'));
-				if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-				buf = await resp.arrayBuffer();
-			}
+			const buf = await bytes;
 			const start = performance.now();
 
 			// Send the database to the module

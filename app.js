@@ -20,6 +20,11 @@ let ack = null;
 const pinIconSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg>';
 const pinCloseIconSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
 const pinCloseIconSVGSmall = pinCloseIconSVG.replace(/width="20" height="20"/, 'width="16" height="16"');
+// On dictionary pages, start the workers right away, in parallel with
+// files.json instead of after it: starting a worker takes ~50 ms, and each
+// worker immediately starts reading peak.wasm from the offline cache.
+const isDictPage = window.location.pathname.length > 1;
+const earlyWorkers = isDictPage ? [new Worker('/peakworker.js'), new Worker('/peakworker.js')] : [];
 const filesJson = await fetch('/files.json').then(r => r.json());
 
 // Ask the browser not to auto-evict our cached dictionaries/app-shell under
@@ -122,6 +127,8 @@ if(root){
 		let promise = null;
 		return async () => {
 				if (!promise) {
+						// Only used when a worker has no current cached copy
+						// ('needwasm'): fetch through the service worker.
 						promise = fetch('/peak.wasm')
 								.then(resp => resp.arrayBuffer())
 								.then(buffer => WebAssembly.compile(buffer));
@@ -132,11 +139,24 @@ if(root){
 
 	// When creating your workers:
 	async function createPeakWorker(id){
-			const w = new Worker('/peakworker.js');
+			const w = earlyWorkers[id - 1] || new Worker('/peakworker.js');
 			workers.push(w);
-			w.postMessage({ type: "init", wasm: await getSharedWasmModule(), id: id});
+			const wasmTimestamp = (filesJson.core.find(c => c[0] === 'peak.wasm') || [])[1] || 0;
+			w.postMessage({ type: "init", id, wasmTimestamp });
 			w.onmessage = function(e){
-				if(e.data.type == "loaded"){
+				if(e.data.type == "needwasm"){
+					getSharedWasmModule().then(wasm => w.postMessage({type: 'wasm', wasm}));
+				}
+				else if(e.data.type == "needbytes"){
+					const d = e.data.did*workers.length + e.data.id - 1;
+					fetchDict('/' + dicts[d][0])
+						.then(buf => w.postMessage({type: 'bytes', did: e.data.did, buf}, [buf]))
+						.catch(err => {
+							console.warn(`Fetching ${dicts[d][0]} failed:`, err);
+							w.postMessage({type: 'bytes', did: e.data.did, buf: null});
+						});
+				}
+				else if(e.data.type == "loaded"){
 					const d = e.data.did*workers.length + e.data.id - 1;
 					dict_master_code[d] = false;
 					document.getElementById(`${d}`)?.classList.remove('down');
@@ -374,6 +394,7 @@ if(root){
 	for(let i=1; i<=workers_num; ++i){
 		createPeakWorker(i);
 	}
+	earlyWorkers.slice(workers_num).forEach(w => w.terminate()); // started early but not needed
 	let worker_code = new Array(workers.length).fill(false);
 	let dict_master_code = new Array(dicts.length).fill(true);
 	let dict_code = [...dict_master_code];
@@ -672,8 +693,9 @@ if(root){
 	}
 
 	// Called exactly once, with the saved array or null for defaults.
-	function applyState(saved) {
-		if (stateApplied) return;
+	// With onlyIfSaved, does nothing unless there's a saved array.
+	function applyState(saved, onlyIfSaved) {
+		if (stateApplied || (onlyIfSaved && !Array.isArray(saved))) return;
 		stateApplied = true;
 		if (!Array.isArray(saved)) {
 			console.log('No saved state found → using defaults from dict[4]');
@@ -695,6 +717,11 @@ if(root){
 		db = null;
 		applyState(lsGet());
 	}
+
+	// Start loading right away from the copy in localStorage (synchronous)
+	// instead of waiting for IndexedDB to open; IndexedDB is only needed
+	// when there's no copy here yet (e.g. state saved by an older version).
+	applyState(lsGet(), true);
 
 	try {
 		const dbRequest = indexedDB.open(appname, 1);
@@ -765,17 +792,19 @@ if(root){
 					const w = workers[i % workers.length];
 					const did = Math.floor(i / workers.length);
 					++nload;
-					fetch('/' + dicts[i][0])
-							.then(r => {
-									if (!r.ok) throw new Error(`HTTP ${r.status}`);
-									return r.arrayBuffer();
-							})
-							.then(buf => w.postMessage({type: 'load', did, msg: dicts[i], buf}, [buf]))
-							.catch(err => {
-									console.warn(`Page fetch of ${dicts[i][0]} failed, worker will try:`, err);
-									w.postMessage({type: 'load', did, msg: dicts[i]});
-							});
+					// The worker reads it from the offline cache itself (off this
+					// thread), or asks for it with 'needbytes' if there's no
+					// current copy there.
+					w.postMessage({type: 'load', did, msg: dicts[i], timestamp: files[i].file[1]});
 			}
+	}
+
+	// For a worker whose cache has no current copy ('needbytes'): fetch()
+	// goes through the service worker, which downloads and caches it.
+	async function fetchDict(path) {
+		const r = await fetch(path);
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		return r.arrayBuffer();
 	}
 
 	function loadDicts(){
