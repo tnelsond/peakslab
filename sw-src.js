@@ -176,12 +176,43 @@ async function loadFilesJson() {
   }
 }
 
+// Newest peakslab cache whose install has FINISHED (it contains the
+// '/__install_complete__' marker, written as the last step of doInstall).
+// caches.keys() returns caches in creation order, so walk it backwards.
+// This must never pick a cache that's still being built: if this worker was
+// restarted while a newer worker is mid-install, "just take the last cache"
+// would select the half-filled new cache, every dictionary would miss, and
+// cacheFirst() would re-download them all from the network - which is why
+// loading was sometimes slow online but always instant offline (offline,
+// no update/install ever starts). Needs no network at all.
+async function findInstalledCacheName() {
+  const keys = (await caches.keys()).filter(k => k.startsWith(CACHE_PREFIX));
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const c = await caches.open(keys[i]);
+    if (await c.match('/__install_complete__')) return keys[i];
+  }
+  // Legacy caches from before the marker existed: the oldest one is the one
+  // that was fully installed; anything newer may still be mid-install.
+  return keys[0] || null;
+}
+
 async function getCurrentCacheName() {
   if (cachedCacheName) return cachedCacheName;
-  const keys = await caches.keys();
-  const peakCaches = keys.filter(k => k.startsWith(CACHE_PREFIX));
-  cachedCacheName = peakCaches[peakCaches.length - 1] || cacheName;
+  cachedCacheName = (await findInstalledCacheName()) || cacheName;
   return cachedCacheName;
+}
+
+// On a miss in the current cache, look for a still-fresh copy in any other
+// peakslab cache before going to the network (and copy it forward).
+async function matchOtherCaches(pathname, current, meta) {
+  const keys = (await caches.keys()).filter(k => k.startsWith(CACHE_PREFIX) && k !== current);
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const hit = await (await caches.open(keys[i])).match(pathname);
+    if (!hit) continue;
+    const ts = parseInt(hit.headers.get('x-peak-timestamp') || '0', 10);
+    if (!meta || ts >= meta.timestamp) return hit;
+  }
+  return null;
 }
 
 async function ensureFilesLoaded() {
@@ -251,6 +282,12 @@ async function doInstall() {
   // old cache(s) based on that marker. Missing files are filled in on
   // demand the next time they're actually requested (cacheFirst fetches
   // live if not cached).
+  // Carry forward files that were cached lazily but aren't listed in
+  // files.json (e.g. /peak.wasm, icons). Without this they were silently
+  // dropped on every update, so the first load afterwards had to fetch
+  // peak.wasm over the network before ANY dictionary could start loading.
+  await carryForwardUnlisted(newCache, oldCaches);
+
   const missingCore = entries
     .filter(([path], i) => coreSet.has(path) && !results[i])
     .map(([path]) => path);
@@ -265,6 +302,26 @@ async function doInstall() {
   if (shell) await newCache.put('/', shell.clone());
 
   cachedCacheName = cacheName;
+}
+
+async function carryForwardUnlisted(newCache, oldCaches) {
+  const DICT_RE = /\.(peak|slab)(\.zst)?$/; // dicts removed from the manifest stay dropped
+  const done = new Set();
+  for (const oc of oldCaches.slice().reverse()) { // newest old cache first
+    try {
+      for (const req of await oc.keys()) {
+        const path = decodeURIComponent(new URL(req.url).pathname);
+        if (done.has(path) || filesMap.has(path) || DICT_RE.test(path) ||
+            path === '/' || path === '/__install_complete__') continue;
+        done.add(path);
+        if (await newCache.match(path)) continue;
+        const res = await oc.match(req);
+        if (res) await newCache.put(path, res);
+      }
+    } catch (e) {
+      console.warn('Failed to carry forward unlisted files from an old cache:', e);
+    }
+  }
 }
 
 async function consolidateOrFetch(path, meta, newCache, oldCaches) {
@@ -360,14 +417,15 @@ async function doActivate() {
   // downloading - wiping out the freshly downloaded files instead of the
   // stale ones. Recompute the same deterministic name doInstall() would
   // have used before doing anything destructive.
+  //
+  // This used to re-fetch files.json from the network to recompute the
+  // name. Page fetches are held until activation finishes, so on a slow or
+  // flaky connection every request (including every dictionary) stalled
+  // behind that fetch; offline it failed instantly. The installed cache can
+  // be found locally instead: it's the newest one carrying the install marker.
   if (!cacheName) {
-    try {
-      const { text } = await loadFilesJson();
-      cacheName = `${CACHE_PREFIX}-${await simpleHash(text)}`;
-    } catch (e) {
-      // Can't determine the current version (fully offline, no cached
-      // files.json at all anywhere) - don't delete anything, just take
-      // control with whatever's already active.
+    cacheName = await findInstalledCacheName();
+    if (!cacheName) {
       await self.clients.claim();
       return;
     }
@@ -509,10 +567,16 @@ async function cacheFirst(request, pathname) {
     return cached;
   }
 
+  const meta = filesMap.get(pathname);
+  const other = await matchOtherCaches(pathname, await getCurrentCacheName(), meta);
+  if (other) {
+    cache.put(pathname, other.clone()).catch(() => {});
+    return other;
+  }
+
   try {
     const res = await fetch(request);
     if (res && res.ok) {
-      const meta = filesMap.get(pathname);
       const buf = await res.clone().arrayBuffer();
       const headers = new Headers(res.headers);
       headers.set('x-peak-timestamp', String(meta ? meta.timestamp : Date.now()));

@@ -63,6 +63,7 @@ peak.wasm : peak.c zstddeclib.c peak.h
 	--no-entry \
 	-o peak.wasm
 	du -b peak.wasm
+	./createmeta.sh peak.wasm
 peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
 	gcc -DTB_IMPL -lreadline -ltinfo peak_cli2.c -o peak_tui
 peak : peak_cli.c peak.h peak.c zstddeclib.c
