@@ -175,9 +175,11 @@ allocate_pages(size_t payload_size, size_t *n_allocated) {
   }
 
   if (preallocated < needed) {
-    // Always grow the walloc heap at least by 50%.
-    grow = align(max(walloc_heap_size / 2, needed - preallocated),
-                 PAGE_SIZE);
+    // Grow by what's needed (whole 64 kB pages). Upstream walloc grows by at
+    // least 50% to amortize many small allocations, but PeakSlab makes a few
+    // very large ones (a whole decompressed dictionary), where 50% extra is
+    // tens of MB of memory that's never used.
+    grow = align(needed - preallocated, PAGE_SIZE);
     ASSERT(grow);
     if (__builtin_wasm_memory_grow(0, grow >> PAGE_SIZE_LOG_2) == -1) {
       return NULL;

@@ -1,3 +1,4 @@
+comma := ,
 all : peakgen peakgen.wasm sw.js peak.wasm peak 404.html files.json
 
 # Find .tsv files - clean paths without leading ./
@@ -46,22 +47,26 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
 	-s FILESYSTEM=0 \
   -s EXPORT_NAME="peakgen" \
 	--no-entry
-peak.wasm : peak.c zstddeclib.c peak.h
-	emcc utils/walloc-master/walloc.c peak.c \
+# peak.wasm is built with plain clang + wasm-ld (no Emscripten): any clang with
+# the wasm32 target works (e.g. Debian/Ubuntu: apt install clang lld).
+# utils/minilibc supplies the few libc functions needed; malloc is walloc.
+# wasm-opt (binaryen) is optional and shaves ~2 kB if installed.
+# -DZSTD_NO_INLINE would make it ~11 kB smaller but zstd decompression
+# (i.e. dictionary load time) about twice as slow, so it's not used.
+CLANG ?= clang
+WASM_OPT ?= $(shell command -v wasm-opt 2>/dev/null)
+PEAK_EXPORTS = load_peak peak_init init_search continue_search get_result free_peak malloc free switchstate
+peak.wasm : peak.c zstddeclib.c peak.h utils/walloc-master/walloc.c $(wildcard utils/minilibc/*)
+	$(CLANG) --target=wasm32 -Oz -flto -nostdlib -isystem utils/minilibc \
+	-mbulk-memory -msimd128 -Wno-pointer-sign \
+	-DNDEBUG \
 	-DHUF_FORCE_DECOMPRESS_X1 \
 	-DZSTD_FORCE_DECOMPRESS_SEQUENCES_SHORT \
 	-DZSTD_NO_UNUSED_FUNCTIONS \
-	-s MALLOC="none" \
-	-Oz \
-	-flto \
-	-msimd128 \
-	-mrelaxed-simd \
-	-s ENVIRONMENT=worker \
-	-msse4.2 -mavx -mavx2 \
-	-s ALLOW_MEMORY_GROWTH=1 \
-	-s EXPORTED_FUNCTIONS='["_load_peak","_peak_init","_init_search","_continue_search","_get_result","_free_peak","_malloc","_free","_switchstate"]' \
-	--no-entry \
-	-o peak.wasm
+	-Wl,--no-entry -Wl,--gc-sections -Wl,--strip-all \
+	$(addprefix -Wl$(comma)--export=,$(PEAK_EXPORTS)) \
+	-o peak.wasm peak.c utils/walloc-master/walloc.c utils/minilibc/libc.c
+	$(if $(WASM_OPT),$(WASM_OPT) -Oz --converge --strip-debug --strip-producers -all peak.wasm -o peak.wasm)
 	du -b peak.wasm
 	./createmeta.sh peak.wasm
 peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
