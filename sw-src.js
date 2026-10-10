@@ -16,9 +16,11 @@
  *   incomplete new cache still activates and takes over, but the old
  *   cache(s) are kept as a fallback rather than deleted, since they may hold
  *   files the new cache is still missing.
- * - On fetch: serve from cache immediately. files.json is only re-checked when a new
- *   service worker is installed (the browser's normal SW update check is what
- *   triggers that) - there's no periodic polling while the app is just running.
+ * - On fetch: serve from cache immediately. files.json is re-checked in the
+ *   background (throttled, conditional request) after navigations and when
+ *   the app returns to the foreground; a changed manifest is applied to the
+ *   current cache in place - see checkForFilesUpdate(). A new sw.js still
+ *   goes through the normal install/activate path.
  * - manifest.json is never cached/fetched from the network - it's generated on the fly
  *   for whatever path it was requested from (root or per-language sub-app).
  * - Any HTML / navigation / directory request whose path isn't a known file in
@@ -28,6 +30,7 @@
 
 
 const CACHE_PREFIX = 'peakslab';
+const DICT_RE = /\.(peak|slab)(\.zst)?$/;
 
 // Base manifest template - per-path manifests are derived from this.
 const BASE_MANIFEST = {
@@ -81,6 +84,11 @@ self.addEventListener('message', event => {
   if (event.data && event.data.type === 'getstatus') {
     event.waitUntil(sendStatus(event.source));
   }
+  // Sent by the page when it comes back to the foreground (an installed PWA
+  // can stay open for days without navigating). Still throttled.
+  if (event.data && event.data.type === 'checkupdate') {
+    event.waitUntil(checkForFilesUpdate());
+  }
 });
 
 async function sendStatus(client) {
@@ -102,7 +110,11 @@ async function sendStatus(client) {
     })
   );
 
-  const message = { type: 'status', version: await getCurrentCacheName(), files };
+  // Version = hash of the files.json in use (updated in place, so the cache
+  // name alone no longer tells you which manifest is live).
+  const fj = await cache.match('/files.json');
+  const version = (fj && fj.headers.get('x-peak-version')) || await getCurrentCacheName();
+  const message = { type: 'status', version, files };
   if (client) {
     client.postMessage(message);
   } else {
@@ -120,6 +132,9 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return; // let cross-origin pass through
   event.respondWith(handleFetch(event.request, url));
+  // Opening/reloading the app is the natural moment to look for a new
+  // files.json. Runs after the response, in the background (throttled).
+  if (event.request.mode === 'navigate') event.waitUntil(checkForFilesUpdate());
 });
 
 // ---------------------------------------------------------------------------
@@ -153,6 +168,19 @@ async function simpleHash(str) {
   return (h >>> 0).toString(36);
 }
 
+// The cached copy of files.json carries the server's ETag (for cheap
+// conditional re-checks, see checkForFilesUpdate) and a content hash that
+// serves as the user-visible version.
+async function filesJsonResponse(text, etag, map) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-peak-version': await simpleHash(text),
+    'x-peak-timestamp': String((map.get('/files.json') || {}).timestamp || 0)
+  };
+  if (etag) headers['x-peak-etag'] = etag;
+  return new Response(text, { headers });
+}
+
 // Loads files.json from the network; falls back to any existing cached copy
 // (from an old peakslab cache) if the network is unavailable.
 async function loadFilesJson() {
@@ -160,7 +188,7 @@ async function loadFilesJson() {
     const res = await fetch('/files.json', { cache: 'no-store' });
     const text = await res.text();
     const arr = JSON.parse(text);
-    return { arr, map: parseFilesArray(arr), text };
+    return { arr, map: parseFilesArray(arr), text, etag: res.headers.get('etag') };
   } catch (e) {
     const keys = await caches.keys();
     for (const key of keys.filter(k => k.startsWith(CACHE_PREFIX))) {
@@ -169,7 +197,7 @@ async function loadFilesJson() {
       if (cached) {
         const text = await cached.text();
         const arr = JSON.parse(text);
-        return { arr, map: parseFilesArray(arr), text };
+        return { arr, map: parseFilesArray(arr), text, etag: cached.headers.get('x-peak-etag') };
       }
     }
     throw e;
@@ -233,7 +261,7 @@ async function ensureFilesLoaded() {
 // ---------------------------------------------------------------------------
 
 async function doInstall() {
-  const { arr, map, text } = await loadFilesJson();
+  const { arr, map, text, etag } = await loadFilesJson();
   filesMap = map;
 
   const version = await simpleHash(text);
@@ -245,10 +273,7 @@ async function doInstall() {
   const oldCacheNames = existingKeys.filter(k => k.startsWith(CACHE_PREFIX) && k !== cacheName);
   const oldCaches = await Promise.all(oldCacheNames.map(n => caches.open(n)));
 
-  await newCache.put(
-    '/files.json',
-    new Response(text, { headers: { 'Content-Type': 'application/json' } })
-  );
+  await newCache.put('/files.json', await filesJsonResponse(text, etag, map));
 
   // Only 'core' files are mandatory at install time. 'dicts' are large and
   // potentially numerous - we don't want to force-download every dictionary
@@ -257,7 +282,8 @@ async function doInstall() {
   // left uncached and picked up lazily by cacheFirst() the first time the
   // user actually requests them.
   const coreSet = new Set((arr.core || []).map(([path]) => normalizePath(path)));
-  const entries = Array.from(filesMap.entries());
+  // files.json itself was just stored above - don't download it a second time.
+  const entries = Array.from(filesMap.entries()).filter(([path]) => path !== '/files.json');
 
   // Both consolidate functions are exception-safe and always resolve (never
   // reject) with a boolean, so a plain Promise.all is fine here - no need
@@ -305,14 +331,13 @@ async function doInstall() {
 }
 
 async function carryForwardUnlisted(newCache, oldCaches) {
-  const DICT_RE = /\.(peak|slab)(\.zst)?$/; // dicts removed from the manifest stay dropped
   const done = new Set();
   for (const oc of oldCaches.slice().reverse()) { // newest old cache first
     try {
       for (const req of await oc.keys()) {
         const path = decodeURIComponent(new URL(req.url).pathname);
         if (done.has(path) || filesMap.has(path) || DICT_RE.test(path) ||
-            path === '/' || path === '/__install_complete__') continue;
+            path === '/' || path.startsWith('/__')) continue;
         done.add(path);
         if (await newCache.match(path)) continue;
         const res = await oc.match(req);
@@ -347,11 +372,15 @@ async function consolidateOrFetch(path, meta, newCache, oldCaches) {
     console.warn(`Failed to consolidate ${path} from an old cache, will try the network:`, e);
   }
 
-  // Missing or stale everywhere - fetch fresh from the network. One retry
-  // on a network-level failure (thrown fetch) - covers transient hiccups
-  // (a dropped connection, a dev-server reset) unrelated to the file
-  // actually being missing. A real non-OK response (404 etc.) is not
-  // retried, since retrying won't make a missing file appear.
+  // Missing or stale everywhere - fetch fresh from the network.
+  return fetchInto(path, meta, newCache);
+}
+
+// Download one file into `cache`, tagged with its manifest timestamp. One
+// retry on a network-level failure (thrown fetch) - covers transient hiccups
+// unrelated to the file actually being missing. A real non-OK response
+// (404 etc.) is not retried, since retrying won't make a missing file appear.
+async function fetchInto(path, meta, newCache) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await fetch(path, { cache: 'no-store' });
@@ -370,6 +399,135 @@ async function consolidateOrFetch(path, meta, newCache, oldCaches) {
     }
   }
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// files.json updates without a new service worker
+// ---------------------------------------------------------------------------
+//
+// The browser only re-installs the worker when sw.js itself changes, so a
+// deploy that only changes files.json (new or rebuilt dictionaries, a new
+// 404.html) used to never reach existing users. Instead, after a navigation
+// or when the app comes back to the foreground, check files.json in the
+// background:
+//  - Throttled to once per CHECK_INTERVAL (stored in the cache, so it holds
+//    across worker restarts). Never delays a response.
+//  - Conditional request (If-None-Match with the stored ETag): when nothing
+//    changed the server answers 304 with no body.
+//  - When it did change, update the current cache IN PLACE: download only
+//    core files whose timestamp went up, then swap in the new files.json,
+//    drop entries no longer listed, and re-download only the dictionaries
+//    the user already had that changed. Nothing else is copied or fetched.
+
+const CHECK_INTERVAL = 10 * 60 * 1000; // GitHub Pages' CDN caches for 10 min anyway
+const CHECK_TIMEOUT = 15 * 1000;
+let filesCheck = null; // in-flight check, so concurrent triggers share one
+
+function checkForFilesUpdate(force = false) {
+  if (!filesCheck) {
+    filesCheck = doFilesCheck(force)
+      .catch(e => console.warn('files.json update check failed:', e))
+      .finally(() => { filesCheck = null; });
+  }
+  return filesCheck;
+}
+
+async function doFilesCheck(force) {
+  // A new worker is being installed - its install fetches files.json anyway.
+  if (self.registration.installing || self.registration.waiting) return;
+  const name = await getCurrentCacheName();
+  if (!name) return;
+  const cache = await caches.open(name);
+
+  if (!force) {
+    const last = await cache.match('/__files_checked__');
+    if (last && Date.now() - Number(await last.text()) < CHECK_INTERVAL) return;
+  }
+  await cache.put('/__files_checked__', new Response(String(Date.now())));
+
+  const cached = await cache.match('/files.json');
+  const etag = cached && cached.headers.get('x-peak-etag');
+
+  // cache: 'no-store' keeps the browser's HTTP cache out of it, so a 304
+  // reaches us as-is instead of being turned into a cached 200.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CHECK_TIMEOUT);
+  let res, text;
+  try {
+    res = await fetch('/files.json', {
+      cache: 'no-store',
+      headers: etag ? { 'If-None-Match': etag } : {},
+      signal: ctrl.signal
+    });
+    if (res.status === 304 || !res.ok) return;
+    text = await res.text();
+  } catch (e) {
+    return; // offline or timed out - try again on a later trigger
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const oldText = cached ? await cached.text() : '';
+  let arr;
+  try { arr = JSON.parse(text); } catch (e) { return; } // partial/garbled response
+  const map = parseFilesArray(arr);
+
+  if (text === oldText) {
+    // Same content, new ETag (e.g. redeploy) - just remember the new ETag.
+    await cache.put('/files.json', await filesJsonResponse(text, res.headers.get('etag'), map));
+    return;
+  }
+  await applyFilesUpdate(cache, arr, map, text, res.headers.get('etag'), oldText);
+}
+
+async function applyFilesUpdate(cache, arr, map, text, etag, oldText) {
+  const tsOf = r => parseInt(r.headers.get('x-peak-timestamp') || '0', 10);
+  const isFresh = async (path, meta) => {
+    const r = await cache.match(path);
+    return !!r && tsOf(r) >= meta.timestamp;
+  };
+
+  // 1. Core files first, BEFORE switching files.json: the shell and wasm
+  //    must be ready when the new manifest takes effect. If any can't be
+  //    downloaded, stop here without committing - the next check retries,
+  //    and files already downloaded are skipped then (timestamps match).
+  const core = (arr.core || []).map(([p]) => normalizePath(p)).filter(p => p !== '/files.json');
+  const ok = await Promise.all(core.map(async p =>
+    (await isFresh(p, map.get(p))) || fetchInto(p, map.get(p), cache)));
+  if (ok.includes(false)) {
+    console.warn('files.json changed but some core files could not be downloaded; will retry later.');
+    return;
+  }
+  const shell = await cache.match('/404.html');
+  if (shell) await cache.put('/', shell);
+
+  // 2. Commit: from here on, every lookup sees the new manifest.
+  await cache.put('/files.json', await filesJsonResponse(text, etag, map));
+  let oldMap = new Map();
+  try { if (oldText) oldMap = parseFilesArray(JSON.parse(oldText)); } catch (e) { /* unreadable old copy */ }
+  filesMap = map;
+
+  // 3. Drop files that are no longer listed (removed dictionaries etc.).
+  await Promise.all([...oldMap.keys()].filter(p => !map.has(p)).map(p => cache.delete(p)));
+
+  const version = await simpleHash(text);
+  const all = await self.clients.matchAll();
+  all.forEach(c => c.postMessage({ type: 'filesupdated', version }));
+  console.log(`files.json updated in place to ${version}`);
+
+  // 4. Re-download only dictionaries the user already has that changed.
+  //    The old copy keeps being served (and works offline) until the new
+  //    one replaces it. Two at a time to stay gentle on mobile connections.
+  const stale = [];
+  for (const [p, meta] of map) {
+    if (core.includes(p) || p === '/files.json') continue;
+    const r = await cache.match(p);
+    if (r && tsOf(r) < meta.timestamp) stale.push([p, meta]);
+  }
+  const worker = async () => {
+    for (let job; (job = stale.shift());) await fetchInto(job[0], job[1], cache);
+  };
+  await Promise.all([worker(), worker()]);
 }
 
 // Like consolidateOrFetch, but never hits the network. Used for files (e.g.
@@ -576,7 +734,10 @@ async function cacheFirst(request, pathname) {
 
   try {
     const res = await fetch(request);
-    if (res && res.ok) {
+    // A dictionary that's no longer in files.json (removed by an update
+    // while a page still had the old list) is served but not re-cached.
+    const unlistedDict = DICT_RE.test(pathname) && filesMap.size && !filesMap.has(pathname);
+    if (res && res.ok && !unlistedDict) {
       const buf = await res.clone().arrayBuffer();
       const headers = new Headers(res.headers);
       headers.set('x-peak-timestamp', String(meta ? meta.timestamp : Date.now()));

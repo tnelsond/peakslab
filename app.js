@@ -55,6 +55,12 @@ if ('serviceWorker' in navigator) {
 		if(event.data){
 			if(event.data.type === 'new'){
 				console.log(`${event.data.url} is new!`);
+			}else if(event.data.type === 'filesupdated'){
+				// The service worker applied a new files.json. Refresh the
+				// downloaded/version indicators; new or removed dictionaries
+				// show up in the list on the next load.
+				console.log('Dictionary list updated to', event.data.version);
+				requestCacheVersion();
 			}else if(event.data.type === 'status') {
 				const version = event.data.version;
 				console.log('Current cache version:', version);
@@ -81,6 +87,13 @@ if ('serviceWorker' in navigator) {
 	// one shows up.
 	requestCacheVersion();
 	navigator.serviceWorker.addEventListener('controllerchange', requestCacheVersion);
+	// An installed PWA can sit in the background for days without a
+	// navigation, so also ask for a (throttled) files.json check on resume.
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
+			navigator.serviceWorker.controller.postMessage({ type: 'checkupdate' });
+		}
+	});
 }
 function requestCacheVersion() {
 	if (navigator.serviceWorker.controller) {
