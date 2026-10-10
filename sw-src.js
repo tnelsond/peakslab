@@ -185,7 +185,10 @@ async function filesJsonResponse(text, etag, map) {
 // (from an old peakslab cache) if the network is unavailable.
 async function loadFilesJson() {
   try {
-    const res = await fetch('/files.json', { cache: 'no-store' });
+    // 'no-cache', not 'no-store': always checked with the server, but if the
+    // page just downloaded it (first visit) the server answers "unchanged"
+    // and the browser's copy is reused instead of downloading it again.
+    const res = await fetch('/files.json', { cache: 'no-cache' });
     const text = await res.text();
     const arr = JSON.parse(text);
     return { arr, map: parseFilesArray(arr), text, etag: res.headers.get('etag') };
@@ -383,7 +386,9 @@ async function consolidateOrFetch(path, meta, newCache, oldCaches) {
 async function fetchInto(path, meta, newCache) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const res = await fetch(path, { cache: 'no-store' });
+      // 'no-cache' (see loadFilesJson): revalidate instead of re-downloading
+      // files the page itself has just fetched (peak.wasm, the logo, ...).
+      const res = await fetch(path, { cache: 'no-cache' });
       if (res && res.ok) {
         const buf = await res.arrayBuffer();
         const headers = new Headers(res.headers);
