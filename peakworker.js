@@ -265,6 +265,7 @@ class Dic{
 		}
 	}
 	setQuery(query){
+		if (!this.qptrc) return; // still loading: no query buffer yet (would write at address 0)
 		const encoder = new TextEncoder();
 		const bytes = encoder.encode(query + '\0');
 		if (bytes.length > this.qmax) throw new Error("Query too long");
