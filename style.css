@@ -586,6 +586,18 @@ mark {
     cursor: pointer;
     color: var(--header-text);
 }
+/* iOS: fixed bar at the bottom of the screen, clear of the native menu
+   (see createSelMenu in app.js). The round control buttons are hidden
+   while it's showing, since it sits where they are. */
+body.selmenu-docked #controls {
+	display: none;
+}
+.selection-menu.docked {
+	position: fixed;
+	top: auto;
+	bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+	height: 48px;
+}
 .selection-menu::-webkit-scrollbar {
     display: none;
 }

@@ -1049,7 +1049,12 @@ if(root){
 			selMenu.remove();
 		selMenu = document.createElement('div')
 		document.body.appendChild(selMenu);
-		selMenu.className = 'selection-menu';
+		// On iOS the native Copy/Look Up menu is always drawn on top of page
+		// content, right next to the selection - exactly where our menu
+		// went, so it was covered and unusable. Dock ours at the bottom of
+		// the screen instead: iOS puts its menu above the selection whenever
+		// there's room, so the bottom edge is the one place it doesn't go.
+		selMenu.className = isIOS() ? 'selection-menu docked' : 'selection-menu';
 		selMenu.innerHTML = `<button data-action="search-current">🔍Search</button><button data-action="search-popup">🔍Popup</button>`;
 		voices = speechSynthesis.getVoices();
 		if(voices.length > 0){
@@ -1096,14 +1101,17 @@ if(root){
 
 		selText = window.getSelection().toString().trim();
 
-		let top = rect.bottom + 26 + window.scrollY;
-
-		selMenu.style.top = `${top}px`;
+		if (selMenu.classList.contains('docked')) {
+			document.body.classList.add('selmenu-docked'); // hides the round buttons it would cover
+		} else {
+			selMenu.style.top = `${rect.bottom + 26 + window.scrollY}px`;
+		}
 		selMenu.style.display = 'block';
 	}
 	function hideSelMenu(){
 		if(selMenu)
 			selMenu.style.display = 'none';
+		document.body.classList.remove('selmenu-docked');
 	}
 	let selTimeout = null;
 	function handleSelEnd() {
@@ -1135,7 +1143,9 @@ if(root){
 
 	let deferredPrompt;
 	function isIOS() {
-			return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+			// iPadOS 13+ reports itself as a Mac; tell it apart by touch support.
+			return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+				(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 	}
 	document.getElementById('ios-close-btn').addEventListener('click', () => {
 			iosInstructions.style.display = 'none';
