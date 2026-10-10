@@ -328,6 +328,34 @@ p-d:has(p-m) {
   line-height: 2.5; /* Greater line-spacing only for text containing p-m */
 }
 
+/* Show/hide chords (app.js adds the button only to entries with p-m; one
+   class on <body> hides every chord and switches every button's label). */
+.chords-btn {
+	float: right;
+	margin: 0 6px 0 0;
+	padding: 3px 8px;
+	border: none;
+	border-radius: 5px;
+	background: var(--control-btn-bg);
+	color: white;
+	font-size: 13px;
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+}
+.chords-btn::after { content: "Hide chords"; }
+body.hide-chords .chords-btn::after { content: "Show chords"; }
+body.hide-chords p-m:not(.section)::before {
+	display: none; /* section markers (verse numbers, Chorus, ...) stay */
+}
+body.hide-chords p-m.section::before {
+	position: static; /* inline on their own line, not raised over the line above */
+	transform: none;
+}
+body.hide-chords p-d:has(p-m) {
+	line-height: 1.8; /* back to the normal spacing */
+}
+
 /* The chord text comes from the attribute via ::before */
 p-m::before {
   content: attr(chord);           /* or attr(data-chord) if you used data-chord */

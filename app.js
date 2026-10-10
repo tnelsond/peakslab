@@ -20,6 +20,23 @@ let ack = null;
 const pinIconSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg>';
 const pinCloseIconSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
 const pinCloseIconSVGSmall = pinCloseIconSVG.replace(/width="20" height="20"/, 'width="16" height="16"');
+// Show/hide chords: one class on <body>, remembered. CSS hides the chords
+// (p-m::before) and switches every button's label (see .chords-btn).
+const chordsBtnHTML = '<button type="button" class="chords-btn" onclick="toggleChords()" title="Show or hide chords"></button>';
+// <p-m chord="..."> also holds section markers, not just chords: verse
+// numbers (១. ២. 1. I. R1.), repeat counts (2x), and section names (Chorus,
+// Verse 2, Bridge, Intro, Pre-Chorus, ...). Anything else is a chord.
+function isSectionMarker(v) {
+	v = v.trim();
+	return !/[A-Za-z]/.test(v)
+		|| /^[IVX]+\.$|^R\d*\.$|^\d*x$|^pre$/i.test(v)
+		|| /^(pre-?|post-?)?(chorus|verse|bridge|intro|outro|ending|instr[a-z]*|interlude|music|tag|solo|turnaround|refrain|coda|break)(?![a-z])/i.test(v);
+}
+window.toggleChords = () => {
+	const hidden = document.body.classList.toggle('hide-chords');
+	try { localStorage.setItem('hideChords', hidden); } catch (e) { /* not remembered */ }
+};
+try { if (localStorage.getItem('hideChords') === 'true') document.body.classList.add('hide-chords'); } catch (e) {}
 // On dictionary pages, start the workers right away, in parallel with
 // files.json instead of after it: starting a worker takes ~50 ms, and each
 // worker immediately starts reading peak.wasm from the offline cache.
@@ -259,6 +276,17 @@ if(root){
 							el.innerHTML += highlightText(e.data.body, e.data.query);
 						} else{
 							el.innerHTML += `${e.data.body}`;
+						}
+						// Entries with chords (<p-m chord="...">) get a show/hide button
+						// next to the dictionary name. Section markers stored the same
+						// way (verse numbers, Chorus, Intro, ...) stay visible.
+						if (e.data.body && e.data.body.includes('<p-m')) {
+							let chords = 0;
+							el.querySelectorAll('p-m').forEach(m => {
+								if (isSectionMarker(m.getAttribute('chord') || '')) m.classList.add('section');
+								else chords++;
+							});
+							if (chords) el.querySelector('p-h')?.insertAdjacentHTML('afterend', chordsBtnHTML);
 						}
 					}
 					
