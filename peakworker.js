@@ -18,7 +18,7 @@ self.onmessage = async (e) => {
 		wasmModuleResolve(e.data.wasm);
 	}else if(e.data.type == "load"){
 		if(!dicts[e.data.did]){
-			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did);
+			dicts[e.data.did] = new Dic(e.data.msg[0], e.data.msg[1], e.data.msg[2], e.data.did, e.data.buf);
 		}
 	}else if(e.data.type == "destroy"){
 		if(dicts[e.data.did]){
@@ -144,8 +144,9 @@ async function peak(wasmModule){
 }
 
 class Dic{
-	constructor(filename, name, bufsize, did){
+	constructor(filename, name, bufsize, did, buf){
 		this.filename = filename;
+		this.buf = buf || null; // bytes fetched by the page (see loadDict in app.js)
 		this.name = name;
 		this.did = did;
 		this.bufmax = bufsize + 1024;
@@ -167,10 +168,13 @@ class Dic{
 		try{
 			const wasmBinary = await wasmModulePromise;
       this.module = await peak(wasmBinary);
-			const resp = await fetch(new URL(this.filename, self.location.origin + '/'));
-			//console.log(`filename: ${this.filename}`);
-			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-			const buf = await resp.arrayBuffer();
+			let buf = this.buf;
+			this.buf = null;
+			if (!buf) { // fallback: page couldn't fetch it
+				const resp = await fetch(new URL(this.filename, self.location.origin + '/'));
+				if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+				buf = await resp.arrayBuffer();
+			}
 			const start = performance.now();
 
 			// Send the database to the module

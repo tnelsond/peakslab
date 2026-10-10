@@ -736,14 +736,28 @@ if(root){
 			};
 	}
 
+	// The dictionary bytes are fetched HERE, on the page, and transferred
+	// (zero-copy) to the worker, rather than letting the worker fetch them.
+	// The page is always controlled by the service worker, but the worker is
+	// a blob: URL worker in the built 404.html, and whether a blob worker's
+	// fetch() goes through the service worker differs between browsers. When
+	// it doesn't, every dictionary skips the SW cache and goes to the network
+	// / HTTP cache: slow when online, while offline things looked fine.
 	function loadDict(i) {
 			if (dict_master_code[i]) {
-					workers[i % workers.length].postMessage({
-							type: 'load',
-							did: Math.floor(i / workers.length),
-							msg: dicts[i]
-					});
+					const w = workers[i % workers.length];
+					const did = Math.floor(i / workers.length);
 					++nload;
+					fetch('/' + dicts[i][0])
+							.then(r => {
+									if (!r.ok) throw new Error(`HTTP ${r.status}`);
+									return r.arrayBuffer();
+							})
+							.then(buf => w.postMessage({type: 'load', did, msg: dicts[i], buf}, [buf]))
+							.catch(err => {
+									console.warn(`Page fetch of ${dicts[i][0]} failed, worker will try:`, err);
+									w.postMessage({type: 'load', did, msg: dicts[i]});
+							});
 			}
 	}
 
