@@ -654,46 +654,83 @@ if(root){
 		}
 	}
 
+	// Which dictionaries are enabled is remembered in IndexedDB, falling back
+	// to localStorage. Storage is a convenience only: if neither works
+	// (blocked in some privacy modes and in-app webviews, quota errors, ...)
+	// the defaults load and the page works normally - it just won't remember
+	// the user's choices. Previously a failed IndexedDB open left the page
+	// stuck on "Loading dictionaries." with nothing ever loaded.
 	let db = null;
-	const dbRequest = indexedDB.open(appname, 1);
+	let stateApplied = false;
+	const lsKey = `peakslab-dicts-${appname}`;
 
-	dbRequest.onupgradeneeded = (event) => {
+	function lsGet() {
+		try { return JSON.parse(localStorage.getItem(lsKey)); } catch (e) { return null; }
+	}
+	function lsSet(state) {
+		try { localStorage.setItem(lsKey, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
+	}
+
+	// Called exactly once, with the saved array or null for defaults.
+	function applyState(saved) {
+		if (stateApplied) return;
+		stateApplied = true;
+		if (!Array.isArray(saved)) {
+			console.log('No saved state found → using defaults from dict[4]');
+			loadDicts();
+			return;
+		}
+		const savedMap = new Map(saved.map(item => [item.file, !!item.enabled]));
+		dicts.forEach((dict, index) => {
+			const shouldEnable = savedMap.has(dict[0])
+				? savedMap.get(dict[0])
+				: (dict[4] === true || dict[4] === undefined); // default from dict definition
+			setCheckbox(index, shouldEnable);
+			if (shouldEnable) loadDict(index);
+		});
+	}
+
+	function noIndexedDB(err) {
+		if (err) console.warn('IndexedDB unavailable, using localStorage instead:', err);
+		db = null;
+		applyState(lsGet());
+	}
+
+	try {
+		const dbRequest = indexedDB.open(appname, 1);
+		dbRequest.onupgradeneeded = (event) => {
 			const upgradeDb = event.target.result;
 			if (!upgradeDb.objectStoreNames.contains(appname)) {
-					upgradeDb.createObjectStore(appname, { keyPath: 'id' });
-					console.log('Created new object store:', appname);
+				upgradeDb.createObjectStore(appname, { keyPath: 'id' });
 			}
-	};
-
-	dbRequest.onsuccess = () => {
+		};
+		dbRequest.onsuccess = () => {
 			db = dbRequest.result;
-			console.log('IndexedDB opened successfully');
-			loadSavedState();           // Only call once here
-	};
-
-	dbRequest.onerror = (event) => {
-			console.error('Failed to open IndexedDB:', event.target.error);
-	};
+			loadSavedState();
+		};
+		dbRequest.onerror = (event) => noIndexedDB(event.target.error);
+		// Another tab holding an old version open: don't wait on it.
+		dbRequest.onblocked = () => noIndexedDB('blocked by another tab');
+	} catch (e) {
+		noIndexedDB(e); // indexedDB missing, or open() threw (e.g. SecurityError)
+	}
+	// Last resort: if IndexedDB never answers at all, don't leave the page
+	// without dictionaries.
+	setTimeout(() => { if (!stateApplied) noIndexedDB('no response from IndexedDB'); }, 3000);
 
 	function saveState() {
-			if (!db) {
-					console.warn('DB not ready yet, cannot save state');
-					return;
-			}
-
-			const state = dicts.map((dict, index) => ({
-					file: dict[0],                    // filename as stable key
-					enabled: !dict_master_code[index] // true = checkbox checked / dictionary loaded
-			}));
-
-			const transaction = db.transaction([appname], 'readwrite');
-			const store = transaction.objectStore(appname);
-
-			const data = { id: 1, array: state };
-
-			const request = store.put(data);
-			request.onsuccess = () => console.log('Dictionary state saved');
-			request.onerror = (e) => console.error('Error saving state:', e.target.error);
+		const state = dicts.map((dict, index) => ({
+			file: dict[0],                    // filename as stable key
+			enabled: !dict_master_code[index] // true = checkbox checked / dictionary loaded
+		}));
+		lsSet(state); // always kept as a backup copy
+		if (!db) return;
+		try {
+			const request = db.transaction([appname], 'readwrite').objectStore(appname).put({ id: 1, array: state });
+			request.onerror = (e) => console.warn('Error saving state to IndexedDB:', e.target.error);
+		} catch (e) {
+			console.warn('Error saving state to IndexedDB:', e);
+		}
 	}
 
 	function setCheckbox(index, checked){
@@ -704,49 +741,16 @@ if(root){
 	}
 
 	function loadSavedState() {
-			if (!db) {
-					console.warn('DB not ready, skipping loadSavedState');
-					loadDicts(); // fallback
-					return;
-			}
-
-			const transaction = db.transaction([appname], 'readonly');
-			const store = transaction.objectStore(appname);
-			const request = store.get(1);
-
+		try {
+			const request = db.transaction([appname], 'readonly').objectStore(appname).get(1);
 			request.onsuccess = () => {
-					const result = request.result;
-
-					if (result && result.array && Array.isArray(result.array)) {
-							console.log('Loaded saved dictionary state from IndexedDB');
-
-							const savedMap = new Map(result.array.map(item => [item.file, !!item.enabled]));
-
-							dicts.forEach((dict, index) => {
-									const filename = dict[0];
-
-									const shouldEnable = savedMap.has(filename) 
-											? savedMap.get(filename) 
-											: (dict[4] === true || dict[4] === undefined); // default from dict definition
-
-									setCheckbox(index, shouldEnable);
-									
-									// Load the dictionary immediately if enabled
-									if (shouldEnable) {
-											loadDict(index);
-									}
-							});
-					} 
-					else {
-							console.log('No saved state found → using defaults from dict[4]');
-							loadDicts(); // load defaults
-					}
+				const result = request.result;
+				applyState(result && Array.isArray(result.array) ? result.array : lsGet());
 			};
-
-			request.onerror = (event) => {
-					console.error('Error reading from IndexedDB:', event.target.error);
-					loadDicts(); // fallback to defaults
-			};
+			request.onerror = (event) => noIndexedDB(event.target.error);
+		} catch (e) {
+			noIndexedDB(e);
+		}
 	}
 
 	// The dictionary bytes are fetched HERE, on the page, and transferred
