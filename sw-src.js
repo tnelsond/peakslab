@@ -5,12 +5,10 @@
  *   dicts entries are [path, timestamp, description, size, order]. timestamp
  *   is always element[1] regardless of file type.
  * - On install: build a NEW versioned cache (name derived from files.json content),
- *   consolidating unchanged files straight out of any existing "peakslab*" caches
- *   (no re-download) and fetching only new/updated files from the network.
- *   Core files are mandatory; if any core file can't be obtained from an old
- *   cache or the network, install still completes (so the worker can still
- *   activate and serve whatever it does have), but is marked incomplete -
- *   see the "__install_complete__" marker below.
+ *   carrying forward files that are already cached and still current from
+ *   any existing "peakslab*" caches (no re-download). Nothing is downloaded
+ *   at install: every file, core files included, is cached the first time
+ *   it's requested.
  * - On activate: delete every old "peakslab*" cache, leaving only the new one -
  *   but ONLY if the new cache's install completed cleanly (see above). An
  *   incomplete new cache still activates and takes over, but the old
@@ -284,7 +282,6 @@ async function doInstall() {
   // an old cache when already present (no network cost), but are otherwise
   // left uncached and picked up lazily by cacheFirst() the first time the
   // user actually requests them.
-  const coreSet = new Set((arr.core || []).map(([path]) => normalizePath(path)));
   // files.json itself was just stored above - don't download it a second time.
   const entries = Array.from(filesMap.entries()).filter(([path]) => path !== '/files.json');
 
@@ -292,11 +289,20 @@ async function doInstall() {
   // reject) with a boolean, so a plain Promise.all is fine here - no need
   // for allSettled, and we get a real success/failure signal per file
   // instead of it disappearing silently.
-  const results = await Promise.all(entries.map(([path, meta]) =>
-    coreSet.has(path)
-      ? consolidateOrFetch(path, meta, newCache, oldCaches)
-      : consolidateOnly(path, meta, newCache, oldCaches)
-  ));
+  // Only files the user has already requested are kept: current copies are
+  // carried forward from the old cache, and outdated copies of core files
+  // are re-downloaded (they're small, and the shell must stay available
+  // offline). Files never requested - e.g. codec2.wasm / jbig2.wasm on pages
+  // without Codec2 audio or JBIG2 images - are not downloaded; cacheFirst()
+  // caches them the first time they're actually requested.
+  const corePaths = new Set((arr.core || []).map(([p]) => normalizePath(p)));
+  await Promise.all(entries.map(async ([path, meta]) => {
+    if (await consolidateOnly(path, meta, newCache, oldCaches)) return;
+    if (!corePaths.has(path)) return;
+    for (const oc of oldCaches) {
+      if (await oc.match(path)) { await fetchInto(path, meta, newCache); return; }
+    }
+  }));
 
   // If a core file couldn't be obtained from an old cache OR the network
   // (offline mid-install, a transient error, a genuinely missing file), we
@@ -317,13 +323,7 @@ async function doInstall() {
   // peak.wasm over the network before ANY dictionary could start loading.
   await carryForwardUnlisted(newCache, oldCaches);
 
-  const missingCore = entries
-    .filter(([path], i) => coreSet.has(path) && !results[i])
-    .map(([path]) => path);
-  if (missingCore.length) {
-    console.warn(`Install finished with missing core file(s), keeping old cache(s) as fallback: ${missingCore.join(', ')}`);
-  }
-  await newCache.put('/__install_complete__', new Response(missingCore.length ? '0' : '1'));
+  await newCache.put('/__install_complete__', new Response('1'));
 
   // Alias '/' to 404.html - it's the single SPA shell now, so direct root
   // requests hit cache too.
@@ -352,32 +352,6 @@ async function carryForwardUnlisted(newCache, oldCaches) {
   }
 }
 
-async function consolidateOrFetch(path, meta, newCache, oldCaches) {
-  // Try to pull an up-to-date copy out of any existing cache first - avoids
-  // re-downloading files that haven't changed. Wrapped in try/catch: a
-  // cache write can throw (e.g. QuotaExceededError if storage is full), and
-  // that shouldn't propagate out of here uncaught - just fall through to
-  // the network-fetch attempt below instead.
-  try {
-    for (const oc of oldCaches) {
-      const cached = await oc.match(path);
-      if (cached) {
-        const cachedTs = parseInt(cached.headers.get('x-peak-timestamp') || '0', 10);
-        if (cachedTs >= meta.timestamp) {
-          await newCache.put(path, cached.clone());
-          return true;
-        }
-        // else: stale copy in this old cache - keep checking the rest of
-        // oldCaches for a fresher one before giving up on consolidating.
-      }
-    }
-  } catch (e) {
-    console.warn(`Failed to consolidate ${path} from an old cache, will try the network:`, e);
-  }
-
-  // Missing or stale everywhere - fetch fresh from the network.
-  return fetchInto(path, meta, newCache);
-}
 
 // Download one file into `cache`, tagged with its manifest timestamp. One
 // retry on a network-level failure (thrown fetch) - covers transient hiccups
@@ -492,13 +466,14 @@ async function applyFilesUpdate(cache, arr, map, text, etag, oldText) {
     return !!r && tsOf(r) >= meta.timestamp;
   };
 
-  // 1. Core files first, BEFORE switching files.json: the shell and wasm
-  //    must be ready when the new manifest takes effect. If any can't be
-  //    downloaded, stop here without committing - the next check retries,
-  //    and files already downloaded are skipped then (timestamps match).
+  // 1. Core files first, BEFORE switching files.json: cached copies of the
+  //    shell and wasm must be current when the new manifest takes effect.
+  //    Only files already cached are refreshed - never-requested ones stay
+  //    uncached. If any can't be downloaded, stop without committing - the
+  //    next check retries, skipping files already refreshed.
   const core = (arr.core || []).map(([p]) => normalizePath(p)).filter(p => p !== '/files.json');
   const ok = await Promise.all(core.map(async p =>
-    (await isFresh(p, map.get(p))) || fetchInto(p, map.get(p), cache)));
+    !(await cache.match(p)) || (await isFresh(p, map.get(p))) || fetchInto(p, map.get(p), cache)));
   if (ok.includes(false)) {
     console.warn('files.json changed but some core files could not be downloaded; will retry later.');
     return;
@@ -535,9 +510,9 @@ async function applyFilesUpdate(cache, arr, map, text, etag, oldText) {
   await Promise.all([worker(), worker()]);
 }
 
-// Like consolidateOrFetch, but never hits the network. Used for files (e.g.
-// dictionaries) that shouldn't be force-downloaded just because they're
-// listed in the manifest - only carried forward if already cached.
+// Never hits the network: a file is only carried forward if it's already
+// cached and still current. Nothing listed in files.json is downloaded just
+// because it's listed - see doInstall.
 async function consolidateOnly(path, meta, newCache, oldCaches) {
   try {
     for (const oc of oldCaches) {
@@ -713,12 +688,9 @@ async function handleHtmlRequest(pathname) {
     return cached;
   }
 
-  try {
-    const res = await fetch('/404.html');
-    return res;
-  } catch (e) {
-    return new Response('Offline', { status: 503 });
-  }
+  // Not cached yet (first navigation since install): fetch and cache it,
+  // so the app works offline from now on.
+  return cacheFirst(new Request('/404.html'), '/404.html');
 }
 
 async function cacheFirst(request, pathname) {
