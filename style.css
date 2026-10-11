@@ -324,12 +324,12 @@ p-m {
   position: relative;
   min-width: 1.5em; /* Matches min-width of ::before to ensure space in text flow */
 }
-p-d:has(p-m) {
+body.show-chords p-d:has(p-m) {
   line-height: 2.5; /* Greater line-spacing only for text containing p-m */
 }
 
-/* Show/hide chords (app.js adds the button only to entries with p-m; one
-   class on <body> hides every chord and switches every button's label). */
+/* Chords are hidden unless <body> has .show-chords (toggled by the button
+   app.js adds to entries with p-m), which also switches every button's label. */
 .chords-btn {
 	float: right;
 	margin: 0 6px 0 0;
@@ -343,18 +343,9 @@ p-d:has(p-m) {
 	user-select: none;
 	-webkit-user-select: none;
 }
-.chords-btn::after { content: "Hide chords"; }
-body.hide-chords .chords-btn::after { content: "Show chords"; }
-body.hide-chords p-m:not(.section)::before {
-	display: none; /* section markers (verse numbers, Chorus, ...) stay */
-}
-body.hide-chords p-m.section::before {
-	position: static; /* inline on their own line, not raised over the line above */
-	transform: none;
-}
-body.hide-chords p-d:has(p-m) {
-	line-height: 1.8; /* back to the normal spacing */
-}
+.chords-btn::after { content: "Show chords"; }
+body.show-chords .chords-btn::after { content: "Hide chords"; }
+body:not(.show-chords) p-m::before { display: none; }
 
 /* The chord text comes from the attribute via ::before */
 p-m::before {
