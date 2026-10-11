@@ -1,11 +1,11 @@
 {
   "core": [
-    ["404.html", 1791679256],
+    ["404.html", 1791713981],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
-    ["peak.wasm", 1791642767],
-    ["peakslab.svg", 1789218198]
+    ["peakslab.svg", 1789218198],
+    ["peak.wasm", 1791713978]
   ],
   "dicts": [
     ["chitonga/bible/text/toibible.peak.zst", 1788875079, "TOI Chitonga Bible", 693, 1],
@@ -50,6 +50,7 @@
     ["khmer/dict/ipa.peak.zst", 1788854515, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>.", 149, 2],
     ["khmer/dict/kmwiktionary.peak.zst", 1788857337, "<a href=\"https://km.wiktionary.org/\">Khmer Wiktionary</a>", 1528, 2],
     ["khmer/dict/nath2022.peak.zst", 1788854534, "2022 version of the <a href=\"https://play.google.com/store/apps/details?id=com.optimiskh.chuonnathdictionary&hl=en-US\">Chuon Nath Digital Dictionary</a>", 9953, 1],
+    ["khmer/dict/phnom.peak.zst", 1791713983, "Khmer pronouncing dictionary: standard Khmer and Phnom Penh dialect by <a href=\"https://unesdoc.unesco.org/ark:/48223/pf0000246360\">Unesco</a>", 131, 2],
     ["khmer/dict/plantdict.peak.zst", 1788854536, "<a href=\"https://www.plantsdictionarykh.com/\">PlantsDictionaryKh.com</a>", 4100, 2],
     ["khmer/dict/seacount.peak.zst", 1788854536, "number of occurrences of Khmer words via <a href=\"https://sealang.net/khmer/dictionary.htm\">Sealang</a>", 93, 2],
     ["khmer/dict/sonv.peak.zst", 1788854548, "English to Khmer Dictionary from <a href=\"https://play.google.com/store/apps/details?id=com.sonveasna.dictionary&hl=en\">English Khmer Dictionary</a> by DroidSVS", 16932, 1],
