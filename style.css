@@ -343,6 +343,24 @@ body.show-chords p-d:has(p-m) {
 	user-select: none;
 	-webkit-user-select: none;
 }
+/* Collapse toggle next to each entry's dictionary name (see app.js) */
+.collapse-btn {
+	float: right;
+	width: 1.6em; /* em: shrinks along with a collapsed entry */
+	height: 1.6em;
+	margin: 0 6px 0 0;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: var(--control-btn-bg);
+	color: white;
+	font-size: inherit;
+	line-height: 1.6em;
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+}
+.collapse-btn::after { content: "−"; }
 .chords-btn::after { content: "Show chords"; }
 body.show-chords .chords-btn::after { content: "Hide chords"; }
 body:not(.show-chords) p-m::before { display: none; }

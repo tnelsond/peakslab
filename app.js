@@ -29,6 +29,26 @@ window.toggleChords = () => {
 	try { localStorage.setItem('showChords', shown); } catch (e) { /* not remembered */ }
 };
 try { if (localStorage.getItem('showChords') === 'true') document.body.classList.add('show-chords'); } catch (e) {}
+// Collapse a dictionary: every one of its entries (data-dict) shrinks to its
+// first line, everywhere in the results, and stays collapsed (remembered).
+// Done with one generated CSS rule per collapsed dictionary.
+const collapseBtnHTML = '<button type="button" class="collapse-btn" onclick="toggleDict(this)" title="Collapse or expand this dictionary"></button>';
+const collapseStyle = document.head.appendChild(document.createElement('style'));
+let collapsedDicts = [];
+try { collapsedDicts = JSON.parse(localStorage.getItem('collapsedDicts')) || []; } catch (e) {}
+const applyCollapsed = () => {
+	const sel = collapsedDicts.map(d => `p-e[data-dict="${CSS.escape(d)}"]`);
+	collapseStyle.textContent = sel.length ? `${sel.join(',')}{max-height:1.8em;overflow:hidden;opacity:.6;font-size:.8em;margin-top:.4em;padding-top:.2em}` +
+		`${sel.map(s => s + ' .collapse-btn::after').join(',')}{content:"+"}` +
+		`${sel.map(s => s + ' p-h').join(',')}{padding:0 3px}` : '';
+};
+applyCollapsed();
+window.toggleDict = btn => {
+	const d = btn.closest('p-e').dataset.dict;
+	collapsedDicts = collapsedDicts.includes(d) ? collapsedDicts.filter(x => x !== d) : [...collapsedDicts, d];
+	try { localStorage.setItem('collapsedDicts', JSON.stringify(collapsedDicts)); } catch (e) {}
+	applyCollapsed();
+};
 // On dictionary pages, start the workers right away, in parallel with
 // files.json instead of after it: starting a worker takes ~50 ms, and each
 // worker immediately starts reading peak.wasm from the offline cache.
@@ -220,6 +240,7 @@ if(root){
 					let el = document.createElement('p-e');
 					const sortid = e.data.did*workers.length+e.data.id;
 					el.setAttribute('data-id', sortid);
+					el.dataset.dict = e.data.dict;
 					if(debug)
 						el.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}' #${sortid}</p-h>`;
 					else
@@ -274,6 +295,7 @@ if(root){
 							el.querySelector('p-h')?.insertAdjacentHTML('afterend', chordsBtnHTML);
 						}
 					}
+					el.querySelector('p-h')?.insertAdjacentHTML('afterend', collapseBtnHTML);
 					
 					const children = Array.from(div.children);
 					const insertBeforeElement = children.find(child => {
@@ -340,11 +362,19 @@ if(root){
 		x.isPrimary || (x.file[4] <= 0 && primaryCategories.has(x.category.join('/')))
 	);
 
-	// Group by category, primary (current-page) language first, then extras grouped
-	// alphabetically by their own language.
+	// Order: categories with the most priority-1 dictionaries first, then within
+	// a category this page's language first, then by priority (-1 "always
+	// first", 1, 2, 3, ..., then cross-language extras <= 0), then name.
+	// Search results list each word's entries in this same order.
+	const rank = p => p === -1 ? 0 : (p === undefined || p === null) ? 1 : p > 0 ? p : 100;
+	const catKey = f => f.category.join('/');
+	const mainCount = {};
+	files.forEach(f => { if (f.isPrimary && rank(f.file[4]) <= 1) mainCount[catKey(f)] = (mainCount[catKey(f)] || 0) + 1; });
 	files.sort((a, b) =>
-		a.category.join('/').localeCompare(b.category.join('/')) ||
+		(mainCount[catKey(b)] || 0) - (mainCount[catKey(a)] || 0) ||
+		catKey(a).localeCompare(catKey(b)) ||
 		(a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1) ||
+		rank(a.file[4]) - rank(b.file[4]) ||
 		a.lang.localeCompare(b.lang) ||
 		a.file[0].localeCompare(b.file[0])
 	);
