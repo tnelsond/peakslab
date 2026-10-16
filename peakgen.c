@@ -897,20 +897,42 @@ int main(int argc, char **argv) {
 			slab = 1;
 		}
 		else if (S_ISREG(st.st_mode)) {
-			FILE *f = fopen(argv[carg], "r");
-			if (!f) { perror("open input"); return 1; }
-			
-			int c;
+			// x.tsv.1 is the first part of a split file (for git host size
+			// limits): read x.tsv.1, x.tsv.2, ... as one file until one is missing
+			size_t pathlen = strlen(path);
+			int split = pathlen > 2 && !strcmp(path + pathlen - 2, ".1");
+			char partpath[1024];
 			VecChar raw_tsv = {0, 0, NULL};
-			while((c = fgetc(f)) != EOF){
-				if(c == '\n'){
-					vec_char_push(&raw_tsv, '\0');
-					continue;
+			int c = '\n';
+			for(int part = 1; ; ++part){
+				const char *p = path;
+				if(split){
+					snprintf(partpath, sizeof(partpath), "%.*s.%d", (int)(pathlen - 2), path, part);
+					p = partpath;
 				}
-				vec_char_push(&raw_tsv, c);
-			}
+				FILE *f = fopen(p, "r");
+				if (!f) {
+					if(part > 1) break;
+					perror("open input"); return 1;
+				}
+				if(split) printf("Reading %s\n", p);
+				// a part that doesn't end in a newline still ends its line
+				if(part > 1 && c != '\n') vec_char_push(&raw_tsv, '\0');
 
-			fclose(f);
+				int prev = '\n';
+				while((c = fgetc(f)) != EOF){
+					prev = c;
+					if(c == '\n'){
+						vec_char_push(&raw_tsv, '\0');
+						continue;
+					}
+					vec_char_push(&raw_tsv, c);
+				}
+				c = prev;
+
+				fclose(f);
+				if(!split) break;
+			}
 			data = peakslab_gen(raw_tsv.data, raw_tsv.len, NULL, compress);
 			free(raw_tsv.data);
 		}
@@ -919,7 +941,11 @@ int main(int argc, char **argv) {
 		char *fileext = slab ?
 			(compress ? ".slab.zst" : ".slab") :
 			(compress ? ".peak.zst" : ".peak");
-		int outpathlen = setoutpath(argv[carg], outpath, 1024, "/src/", "/", fileext);
+		// dict_src/english/dict/x.tsv -> english/dict/x.peak.zst
+		const char *rel = path;
+		if(!strncmp(rel, "./", 2)) rel += 2;
+		if(!strncmp(rel, "dict_src/", 9)) rel += 9;
+		int outpathlen = setoutpath((char *)rel, outpath, 1024, "/dict_src/", "/", fileext);
 		printf("OUTPATH0: %s\n", outpath);
 
 		char *temp = sz_rfind(outpath, outpathlen, "/", 1);
@@ -947,9 +973,10 @@ int main(int argc, char **argv) {
 		if(desc.len){
 			printf("\nDescription: %.*s\n", desc.len, desc.data);
 		}
-		setoutpath(argv[0], outpath, 1024, "/peakgen", "/meta/", argv[carg]);
-		printf("OUTPATH1: %s\n", outpath);
-		outpathlen = setoutpath(outpath, outpath, 1024, "/src/", "/", ".meta");
+		char metarel[1024];
+		setoutpath((char *)rel, metarel, 1024, "/dict_src/", "/", ".meta");
+		printf("OUTPATH1: %s\n", metarel);
+		outpathlen = setoutpath(argv[0], outpath, 1024, "/peakgen", "/meta/", metarel);
 		printf("OUTPATH2: %s\n", outpath);
 		temp = sz_rfind(outpath, outpathlen, "/", 1);
 		if(temp){

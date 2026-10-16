@@ -5,3 +5,5 @@ peakgen
 utils/jbig2/dist
 node_modules/
 test/
+dict_src
+.*

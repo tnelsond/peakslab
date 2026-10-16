@@ -2,10 +2,12 @@ comma := ,
 all : peakgen peakgen.wasm sw.js peak.wasm peak 404.html files.json
 
 # Find .tsv files - clean paths without leading ./
-TSV_FILES := $(shell find . -path '*/src/*' -name '*.tsv' ! -path '*/meta/*' 2>/dev/null | sed 's|^\./||' | sort)
+# A big file split into x.tsv.1, x.tsv.2, ... (see utils/splittsv.sh) is listed
+# by its first part and built as one dictionary
+TSV_FILES := $(shell find dict_src -name '*.tsv' -o -name '*.tsv.1' 2>/dev/null | sort)
 
-# Map to meta/ (strip /src/)
-META_FILES := $(foreach f,$(TSV_FILES),$(subst /src/,/,$(patsubst %.tsv,meta/%.meta,$(f))))
+# Map dict_src/<lang>/... to meta/<lang>/...
+META_FILES := $(patsubst dict_src/%.tsv,meta/%.meta,$(patsubst dict_src/%.tsv.1,meta/%.meta,$(TSV_FILES)))
 
 files-src.json: meta peakgen $(META_FILES) abbreviations.json
 	./createdictlist.sh
@@ -15,9 +17,11 @@ files.json: files-src.json
 
 # Rule
 $(META_FILES): peakgen
-	@src=$$(find . -path '*/src/*' -name '$(notdir $(@:.meta=.tsv))' ! -path '*/meta/*' | sed 's|^\./||' | head -1); \
-	if [ -z "$$src" ]; then echo "No source for $@"; exit 1; fi; \
-	if [ ! -f "$@" ] || [ "$$src" -nt "$@" ]; then \
+	@base=$(patsubst meta/%.meta,dict_src/%.tsv,$@); \
+	if [ -f "$$base" ]; then src=$$base; parts=$$base; \
+	elif [ -f "$$base.1" ]; then src=$$base.1; parts=$$(ls "$$base".[0-9]*); \
+	else echo "No source for $@"; exit 1; fi; \
+	if [ ! -f "$@" ] || [ -n "$$(find $$parts -newer "$@")" ]; then \
 		mkdir -p $(dir $@); \
 		./peakgen "$$src"; \
 		touch "$@"; \
