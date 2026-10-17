@@ -75,6 +75,16 @@ peak.wasm : peak.c zstddeclib.c peak.h utils/walloc-master/walloc.c $(wildcard u
 	./createmeta.sh peak.wasm
 peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
 	gcc -DTB_IMPL -lreadline -ltinfo peak_cli2.c -o peak_tui
+# The terminal interface: peak.c is #included unchanged, termbox2 is header only.
+# The zstd flags are peak.wasm's (decoder variants we don't need); with
+# -DDYNAMIC_BMI2=0 zstd isn't compiled twice for CPUs with and without BMI2.
+peakterm : peakterm.c peak.h peak.c zstddeclib.c utils/termbox2/termbox2.h
+	gcc -Wall -O2 -flto=auto -pthread -D_GNU_SOURCE -Wno-pointer-sign -Wno-missing-braces -Wno-unused-variable -Wno-unused-function \
+	-DNDEBUG -DHUF_FORCE_DECOMPRESS_X1 -DZSTD_FORCE_DECOMPRESS_SEQUENCES_SHORT -DZSTD_NO_UNUSED_FUNCTIONS \
+	-DDYNAMIC_BMI2=0 -DZSTD_DISABLE_ASM \
+	-ffunction-sections -fdata-sections -Wl,--gc-sections -s \
+	peakterm.c -o peakterm
+	du -b peakterm
 peak : peak_cli.c peak.h peak.c zstddeclib.c
 	gcc -Wall -DDEBUG peak_cli.c -o peak
 404.html : peakworker.js peak.html app.js style.css

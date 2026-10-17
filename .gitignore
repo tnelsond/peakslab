@@ -1,5 +1,6 @@
 peak
 peakgen
+peakterm
 *.o
 *.o.wasm
 utils/jbig2/dist
