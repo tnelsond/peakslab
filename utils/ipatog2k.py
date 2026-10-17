@@ -32,7 +32,7 @@ VOWEL = {
 	'ae': 'aᵋ', 'ɛɛ': 'ɛː', 'ɛ': 'ɛ', 'ɛə': 'ɛᵊ', 'ao': 'aᵒ',
 }
 # Diphthongs Google writes with a glide
-GLIDE = {'əj': 'eʲ', 'aj': 'aʲ', 'ej': 'ɛʲ', 'aw': 'aᶭ', 'aaw': 'aᶭ', 'ɨw': 'əᶤ', 'əw': 'əᶤ', 'aəj': 'aᵒj'}
+GLIDE = {'əj': 'eʲ', 'aj': 'aʲ', 'ej': 'ɛʲ', 'aw': 'aɯ', 'aaw': 'aɯ', 'ɨw': 'əᶤ', 'əw': 'əᶤ', 'aəj': 'aᵒj'}
 # Google vowel -> (Khmer signs it can come from, how to choose, default)
 AMBIGUOUS = {
 	'əə': ({'ឺ', 'ើ', '័'}, lambda sign, ser: 'ə' if sign == 'ឺ' or (sign == '័' and ser == 1) else 'ɨ', 'ɨ'),
@@ -103,10 +103,10 @@ def convert(key, ipa):
 					if cl.pop(n) in ASPIRATED:
 						o = o[0] + 'h' + o[1:]
 					break
-		if o[:1] == 'p' and o[1:2] in ('ʔ', 'ɗ'):
+		if o[:2] == 'pʔ' or i == 0 and o[:2] == 'pɗ':
 			o = 'ph' + o[1:]  # ប្អូន pʰʔoᶷn, ប្ដី pʰɗeʲ
 		if o == 'ʔ':
-			o = ''  # no glottal stop before a vowel (ɔt, ajuʔ, ខោអាវ kʰaᵒaᶭ)
+			o = ''  # no glottal stop before a vowel (ɔt, ajuʔ, ខោអាវ kʰaᵒaɯ)
 		elif i == 0 and o[:1] == 'ʔ':
 			o = 'ə' + o[1:]  # អ្វី əweʲ
 		o = re.sub('([kctp])h', '\\1ʰ', o)
@@ -131,6 +131,8 @@ def convert(key, ipa):
 			nuc = 'ʊ'  # ុំ cʊm, phnʊm
 		elif nuc == 'o̞' and coda in ('', 'ʔ'):
 			nuc = 'u'  # an open ុ: ajuʔ
+		if nuc == 'aᵊ' and coda == 'c':
+			nuc = 'aᵒ'  # សើច saᵒc, like ហើយ haᵒj
 		if coda == 'ŋ' and nuc.rstrip('ː') in ('i', 'e', 'ɛ', 'aᵋ', 'ɛᵉ'):
 			coda = 'ɲ'  # មីង miɲ, ក្មេង kʰmeɲ, កន្លែង kɔnlaᵋɲ
 		out.append(o + nuc + coda)

@@ -65,7 +65,7 @@
     ["khmer/music/sheet/kora-pb1.slab", 1792234017, "The first half of the purple book via <a href=\"https/www.korapraise.com\">Kora Praise</a>", 24895, 2],
     ["khmer/music/sheet/kora-pb2.slab", 1789364963, "The second half of the purple book via <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 26494, 1],
     ["khmer/music/sheet/kora-snl.slab", 1789364966, "The SnL songbook from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 32462, 2],
-    ["khmer/phonetics/g2k.peak.zst", 1792234344, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>. Rewritten in G2K's phonetics.", 147, 2],
+    ["khmer/phonetics/g2k.peak.zst", 1792234565, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>. Rewritten in G2K's phonetics.", 147, 2],
     ["khmer/phonetics/ipa.peak.zst", 1792225191, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>.", 149, 2],
     ["khmer/phonetics/khmervowels.peak.zst", 1792227011, "Khmer vowel charts and recordings, from the <a href=\"https://archive.org/details/aakanee_archive\">aakanee.com archive</a>", 6270, 1],
     ["khmer/phonetics/phnom.peak.zst", 1792225191, "Khmer pronouncing dictionary: standard Khmer and Phnom Penh dialect by <a href=\"https://unesdoc.unesco.org/ark:/48223/pf0000246360\">Unesco</a>", 131, 2],
