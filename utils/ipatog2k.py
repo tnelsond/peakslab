@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Rewrite the Google Khmer Lexicon's phonemes (ipa.tsv) the way G2K's word
-lists do (L1-Week 1 New Word List: khɲom, ɓɔːŋ, phʔoʊn, lo̞kkru, ruəhnəɨ).
+lists do (L1-Week 1 New Word List: kʰɲom, ɓɔːŋ, pʰʔoᶷn, lo̞kkru, ruᵊhnəᶤ).
 
 Usage: ipatog2k.py ipa.tsv g2k.tsv
 
@@ -9,7 +9,7 @@ vowels mostly say which consonant series they follow (ក kɑɑ, គ kɔɔ), so 
 map straight across. A few stand for two G2K vowels, and those are decided
 from the Khmer spelling: the vowel sign (ិ/ឹ, ឺ/ើ, ូ/ោ) or, for េ, the series
 of the consonant it is written on. Google also leaves the aspiration out of
-clusters (ខ្ញុំ kɲom), which the spelling puts back (khɲom).
+clusters (ខ្ញុំ kɲom), which the spelling puts back (kʰɲom).
 """
 import re, sys
 
@@ -25,20 +25,20 @@ SIGNS = set('ិីឹឺើូោេ័ឥឦឫឬឭឮ')  # the vowels that 
 
 # Google vowel -> G2K, where it only means one thing
 VOWEL = {
-	'aa': 'aː', 'a': 'a', 'ie': 'iə', 'iə': 'iə', 'ea': 'ea', 'oa': 'oa',
+	'aa': 'aː', 'a': 'a', 'ie': 'iᵊ', 'iə': 'iᵊ', 'ea': 'eᵃ', 'oa': 'oᵃ',
 	'ɑɑ': 'ɔː', 'ɑ': 'ɔ', 'ɔɔ': 'o', 'ɔ': 'o',
 	'ii': 'i', 'i': 'i', 'ɨɨ': 'ɨ', 'uu': 'u', 'u': 'o̞', 'o': 'o',
-	'uə': 'uə', 'ɨə': 'ɨə', 'aə': 'aə',
-	'ae': 'aɛ', 'ɛɛ': 'ɛ', 'ɛ': 'ɛ', 'ɛə': 'ɛə', 'ao': 'ao',
+	'uə': 'uᵊ', 'ɨə': 'ɨᵊ', 'aə': 'aᵊ',
+	'ae': 'aᵋ', 'ɛɛ': 'ɛ', 'ɛ': 'ɛ', 'ɛə': 'ɛᵊ', 'ao': 'aᵒ',
 }
 # Diphthongs Google writes with a glide
-GLIDE = {'əj': 'ej', 'aj': 'aj', 'ej': 'ɛj', 'aw': 'aw', 'ɨw': 'əɨ', 'əw': 'əɨ', 'aəj': 'aoj'}
+GLIDE = {'əj': 'eʲ', 'aj': 'aʲ', 'ej': 'ɛʲ', 'aw': 'aᶭ', 'ɨw': 'əᶤ', 'əw': 'əᶤ', 'aəj': 'aᵒj'}
 # Google vowel -> (Khmer signs it can come from, how to choose, default)
 AMBIGUOUS = {
 	'əə': ({'ឺ', 'ើ', '័'}, lambda sign, ser: 'ə' if sign == 'ឺ' or (sign == '័' and ser == 1) else 'ɨ', 'ɨ'),
-	'oo': ({'ូ', 'ោ'}, lambda sign, ser: 'oʊ' if sign == 'ូ' else 'o̞', 'oʊ'),
-	'ee': ({'េ', 'ិ', 'ី'}, lambda sign, ser: 'ɛe' if sign == 'េ' and ser == 2 else 'e', 'e'),
-	'e': ({'េ', 'ិ'}, lambda sign, ser: 'ɛe' if sign == 'េ' and ser == 2 else 'e', 'e'),
+	'oo': ({'ូ', 'ោ'}, lambda sign, ser: 'oᶷ' if sign == 'ូ' else 'o̞', 'oᶷ'),
+	'ee': ({'េ', 'ិ', 'ី'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'e', 'e'),
+	'e': ({'េ', 'ិ'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'e', 'e'),
 	'ə': ({'ិ', 'ី', 'ឹ', 'េ', 'ឥ', 'ឦ'}, lambda sign, ser: 'e' if sign == 'េ' else 'ə', 'ə'),
 	'ɨ': ({'ិ', 'ឹ', 'េ', 'ឥ', 'ឫ', 'ឬ', 'ឭ', 'ឮ'},
 		lambda sign, ser: 'ə' if sign in 'ិឥ' else 'ɛ' if sign == 'េ' else 'ɨ', 'ɨ'),
@@ -47,7 +47,7 @@ AMBIGUOUS = {
 SOURCE = {'aə': {'ើ'}, 'ɨɨ': {'ឺ'}, 'uu': {'ូ'}, 'ao': {'ោ'}, 'ii': {'ី'}, 'i': {'ិ', 'ី'},
 	'əj': {'ី'}, 'aəj': {'ើ'}}
 GLOTTAL_K = ('a', 'ɑ', 'ea', 'oa', 'ie', 'iə', 'uə')  # final ក is ʔ after these (neaʔ)
-PALATAL_K = ('ae', 'ee')  # and c after these (sʔaɛc)
+PALATAL_K = ('ae', 'ee')  # and c after these (sʔaᵋc)
 VOWELCHARS = 'aeiouəɑɔɛɨ'
 
 def series(k, i):
@@ -104,9 +104,10 @@ def convert(key, ipa):
 						o = o[0] + 'h' + o[1:]
 					break
 		if o[:1] == 'p' and o[1:2] in ('ʔ', 'ɗ'):
-			o = 'ph' + o[1:]  # ប្អូន phʔoʊn, ប្ដី phɗej
+			o = 'ph' + o[1:]  # ប្អូន pʰʔoᶷn, ប្ដី pʰɗeʲ
 		if i == 0 and o[:1] == 'ʔ':
-			o = o[1:] if o == 'ʔ' else 'ə' + o[1:]  # ɔt, ajuʔ, but អ្វី əwej
+			o = o[1:] if o == 'ʔ' else 'ə' + o[1:]  # ɔt, ajuʔ, but អ្វី əweʲ
+		o = re.sub('([kctp])h', '\\1ʰ', o)
 		if coda == 'k' and v in GLOTTAL_K:
 			coda = 'ʔ'
 		elif coda == 'k' and v in PALATAL_K:
