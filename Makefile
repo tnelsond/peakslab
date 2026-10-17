@@ -14,7 +14,8 @@ META_FILES := $(patsubst dict_src/%.tsv,meta/%.meta,$(patsubst dict_src/%.tsv.1,
 SLAB_DIRS := $(patsubst %/zzz.meta,%,$(shell find dict_src -name zzz.meta 2>/dev/null | sort))
 SLAB_META_FILES := $(patsubst dict_src/%,meta/%.meta,$(SLAB_DIRS))
 
-files-src.json: meta peakgen $(META_FILES) $(SLAB_META_FILES) abbreviations.json
+# The core files (404.html, peak.wasm, ...) too, so a rebuilt app reaches the service worker
+files-src.json: meta peakgen $(META_FILES) $(SLAB_META_FILES) $(filter-out meta/files.json.meta,$(wildcard meta/*.meta)) abbreviations.json
 	./createdictlist.sh
 
 files.json: files-src.json
@@ -80,7 +81,7 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
 # (i.e. dictionary load time) about twice as slow, so it's not used.
 CLANG ?= clang
 WASM_OPT ?= $(shell command -v wasm-opt 2>/dev/null)
-PEAK_EXPORTS = load_peak peak_init init_search continue_search get_result free_peak malloc free switchstate
+PEAK_EXPORTS = load_peak peak_init init_search continue_search get_result free_peak malloc free switchstate init_translate translate_next
 peak.wasm : peak.c zstddeclib.c peak.h utils/walloc-master/walloc.c $(wildcard utils/minilibc/*)
 	$(CLANG) --target=wasm32 -Oz -flto -nostdlib -isystem utils/minilibc \
 	-mbulk-memory -msimd128 -Wno-pointer-sign \

@@ -1,6 +1,8 @@
 :root {
 		--link: #00a;
 		--link-old: #409;
+		--tr-gloss: #600;
+		--tr-link: #006;
     --font-size: 16px;
     --bg-color: #ba8;
     --card-bg: #FFFFFF;
@@ -25,6 +27,8 @@
 body.dark-mode {
     --alttext: #d75;
 		--link: #99f;
+		--tr-gloss: #d75;
+		--tr-link: #99f;
 		--link-old: #f7f;
     --tab-bg: #672;
     --color1: #df8;
@@ -344,7 +348,7 @@ body.show-chords p-d:has(p-m) {
 	-webkit-user-select: none;
 }
 /* Collapse toggle next to each entry's dictionary name (see app.js) */
-.collapse-btn {
+.collapse-btn, .translate-btn {
 	float: right;
 	width: 1.6em; /* em: shrinks along with a collapsed entry */
 	height: 1.6em;
@@ -729,4 +733,117 @@ p-ipa{
 	display: block;
 	clear: left;
 	color: #303;
+}
+
+/* Focus: one dictionary first, with word by word translation */
+.solo-chip{
+	margin-left: 5px;
+	padding: 8px 10px;
+	border: 0;
+	border-radius: 12px;
+	background: var(--control-btn-bg);
+	color: #fff;
+	font-size: 15px;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.dictlist-focus{
+	border: 0;
+	padding: 0 2px;
+	background: none;
+	color: var(--link);
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+.dictlist-file.focused .dictlist-focus{
+	background: var(--control-btn-bg);
+	color: #fff;
+	text-decoration: none;
+	border-radius: 4px;
+}
+.dictlist-solo{
+	margin-left: 4px;
+	text-decoration: none;
+}
+#bigQuery{
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 1200px;
+	margin: 0 auto .5em;
+	padding: 12px;
+	border: 0;
+	border-radius: 12px;
+	background: var(--search-bg);
+	color: var(--header-text);
+	font-size: 1.4em;
+	font-family: inherit;
+	resize: none;
+	overflow: hidden;
+	outline: none;
+}
+#searchBar{
+	max-width: 1200px;
+	margin: 0 auto .4em;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 3px;
+	font-size: .7em;
+}
+#searchBar button{
+	border: 0;
+	border-radius: 8px;
+	padding: 2px 7px;
+	background: var(--result-entry-bg);
+	color: var(--card-text);
+	font: inherit;
+	cursor: pointer;
+}
+#searchBar button.focused, #searchBar .sb-share{
+	background: var(--control-btn-bg);
+	color: #fff;
+}
+.tr-w{
+	display: inline-flex;
+	flex-direction: column;
+	vertical-align: top;
+	max-width: 14em;
+	margin: 0 .5em .6em 0;
+}
+.tr-w p-a{
+	color: var(--tr-link);
+}
+.tr-g{
+	font-size: .75em;
+	color: var(--tr-gloss);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.tr-entry{
+	clear: both;
+	margin-top: .5em;
+	padding-top: .5em;
+	border-top: 1px dashed var(--control-btn-bg);
+}
+.tr-entry .tr-head{
+	font-size: .75em;
+	opacity: .7;
+	margin-bottom: .2em;
+}
+.tr-entry button{
+	margin: 2px;
+	border: 0;
+	border-radius: 8px;
+	padding: 2px 8px;
+	background: var(--control-btn-bg);
+	color: #fff;
+	font: inherit;
+	font-size: .85em;
+	cursor: pointer;
+}
+.tr-u{
+	opacity: .6;
 }

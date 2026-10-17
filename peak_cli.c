@@ -87,9 +87,11 @@ int main(int argc, char **argv){
 				--i;
 			}
 			if(translate){
-				st = translate;
-				init_search(st, 1);
-				p_translate();
+				init_translate(psa->qloc, strlen((char*)psa->qloc));
+				while((len = translate_next()) > 0){
+					int hl = strlen((char*)g_result_loc) + 1;
+					printf("[%s] %s", g_result_loc, hl < len ? (char*)g_result_loc + hl : "\n");
+				}
 				continue;
 			}
 			st = glob ? FULL : INDEX1;

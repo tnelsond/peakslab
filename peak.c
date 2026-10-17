@@ -494,72 +494,168 @@ int p_getline(uint8_t *match) {
 		return l;
 }
 
-int countmatchchar(char *a, char *b, int *len){
-	uint8_t *sa = (uint8_t*)a;
-	uint8_t *sb = (uint8_t*)b;
-	*len = 0;
-	while(*sa && *sb && *sa == *sb){
-		sa++; sb++;	++(*len);
-	}
-	if(!*sa || *sa == '\t'){ // For exact search
-		return 0;
-	}
-	int j = 0;
-	while(isdigit(sa[j]) && isdigit(sb[j])){
-		++j;
-	}
-	if(isdigit(sa[j]) && !isdigit(sb[j])){
-		return 1;
-	}
-	if(!isdigit(sa[j]) && isdigit(sb[j])){
-		return -1;
-	}
-	return *sa - *sb;
+// Translate mode: splits a text (any length, its own buffer) into
+// headwords. init_translate() picks the split with the fewest unmatched
+// characters, then the fewest words; translate_next() hands out one piece
+// per call.
+#define TR_UNMATCHED 1000
+static uint8_t *tr_text = NULL;
+static uint32_t tr_textlen = 0;
+static uint32_t tr_pos = 0;
+static uint32_t *tr_cost = NULL;
+static uint16_t *tr_len = NULL;
+static int32_t *tr_match = NULL;
+
+static uint32_t p_utf8(const uint8_t *s){
+	if(s[0] < 0x80) return s[0];
+	if(s[0] < 0xE0) return ((s[0] & 0x1F) << 6) | (s[1] & 0x3F);
+	if(s[0] < 0xF0) return ((s[0] & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F);
+	return ((s[0] & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F);
 }
 
-int p_translate(){
-	int qi = 0;
-	int st = ps_h->features & NOSORT ? INDEX2 : INDEX1;
-	while(qi < psa->qlen){
-		int cmpr = -1;
-		int match = -1;
-		uint8_t *guess = NULL;
-		int l = 0;
-		int maxlen = 0;
-		int r = psa->idxlen - 1;
-		while(l < r){
-			int m = l + (r - l) / 2;
-			guess = p_linetostr(m, st);
-			int templen;
-			cmpr = countmatchchar(guess, psa->qloc+qi, &templen);
-			if(!cmpr){
-				if(templen > maxlen){
-					maxlen = templen;
-					match = m;
-				}
-				l = m+1;
-			}else if(cmpr < 0){
-				l = m+1;
-			}else{
-				r = m;
-			}
-		}
-		if(match > -1){
-			char *w = p_linetostr(match, st);
-			while(*w && *w != '\t'){
-				++w;
-			}
-			if(*w){
-				++w;
-				printf("%s ", w);
-			}
+// Vowel signs and other marks that belong to the character before them
+static int p_ismark(uint32_t c){
+	return (c >= 0x17B4 && c <= 0x17D3) || c == 0x17DD // Khmer
+		|| c == 0x0EB1 || (c >= 0x0EB4 && c <= 0x0EBC) || (c >= 0x0EC8 && c <= 0x0ECD) // Lao
+		|| c == 0x0E31 || (c >= 0x0E34 && c <= 0x0E3A) || (c >= 0x0E47 && c <= 0x0E4E) // Thai
+		|| (c >= 0x0900 && c <= 0x0903) || (c >= 0x093A && c <= 0x094F) || (c >= 0x0951 && c <= 0x0957) || c == 0x0962 || c == 0x0963 // Devanagari
+		|| (c >= 0x0300 && c <= 0x036F) || c == 0x200C || c == 0x200D;
+}
+
+// Latin letters and digits: words in these are only matched whole
+static int p_isletter(uint32_t c){
+	return (c < 0x80 && (isdigit(c) || (unsigned)((c | 0x20) - 'a') < 26)) || (c >= 0xC0 && c < 0x250 && c != 0xD7 && c != 0xF7);
+}
+
+// Can a piece start or end at byte p of the query?
+static int p_boundary(const uint8_t *q, uint32_t p, uint32_t len){
+	if(p == 0 || p >= len) return 1;
+	if((q[p] & 0xC0) == 0x80) return 0; // Inside a UTF-8 character
+	uint32_t c = p_utf8(q + p);
+	if(p_ismark(c)) return 0;
+	uint32_t b = p - 1;
+	while(b > 0 && (q[b] & 0xC0) == 0x80) --b;
+	uint32_t prev = p_utf8(q + b);
+	if(prev == 0x17D2) return 0; // Khmer coeng, joins the next consonant
+	return !(p_isletter(prev) && p_isletter(c));
+}
+
+// First entry >= q (ps_cmp order, the order the lines were sorted in).
+static int p_lowerbound(enum searchtype st, int n, const uint8_t *q){
+	int l = 0, r = n;
+	while(l < r){
+		int m = l + (r - l) / 2;
+		if(ps_cmp(p_linetostr(m, st), q) < 0){
+			l = m + 1;
 		}else{
-			putchar(psa->qloc[qi]);
+			r = m;
 		}
-		qi += maxlen + (maxlen ? 0 : 1);
-		printf("\n#%s#\n", psa->qloc+qi);
 	}
+	return l;
+}
+
+// text needs len+1 bytes and has to stay there until the last translate_next().
+// Returns:
+//  0  = ready
+// -3  = not loaded
+// -4  = empty text
+// -5  = out of memory
+EMSCRIPTEN_KEEPALIVE
+int init_translate(uint8_t *text, uint32_t len){
+	tr_pos = 0;
+	tr_textlen = 0;
+	free(tr_cost);
+	free(tr_len);
+	free(tr_match);
+	tr_cost = NULL;
+	tr_len = NULL;
+	tr_match = NULL;
+	if(!ps_h || !g_d) return -3;
+	if(!text || !len) return -4;
+	tr_cost = malloc((len + 1) * sizeof(*tr_cost));
+	tr_len = malloc((len + 1) * sizeof(*tr_len));
+	tr_match = malloc((len + 1) * sizeof(*tr_match));
+	if(!tr_cost || !tr_len || !tr_match) return -5;
+	tr_text = text;
+	tr_textlen = len;
+	enum searchtype st = ps_h->features & NOSORT ? INDEX2 : INDEX1;
+	int n = st == INDEX2 ? ps_h->idx2_len : ps_h->line_idx_len - 1; // line_idx has an extra end entry
+	uint8_t *q = text;
+	uint8_t end = q[len];
+	q[len] = '\0';
+	tr_cost[len] = 0;
+	for(int i = len - 1; i >= 0; --i){
+		tr_cost[i] = UINT32_MAX;
+		if(!p_boundary(q, i, len))
+			continue;
+		uint8_t *s = q + i;
+		uint32_t rest = len - i;
+		// Every headword that starts s sorts between itself and s, so the
+		// entries around where s would go share at least that much with it.
+		int lb = p_lowerbound(st, n, s);
+		uint32_t k = 0;
+		for(int m = lb - 1; m <= lb; ++m){
+			if(m < 0 || m >= n) continue;
+			uint8_t *e = p_linetostr(m, st);
+			uint32_t j = 0;
+			while(j < rest && e[j] == s[j]) ++j;
+			if(j > k) k = j;
+		}
+		for(; k > 0; --k){ // Longest first, so it wins ties
+			if(!p_boundary(q, i + k, len) || tr_cost[i + k] == UINT32_MAX || 1 + tr_cost[i + k] >= tr_cost[i])
+				continue;
+			uint8_t c = s[k];
+			s[k] = '\0';
+			int m = p_lowerbound(st, n, s);
+			if(m < n && !ps_cmpe(p_linetostr(m, st), s)){
+				tr_cost[i] = 1 + tr_cost[i + k];
+				tr_len[i] = k;
+				tr_match[i] = m;
+			}
+			s[k] = c;
+		}
+		uint32_t u = 1; // Or leave the next character unmatched
+		while(!p_boundary(q, i + u, len)) ++u;
+		if(tr_cost[i + u] != UINT32_MAX && TR_UNMATCHED + tr_cost[i + u] < tr_cost[i]){
+			tr_cost[i] = TR_UNMATCHED + tr_cost[i + u];
+			tr_len[i] = u;
+			tr_match[i] = -1;
+		}
+	}
+	q[len] = end;
 	return 0;
+}
+
+// Writes the piece of the query it used up, '\0', then the rendered entry
+// (nothing when it's unmatched text) into the result buffer.
+// Returns:
+//  >0 = bytes written
+//  -1 = nothing left to translate
+//  -3 = not loaded
+EMSCRIPTEN_KEEPALIVE
+int translate_next(){
+	if(!ps_h || !g_d)
+		return -3;
+	if(tr_pos >= tr_textlen)
+		return -1;
+	uint32_t start = tr_pos;
+	int match = tr_match[tr_pos];
+	tr_pos += tr_len[tr_pos];
+	while(match < 0 && tr_pos < tr_textlen && tr_match[tr_pos] < 0){ // Join unmatched text
+		tr_pos += tr_len[tr_pos];
+	}
+	int len = 0;
+	while(start + len < tr_pos && len + 2 < g_result_max){
+		g_result_loc[len] = tr_text[start + len];
+		++len;
+	}
+	g_result_loc[len++] = '\0';
+	if(match >= 0){
+		enum searchtype st = ps_h->features & NOSORT ? INDEX2 : INDEX1;
+		int line = st == INDEX2 ? p_getline(p_linetostr(match, st)) : match;
+		len += p_render(g_result_loc + len, g_result_max - len, line);
+	}
+	return len;
 }
 
 int p_binarysearch(){

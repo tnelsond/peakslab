@@ -10,8 +10,9 @@ class NoCacheHTTPRequestHandler(SimpleHTTPRequestHandler):
     
     def do_GET(self):
         # Check if the requested path is a directory
-        if self.path.endswith('/'):
-            index_path = self.translate_path(self.path + 'index.html')
+        path = self.path.split('?')[0]  # /khmer/?dict=h97 is still a directory
+        if path.endswith('/'):
+            index_path = self.translate_path(path + 'index.html')
             if not os.path.isfile(index_path):
                 # No index.html found, send 404 instead of listing
                 self.send_error(404)

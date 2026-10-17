@@ -40,6 +40,16 @@ let adicts = []
 let query = ''
 let cdic = 0;
 let st = 0;
+let order = []; // Dictionaries in the order searched: the focused one first
+let gen = 0; // Which search this is; the page drops results from older ones
+
+function searchOrder(focus){
+	order = Array.from({length: dicts.length}, (_, i) => i);
+	if(focus >= 0 && focus < order.length){
+		order.splice(focus, 1);
+		order.unshift(focus);
+	}
+}
 
 
 self.onmessage = async (e) => {
@@ -69,7 +79,7 @@ self.onmessage = async (e) => {
 		query = e.data.query;
 		dicts.forEach((d) => {
 			if(d && d.module){
-				d.setQuery(query);
+				d.setQuery(d.fitQuery(query)); // A long text is searched by its start (translation gets all of it)
 			}
 		});
 	}
@@ -77,6 +87,8 @@ self.onmessage = async (e) => {
 		cdic = 0;
 		st = e.data.st;
 		adicts = e.data.dicts;
+		gen = e.data.gen;
+		searchOrder(e.data.focus);
 		dicts.forEach((d) => { // Yes, we have to reset all the dictionaries because the results build up.
 			if(d && d.module){
 				d.module._init_search(e.data.st, 1);
@@ -86,6 +98,7 @@ self.onmessage = async (e) => {
 	else if(e.data.type == "continuesearch"){
 		cdic = 0;
 		st = e.data.st;
+		searchOrder(e.data.focus);
 		adicts.forEach((val, i) => {
 			if(val){
 				if(dicts[i] && dicts[i].module){
@@ -104,40 +117,83 @@ self.onmessage = async (e) => {
 					d.module._init_search(e.data.st, 0);
 					while(d.getResult(e.data.dest == "popup" ? 1 : 0) != -1){
 						if(!d.slab)
-							self.postMessage({type: "result", id: id, did: i, dict: d.name, query: e.data.query, st: e.data.st, header: d.getHeader(),  body: d.getBodyStr(), dest: e.data.dest});
+							self.postMessage({type: "result", id: id, did: i, dict: d.name, query: e.data.query, st: e.data.st, header: d.getHeader(),  body: d.getBodyStr(), dest: e.data.dest, gen: e.data.gen});
 						else{
 							let header = d.getHeader().split('\t');
 							const filetype = header[header.length-1];
 							let subheader = header.slice(1, -1);
 							header = header[0];
-							self.postMessage({type: "result", id: id, did: i, query: e.data.query, dict: d.name, st: e.data.st, header: header, subheader: subheader, filetype: filetype, body: d.getBytes(), dest: e.data.dest});
+							self.postMessage({type: "result", id: id, did: i, query: e.data.query, dict: d.name, st: e.data.st, header: header, subheader: subheader, filetype: filetype, body: d.getBytes(), dest: e.data.dest, gen: e.data.gen});
 						}
 					}
 					d.switchState(); // Switched it back :D
 				}
 			}
 		});
+	}else if(e.data.type == "translate"){
+		const d = dicts[e.data.did];
+		if(d && d.module){
+			d.switchState(); // Same as tempsearch: leave the main search alone
+			const pieces = [];
+			let found = false;
+			if(e.data.check){ // Only translate when there's no entry (index searches)
+				d.setQuery(d.fitQuery(e.data.query));
+				for(const s of [3, 4, 5]){
+					d.module._init_search(s, 0);
+					if(d.getResult(1) > 0){
+						found = true;
+						break;
+					}
+				}
+			}
+			// The text gets its own buffer: it can be any length.
+			const bytes = found ? null : new TextEncoder().encode(e.data.query);
+			const tptr = found ? 0 : d.module._malloc(bytes.length + 1);
+			if(tptr){
+				d.module.HEAPU8.set(bytes, tptr);
+				d.module.HEAPU8[tptr + bytes.length] = 0;
+			}
+			if(tptr && d.module._init_translate(tptr, bytes.length) == 0){
+				while((d.rlen = d.module._translate_next()) > 0){
+					const z = new Uint8Array(d.module.HEAPU8.buffer, d.rptr, d.rlen).indexOf(0);
+					const piece = {text: d.module.UTF8ToString(d.rptr, z)};
+					if(z + 1 < d.rlen){
+						const entry = d.module.UTF8ToString(d.rptr + z + 1, d.rlen - z - 1);
+						const tab = entry.indexOf('\t');
+						piece.header = entry.slice(0, tab).trim();
+						piece.body = entry.slice(tab + 1);
+					}
+					pieces.push(piece);
+				}
+			}
+			if(tptr)
+				d.module._free(tptr);
+			d.switchState();
+			if(!found)
+				self.postMessage({type: "translation", id: id, did: e.data.did, dict: d.name, query: e.data.query, tag: e.data.tag, pieces: pieces});
+		}
 	}else if(e.data.type == "getresults"){
 		let num = 0;
 		while(num == 0){
-			if(adicts[cdic] && dicts[cdic] && dicts[cdic].getResult() > 0){
+			const c = order[cdic];
+			if(adicts[c] && dicts[c] && dicts[c].getResult() > 0){
 				//console.log("give!");
-				if(!dicts[cdic].slab){
-					self.postMessage({type: "result", id: id, did: cdic, dict: dicts[cdic].name, query: query, st: st, header: dicts[cdic].getHeader(), body: dicts[cdic].getBodyStr()});
+				if(!dicts[c].slab){
+					self.postMessage({type: "result", id: id, did: c, dict: dicts[c].name, query: query, st: st, header: dicts[c].getHeader(), body: dicts[c].getBodyStr(), gen: gen});
 				}else{
-					let header = dicts[cdic].getHeader().split('\t');
+					let header = dicts[c].getHeader().split('\t');
 					const filetype = header[header.length-1];
 					let subheader = header.slice(1, -1);
 					header = header[0];
 					//header = header.substring(0, header.indexOf(9));
-					self.postMessage({type: "result", id: id, did: cdic, dict: dicts[cdic].name, query: query, header: header, subheader: subheader, st: st, filetype: filetype, body: dicts[cdic].getBytes()});
+					self.postMessage({type: "result", id: id, did: c, dict: dicts[c].name, query: query, header: header, subheader: subheader, st: st, filetype: filetype, body: dicts[c].getBytes(), gen: gen});
 				}
 				++num;
 			}
 			else{
 				cdic++;
-				if(cdic >= dicts.length){
-					self.postMessage({type: "nomore", id: id, st: st});
+				if(cdic >= order.length){
+					self.postMessage({type: "nomore", id: id, st: st, gen: gen});
 					break;
 				}
 			}
@@ -166,6 +222,8 @@ async function peak(wasmModule){
 		_continue_search: exp.continue_search,
 		_get_result:      exp.get_result,
 		_switchstate:     exp.switchstate,
+		_init_translate:  exp.init_translate,
+		_translate_next:  exp.translate_next,
  
 		get HEAPU8() { return new Uint8Array(mem.buffer); },
  
@@ -270,6 +328,14 @@ class Dic{
 		const bytes = encoder.encode(query + '\0');
 		if (bytes.length > this.qmax) throw new Error("Query too long");
 		this.module.HEAPU8.set(bytes, this.qptrc);
+	}
+	// Cut a query to what fits in the query buffer, on a character boundary.
+	fitQuery(query){
+		const bytes = new TextEncoder().encode(query);
+		if (bytes.length < this.qmax) return query;
+		let end = this.qmax - 1;
+		while (end > 0 && (bytes[end] & 0xC0) == 0x80) --end;
+		return new TextDecoder().decode(bytes.subarray(0, end));
 	}
 	switchState(){
 		this.qptrc = this.qptrc == this.qptr ? this.qptr2 : this.qptr;

@@ -33,6 +33,8 @@ try { if (localStorage.getItem('showChords') === 'true') document.body.classList
 // first line, everywhere in the results, and stays collapsed (remembered).
 // Done with one generated CSS rule per collapsed dictionary.
 const collapseBtnHTML = '<button type="button" class="collapse-btn" onclick="toggleDict(this)" title="Collapse or expand this dictionary"></button>';
+// Translates an entry word by word, see translateEntry
+const translateBtnHTML = '<button type="button" class="translate-btn" onclick="translateEntry(this)" title="Translate word by word">⇄</button>';
 const collapseStyle = document.head.appendChild(document.createElement('style'));
 let collapsedDicts = [];
 try { collapsedDicts = JSON.parse(localStorage.getItem('collapsedDicts')) || []; } catch (e) {}
@@ -203,7 +205,7 @@ if(root){
 					startSearch();
 				}
 				else if(e.data.type == "nomore"){
-					if(e.data.st == st){
+					if(e.data.st == st && e.data.gen === searchGen){
 						worker_code[e.data.id-1] = true;
 						if(!worker_code.includes(false)){
 							if(nextst()){
@@ -216,12 +218,21 @@ if(root){
 							}
 						}
 					}
+				}else if(e.data.type == "translation"){
+					if(e.data.tag)
+						showEntryTranslation(e.data);
+					else
+						showTranslation(e.data);
 				}else if(e.data.type == "result"){
-					if(num == 0){
+					const popup = e.data.dest == "popup";
+					if(!popup && e.data.gen !== searchGen)
+						return; // Sent for an earlier search (it restarts as dictionaries load)
+					if(!popup && num == 0){ // Popup results leave the main results alone
 						cleanup(tout);
-						tout.append(loader)
+						if(loader)
+							tout.append(loader)
 					}
-					let idpre = e.data.dest == "popup" ? "pid" : "mid";
+					let idpre = popup ? "pid" : "mid";
 					const nheader = updateQuery(e.data.header);
 					let div = document.getElementById(`${idpre}-${nheader}`);
 					const first = div === null;
@@ -233,12 +244,13 @@ if(root){
 							temp_dict_code[dicts.findIndex(file => file[1] === e.data.dict)] = false;
 							workers.forEach((w, i) =>{
 								let code = temp_dict_code.filter((_, index) => index % workers.length == i);
-								w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: e.data.dest, dicts: code});
+								w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: e.data.dest, dicts: code, gen: searchGen});
 							});
 						}
 					}
 					let el = document.createElement('p-e');
-					const sortid = e.data.did*workers.length+e.data.id;
+					const d = e.data.did*workers.length + e.data.id - 1;
+					const sortid = d === focus ? 0 : d + 1; // The focused dictionary first
 					el.setAttribute('data-id', sortid);
 					el.dataset.dict = e.data.dict;
 					if(debug)
@@ -295,6 +307,8 @@ if(root){
 							el.querySelector('p-h')?.insertAdjacentHTML('afterend', chordsBtnHTML);
 						}
 					}
+					if(!e.data.filetype)
+						el.querySelector('p-h')?.insertAdjacentHTML('afterend', translateBtnHTML);
 					el.querySelector('p-h')?.insertAdjacentHTML('afterend', collapseBtnHTML);
 					
 					const children = Array.from(div.children);
@@ -308,22 +322,29 @@ if(root){
 						div.appendChild(el);
 					}
 
-					let place = e.data.dest == "popup" ? popupResults : resultsDiv;
-					if(first){
+					let place = popup ? popupResults : resultsDiv;
+					if(!popup && d === focus){ // Its sections go above the other dictionaries'
+						if(!focusEnd.isConnected)
+							resultsDiv.prepend(focusEnd);
+						if(first || focusEnd.compareDocumentPosition(div) & Node.DOCUMENT_POSITION_FOLLOWING)
+							resultsDiv.insertBefore(div, focusEnd);
+					}else if(first){
 						if(place == resultsDiv && loader){
 							place.insertBefore(div, loader); 
 						}else{
 							place.appendChild(div); 
 						}
-						if(e.data.dest == "popup"){
-							popupOpen();
-							document.addEventListener('click', closePopupClick); 
-						}
 					}
-					++num;
-					queryInput.classList.remove("error");
-					statusDiv.textContent = `Found ${num}+ matching lines.`;
-					loadmore();
+					if(first && popup){
+						popupOpen();
+						document.addEventListener('click', closePopupClick); 
+					}
+					if(!popup){
+						++num;
+						queryInput.classList.remove("error");
+						statusDiv.textContent = `Found ${num}+ matching lines.`;
+						loadmore();
+					}
 				}
 			}
 	}
@@ -431,6 +452,19 @@ if(root){
 			description,
 			defaultEnabled(priority)
 	]);
+
+	// Focus: one dictionary's results come first, and text it has no entry
+	// for is translated word by word with it. ?dict=h97 is a page with only
+	// that dictionary loaded ("solo"), focused; ?focus=h97 just focuses it.
+	const urlParams = new URLSearchParams(window.location.search);
+	const dictIndex = name => name ? dicts.findIndex(d => d[1] === name) : -1;
+	let solo = dictIndex(urlParams.get('dict'));
+	const focusKey = `peakslab-focus-${appname}`;
+	let focus = solo >= 0 ? solo : dictIndex(urlParams.get('focus'));
+	if (focus < 0 && !urlParams.has('focus')) {
+		try { const f = localStorage.getItem(focusKey); focus = f ? dicts.findIndex(d => d[0] === f) : -1; } catch (e) { /* not remembered */ }
+	}
+	const focusEnd = document.createElement('span'); // The focused dictionary's sections go above this
 
 	let workers_num = dicts.length > 1 ? 2 : 1;
 	let workers = [];
@@ -597,7 +631,21 @@ if(root){
 	const queryInput = document.getElementById('queryInput');
 
 	const params = new URLSearchParams(window.location.search);
-	queryInput.value = params.get('text');
+	// The query, newlines and all. The one line search bar can't hold
+	// newlines, so it shows them as spaces (same length, so the positions
+	// match) and the big text box shows the real thing.
+	let queryText = '';
+	function setQueryText(text){
+		queryText = (text || '').replace(/\r\n?/g, '\n');
+		queryInput.value = queryText.replace(/\n/g, ' ');
+	}
+	setQueryText(params.get('text'));
+	const defaultPlaceholder = queryInput.placeholder;
+	const focusChip = document.createElement('button');
+	focusChip.type = 'button';
+	focusChip.className = 'solo-chip hide';
+	focusChip.addEventListener('click', () => solo >= 0 ? leaveSolo() : setFocus(focus));
+	queryInput.insertAdjacentElement('afterend', focusChip);
 
 	const statusDiv  = document.getElementById('status');
 	const resultsDiv = document.getElementById('results');
@@ -612,6 +660,25 @@ if(root){
 	// original section stays right where it was.
 	let pinned = [];
 	let showingPinned = false;
+	// Above the results: the big text box for long queries and the
+	// focused dictionary's word by word translation.
+	const topDiv = document.createElement('div');
+	resultsDiv.insertAdjacentElement('beforebegin', topDiv);
+	const bigQuery = topDiv.appendChild(document.createElement('textarea'));
+	bigQuery.id = 'bigQuery';
+	bigQuery.classList.add('hide');
+	// Share button and the enabled dictionaries (tap one to focus it)
+	const searchBar = topDiv.appendChild(document.createElement('div'));
+	searchBar.id = 'searchBar';
+	searchBar.classList.add('hide');
+	searchBar.addEventListener('click', e => {
+		const b = e.target.closest('button');
+		if (!b) return;
+		if (b.dataset.idx) setFocus(+b.dataset.idx);
+		else share(b);
+	});
+	const translationDiv = topDiv.appendChild(document.createElement('div'));
+
 	const pinnedDiv = document.createElement('div');
 	pinnedDiv.id = 'pinnedResults';
 	pinnedDiv.classList.add('hide');
@@ -625,6 +692,7 @@ if(root){
 		pinTabBtn.style.background = showingPinned ? '#c0392b' : '';
 		pinTabBtn.title = showingPinned ? 'Close pins' : 'Pins';
 		resultsDiv.classList.toggle('hide', showingPinned);
+		topDiv.classList.toggle('hide', showingPinned);
 		pinnedDiv.classList.toggle('hide', !showingPinned);
 		// Pinned view is just a scrapbook of saved sections — hide the search
 		// bar and all the live-search diagnostics/status while looking at it.
@@ -703,11 +771,12 @@ if(root){
 		}
 		prevLang = isPrimary ? null : lang; // next extra language (or the primary again) gets its own header
 
-		temp += `<li class="dictlist-item dictlist-file" data-id="${dict[0]}">${idx+1}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><strong>${dict[1]}</strong> : ${dict[3]}</li>`;
+		temp += `<li class="dictlist-item dictlist-file" data-id="${dict[0]}" data-idx="${idx}">${idx+1}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><button type="button" class="dictlist-focus" onclick="setFocus(${idx})" title="Focus: show ${dict[1]} first and translate with it"><strong>${dict[1]}</strong></button><a href="?dict=${encodeURIComponent(dict[1])}" class="dictlist-solo" title="Open ${dict[1]} on its own">↗</a> : ${dict[3]}</li>`;
 	});
 	temp += `</ol>`;
 	let listDiv = document.getElementById('listDiv');
 	listDiv.innerHTML += temp;
+	updateFocusUI();
 
 	ack = function(url){
 		const x = dicts.findIndex(y => y[0] == url);
@@ -738,18 +807,23 @@ if(root){
 	// Called exactly once, with the saved array or null for defaults.
 	// With onlyIfSaved, does nothing unless there's a saved array.
 	function applyState(saved, onlyIfSaved) {
-		if (stateApplied || (onlyIfSaved && !Array.isArray(saved))) return;
+		if (stateApplied || (onlyIfSaved && !Array.isArray(saved) && solo < 0)) return;
 		stateApplied = true;
-		if (!Array.isArray(saved)) {
-			console.log('No saved state found → using defaults from dict[4]');
-			loadDicts();
+		if (solo >= 0) { // Leaves the saved choices alone for the normal page
+			dicts.forEach((_, index) => setCheckbox(index, index === solo));
+			loadDict(solo);
 			return;
 		}
-		const savedMap = new Map(saved.map(item => [item.file, !!item.enabled]));
+		enableSaved(saved);
+	}
+
+	// Loads the saved choices (or the defaults), and the focused dictionary.
+	function enableSaved(saved) {
+		const savedMap = new Map((Array.isArray(saved) ? saved : []).map(item => [item.file, !!item.enabled]));
 		dicts.forEach((dict, index) => {
-			const shouldEnable = savedMap.has(dict[0])
+			const shouldEnable = index === focus || (savedMap.has(dict[0])
 				? savedMap.get(dict[0])
-				: (dict[4] === true || dict[4] === undefined); // default from dict definition
+				: (dict[4] === true || dict[4] === undefined)); // default from dict definition
 			setCheckbox(index, shouldEnable);
 			if (shouldEnable) loadDict(index);
 		});
@@ -789,6 +863,7 @@ if(root){
 	setTimeout(() => { if (!stateApplied) noIndexedDB('no response from IndexedDB'); }, 3000);
 
 	function saveState() {
+		if (solo >= 0) return;
 		const state = dicts.map((dict, index) => ({
 			file: dict[0],                    // filename as stable key
 			enabled: !dict_master_code[index] // true = checkbox checked / dictionary loaded
@@ -850,32 +925,102 @@ if(root){
 		return r.arrayBuffer();
 	}
 
-	function loadDicts(){
-		const checkboxes = document.querySelectorAll('.fcheckbox');
-		checkboxes.forEach((box) =>{
-			if(box.checked){
-				const i = box.dataset.id;
-				if(dict_master_code[i]){
-					loadDict(i);
-				}
-			}
-		});
-	}
-
 	let query = null;
 	let tout = resultsDiv;
+
+	function unloadDict(d){
+		workers[d%workers.length].postMessage({type: 'destroy', did: Math.floor(d/workers.length)});
+		dict_master_code[d] = true;
+	}
 
 	function updateDictList(checkbox){
 		const d = parseInt(checkbox.dataset.id);
 		if(checkbox.checked){
 			loadDict(d);
 		}else{
-			workers[d%workers.length].postMessage({type: 'destroy', did: Math.floor(d/workers.length)});
-			dict_master_code[d] = true;
+			unloadDict(d);
+			if(d === focus && solo < 0)
+				setFocus(d); // Unfocus it
 			saveState();
 		}
 	}
 	window.updateDictList = updateDictList;
+
+	// Clicking a dictionary's name focuses it, or unfocuses it. On a solo
+	// page it switches to that dictionary instead.
+	function setFocus(i){
+		if (solo >= 0) {
+			if (i === solo) return;
+			unloadDict(solo);
+			setCheckbox(solo, false);
+			solo = i;
+		}
+		focus = i === focus ? -1 : i;
+		if (focus >= 0) {
+			setCheckbox(focus, true);
+			loadDict(focus); // Does nothing if it's loaded
+			saveState();
+		}
+		if (solo < 0) {
+			try { focus >= 0 ? localStorage.setItem(focusKey, dicts[focus][0]) : localStorage.removeItem(focusKey); } catch (e) { /* not remembered */ }
+		}
+		updateFocusUI();
+		query = ""; // Search again
+		startSearch();
+	}
+	window.setFocus = setFocus;
+
+	// From a solo page to the normal one, still focused, without reloading.
+	function leaveSolo(){
+		solo = -1;
+		try { localStorage.setItem(focusKey, dicts[focus][0]); } catch (e) { /* not remembered */ }
+		enableSaved(lsGet());
+		updateFocusUI();
+	}
+
+	// The address bar always holds a link to what's on screen.
+	function updateURL(){
+		const p = new URLSearchParams();
+		if (solo >= 0) p.set('dict', dicts[solo][1]);
+		else if (focus >= 0) p.set('focus', dicts[focus][1]);
+		if (queryText) p.set('text', queryText);
+		const qs = p.toString();
+		history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+	}
+
+	function renderSearchBar(){
+		const enabled = dicts.map((_, i) => i).filter(i => !dict_master_code[i] && i !== focus);
+		if (focus >= 0 && !dict_master_code[focus]) enabled.unshift(focus);
+		searchBar.innerHTML = '<button type="button" class="sb-share" title="Share this search">⤴ Share</button>' +
+			enabled.map(i => `<button type="button" class="sb-dict${i === focus ? ' focused' : ''}" data-idx="${i}" title="${i === focus ? 'Unfocus' : 'Focus'} ${escapeHTML(dicts[i][1])}">${escapeHTML(dicts[i][1])}</button>`).join('');
+		searchBar.classList.remove('hide');
+	}
+
+	async function share(btn){
+		updateURL();
+		const url = window.location.href;
+		try {
+			if (navigator.share) {
+				await navigator.share({title: document.title, url: url});
+				return;
+			}
+			await navigator.clipboard.writeText(url);
+			btn.textContent = '✓ Link copied';
+			setTimeout(() => { btn.textContent = '⤴ Share'; }, 1500);
+		} catch (e) {
+			if (e.name !== 'AbortError') window.prompt('Copy this link:', url);
+		}
+	}
+
+	function updateFocusUI(){
+		const name = focus >= 0 ? dicts[focus][1] : '';
+		focusChip.classList.toggle('hide', focus < 0);
+		focusChip.textContent = solo >= 0 ? `${name} only ✕` : `${name} ✕`;
+		focusChip.title = solo >= 0 ? 'Load the other dictionaries too' : `Stop focusing on ${name}`;
+		queryInput.placeholder = focus >= 0 ? `Search or translate with ${name}…` : defaultPlaceholder;
+		document.querySelectorAll('.dictlist-file').forEach(li => li.classList.toggle('focused', +li.dataset.idx === focus));
+		updateURL();
+	}
 
 
 	function openPopupSearch(text){
@@ -914,7 +1059,7 @@ if(root){
 		return true;
 	}
 
-	function updateQuery(text = queryInput.value){
+	function updateQuery(text = queryText){
 		if (!text) {
 				return null;
 		}
@@ -936,13 +1081,22 @@ if(root){
 		statusDiv.textContent = "";
 		settings.style.display = 'block';
 		resultsDiv.replaceChildren();
+		translationDiv.replaceChildren();
+		searchBar.classList.add('hide');
 	}
 
+	// The worker's index for the focused dictionary, if worker i has it
+	function focusDid(i){
+		return focus >= 0 && focus % workers.length == i ? Math.floor(focus / workers.length) : -1;
+	}
+
+	let searchGen = 0;
 	function initSearch(){
 		num = 0;
+		++searchGen;
 		workers.forEach((w, i) =>{
 			let code = dict_code.filter((_, index) => index % workers.length == i);
-			w.postMessage({type: "initsearch", st: st, dicts: code});
+			w.postMessage({type: "initsearch", st: st, dicts: code, focus: focusDid(i), gen: searchGen});
 			if(code.includes(true)){
 				w.postMessage({type: "getresults"});
 				worker_code[i] = false;
@@ -957,7 +1111,7 @@ if(root){
 		workers.forEach((w, i) =>{
 			let code = dict_code.filter((_, index) => index % workers.length == i);
 			if(code.includes(true)){
-				w.postMessage({type: "continuesearch", st: st});
+				w.postMessage({type: "continuesearch", st: st, focus: focusDid(i)});
 				w.postMessage({type: "getresults"});
 				worker_code[i] = false;
 			}
@@ -997,8 +1151,143 @@ if(root){
 
 	const globreg = /[!+*^]/;
 
+	// The worker translates only if the focused dictionary has no entry for
+	// the query (check: true).
+	function translate(){
+		if (focus < 0 || dict_master_code[focus] || dicts[focus][0].includes('.slab') || globreg.test(query)) return;
+		workers[focus % workers.length].postMessage({type: 'translate', did: Math.floor(focus / workers.length), query: query, check: true});
+	}
+
+	function escapeHTML(text){
+		return text.replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
+	}
+
+	// The first line of an entry, as plain text, skipping lines that are only
+	// [pronunciation] or [[see also]] brackets (like h97's second column)
+	function firstLine(html){
+		const t = document.createElement('template');
+		t.innerHTML = html.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol)\b[^>]*>|\t/gi, '\n');
+		const lines = t.content.textContent.split('\n').map(x => x.trim()).filter(Boolean);
+		return lines.find(x => !/^(\[[^\]]*\]+\s*)+$/.test(x)) || lines[0] || '';
+	}
+
+	// Each word with the first line of its entry under it; tapping the
+	// word (a p-a) opens the full entry in the popup.
+	function translationHTML(pieces){
+		return pieces.map(p => {
+			if (p.body === undefined) { // Unmatched text, newlines kept
+				return p.text.split('\n').map(line => line.trim() ? `<span class="tr-w tr-u">${escapeHTML(line.trim())}</span>` : '').join('<br>');
+			}
+			const gloss = escapeHTML(firstLine(p.body));
+			return `<span class="tr-w"><p-a>${escapeHTML(p.text)}</p-a><span class="tr-g" title="${gloss}">${gloss}</span></span>`;
+		}).join('');
+	}
+
+	function showTranslation(data){
+		if (data.query !== query || !data.pieces.some(p => p.body !== undefined)) return;
+		const div = document.createElement('p-d');
+		div.className = 'translation';
+		div.innerHTML = `<h2>${escapeHTML(data.dict)}</h2>` + translationHTML(data.pieces);
+		translationDiv.replaceChildren(div);
+		if (num == 0) {
+			cleanup(tout); // The last query's results would look like this one's
+			statusDiv.textContent = `No entry in ${data.dict}, translated word by word.`;
+			queryInput.classList.remove('error');
+		}
+	}
+
+	// The ⇄ button on an entry: translates its text with the focused
+	// dictionary, or asks which one. Tap again to hide it.
+	const entryTranslations = new Map(); // tag -> the box waiting for it
+	let entryTag = 0;
+	const canTranslate = i => !dict_master_code[i] && !dicts[i][0].includes('.slab');
+
+	// An entry's text, a line per line (or list item, paragraph, ...)
+	function entryText(pe){
+		const c = pe.cloneNode(true);
+		c.querySelectorAll('p-h, button, .tr-entry').forEach(x => x.remove());
+		const t = document.createElement('template');
+		t.innerHTML = c.innerHTML.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol|h[1-6]|p-n|p-ipa)\b[^>]*>|\t/gi, '\n');
+		return t.content.textContent.split('\n').map(x => x.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+	}
+
+	function translateEntryWith(box, text, i){
+		box.textContent = `Translating with ${dicts[i][1]}…`;
+		entryTranslations.set(++entryTag, box);
+		workers[i % workers.length].postMessage({type: 'translate', did: Math.floor(i / workers.length), query: updateQuery(text), tag: entryTag});
+	}
+
+	window.translateEntry = btn => {
+		const pe = btn.closest('p-e');
+		const open = pe.querySelector('.tr-entry');
+		if (open) {
+			open.remove();
+			return;
+		}
+		const text = entryText(pe);
+		const box = pe.appendChild(document.createElement('div'));
+		box.className = 'tr-entry';
+		if (focus >= 0 && canTranslate(focus)) {
+			translateEntryWith(box, text, focus);
+			return;
+		}
+		const options = dicts.map((_, i) => i).filter(canTranslate);
+		box.innerHTML = 'Translate with: ' + options.map(i => `<button type="button" data-idx="${i}">${escapeHTML(dicts[i][1])}</button>`).join('');
+		box.onclick = e => {
+			const b = e.target.closest('button[data-idx]');
+			if (!b) return;
+			e.stopPropagation(); // The button goes away, which would look like a click outside the popup
+			box.onclick = null;
+			translateEntryWith(box, text, +b.dataset.idx);
+		};
+	};
+
+	function showEntryTranslation(data){
+		const box = entryTranslations.get(data.tag);
+		entryTranslations.delete(data.tag);
+		if (!box || !box.isConnected) return;
+		box.innerHTML = `<div class="tr-head">${escapeHTML(data.dict)}</div>` +
+			(data.pieces.some(p => p.body !== undefined) ? translationHTML(data.pieces) : 'No words found.');
+	}
+
+	// Long text also gets a big text box above the results; it and the
+	// search bar stay in sync.
+	const BIG = 40;
+	function fitBig(){
+		bigQuery.style.height = 'auto';
+		bigQuery.style.height = bigQuery.scrollHeight + 'px';
+	}
+	function updateBig(){
+		const on = !bigQuery.classList.contains('hide');
+		const len = queryText.length;
+		if (!on && (len >= BIG || queryText.includes('\n'))) {
+			bigQuery.classList.remove('hide');
+		} else if (on && len < BIG / 2 && !queryText.includes('\n')) {
+			bigQuery.classList.add('hide');
+			if (document.activeElement === bigQuery) {
+				queryInput.focus();
+				queryInput.setSelectionRange(len, len);
+			}
+			return;
+		} else if (!on) {
+			return;
+		}
+		if (document.activeElement !== bigQuery) {
+			bigQuery.value = queryText;
+			fitBig();
+		}
+	}
+	bigQuery.addEventListener('input', () => {
+		setQueryText(bigQuery.value);
+		fitBig();
+		updateBig();
+		debouncedSearch();
+	});
+
 	function startSearch() {
 		const prevquery = query;
+		updateBig();
+		updateURL();
 		query = updateQuery();
 		if(nload == 0){
 			loadProgress.style.display = 'none';
@@ -1007,9 +1296,11 @@ if(root){
 			showSettings();
 			return;
 		}
+		renderSearchBar();
 		if(query == prevquery){
 			return;
 		}
+		translationDiv.replaceChildren();
 		window.scrollTo(0, 0);
 		worker_code.fill(false);
 		st = globreg.test(query) ? 0 : 3;
@@ -1027,6 +1318,7 @@ if(root){
 		getResults();
 		statusDiv.innerHTML = 'No matches found.';
 		queryInput.classList.add("error");
+		translate();
 	}
 
 	function getResults() {
@@ -1045,7 +1337,31 @@ if(root){
 			};
 	}
 
-	queryInput.addEventListener('input', debounce(startSearch, 140));
+	const debouncedSearch = debounce(startSearch, 140);
+	// An edit in the search bar keeps the newlines outside what changed.
+	queryInput.addEventListener('input', () => {
+		const v = queryInput.value;
+		const same = (a, b) => a === b || (a === '\n' && b === ' ');
+		let pre = 0;
+		while (pre < v.length && pre < queryText.length && same(queryText[pre], v[pre])) ++pre;
+		let suf = 0;
+		while (suf < v.length - pre && suf < queryText.length - pre && same(queryText[queryText.length - 1 - suf], v[v.length - 1 - suf])) ++suf;
+		queryText = queryText.slice(0, pre) + v.slice(pre, v.length - suf) + queryText.slice(queryText.length - suf);
+		updateBig();
+		debouncedSearch();
+	});
+	// Pasting into it would drop the newlines.
+	queryInput.addEventListener('paste', e => {
+		const text = e.clipboardData?.getData('text/plain');
+		if (!text || !/[\r\n]/.test(text)) return;
+		e.preventDefault();
+		const a = queryInput.selectionStart, b = queryInput.selectionEnd;
+		setQueryText(queryText.slice(0, a) + text.replace(/\r\n?/g, '\n') + queryText.slice(b));
+		const end = a + text.replace(/\r\n?/g, '\n').length;
+		queryInput.setSelectionRange(end, end);
+		updateBig();
+		debouncedSearch();
+	});
 
 	window.addEventListener('load', requestCacheVersion);
 
@@ -1146,7 +1462,7 @@ if(root){
 					u.lang = action.replace('speak-', '');
 					speechSynthesis.speak(u);
 				}else if (action === 'search-current') {
-					document.getElementById('queryInput').value = text;
+					setQueryText(text);
 					startSearch();
 				} else if (action === 'search-popup') {
 					openPopupSearch(text);
