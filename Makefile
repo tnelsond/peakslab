@@ -9,19 +9,40 @@ TSV_FILES := $(shell find dict_src -name '*.tsv' -o -name '*.tsv.1' 2>/dev/null 
 # Map dict_src/<lang>/... to meta/<lang>/...
 META_FILES := $(patsubst dict_src/%.tsv,meta/%.meta,$(patsubst dict_src/%.tsv.1,meta/%.meta,$(TSV_FILES)))
 
-files-src.json: meta peakgen $(META_FILES) abbreviations.json
+# A media slab is a directory of files with its description in zzz.meta,
+# e.g. dict_src/khmer/media/audio/ -> khmer/media/audio.slab
+SLAB_DIRS := $(patsubst %/zzz.meta,%,$(shell find dict_src -name zzz.meta 2>/dev/null | sort))
+SLAB_META_FILES := $(patsubst dict_src/%,meta/%.meta,$(SLAB_DIRS))
+
+files-src.json: meta peakgen $(META_FILES) $(SLAB_META_FILES) abbreviations.json
 	./createdictlist.sh
 
 files.json: files-src.json
 	minify files-src.json > files.json
 
-# Rule
-$(META_FILES): peakgen
+# Rule: each .meta depends on its source (x.tsv, or every part x.tsv.1, x.tsv.2, ...)
+# so editing a source rebuilds it. A newer peakgen alone doesn't rebuild anything,
+# the recipe checks the sources itself.
+.SECONDEXPANSION:
+$(META_FILES): peakgen $$(wildcard $$(patsubst meta/%.meta,dict_src/%.tsv,$$@) $$(patsubst meta/%.meta,dict_src/%.tsv.[0-9]*,$$@))
 	@base=$(patsubst meta/%.meta,dict_src/%.tsv,$@); \
 	if [ -f "$$base" ]; then src=$$base; parts=$$base; \
 	elif [ -f "$$base.1" ]; then src=$$base.1; parts=$$(ls "$$base".[0-9]*); \
 	else echo "No source for $@"; exit 1; fi; \
 	if [ ! -f "$@" ] || [ -n "$$(find $$parts -newer "$@")" ]; then \
+		mkdir -p $(dir $@); \
+		./peakgen "$$src"; \
+		touch "$@"; \
+		echo "✓ Generated $@"; \
+	else \
+		echo "Up to date: $@"; \
+	fi
+
+# Media file names can have spaces, which make can't take as prerequisites, so
+# this always runs and find decides (the directory's mtime covers removed files)
+$(SLAB_META_FILES): peakgen FORCE
+	@src=$(patsubst meta/%.meta,dict_src/%,$@); \
+	if [ ! -f "$@" ] || [ -n "$$(find "$$src" -newer "$@")" ]; then \
 		mkdir -p $(dir $@); \
 		./peakgen "$$src"; \
 		touch "$@"; \
@@ -94,3 +115,5 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 sw.js : sw-src.js
 	minify sw-src.js > sw.js
 
+.PHONY: FORCE
+FORCE:
