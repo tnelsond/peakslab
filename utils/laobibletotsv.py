@@ -86,7 +86,9 @@ def inline(node, links):
 		if name == 'span' and 'lbref' in cls:
 			r = parse_title1(c.get('title1', ''))
 			if r:
-				out.append(f'<p-a>{r[0]}</p-a>{esc(r[1])}')
+				code, cv = r[0].split(' ', 1)
+				i = 2 if code[0].isdigit() else 1  # link text like the Bibles' "Rom 4.8"
+				out.append(f'<p-a>{code[:i]}{code[i:].lower()} {cv}</p-a>{esc(r[1])}')
 			else:
 				unknown_refs[c.get('title1', '')] = unknown_refs.get(c.get('title1', ''), 0) + 1
 				out.append(inline(c, links))

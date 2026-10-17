@@ -492,7 +492,7 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 			}
 			continue;
 		}
-		if(textflat2.len > 0 && c == ' ' && textflat2.data[textflat2.len-1] == ' '){
+		if(!inside && textflat2.len > 0 && c == ' ' && textflat2.data[textflat2.len-1] == ' '){ // Not inside a tag, or "text <a href" loses its space
 			continue;
 		}
 		if(isslab){
