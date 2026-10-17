@@ -56,6 +56,7 @@
     ["khmer/dict/seacount.peak.zst", 1788854536, "number of occurrences of Khmer words via <a href=\"https://sealang.net/khmer/dictionary.htm\">Sealang</a>", 93, 2],
     ["khmer/dict/sonv.peak.zst", 1792120717, "English to Khmer Dictionary from <a href=\"https://play.google.com/store/apps/details?id=com.sonveasna.dictionary&hl=en\">English Khmer Dictionary</a> by DroidSVS", 16932, 1],
     ["khmer/dict/tech/it.peak.zst", 1791724805, "IT dictionary", 403, ],
+    ["khmer/dict/tech/lexiconkh.peak.zst", 1792228381, "Lexicon KH (សទ្ទានុក្រមបច្ចេកសព្ទ) Khmer–English–French technical terms from the National Council of Khmer Language, Royal Academy of Cambodia (<a href=\"https://nckl.rac.gov.kh\">nckl.rac.gov.kh</a>)", 11724, 3],
     ["khmer/dict/tech/newlexicon.peak.zst", 1791724806, "", 1985, 3],
     ["khmer/media/audio.slab", 1788856838, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 4540, 1],
     ["khmer/media/images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2],
