@@ -70,6 +70,8 @@
     ["khmer/ref/choukprov.peak.zst", 1788854553, "Proverbs from <a href=\"https://choukhmer.wordpress.com/literature/descriptive-proverbs-kar/\">Chouk Khmer</a>", 12861, 2],
     ["khmer/ref/countries.peak.zst", 1792127230, "countries in French, Khmer, and English", 321, 3],
     ["khmer/ref/kmwiki.peak.zst", 1788857357, "<a href=\"https://km.wikipedia.org/wiki/\">Khmer Wikipedia</a>", 1678, 3],
+    ["lao/bible/commentary/laobiblecommentary.peak.zst", 1792221673, "Lao Bible Commentary (ຄູ່ມືອະທິບາຍພຣະຄຳພີ) by Don Fleming, Bridgeway Publications, translated by John Durdin. From <a href=\"https://laobible.net/commentary/index.html\">laobible.net</a>", 262680, 3],
+    ["lao/bible/dict/laobibledict.peak.zst", 1792221686, "Lao Bible Dictionary (ຄຳສັບແລະຊື່ຕ່າງໆໃນພຣະຄຳພີ) by Don Fleming, translated by John Durdin. From <a href=\"https://laobible.net/dictionary/index.html\">laobible.net</a>", 249502, 3],
     ["lao/bible/dict/laobibleword.peak.zst", 1788854556, "Lao Bible Translation Words from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 8075, 1],
     ["lao/bible/laoLCVbible.peak.zst", 1788854560, "Lao 2023 Bible (ພຣະຄຳພີລາວສະບັບສະໄໝໃໝ່) <a href=\"https://www.bible.com/bible/3755/MAT.1.LCV\">bible.com</a> © 2023 ໂດຍ Biblica, Inc.", 1317, 1],
     ["lao/bible/text/lao2012bible.peak.zst", 1788875348, "Lao Bible 2012 (ພຣະຄຳພີສັກສິ) 2012 United Bible Societies. All Rights Reserved. From <a href=\"https://beblia.com\">beblia</a>", 2147, 1],
@@ -123,6 +125,7 @@
     "ref": ["ref", "R"],
     "psalter": ["psa", "Psa"],
     "chords": ["crd", "Crd"],
-    "sheet": ["sht", "Sht"]
+    "sheet": ["sht", "Sht"],
+    "commentary": ["com", "Com"]
   }
 }

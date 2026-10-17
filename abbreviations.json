@@ -18,5 +18,6 @@
   "ref": ["ref", "R"],
   "psalter": ["psa", "Psa"],
   "chords": ["crd", "Crd"],
-  "sheet": ["sht", "Sht"]
+  "sheet": ["sht", "Sht"],
+  "commentary": ["com", "Com"]
 }
