@@ -471,6 +471,7 @@ if(root){
 	let worker_code = new Array(workers.length).fill(false);
 	let dict_master_code = new Array(dicts.length).fill(true);
 	let dict_code = [...dict_master_code];
+	const loading = new Set(); // Dictionaries asked for and not loaded yet (loadDict)
 
 
 	function escapeRegExp(string) {
@@ -897,7 +898,6 @@ if(root){
 	// fetch() goes through the service worker differs between browsers. When
 	// it doesn't, every dictionary skips the SW cache and goes to the network
 	// / HTTP cache: slow when online, while offline things looked fine.
-	const loading = new Set(); // Dictionaries asked for and not loaded yet
 	function loadDict(i) {
 			if (dict_master_code[i] && !loading.has(i)) {
 					loading.add(i);
