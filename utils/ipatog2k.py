@@ -107,9 +107,8 @@ def convert(key, ipa):
 			nuc = VOWEL.get(v, v)
 		for a, b in SPELL.items():
 			nuc = nuc.replace(a, b)
-		if len(v) == 2 and v[0] == v[1]:  # a long vowel: ː after the vowel and its diacritics
-			m = re.match(r'(.[\u0300-\u036f]*)(.*)$', nuc)
-			nuc = m.group(1) + 'ː' + m.group(2)
+		if len(v) == 2 and v[0] == v[1]:  # a long vowel: ː after the whole vowel (koᵘː)
+			nuc += 'ː'
 		out.append(onset(o) + nuc + coda)
 	return '.'.join(out)
 
