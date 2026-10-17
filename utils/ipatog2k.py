@@ -26,17 +26,17 @@ SIGNS = set('ិីឹឺើូោេ័ឥឦឫឬឭឮ')  # the vowels that 
 # Google vowel -> G2K, where it only means one thing
 VOWEL = {
 	'aa': 'aː', 'a': 'a', 'ie': 'iᵊ', 'iə': 'iᵊ', 'ea': 'eᵃ', 'oa': 'oᵃ',
-	'ɑɑ': 'ɔː', 'ɑ': 'ɔ', 'ɔɔ': 'o', 'ɔ': 'o',
+	'ɑɑ': 'ɔː', 'ɑ': 'ɔ', 'ɔɔ': 'oː', 'ɔ': 'o',
 	'ii': 'i', 'i': 'i', 'ɨɨ': 'ɨ', 'uu': 'u', 'u': 'o̞', 'o': 'o',
 	'uə': 'uᵊ', 'ɨə': 'ɨᵊ', 'aə': 'aᵊ',
-	'ae': 'aᵋ', 'ɛɛ': 'ɛ', 'ɛ': 'ɛ', 'ɛə': 'ɛᵊ', 'ao': 'aᵒ',
+	'ae': 'aᵋ', 'ɛɛ': 'ɛː', 'ɛ': 'ɛ', 'ɛə': 'ɛᵊ', 'ao': 'aᵒ',
 }
 # Diphthongs Google writes with a glide
-GLIDE = {'əj': 'eʲ', 'aj': 'aʲ', 'ej': 'ɛʲ', 'aw': 'aᶭ', 'ɨw': 'əᶤ', 'əw': 'əᶤ', 'aəj': 'aᵒj'}
+GLIDE = {'əj': 'eʲ', 'aj': 'aʲ', 'ej': 'ɛʲ', 'aw': 'aᶭ', 'aaw': 'aᶭ', 'ɨw': 'əᶤ', 'əw': 'əᶤ', 'aəj': 'aᵒj'}
 # Google vowel -> (Khmer signs it can come from, how to choose, default)
 AMBIGUOUS = {
 	'əə': ({'ឺ', 'ើ', '័'}, lambda sign, ser: 'ə' if sign == 'ឺ' or (sign == '័' and ser == 1) else 'ɨ', 'ɨ'),
-	'oo': ({'ូ', 'ោ'}, lambda sign, ser: 'oᶷ' if sign == 'ូ' else 'o̞', 'oᶷ'),
+	'oo': ({'ូ', 'ោ'}, lambda sign, ser: 'oᶷ' if sign == 'ូ' else 'o̞ː', 'oᶷ'),
 	'ee': ({'េ', 'ិ', 'ី'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'e', 'e'),
 	'e': ({'េ', 'ិ'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'e', 'e'),
 	'ə': ({'ិ', 'ី', 'ឹ', 'េ', 'ឥ', 'ឦ'}, lambda sign, ser: 'e' if sign == 'េ' else 'ə', 'ə'),
@@ -105,9 +105,12 @@ def convert(key, ipa):
 					break
 		if o[:1] == 'p' and o[1:2] in ('ʔ', 'ɗ'):
 			o = 'ph' + o[1:]  # ប្អូន pʰʔoᶷn, ប្ដី pʰɗeʲ
-		if i == 0 and o[:1] == 'ʔ':
-			o = o[1:] if o == 'ʔ' else 'ə' + o[1:]  # ɔt, ajuʔ, but អ្វី əweʲ
+		if o == 'ʔ':
+			o = ''  # no glottal stop before a vowel (ɔt, ajuʔ, ខោអាវ kʰaᵒaᶭ)
+		elif i == 0 and o[:1] == 'ʔ':
+			o = 'ə' + o[1:]  # អ្វី əweʲ
 		o = re.sub('([kctp])h', '\\1ʰ', o)
+		o = re.sub('^k([mn])', 'kʰ\\1', o)  # ក្មេង kʰmeɲ, ក្នុង kʰnoŋ
 		if coda == 'k' and v in GLOTTAL_K:
 			coda = 'ʔ'
 		elif coda == 'k' and v in PALATAL_K:
@@ -119,6 +122,8 @@ def convert(key, ipa):
 			signs, choose, default = AMBIGUOUS[v]
 			e = take(signs)
 			nuc = choose(*e) if e else default
+			if e and e[0] == 'ិ' and nuc == 'ə' and coda in ('ɲ', 't', 'c'):
+				nuc = 'e' if coda == 'c' else 'ɛ'  # វិញ wɛɲ, ចិត្ត cɛt, តិច tec
 		else:
 			take(SOURCE.get(v, ()))
 			nuc = VOWEL.get(v, v)
@@ -126,8 +131,8 @@ def convert(key, ipa):
 			nuc = 'ʊ'  # ុំ cʊm, phnʊm
 		elif nuc == 'o̞' and coda in ('', 'ʔ'):
 			nuc = 'u'  # an open ុ: ajuʔ
-		if nuc == 'i' and coda == 'ŋ':
-			coda = 'ɲ'  # មីង miɲ
+		if coda == 'ŋ' and nuc.rstrip('ː') in ('i', 'e', 'ɛ', 'aᵋ', 'ɛᵉ'):
+			coda = 'ɲ'  # មីង miɲ, ក្មេង kʰmeɲ, កន្លែង kɔnlaᵋɲ
 		out.append(o + nuc + coda)
 	return ''.join(out)
 
