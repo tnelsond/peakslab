@@ -353,6 +353,14 @@ async function carryForwardUnlisted(newCache, oldCaches) {
 }
 
 
+// The file's URL with ?v=<timestamp>. The server ignores it, but the CDN
+// caches by URL: right after a deploy it can still hand out the old copy of
+// /peak.wasm while files.json is already new, and that old copy would then
+// be saved under the new timestamp and never replaced.
+function versioned(path, meta) {
+  return meta && meta.timestamp ? `${path}?v=${meta.timestamp}` : path;
+}
+
 // Download one file into `cache`, tagged with its manifest timestamp. One
 // retry on a network-level failure (thrown fetch) - covers transient hiccups
 // unrelated to the file actually being missing. A real non-OK response
@@ -362,7 +370,7 @@ async function fetchInto(path, meta, newCache) {
     try {
       // 'no-cache' (see loadFilesJson): revalidate instead of re-downloading
       // files the page itself has just fetched (peak.wasm, the logo, ...).
-      const res = await fetch(path, { cache: 'no-cache' });
+      const res = await fetch(versioned(path, meta), { cache: 'no-cache' });
       if (res && res.ok) {
         const buf = await res.arrayBuffer();
         const headers = new Headers(res.headers);
@@ -710,7 +718,7 @@ async function cacheFirst(request, pathname) {
   }
 
   try {
-    const res = await fetch(request);
+    const res = await (meta ? fetch(versioned(pathname, meta), { cache: 'no-cache' }) : fetch(request));
     // A dictionary that's no longer in files.json (removed by an update
     // while a page still had the old list) is served but not re-cached.
     const unlistedDict = DICT_RE.test(pathname) && filesMap.size && !filesMap.has(pathname);

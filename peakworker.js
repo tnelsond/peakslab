@@ -31,6 +31,20 @@ const cachedWasm = (async () => {
 		return { ts, module: await WebAssembly.compile(await hit.arrayBuffer()) };
 	} catch (e) { return null; }
 })();
+// Everything peak() below uses. A cached peak.wasm missing some of these is
+// an old build saved under a newer timestamp (downloaded while a deploy was
+// still reaching the CDN): drop it everywhere so a fresh copy gets fetched.
+const wasmExports = ['malloc', 'free', 'load_peak', 'free_peak', 'peak_init', 'init_search', 'continue_search', 'get_result', 'switchstate', 'init_translate', 'translate_next'];
+function hasExports(module) {
+	const have = WebAssembly.Module.exports(module).map(x => x.name);
+	return wasmExports.every(name => have.includes(name));
+}
+async function dropCached(path) {
+	try {
+		for (const name of await caches.keys())
+			await (await caches.open(name)).delete(new URL(path, origin));
+	} catch (e) { /* no Cache API here */ }
+}
 let wasmModuleResolve = null;
 const wasmModulePromise = new Promise(resolve => { wasmModuleResolve = resolve; });
 
@@ -57,7 +71,10 @@ self.onmessage = async (e) => {
 	if(e.data.type == "init"){
 		id = e.data.id;
 		const c = await cachedWasm;
-		wasmModuleResolve(c && c.ts >= e.data.wasmTimestamp
+		const current = c && c.ts >= e.data.wasmTimestamp;
+		if (current && !hasExports(c.module))
+			await dropCached('peak.wasm');
+		wasmModuleResolve(current && hasExports(c.module)
 			? c.module
 			: await askPage('wasm', {type: 'needwasm', id}));
 	}else if(e.data.type == "wasm"){

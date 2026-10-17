@@ -160,7 +160,9 @@ if(root){
 				if (!promise) {
 						// Only used when a worker has no current cached copy
 						// ('needwasm'): fetch through the service worker.
-						promise = fetch('/peak.wasm')
+						// ?v= and 'reload': past the CDN's and the browser's caches
+						const ts = (filesJson.core.find(c => c[0] === 'peak.wasm') || [])[1] || 0;
+						promise = fetch(`/peak.wasm?v=${ts}`, {cache: 'reload'})
 								.then(resp => resp.arrayBuffer())
 								.then(buffer => WebAssembly.compile(buffer));
 				}
