@@ -736,17 +736,6 @@ p-ipa{
 }
 
 /* Focus: one dictionary first, with word by word translation */
-.solo-chip{
-	margin-left: 5px;
-	padding: 8px 10px;
-	border: 0;
-	border-radius: 12px;
-	background: var(--control-btn-bg);
-	color: #fff;
-	font-size: 15px;
-	white-space: nowrap;
-	cursor: pointer;
-}
 .dictlist-focus{
 	border: 0;
 	padding: 0 2px;
@@ -804,6 +793,24 @@ p-ipa{
 	background: var(--control-btn-bg);
 	color: #fff;
 }
+#searchBar button.off{
+	opacity: .45;
+	text-decoration: line-through;
+}
+.sb-loading{
+	align-self: center;
+	box-sizing: border-box;
+	width: 1.1em;
+	height: 1.1em;
+	margin-left: 2px;
+	border: 2px solid var(--control-btn-bg);
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: sb-spin .8s linear infinite;
+}
+@keyframes sb-spin{
+	to{ transform: rotate(360deg); }
+}
 .tr-w{
 	display: inline-flex;
 	flex-direction: column;
@@ -833,7 +840,19 @@ p-ipa{
 	opacity: .7;
 	margin-bottom: .2em;
 }
-.tr-entry button{
+.tr-pick{
+	float: right;
+	clear: right;
+	max-width: 80%;
+	margin: 4px 6px 4px 0;
+	padding: 4px 6px;
+	border: 1px solid var(--control-btn-bg);
+	border-radius: 8px;
+	background: var(--card-bg);
+	box-shadow: 0 2px 6px rgba(0,0,0,.25);
+	font-size: .8em;
+}
+.tr-entry button, .tr-pick button{
 	margin: 2px;
 	border: 0;
 	border-radius: 8px;

@@ -190,17 +190,13 @@ if(root){
 				else if(e.data.type == "loaded"){
 					const d = e.data.did*workers.length + e.data.id - 1;
 					dict_master_code[d] = false;
+					loading.delete(d);
 					document.getElementById(`${d}`)?.classList.remove('down');
 					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
 					--nload;
-					loadProgress.textContent = `Loading ${nload} more dictionaries.`;
 					newtiming.innerHTML = `${Math.round(performance.now())}ms `;
-					if(nload == 0){
-						loadProgress.style.display = 'none';
+					if(nload == 0)
 						saveState();
-					}else{
-						loadProgress.style.display = 'block';
-					}
 					query = ""; // Triggers a search
 					startSearch();
 				}
@@ -641,11 +637,6 @@ if(root){
 	}
 	setQueryText(params.get('text'));
 	const defaultPlaceholder = queryInput.placeholder;
-	const focusChip = document.createElement('button');
-	focusChip.type = 'button';
-	focusChip.className = 'solo-chip hide';
-	focusChip.addEventListener('click', () => solo >= 0 ? leaveSolo() : setFocus(focus));
-	queryInput.insertAdjacentElement('afterend', focusChip);
 
 	const statusDiv  = document.getElementById('status');
 	const resultsDiv = document.getElementById('results');
@@ -674,7 +665,11 @@ if(root){
 	searchBar.addEventListener('click', e => {
 		const b = e.target.closest('button');
 		if (!b) return;
-		if (b.dataset.idx) setFocus(+b.dataset.idx);
+		if (b.dataset.idx) cycleDict(+b.dataset.idx);
+		else if (b.classList.contains('sb-more')) {
+			barShowAll = !barShowAll;
+			renderSearchBar();
+		}
 		else share(b);
 	});
 	const translationDiv = topDiv.appendChild(document.createElement('div'));
@@ -699,7 +694,6 @@ if(root){
 		document.getElementById('searchContainer')?.classList.toggle('hide', showingPinned);
 		document.getElementById('version')?.classList.toggle('hide', showingPinned);
 		statusDiv.classList.toggle('hide', showingPinned);
-		loadProgress.classList.toggle('hide', showingPinned);
 		newtiming.classList.toggle('hide', showingPinned);
 	});
 
@@ -740,8 +734,6 @@ if(root){
 		updatePinnedTab();
 	};
 
-	const loadProgress = document.getElementById('loadProgress');
-	loadProgress.textContent = `Loading dictionaries.`;
 
 	// Dictionary list, grouped by full category path (language folder + category,
 	// e.g. "khmer / music / chords"). Each group gets a single flat heading with
@@ -905,8 +897,10 @@ if(root){
 	// fetch() goes through the service worker differs between browsers. When
 	// it doesn't, every dictionary skips the SW cache and goes to the network
 	// / HTTP cache: slow when online, while offline things looked fine.
+	const loading = new Set(); // Dictionaries asked for and not loaded yet
 	function loadDict(i) {
-			if (dict_master_code[i]) {
+			if (dict_master_code[i] && !loading.has(i)) {
+					loading.add(i);
 					const w = workers[i % workers.length];
 					const did = Math.floor(i / workers.length);
 					++nload;
@@ -961,21 +955,36 @@ if(root){
 			loadDict(focus); // Does nothing if it's loaded
 			saveState();
 		}
-		if (solo < 0) {
-			try { focus >= 0 ? localStorage.setItem(focusKey, dicts[focus][0]) : localStorage.removeItem(focusKey); } catch (e) { /* not remembered */ }
-		}
+		rememberFocus();
 		updateFocusUI();
 		query = ""; // Search again
 		startSearch();
 	}
 	window.setFocus = setFocus;
 
-	// From a solo page to the normal one, still focused, without reloading.
-	function leaveSolo(){
-		solo = -1;
-		try { localStorage.setItem(focusKey, dicts[focus][0]); } catch (e) { /* not remembered */ }
-		enableSaved(lsGet());
+	function rememberFocus(){
+		if (solo >= 0) return;
+		try { focus >= 0 ? localStorage.setItem(focusKey, dicts[focus][0]) : localStorage.removeItem(focusKey); } catch (e) { /* not remembered */ }
+	}
+
+	// A dictionary button above the results: on → focused → off → on
+	function cycleDict(i){
+		barSeen.add(i); // Stays in the row when it's off
+		if (focus === i) {
+			focus = -1;
+			setCheckbox(i, false);
+			unloadDict(i);
+		} else if (document.getElementById(`${i}`)?.checked) {
+			focus = i;
+		} else {
+			setCheckbox(i, true);
+			loadDict(i);
+		}
+		saveState();
+		rememberFocus();
 		updateFocusUI();
+		query = ""; // Search again
+		startSearch();
 	}
 
 	// The address bar always holds a link to what's on screen.
@@ -988,11 +997,23 @@ if(root){
 		history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
 	}
 
+	// The dictionaries that are on (and ones turned off here), in the
+	// list's order so they stay in place; tapping one cycles it
+	// (cycleDict). "+N" shows the rest.
+	let barShowAll = false;
+	const barSeen = new Set();
 	function renderSearchBar(){
-		const enabled = dicts.map((_, i) => i).filter(i => !dict_master_code[i] && i !== focus);
-		if (focus >= 0 && !dict_master_code[focus]) enabled.unshift(focus);
+		const state = i => i === focus ? 'focused' : document.getElementById(`${i}`)?.checked ? 'on' : 'off';
+		const shown = dicts.map((_, i) => i).filter(i => barShowAll || state(i) !== 'off' || barSeen.has(i));
+		const more = dicts.length - shown.length;
 		searchBar.innerHTML = '<button type="button" class="sb-share" title="Share this search">⤴ Share</button>' +
-			enabled.map(i => `<button type="button" class="sb-dict${i === focus ? ' focused' : ''}" data-idx="${i}" title="${i === focus ? 'Unfocus' : 'Focus'} ${escapeHTML(dicts[i][1])}">${escapeHTML(dicts[i][1])}</button>`).join('');
+			shown.map(i => {
+				const next = {on: 'focus it', focused: 'turn it off', off: 'turn it on'}[state(i)];
+				return `<button type="button" class="sb-dict ${state(i)}" data-idx="${i}" title="${escapeHTML(dicts[i][1])}: ${state(i)}, tap to ${next}">${escapeHTML(dicts[i][1])}</button>`;
+			}).join('') +
+			(barShowAll ? '<button type="button" class="sb-more" title="Show fewer">−</button>'
+				: more ? `<button type="button" class="sb-more" title="Show the other ${more}">+${more}</button>` : '') +
+			(nload > 0 ? `<span class="sb-loading" title="Loading ${nload} more"></span>` : '');
 		searchBar.classList.remove('hide');
 	}
 
@@ -1014,9 +1035,6 @@ if(root){
 
 	function updateFocusUI(){
 		const name = focus >= 0 ? dicts[focus][1] : '';
-		focusChip.classList.toggle('hide', focus < 0);
-		focusChip.textContent = solo >= 0 ? `${name} only ✕` : `${name} ✕`;
-		focusChip.title = solo >= 0 ? 'Load the other dictionaries too' : `Stop focusing on ${name}`;
 		queryInput.placeholder = focus >= 0 ? `Search or translate with ${name}…` : defaultPlaceholder;
 		document.querySelectorAll('.dictlist-file').forEach(li => li.classList.toggle('focused', +li.dataset.idx === focus));
 		updateURL();
@@ -1205,7 +1223,7 @@ if(root){
 	// An entry's text, a line per line (or list item, paragraph, ...)
 	function entryText(pe){
 		const c = pe.cloneNode(true);
-		c.querySelectorAll('p-h, button, .tr-entry').forEach(x => x.remove());
+		c.querySelectorAll('p-h, button, .tr-entry, .tr-pick').forEach(x => x.remove());
 		const t = document.createElement('template');
 		t.innerHTML = c.innerHTML.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol|h[1-6]|p-n|p-ipa)\b[^>]*>|\t/gi, '\n');
 		return t.content.textContent.split('\n').map(x => x.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -1219,26 +1237,33 @@ if(root){
 
 	window.translateEntry = btn => {
 		const pe = btn.closest('p-e');
-		const open = pe.querySelector('.tr-entry');
-		if (open) {
-			open.remove();
+		const open = pe.querySelectorAll('.tr-entry, .tr-pick');
+		if (open.length) {
+			open.forEach(x => x.remove());
 			return;
 		}
 		const text = entryText(pe);
-		const box = pe.appendChild(document.createElement('div'));
-		box.className = 'tr-entry';
+		const translateWith = i => {
+			const box = pe.appendChild(document.createElement('div'));
+			box.className = 'tr-entry';
+			translateEntryWith(box, text, i);
+		};
 		if (focus >= 0 && canTranslate(focus)) {
-			translateEntryWith(box, text, focus);
+			translateWith(focus);
 			return;
 		}
-		const options = dicts.map((_, i) => i).filter(canTranslate);
-		box.innerHTML = 'Translate with: ' + options.map(i => `<button type="button" data-idx="${i}">${escapeHTML(dicts[i][1])}</button>`).join('');
-		box.onclick = e => {
+		// No focus: ask which, in a little menu under the button
+		const pick = document.createElement('div');
+		pick.className = 'tr-pick';
+		pick.innerHTML = 'Translate with: ' + dicts.map((_, i) => i).filter(canTranslate)
+			.map(i => `<button type="button" data-idx="${i}">${escapeHTML(dicts[i][1])}</button>`).join('');
+		btn.insertAdjacentElement('afterend', pick);
+		pick.onclick = e => {
 			const b = e.target.closest('button[data-idx]');
 			if (!b) return;
 			e.stopPropagation(); // The button goes away, which would look like a click outside the popup
-			box.onclick = null;
-			translateEntryWith(box, text, +b.dataset.idx);
+			pick.remove();
+			translateWith(+b.dataset.idx);
 		};
 	};
 
@@ -1289,9 +1314,6 @@ if(root){
 		updateBig();
 		updateURL();
 		query = updateQuery();
-		if(nload == 0){
-			loadProgress.style.display = 'none';
-		}
 		if(!query){
 			showSettings();
 			return;
