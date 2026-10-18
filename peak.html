@@ -18,12 +18,23 @@
 <body>
 	<header id="header">
   <div id="searchContainer" class="hide">
-		<a href="/">
-		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"><div class="logooverlay" id="appname"></div></div></a>
+		<a href="/" class="logo"><img src="/peakslab.svg" alt="PeakSlab"></a>
     <input type="search" id="queryInput" value="" placeholder="Type your query here..." autofocus autocomplete="off">
   </div>
-	<div id="tabs" class="hide"></div>
+	<div id="subbar" class="hide">
+		<button type="button" id="langBtn" aria-haspopup="dialog"></button>
+		<span class="sub-div" aria-hidden="true"></span>
+		<div id="tabs" role="tablist" aria-label="Jump to section"></div>
+	</div>
 </header>
+<div id="sheet" class="hide">
+	<div class="sheet-bg"></div>
+	<div class="sheet-panel" role="dialog" aria-modal="true">
+		<div class="sheet-grip" aria-hidden="true"></div>
+		<div class="sheet-head"><div class="sheet-title"></div><button type="button" class="sheet-close" aria-label="Close">×</button></div>
+		<div class="sheet-body"></div>
+	</div>
+</div>
 
 	<div id="content" class="hide">
 		<div id="version">Peakslab version: </div>
