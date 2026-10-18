@@ -1591,3 +1591,156 @@ p-d.verse p-n { display: none; }
 .lr-form fieldset { min-width: 0; }
 #status, .vb-comb { color: var(--card-text); }
 #results > p-d.run { max-width: 760px; margin-left: auto; margin-right: auto; }
+
+/* Bottom bar: Search · Library · History · Bookmarks */
+#searchBar { display: none !important; }
+body { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+#bottomNav {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1000;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	padding: 2px 4px env(safe-area-inset-bottom, 0px);
+	border-top: 3px solid var(--accent-color);
+	background: var(--header-bg);
+}
+#bottomNav button {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	min-height: 54px;
+	padding: 6px 0;
+	border: 0;
+	background: none;
+	color: #E6D9C3;
+	font: 500 12px 'Segoe UI', system-ui, sans-serif;
+	cursor: pointer;
+}
+#bottomNav button[aria-current] { color: #DDFF88; font-weight: 700; }
+.selection-menu.docked { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+/* Which view shows */
+body:not([data-view="search"]) #topDiv,
+body:not([data-view="search"]) #results,
+body:not([data-view="search"]) #byDict,
+body:not([data-view="search"]) #status,
+body:not([data-view="search"]) #pinnedResults { display: none !important; }
+body[data-view="history"] #settings, body[data-view="bookmarks"] #settings { display: none !important; }
+body[data-view="library"] #settings { display: block !important; }
+#panel { display: none; max-width: 760px; margin: 0 auto; }
+body[data-view="history"] #panel, body[data-view="bookmarks"] #panel { display: block; }
+/* Reading mode (⛶ in the Library): no bars */
+#exitReading {
+	display: none;
+	position: fixed;
+	right: 12px;
+	bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+	z-index: 1000;
+	width: 44px;
+	height: 44px;
+	border: 0;
+	border-radius: 50%;
+	background: var(--control-btn-bg);
+	color: #fff;
+	font-size: 20px;
+	box-shadow: 0 3px 10px rgba(0,0,0,.4);
+	cursor: pointer;
+}
+body.reading #exitReading { display: block; }
+body.reading #header, body.reading #bottomNav { display: none !important; }
+body.reading #content { margin-top: 8px; }
+body.reading { padding-bottom: 0; }
+/* The old round buttons, now a row at the top of the Library */
+#settings #controls {
+	position: static;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 12px;
+}
+#settings #controls.hide { display: none; }
+#settings #controls .control-btn { width: 44px; height: 40px; border-radius: 10px; font-size: 16px; font-weight: 700; box-shadow: none; }
+#settings #install-button { width: auto; padding: 0 14px; border-radius: 20px; background: var(--control-btn-bg); font-size: 14px; }
+.setting {
+	width: auto;
+	padding: 8px 14px;
+	margin: 4px 4px 0 0;
+	border-radius: 18px;
+	background: var(--control-btn-bg);
+	font-size: 14px;
+}
+/* Bookmark button on each headword */
+.bm-btn { border: 2px solid currentColor; background: transparent; color: var(--control-btn-bg); }
+.bm-btn svg path { fill: none; }
+.bm-btn.on { border-color: transparent; background: var(--control-btn-bg); color: #fff; }
+.bm-btn.on svg path { fill: currentColor; }
+p-d.folded .bm-btn.on { display: inline-flex; }
+#results > p-d.run.sel > h2 { display: flex; margin: 2px 0; font-size: .85em; }
+/* Share sits with the view switches */
+.vb-right { display: flex; align-items: center; gap: 12px; }
+.vb-share {
+	height: 32px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: 16px;
+	background: var(--control-btn-bg);
+	color: #fff;
+	font: 600 13px 'Segoe UI', system-ui, sans-serif;
+	cursor: pointer;
+}
+/* History and Bookmarks */
+.sv-top { display: flex; align-items: baseline; justify-content: space-between; margin: 6px 4px 10px; }
+.sv-top h2 { margin: 0; color: var(--color1); }
+.sv-clear {
+	height: 32px;
+	padding: 0 12px;
+	border: 1px solid #664433;
+	border-radius: 16px;
+	background: var(--paper);
+	color: var(--card-text);
+	font: 600 13px 'Segoe UI', system-ui, sans-serif;
+	cursor: pointer;
+}
+.sv-list { border-radius: 12px; background: var(--card-bg); box-shadow: 0 2px 5px rgba(0,0,0,.18); overflow: hidden; }
+.sv-list .sheet-h { margin: 0; padding: 12px 12px 6px; background: var(--paper); }
+.sv-row { display: flex; align-items: center; border-top: 1px solid var(--line); }
+.sv-open {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 56px;
+	padding: 6px 4px 6px 12px;
+	border: 0;
+	background: none;
+	color: var(--card-text);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.sv-sym {
+	flex: none;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 4px;
+	box-sizing: border-box;
+	border-radius: 15px;
+	background: var(--soft);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font: 700 13px 'Noto Sans Khmer', 'Segoe UI', sans-serif;
+}
+.sv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sv-q { font: 600 17px 'Noto Sans Khmer', 'Segoe UI', sans-serif; color: var(--alttext); }
+.sv-s { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-t { flex: none; font-size: 12px; color: var(--muted); }
+.sv-del { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--muted); font-size: 22px; cursor: pointer; }
+.sv-empty { padding: 30px 16px; text-align: center; color: var(--card-text); }
+body[data-view="history"] #loadTiming, body[data-view="bookmarks"] #loadTiming,
+body[data-view="history"] #appVer, body[data-view="bookmarks"] #appVer { display: none; }

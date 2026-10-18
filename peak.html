@@ -40,7 +40,14 @@
 		<div id="version">Peakslab version: </div>
 		<div id="status">Status: Ready</div>
 		<div id="results"></div>
+		<div id="panel"></div>
 		<p-d id="settings">
+		<div id="controls" class="hide" aria-label="Display">
+			<button class="control-btn" id="install-button">Install App</button>
+			<button class="control-btn" id="fontDecrease" title="Smaller text" aria-label="Smaller text">A−</button>
+			<button class="control-btn" id="fontIncrease" title="Bigger text" aria-label="Bigger text">A+</button>
+			<button class="control-btn" id="f4" title="Reading mode: hide the bars" aria-label="Reading mode">⛶</button>
+		</div>
 		<div id="listDiv"></div>
 		<div id="timing"></div>
 		<button class="setting" id="markT">Toggle marks</button>
@@ -64,13 +71,13 @@
 <div id="extra-btn">
 	<button class="control-btn hide" id="pinTab" title="Pins"><svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg></button>
 </div>
-	<div id="controls" class="hide">
-				<button class="control-btn" id="install-button">Install App</button>
-        <button class="control-btn" id="fontDecrease" title="Decrease font size">−</button>
-        <button class="control-btn" id="fontIncrease" title="Increase font size">+</button>
-        <button class="control-btn" id="settingsBtn" title="Diagnostics & Settings">⚙</button>
-				<button class="control-btn" id="f4" title="Fullscreen">⛶</button>
-    </div>
+<nav id="bottomNav" class="hide" aria-label="Main">
+	<button type="button" data-view="search" aria-current="page"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Search</button>
+	<button type="button" data-view="library"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 5l4 1-3 15-4-1z"/></svg>Library</button>
+	<button type="button" data-view="history"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>History</button>
+	<button type="button" data-view="bookmarks"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 4h12v16l-6-4-6 4z"/></svg>Bookmarks</button>
+</nav>
+<button type="button" id="exitReading" aria-label="Show the bars again" title="Show the bars again">⛶</button>
     <div id="popupOverlay">
         <div id="popupContent">
 						<button id="popupClose" class="close-btn">×</button>

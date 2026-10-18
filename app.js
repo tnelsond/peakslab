@@ -17,6 +17,7 @@ let appname = '?';
 let ack = null;
 // Reused for every pin button (the fixed one and one per result) — defined
 // once so we're not rebuilding this markup on every streamed result.
+const bookmarkSVG = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>';
 const pinIconSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg>';
 const pinCloseIconSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
 const pinCloseIconSVGSmall = pinCloseIconSVG.replace(/width="20" height="20"/, 'width="16" height="16"');
@@ -147,7 +148,7 @@ if(root){
 	const links = '<ul class="dictlist-root">' + tlangs.map(dir => `<li><a class="dictlist-link" href="/${dir}">${dir}</a></li>`).join(' ') + '</ul>';
 	document.getElementById("list").innerHTML = links;
 }else{
-	['searchContainer', 'content', 'about', 'controls'].forEach(id => {
+	['searchContainer', 'content', 'about', 'controls', 'bottomNav'].forEach(id => {
 		document.getElementById(id).classList.toggle('hide');
 	});
 	let num = 0;
@@ -271,7 +272,7 @@ if(root){
 					if(verse)
 						el.dataset.v = verse.v;
 					if(first){
-						div.innerHTML += `<h2><span class="hw">${verse ? `${escapeHTML(bookName(verse.i))} ${kmNum(verse.c)}:${kmNum(verse.v)}` : e.data.header}</span><button type="button" class="pin-btn" onclick="togglePin(this)" title="Pin this section">${pinIconSVG}</button></h2><div class="ptags"></div>`;
+						div.innerHTML += `<h2><span class="hw">${verse ? `${escapeHTML(bookName(verse.i))} ${kmNum(verse.c)}:${kmNum(verse.v)}` : e.data.header}</span><button type="button" class="pin-btn bm-btn" onclick="togglePin(this)" title="Bookmark" aria-label="Bookmark" aria-pressed="false">${bookmarkSVG}</button></h2><div class="ptags"></div>`;
 						if(verse){
 							div.classList.add('verse');
 							div.dataset.book = verse.b;
@@ -690,6 +691,7 @@ if(root){
 	// Above the results: the big text box for long queries and the
 	// focused dictionary's word by word translation.
 	const topDiv = document.createElement('div');
+	topDiv.id = 'topDiv';
 	resultsDiv.insertAdjacentElement('beforebegin', topDiv);
 	const bigQuery = topDiv.appendChild(document.createElement('textarea'));
 	bigQuery.id = 'bigQuery';
@@ -737,9 +739,10 @@ if(root){
 	const f4 = document.getElementById('f4');
 	f4.addEventListener('click', () => {
 		isfull = !isfull;
-		document.getElementById('controls')?.classList.toggle('hidev', isfull);
-		document.getElementById('searchContainer')?.classList.toggle('hide', isfull);
+		document.body.classList.toggle('reading', isfull);
+		if (isfull) setView('search');
 	});
+	document.getElementById('exitReading').addEventListener('click', () => f4.click());
 
 	function updatePinnedTab(){
 		pinTabBtn.classList.toggle('hide', pinned.length === 0);
@@ -972,6 +975,7 @@ if(root){
 		}, 120);
 	}
 	function updateTags(div){
+		markBookmark(div);
 		const tags = div.querySelector(':scope > .ptags');
 		if (!tags) return;
 		const es = [...div.querySelectorAll(':scope > p-e')];
@@ -1022,10 +1026,10 @@ if(root){
 				BOOK_GROUPS.filter(g => n(g[0])).map(g => `<button type="button" role="radio" class="chip${scope === g[0] ? ' on' : ''}" aria-checked="${scope === g[0]}" data-scope="${g[0]}">${g[1]} <span class="n">${n(g[0])}</span></button>`).join('') +
 				`</div>`;
 		}
-		if (words > 1) {
-			html += `<div class="vb-row"><button type="button" class="vb-exp" data-a="expand">${expandAll ? 'Fold all' : 'Open all'}</button>` +
-				`<label class="vb-comb">Combined <button type="button" role="switch" class="sw${combined ? ' on' : ''}" aria-checked="${combined}" data-a="combined" aria-label="Combine dictionaries"><span></span></button></label></div>`;
-		}
+		html += `<div class="vb-row">${words > 1 ? `<button type="button" class="vb-exp" data-a="expand">${expandAll ? 'Fold all' : 'Open all'}</button>` : '<span></span>'}` +
+			`<span class="vb-right"><button type="button" class="vb-share" data-a="share">⤴ Share</button>` +
+			(words > 1 ? `<label class="vb-comb">Combined <button type="button" role="switch" class="sw${combined ? ' on' : ''}" aria-checked="${combined}" data-a="combined" aria-label="Combine dictionaries"><span></span></button></label>` : '') +
+			`</span></div>`;
 		viewBar.innerHTML = html;
 		viewBar.classList.toggle('hide', !html);
 	}
@@ -1048,6 +1052,8 @@ if(root){
 			updateViewBar();
 		} else if (b.dataset.a === 'books') {
 			openBooks();
+		} else if (b.dataset.a === 'share') {
+			share(b);
 		} else if (b.dataset.a === 'prevch' || b.dataset.a === 'nextch') {
 			const chap = chapterOfResults();
 			if (!chap) return;
@@ -1321,6 +1327,120 @@ if(root){
 			if (q && any) det.open = true;
 		});
 	});
+	// ---------------------------------------------------------------
+	// Bottom bar: Search · Library · History · Bookmarks
+	// ---------------------------------------------------------------
+	const bottomNav = document.getElementById('bottomNav');
+	const panel = document.getElementById('panel');
+	let view = 'search';
+	function setView(v){
+		view = v;
+		document.body.dataset.view = v;
+		bottomNav.querySelectorAll('button').forEach(b => b.dataset.view === v ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+		if (v === 'history') renderSaved('history');
+		else if (v === 'bookmarks') renderSaved('bookmarks');
+		header.classList.remove('compact');
+		window.scrollTo(0, 0);
+	}
+	bottomNav.addEventListener('click', e => {
+		const b = e.target.closest('button[data-view]');
+		if (!b) return;
+		if (b.dataset.view === 'search' && view === 'search') { queryInput.focus(); queryInput.select(); return; }
+		setView(b.dataset.view);
+		if (b.dataset.view === 'search') loadmore();
+	});
+	document.body.dataset.view = 'search';
+	const loadList = k => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } };
+	const saveList = (k, l) => { try { localStorage.setItem(k, JSON.stringify(l)); } catch (e) { /* not remembered */ } };
+	const here = location.pathname.replace(/\/+$/, '') || '/';
+	const pathSym = p => langSym(p.split('/').filter(Boolean)[0] || '');
+	function openSaved(item){
+		if (item.p === here) { setView('search'); setQueryText(item.q); startSearch(); }
+		else location.href = item.p + '?text=' + encodeURIComponent(item.q);
+	}
+	const dayLabel = t => {
+		const d = new Date(t), n = new Date();
+		const days = Math.round((new Date(n.toDateString()) - new Date(d.toDateString())) / 864e5);
+		return days === 0 ? 'Today' : days === 1 ? 'Yesterday' : d.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
+	};
+	const timeLabel = t => new Date(t).toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'});
+
+	// History: each search that found something, once the typing settles
+	const HKEY = 'peakslab-history';
+	const BKEY = 'peakslab-bookmarks';
+	let histTimer = null;
+	function noteHistory(){
+		clearTimeout(histTimer);
+		const q = queryText.trim();
+		if (!q) return;
+		histTimer = setTimeout(() => {
+			if (num === 0 || queryText.trim() !== q) return;
+			const l = loadList(HKEY).filter(x => !(x.q === q && x.p === here));
+			l.unshift({q, p: here, t: Date.now()});
+			saveList(HKEY, l.slice(0, 200));
+		}, 1500);
+	}
+	function renderSaved(kind){
+		const key = kind === 'history' ? HKEY : BKEY;
+		const list = loadList(key);
+		let day = '';
+		const rows = list.map((x, i) => {
+			const d = dayLabel(x.t);
+			const head = kind === 'history' && d !== day ? `<h3 class="sheet-h">${escapeHTML(d)}</h3>` : '';
+			day = d;
+			return head + `<div class="sv-row"><button type="button" class="sv-open" data-i="${i}">` +
+				`<span class="sv-sym">${escapeHTML(pathSym(x.p))}</span>` +
+				`<span class="sv-main"><span class="sv-q">${escapeHTML(x.h || x.q)}</span>${x.s ? `<span class="sv-s">${escapeHTML(x.s)}</span>` : ''}</span>` +
+				`<span class="sv-t">${escapeHTML(kind === 'history' ? timeLabel(x.t) : dayLabel(x.t))}</span></button>` +
+				`<button type="button" class="sv-del" data-del="${i}" aria-label="Remove ${escapeHTML(x.h || x.q)}">×</button></div>`;
+		}).join('');
+		panel.innerHTML = `<div class="sv-top"><h2>${kind === 'history' ? 'History' : 'Bookmarks'}</h2>` +
+			(list.length && kind === 'history' ? '<button type="button" class="sv-clear">Clear all</button>' : '') + `</div>` +
+			(list.length ? `<div class="sv-list">${rows}</div>` :
+				`<p class="sv-empty">${kind === 'history' ? 'Words you look up show up here.' : 'Tap the bookmark next to a headword or verse to keep it here.'}</p>`);
+		panel.onclick = e => {
+			const del = e.target.closest('[data-del]');
+			const open = e.target.closest('[data-i]');
+			if (del) {
+				list.splice(+del.dataset.del, 1);
+				saveList(key, list);
+				if (kind === 'bookmarks') bmChanged();
+				renderSaved(kind);
+			} else if (open) openSaved(list[+open.dataset.i]);
+			else if (e.target.closest('.sv-clear')) { saveList(key, []); renderSaved(kind); }
+		};
+	}
+
+	// Bookmarks: the button next to each headword (or a tapped verse)
+	let bmSet = new Set();
+	const sectionKey = pd => pd.id.replace(/^mid-/, '');
+	function markBookmark(pd){
+		const b = pd.querySelector(':scope > h2 .bm-btn');
+		if (!b) return;
+		const on = bmSet.has(sectionKey(pd));
+		b.classList.toggle('on', on);
+		b.setAttribute('aria-pressed', on);
+		b.title = on ? 'Remove bookmark' : 'Bookmark';
+	}
+	function bmChanged(){
+		bmSet = new Set(loadList(BKEY).filter(b => b.p === here).map(b => b.q));
+		resultsDiv.querySelectorAll(':scope > p-d').forEach(markBookmark);
+	}
+	window.togglePin = btn => {
+		const pd = btn.closest('p-d');
+		const q = sectionKey(pd);
+		const l = loadList(BKEY);
+		const i = l.findIndex(b => b.q === q && b.p === here);
+		if (i >= 0) l.splice(i, 1);
+		else {
+			const pe = pd.querySelector(':scope > p-e:not(.addon)');
+			const s = pe ? (entryText(pe).split('\n').find(x => x.trim()) || '').slice(0, 120) : '';
+			l.unshift({q, h: pd.querySelector('.hw')?.textContent || q, s, p: here, t: Date.now()});
+		}
+		saveList(BKEY, l);
+		bmChanged();
+	};
+	bmChanged();
 	renderLibrary();
 	updateFocusUI();
 
@@ -1703,7 +1823,7 @@ if(root){
 	}
 
 	function loadmore(){
-		if(showingPinned) return;
+		if(showingPinned || view !== 'search') return;
 		if(wantloadmore(loader, 400) && worker_code.includes(false))
 			getResults();
 	}
@@ -1875,7 +1995,7 @@ if(root){
 			showSettings();
 			return;
 		}
-		renderSearchBar();
+		noteHistory();
 		byDictDiv.classList.toggle('hide', combined);
 		if(query == prevquery){
 			return;
@@ -1920,6 +2040,7 @@ if(root){
 	const debouncedSearch = debounce(startSearch, 140);
 	// An edit in the search bar keeps the newlines outside what changed.
 	queryInput.addEventListener('input', () => {
+		if (view !== 'search') setView('search');
 		const v = queryInput.value;
 		const same = (a, b) => a === b || (a === '\n' && b === ' ');
 		let pre = 0;
@@ -2170,6 +2291,7 @@ if(root){
 	createSelMenu();
 
 	let newtiming = document.createElement("div")
+	newtiming.id = 'loadTiming';
 	document.body.appendChild(newtiming);
 }
-document.body.appendChild(document.createTextNode(" v11.0"));
+document.body.appendChild(Object.assign(document.createElement("span"), {id: "appVer", textContent: " v11.1"}));
