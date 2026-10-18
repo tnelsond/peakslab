@@ -173,7 +173,7 @@ button { font-family: inherit; }
 #status, #version { padding: 0 6px; font-size: 13px; color: var(--card-text); }
 #version { display: none; opacity: .6; }
 #content:has(#settings[style*="block"]) #version { display: block; }
-#loader { height: 10em; padding: 1.5rem; text-align: center; font-style: italic; color: #666; }
+#loader { padding: 1rem; text-align: center; font-style: italic; color: #666; }
 #bigQuery {
 	display: block;
 	box-sizing: border-box;
@@ -707,3 +707,4 @@ body.reading { padding-bottom: 0; }
 	box-shadow: 0 2px 5px rgba(0,0,0,.4);
 }
 #ios-close-btn { padding: 5px 10px; border: 0; border-radius: 5px; background: var(--control-btn-bg); color: #fff; cursor: pointer; }
+.more-btn { height: 40px; padding: 0 18px; border: 0; border-radius: 20px; background: var(--control-btn-bg); color: #fff; font: 600 14px var(--ui); font-style: normal; cursor: pointer; }

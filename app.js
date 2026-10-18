@@ -364,6 +364,7 @@ if(root){
 					}
 					if(!popup){
 						++num;
+						--budget;
 						queryInput.classList.remove("error");
 						statusDiv.textContent = `Found ${num}+ matching lines.`;
 						loadmore();
@@ -830,13 +831,20 @@ if(root){
 		scheduleViews();
 		loadmore();
 	}
+	// Only touch the DOM when something changed (keeps buttons tappable
+	// while results stream in)
+	function setHTML(el, html){
+		if (el._html !== html) { el._html = html; el.innerHTML = html; }
+	}
 	function updateChips(){
 		const cur = resultsDiv.dataset.cat || '';
-		const secs = [...resultsDiv.querySelectorAll(':scope > p-d')];
-		const count = c => secs.filter(pd => pd.querySelector(`:scope > p-e[data-cat="${c}"]`)).length;
+		const secs = resultsDiv.querySelectorAll(':scope > p-d:not(#loader)');
+		const counts = {};
+		secs.forEach(pd => new Set([...pd.querySelectorAll(':scope > p-e')].map(e => e.dataset.cat)).forEach(c => { counts[c] = (counts[c] || 0) + 1; }));
+		const count = c => counts[c] || 0;
 		const chip = (c, label, n) => `<button type="button" role="tab" class="chip${cur === c ? ' on' : ''}" aria-selected="${cur === c}" data-cat="${c}">${escapeHTML(label)}${n !== '' ? ` <span class="n">${n}</span>` : ''}</button>`;
-		tabs.innerHTML = (chipCats.length > 1 ? chip('', 'All', secs.length || '') + chipCats.map(c => chip(c, catLabel([c]), count(c) || '')).join('') : '') +
-			(hasBible ? '<button type="button" class="chip books" data-books="1">Books ›</button>' : '');
+		setHTML(tabs, (chipCats.length > 1 ? chip('', 'All', secs.length || '') + chipCats.map(c => chip(c, catLabel([c]), count(c) || '')).join('') : '') +
+			(hasBible ? '<button type="button" class="chip books" data-books="1">Books ›</button>' : ''));
 	}
 	tabs.addEventListener('click', e => {
 		const b = e.target.closest('button');
@@ -883,13 +891,14 @@ if(root){
 		if (viewsTimer) return;
 		viewsTimer = setTimeout(() => {
 			viewsTimer = null;
-			dirty.forEach(updateTags);
+			let verses = false;
+			dirty.forEach(d => { updateTags(d); verses = verses || d.classList.contains('verse'); });
 			dirty.clear();
-			markRuns();
+			if (verses) markRuns();
 			updateChips();
 			updateViewBar();
 			if (!combined) renderByDict();
-		}, 120);
+		}, 250);
 	}
 	function updateTags(div){
 		markBookmark(div);
@@ -947,7 +956,7 @@ if(root){
 			`<span class="vb-right"><button type="button" class="vb-share" data-a="share">⤴ Share</button>` +
 			(words > 1 ? `<label class="vb-comb">Combined <button type="button" role="switch" class="sw${combined ? ' on' : ''}" aria-checked="${combined}" data-a="combined" aria-label="Combine dictionaries"><span></span></button></label>` : '') +
 			`</span></div>`;
-		viewBar.innerHTML = html;
+		setHTML(viewBar, html);
 		viewBar.classList.toggle('hide', !html);
 	}
 	viewBar.addEventListener('click', e => {
@@ -1002,7 +1011,14 @@ if(root){
 	// By dictionary: one row per dictionary with the headwords it has;
 	// opening a row shows those entries.
 	const byDictOpen = new Set();
+	let byDictAt = 0, byDictTimer = null;
 	function renderByDict(){
+		const wait = byDictAt + 800 - Date.now();
+		if (wait > 0) {
+			if (!byDictTimer) byDictTimer = setTimeout(() => { byDictTimer = null; renderByDict(); }, wait);
+			return;
+		}
+		byDictAt = Date.now();
 		const cat = resultsDiv.dataset.cat;
 		const groups = new Map();
 		resultsDiv.querySelectorAll(':scope > p-d > p-e:not(.addon)').forEach(pe => {
@@ -1012,16 +1028,17 @@ if(root){
 			groups.get(d).push(pe);
 		});
 		const ds = [...groups.keys()].sort((a, b) => entrySortId(a) - entrySortId(b));
-		byDictDiv.innerHTML = ds.map(d => {
+		setHTML(byDictDiv, ds.map(d => {
 			const hws = groups.get(d).map(pe => pe.parentElement.querySelector('.hw')?.textContent || '');
 			return `<details class="bd" data-d="${d}"${byDictOpen.has(d) ? ' open' : ''}><summary>` +
 				`<span class="bd-main"><span class="bd-n">${d === focus ? '<span class="star">★</span>' : ''}${escapeHTML(dicts[d][1])}</span>` +
 				`<span class="bd-w">${escapeHTML(hws.slice(0, 6).join(' · '))}${hws.length > 6 ? '…' : ''}</span></span>` +
 				`<span class="bd-c">${hws.length}</span></summary><div class="bd-body"></div></details>`;
-		}).join('') || '<p class="bd-none">No entries yet.</p>';
-		byDictDiv.querySelectorAll('details[open]').forEach(fillByDict);
+		}).join('') || '<p class="bd-none">No entries yet.</p>');
+		byDictDiv.querySelectorAll('details[open]').forEach(det => { if (!det._filled) fillByDict(det); });
 	}
 	function fillByDict(det){
+		det._filled = true;
 		const d = +det.dataset.d;
 		const body = det.querySelector('.bd-body');
 		body.replaceChildren();
@@ -1698,10 +1715,25 @@ if(root){
 		return rect.top <= window.innerHeight + offset;
 	}
 
+	// Results come a page at a time: a search gets PAGE of them, and only
+	// scrolling near the end (or the Show more button) asks for the next
+	// page. Folded headwords and filters keep the end of the list on
+	// screen, which used to pull in every result at once.
+	const PAGE = 20;
+	let budget = PAGE;
 	function loadmore(){
-		if(view !== 'search') return;
-		if(wantloadmore(loader, 400) && worker_code.includes(false))
+		if(view !== 'search' || !loader || !worker_code.includes(false) || !wantloadmore(loader, 400)) return;
+		if(budget > 0){
 			getResults();
+		}else if(!loader.querySelector('button')){
+			loader.innerHTML = '<button type="button" class="more-btn">Show more</button>';
+			loader.firstChild.onclick = () => morePage();
+		}
+	}
+	function morePage(){
+		budget = PAGE;
+		if(loader) loader.textContent = 'Loading more…';
+		loadmore();
 	}
 
 	function throttle(fn, delay=80){
@@ -1715,9 +1747,15 @@ if(root){
 		}
 	}
 
-	const throttledCheck = throttle(loadmore, 80);
-	window.addEventListener('scroll', throttledCheck, { passive: true });
-	window.addEventListener('resize', throttledCheck);
+	// Scrolling down to the end asks for the next page
+	let lastScroll = 0;
+	window.addEventListener('scroll', throttle(() => {
+		const down = window.scrollY > lastScroll;
+		lastScroll = window.scrollY;
+		if(down && budget <= 0 && wantloadmore(loader, 200)) morePage();
+		else loadmore();
+	}, 120), { passive: true });
+	window.addEventListener('resize', throttle(loadmore, 120));
 
 	const globreg = /[!+*^]/;
 
@@ -1856,6 +1894,7 @@ if(root){
 		loader = document.createElement('p-d');
 		loader.id = 'loader';
 		loader.textContent = "Loading more…";
+		budget = PAGE;
 
 		setQuery()
 		initSearch();
@@ -2138,4 +2177,4 @@ if(root){
 	newtiming.id = 'loadTiming';
 	document.body.appendChild(newtiming);
 }
-document.body.appendChild(Object.assign(document.createElement("span"), {id: "appVer", textContent: " v11.2"}));
+document.body.appendChild(Object.assign(document.createElement("span"), {id: "appVer", textContent: " v11.3"}));
