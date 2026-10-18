@@ -50,7 +50,7 @@ async function build() {
 		appJs = appMin.code;
 		workerJs = workerMin.code;
 
-		const cssResult = new CleanCSS().minify(css);
+		const cssResult = new CleanCSS({level: 2}).minify(css);
 		if (cssResult.errors.length) throw new Error(cssResult.errors.join('\n'));
 		css = cssResult.styles;
 	}

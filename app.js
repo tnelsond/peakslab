@@ -15,12 +15,8 @@ let appname = '?';
 // block-scoped and invisible from here, silently throwing a ReferenceError
 // on every 'status' message instead of clearing the "not downloaded" state.
 let ack = null;
-// Reused for every pin button (the fixed one and one per result) — defined
-// once so we're not rebuilding this markup on every streamed result.
+// The bookmark button next to each headword (see togglePin)
 const bookmarkSVG = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>';
-const pinIconSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg>';
-const pinCloseIconSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
-const pinCloseIconSVGSmall = pinCloseIconSVG.replace(/width="20" height="20"/, 'width="16" height="16"');
 // Chords (<p-m chord="...">) are hidden by default (CSS). The button toggles
 // one class on <body>, remembered; CSS shows them and switches every
 // button's label (see .chords-btn).
@@ -33,9 +29,6 @@ try { if (localStorage.getItem('showChords') === 'true') document.body.classList
 // Collapse a dictionary: every one of its entries (data-dict) shrinks to its
 // first line, everywhere in the results, and stays collapsed (remembered).
 // Done with one generated CSS rule per collapsed dictionary.
-const collapseBtnHTML = '<button type="button" class="collapse-btn" onclick="toggleDict(this)" title="Collapse or expand this dictionary"></button>';
-// Translates an entry word by word, see translateEntry
-const translateBtnHTML = '<button type="button" class="translate-btn" onclick="translateEntry(this)" title="Translate word by word">⇄</button>';
 // Each entry's own buttons: ? learns it (word by word translation, see
 // learnEntry) and ⋯ opens its menu (see entryMenu).
 const learnBtnHTML = '<button type="button" class="learn-btn" onclick="learnEntry(this)" title="Learn: translate word by word" aria-label="Learn this entry">?</button>';
@@ -46,11 +39,9 @@ try { collapsedDicts = JSON.parse(localStorage.getItem('collapsedDicts')) || [];
 const applyCollapsed = () => {
 	const sel = collapsedDicts.map(d => `p-e[data-dict="${CSS.escape(d)}"]`);
 	collapseStyle.textContent = sel.length ? `${sel.join(',')}{max-height:1.8em;overflow:hidden;opacity:.6;font-size:.8em;margin-top:.4em;padding-top:.2em}` +
-		`${sel.map(s => s + ' .collapse-btn::after').join(',')}{content:"+"}` +
 		`${sel.map(s => s + ' p-h').join(',')}{padding:0 3px}` : '';
 };
 applyCollapsed();
-window.toggleDict = btn => toggleDictName(btn.closest('p-e').dataset.dict);
 const toggleDictName = d => {
 	collapsedDicts = collapsedDicts.includes(d) ? collapsedDicts.filter(x => x !== d) : [...collapsedDicts, d];
 	try { localStorage.setItem('collapsedDicts', JSON.stringify(collapsedDicts)); } catch (e) {}
@@ -460,8 +451,6 @@ if(root){
 			const current = meta.getAttribute('content') || '';
 			meta.setAttribute('content', current + appname);
 		}
-		const el = document.getElementById("appname");
-		if (el) el.textContent = appname;
 		document.title = (document.title || '') + appname;
 	})();
 
@@ -682,12 +671,6 @@ if(root){
 	const popupResults = document.getElementById('popupResults');
 	const popupClose = document.getElementById('popupClose');
 
-	// Pinning: pinning clones a p-d section into its own (non-persistent) view.
-	// The "Pinned" button matches the round control buttons and just shows an
-	// icon, no text. It only appears once there's at least one pin. The
-	// original section stays right where it was.
-	let pinned = [];
-	let showingPinned = false;
 	// Above the results: the big text box for long queries and the
 	// focused dictionary's word by word translation.
 	const topDiv = document.createElement('div');
@@ -696,44 +679,7 @@ if(root){
 	const bigQuery = topDiv.appendChild(document.createElement('textarea'));
 	bigQuery.id = 'bigQuery';
 	bigQuery.classList.add('hide');
-	// Share button and the enabled dictionaries (tap one to focus it)
-	const searchBar = topDiv.appendChild(document.createElement('div'));
-	searchBar.id = 'searchBar';
-	searchBar.classList.add('hide');
-	searchBar.addEventListener('click', e => {
-		const b = e.target.closest('button');
-		if (!b) return;
-		if (b.dataset.idx) cycleDict(+b.dataset.idx);
-		else if (b.classList.contains('sb-more')) {
-			barShowAll = !barShowAll;
-			renderSearchBar();
-		}
-		else share(b);
-	});
 	const translationDiv = topDiv.appendChild(document.createElement('div'));
-
-	const pinnedDiv = document.createElement('div');
-	pinnedDiv.id = 'pinnedResults';
-	pinnedDiv.classList.add('hide');
-	resultsDiv.insertAdjacentElement('afterend', pinnedDiv);
-
-	const pinTabBtn = document.getElementById('pinTab');
-	pinTabBtn.addEventListener('click', () => {
-		showingPinned = !showingPinned;
-		// Swap to a red X so it's obvious this now closes the pinned view.
-		pinTabBtn.innerHTML = showingPinned ? pinCloseIconSVG : pinIconSVG;
-		pinTabBtn.style.background = showingPinned ? '#c0392b' : '';
-		pinTabBtn.title = showingPinned ? 'Close pins' : 'Pins';
-		resultsDiv.classList.toggle('hide', showingPinned);
-		topDiv.classList.toggle('hide', showingPinned);
-		pinnedDiv.classList.toggle('hide', !showingPinned);
-		// Pinned view is just a scrapbook of saved sections — hide the search
-		// bar and all the live-search diagnostics/status while looking at it.
-		document.getElementById('searchContainer')?.classList.toggle('hide', showingPinned);
-		document.getElementById('version')?.classList.toggle('hide', showingPinned);
-		statusDiv.classList.toggle('hide', showingPinned);
-		newtiming.classList.toggle('hide', showingPinned);
-	});
 
 	let isfull = false;
 	const f4 = document.getElementById('f4');
@@ -743,36 +689,6 @@ if(root){
 		if (isfull) setView('search');
 	});
 	document.getElementById('exitReading').addEventListener('click', () => f4.click());
-
-	function updatePinnedTab(){
-		pinTabBtn.classList.toggle('hide', pinned.length === 0);
-		if(pinned.length === 0 && showingPinned){
-			pinTabBtn.click(); // switch back to live results
-		}
-	}
-
-	window.togglePin = function(btn){
-		const pd = btn.closest('p-d');
-		if(!pd) return;
-		if(pd.parentElement === pinnedDiv){
-			// This is a pinned clone — unpin just removes it.
-			pinned = pinned.filter(p => p !== pd);
-			pd.remove();
-		}else{
-			// Clone the section; the original stays put.
-			const clone = pd.cloneNode(true);
-			clone.removeAttribute('id'); // avoid duplicate ids in the document
-			const cloneBtn = clone.querySelector('.pin-btn');
-			if(cloneBtn){
-				cloneBtn.innerHTML = pinCloseIconSVGSmall;
-				cloneBtn.title = 'Unpin';
-			}
-			pinned.push(clone);
-			pinnedDiv.appendChild(clone);
-		}
-		updatePinnedTab();
-	};
-
 
 	// ---------------------------------------------------------------
 	// Categories, add-ons and the user's dictionary order
@@ -823,6 +739,7 @@ if(root){
 	const BOOK_GROUPS = [['ot', 'Old Testament', 0, 38], ['nt', 'New Testament', 39, 65], ['pent', 'Pentateuch', 0, 4],
 		['hist', 'History', 5, 16], ['wis', 'Wisdom', 17, 21], ['proph', 'Prophets', 22, 38], ['gosp', 'Gospels', 39, 42],
 		['acts', 'Acts', 43, 43], ['epi', 'Epistles', 44, 64], ['rev', 'Revelation', 65, 65]];
+	document.head.appendChild(document.createElement('style')).textContent = BOOK_GROUPS.map(g => `#results[data-scope="${g[0]}"]>p-d.verse:not([data-grp~="${g[0]}"])`).join(',') + '{display:none}';
 	const khmerPage = pLangParts[0] === 'khmer';
 	const kmNum = n => khmerPage ? String(n).replace(/\d/g, x => '០១២៣៤៥៦៧៨៩'[x]) : String(n);
 	const bookName = i => (khmerPage ? BOOKS_KM : BOOKS_EN)[i];
@@ -949,7 +866,7 @@ if(root){
 	const viewBar = document.createElement('div');
 	viewBar.id = 'viewBar';
 	viewBar.className = 'hide';
-	searchBar.insertAdjacentElement('afterend', viewBar);
+	bigQuery.insertAdjacentElement('afterend', viewBar);
 	const byDictDiv = document.createElement('div');
 	byDictDiv.id = 'byDict';
 	byDictDiv.className = 'hide';
@@ -1069,7 +986,7 @@ if(root){
 	document.addEventListener('click', e => {
 		if (e.target.closest('button, a, p-a, audio, input, textarea, .tr-entry, #sheet')) return;
 		if (!window.getSelection().isCollapsed) return;
-		const h = e.target.closest('#results > p-d > h2, #results > p-d > .ptags, #pinnedResults > p-d > h2');
+		const h = e.target.closest('#results > p-d > h2, #results > p-d > .ptags');
 		if (h) {
 			h.parentElement.classList.toggle('folded');
 			return;
@@ -1641,26 +1558,6 @@ if(root){
 		try { focus >= 0 ? localStorage.setItem(focusKey, dicts[focus][0]) : localStorage.removeItem(focusKey); } catch (e) { /* not remembered */ }
 	}
 
-	// A dictionary button above the results: on → focused → off → on
-	function cycleDict(i){
-		barSeen.add(i); // Stays in the row when it's off
-		if (focus === i) {
-			focus = -1;
-			setCheckbox(i, false);
-			unloadDict(i);
-		} else if (document.getElementById(`${i}`)?.checked) {
-			focus = i;
-		} else {
-			setCheckbox(i, true);
-			loadDict(i);
-		}
-		saveState();
-		rememberFocus();
-		updateFocusUI();
-		query = ""; // Search again
-		startSearch();
-	}
-
 	// The address bar always holds a link to what's on screen.
 	function updateURL(){
 		const p = new URLSearchParams();
@@ -1669,26 +1566,6 @@ if(root){
 		if (queryText) p.set('text', queryText);
 		const qs = p.toString();
 		history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
-	}
-
-	// The dictionaries that are on (and ones turned off here), in the
-	// list's order so they stay in place; tapping one cycles it
-	// (cycleDict). "+N" shows the rest.
-	let barShowAll = false;
-	const barSeen = new Set();
-	function renderSearchBar(){
-		const state = i => i === focus ? 'focused' : document.getElementById(`${i}`)?.checked ? 'on' : 'off';
-		const shown = dicts.map((_, i) => i).filter(i => barShowAll || state(i) !== 'off' || barSeen.has(i));
-		const more = dicts.length - shown.length;
-		searchBar.innerHTML = '<button type="button" class="sb-share" title="Share this search">⤴ Share</button>' +
-			shown.map(i => {
-				const next = {on: 'focus it', focused: 'turn it off', off: 'turn it on'}[state(i)];
-				return `<button type="button" class="sb-dict ${state(i)}" data-idx="${i}" title="${escapeHTML(dicts[i][1])}: ${state(i)}, tap to ${next}">${escapeHTML(dicts[i][1])}</button>`;
-			}).join('') +
-			(barShowAll ? '<button type="button" class="sb-more" title="Show fewer">−</button>'
-				: more ? `<button type="button" class="sb-more" title="Show the other ${more}">+${more}</button>` : '') +
-			(nload > 0 ? `<span class="sb-loading" title="Loading ${nload} more"></span>` : '');
-		searchBar.classList.remove('hide');
 	}
 
 	async function share(btn){
@@ -1726,7 +1603,7 @@ if(root){
 	}
 	function popupOpen(){
 		popupOverlay.style.display = 'block';
-		popupOverlay.scrollTop = 0;
+		document.getElementById('popupContent').scrollTop = 0;
 		document.body.classList.add('no-scroll');
 	}
 	function closePopupClick(e){
@@ -1774,7 +1651,6 @@ if(root){
 		settings.style.display = 'block';
 		resultsDiv.replaceChildren();
 		translationDiv.replaceChildren();
-		searchBar.classList.add('hide');
 		viewBar.classList.add('hide');
 		byDictDiv.classList.add('hide');
 	}
@@ -1823,7 +1699,7 @@ if(root){
 	}
 
 	function loadmore(){
-		if(showingPinned || view !== 'search') return;
+		if(view !== 'search') return;
 		if(wantloadmore(loader, 400) && worker_code.includes(false))
 			getResults();
 	}
@@ -1890,8 +1766,8 @@ if(root){
 		}
 	}
 
-	// The ⇄ button on an entry: translates its text with the focused
-	// dictionary, or asks which one. Tap again to hide it.
+	// Word by word translation of one entry (see learnEntry), shown in a box
+	// under it once the worker answers.
 	const entryTranslations = new Map(); // tag -> the box waiting for it
 	let entryTag = 0;
 	const canTranslate = i => !dict_master_code[i] && !dicts[i][0].includes('.slab');
@@ -1899,7 +1775,7 @@ if(root){
 	// An entry's text, a line per line (or list item, paragraph, ...)
 	function entryText(pe){
 		const c = pe.cloneNode(true);
-		c.querySelectorAll('p-h, button, .tr-entry, .tr-pick').forEach(x => x.remove());
+		c.querySelectorAll('p-h, button, .tr-entry').forEach(x => x.remove());
 		const t = document.createElement('template');
 		t.innerHTML = c.innerHTML.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol|h[1-6]|p-n|p-ipa)\b[^>]*>|\t/gi, '\n');
 		return t.content.textContent.split('\n').map(x => x.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -1910,38 +1786,6 @@ if(root){
 		entryTranslations.set(++entryTag, box);
 		workers[i % workers.length].postMessage({type: 'translate', did: Math.floor(i / workers.length), query: updateQuery(text), tag: entryTag});
 	}
-
-	window.translateEntry = btn => {
-		const pe = btn.closest('p-e');
-		const open = pe.querySelectorAll('.tr-entry, .tr-pick');
-		if (open.length) {
-			open.forEach(x => x.remove());
-			return;
-		}
-		const text = entryText(pe);
-		const translateWith = i => {
-			const box = pe.appendChild(document.createElement('div'));
-			box.className = 'tr-entry';
-			translateEntryWith(box, text, i);
-		};
-		if (focus >= 0 && canTranslate(focus)) {
-			translateWith(focus);
-			return;
-		}
-		// No focus: ask which, in a little menu under the button
-		const pick = document.createElement('div');
-		pick.className = 'tr-pick';
-		pick.innerHTML = 'Translate with: ' + dicts.map((_, i) => i).filter(canTranslate)
-			.map(i => `<button type="button" data-idx="${i}">${escapeHTML(dicts[i][1])}</button>`).join('');
-		btn.insertAdjacentElement('afterend', pick);
-		pick.onclick = e => {
-			const b = e.target.closest('button[data-idx]');
-			if (!b) return;
-			e.stopPropagation(); // The button goes away, which would look like a click outside the popup
-			pick.remove();
-			translateWith(+b.dataset.idx);
-		};
-	};
 
 	function showEntryTranslation(data){
 		const box = entryTranslations.get(data.tag);
@@ -2294,4 +2138,4 @@ if(root){
 	newtiming.id = 'loadTiming';
 	document.body.appendChild(newtiming);
 }
-document.body.appendChild(Object.assign(document.createElement("span"), {id: "appVer", textContent: " v11.1"}));
+document.body.appendChild(Object.assign(document.createElement("span"), {id: "appVer", textContent: " v11.2"}));
