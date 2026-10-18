@@ -35,6 +35,10 @@ try { if (localStorage.getItem('showChords') === 'true') document.body.classList
 const collapseBtnHTML = '<button type="button" class="collapse-btn" onclick="toggleDict(this)" title="Collapse or expand this dictionary"></button>';
 // Translates an entry word by word, see translateEntry
 const translateBtnHTML = '<button type="button" class="translate-btn" onclick="translateEntry(this)" title="Translate word by word">⇄</button>';
+// Each entry's own buttons: ? learns it (word by word translation, see
+// learnEntry) and ⋯ opens its menu (see entryMenu).
+const learnBtnHTML = '<button type="button" class="learn-btn" onclick="learnEntry(this)" title="Learn: translate word by word" aria-label="Learn this entry">?</button>';
+const menuBtnHTML = '<button type="button" class="menu-btn" onclick="entryMenu(this)" title="More" aria-label="Entry options">⋯</button>';
 const collapseStyle = document.head.appendChild(document.createElement('style'));
 let collapsedDicts = [];
 try { collapsedDicts = JSON.parse(localStorage.getItem('collapsedDicts')) || []; } catch (e) {}
@@ -45,8 +49,8 @@ const applyCollapsed = () => {
 		`${sel.map(s => s + ' p-h').join(',')}{padding:0 3px}` : '';
 };
 applyCollapsed();
-window.toggleDict = btn => {
-	const d = btn.closest('p-e').dataset.dict;
+window.toggleDict = btn => toggleDictName(btn.closest('p-e').dataset.dict);
+const toggleDictName = d => {
 	collapsedDicts = collapsedDicts.includes(d) ? collapsedDicts.filter(x => x !== d) : [...collapsedDicts, d];
 	try { localStorage.setItem('collapsedDicts', JSON.stringify(collapsedDicts)); } catch (e) {}
 	applyCollapsed();
@@ -248,15 +252,38 @@ if(root){
 					}
 					let el = document.createElement('p-e');
 					const d = e.data.did*workers.length + e.data.id - 1;
-					const sortid = d === focus ? 0 : d + 1; // The focused dictionary first
+					const addon = isAddon(d);
+					// Add-ons (audio, images, pronunciation) go first, then the
+					// focused dictionary, then the rest in the user's order.
+					const sortid = addon ? -1 : d === focus ? 0 : rankOf(d) + 1;
 					el.setAttribute('data-id', sortid);
 					el.dataset.dict = e.data.dict;
+					el.dataset.d = d;
+					el.dataset.cat = catOf(d);
+					if(addon)
+						el.classList.add('addon');
+					const star = d === focus ? '<span class="star" title="Focused">★</span>' : '';
 					if(debug)
-						el.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}' #${sortid}</p-h>`;
+						el.innerHTML += `<p-h>${star}<span class="dn">${e.data.dict} ${e.data.st} '${e.data.query}' #${sortid}</span></p-h>`;
 					else
-						el.innerHTML += `<p-h>${e.data.dict}</p-h>`;
-					if(first)
-						div.innerHTML += `<h2>${e.data.header} <button type="button" class="pin-btn" onclick="togglePin(this)" title="Pin this section" style="background:var(--control-btn-bg);border:none;border-radius:50%;width:22px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;vertical-align:middle;">${pinIconSVG}</button></h2>`;
+						el.innerHTML += `<p-h>${star}<span class="dn">${e.data.dict}</span></p-h>`;
+					const verse = popup ? null : verseOf(nheader);
+					if(verse)
+						el.dataset.v = verse.v;
+					if(first){
+						div.innerHTML += `<h2><span class="hw">${verse ? `${escapeHTML(bookName(verse.i))} ${kmNum(verse.c)}:${kmNum(verse.v)}` : e.data.header}</span><button type="button" class="pin-btn" onclick="togglePin(this)" title="Pin this section">${pinIconSVG}</button></h2><div class="ptags"></div>`;
+						if(verse){
+							div.classList.add('verse');
+							div.dataset.book = verse.b;
+							div.dataset.v = verse.v;
+							div.dataset.ch = verse.c;
+							div.dataset.grp = bookGroups(verse.b);
+						}else if(!popup && !expandAll && nheader !== query && resultsDiv.querySelector(':scope > p-d:not(.folded):not(.verse)')){
+							// The first headword (and the exact one) stays open; the
+							// others fold to a line with the dictionaries they're in.
+							div.classList.add('folded');
+						}
+					}
 					if(e.data.filetype){
 						if(e.data.subheader){
 							let sh = e.data.subheader;	
@@ -279,6 +306,7 @@ if(root){
 							const body = e.data.body;
 							const btn = document.createElement('button');
 							btn.textContent = '▶ Play';
+							btn.className = 'c2-play';
 							btn.addEventListener('click', function onClick() {
 								btn.disabled = true;
 								btn.textContent = 'Decoding…';
@@ -302,12 +330,15 @@ if(root){
 						}
 						// Entries with chords get a show/hide button next to the dictionary name.
 						if (e.data.body && e.data.body.includes('<p-m')) {
-							el.querySelector('p-h')?.insertAdjacentHTML('afterend', chordsBtnHTML);
+							el.querySelector('p-h')?.insertAdjacentHTML('beforeend', chordsBtnHTML);
 						}
 					}
-					if(!e.data.filetype)
-						el.querySelector('p-h')?.insertAdjacentHTML('afterend', translateBtnHTML);
-					el.querySelector('p-h')?.insertAdjacentHTML('afterend', collapseBtnHTML);
+					if(verse && !e.data.filetype){ // Its number, shown when verses read as a page
+						const p = el.querySelector('p');
+						if(p) p.insertAdjacentHTML('afterbegin', `<span class="vn">${verse.v}</span>`);
+						else el.querySelector('p-h')?.insertAdjacentHTML('afterend', `<span class="vn">${verse.v}</span>`);
+					}
+					el.querySelector('p-h')?.insertAdjacentHTML('beforeend', (e.data.filetype ? '' : learnBtnHTML) + menuBtnHTML);
 					
 					const children = Array.from(div.children);
 					const insertBeforeElement = children.find(child => {
@@ -333,6 +364,8 @@ if(root){
 							place.appendChild(div); 
 						}
 					}
+					if(!popup)
+						sectionChanged(div);
 					if(first && popup){
 						popupOpen();
 						document.addEventListener('click', closePopupClick); 
@@ -738,39 +771,557 @@ if(root){
 	};
 
 
-	// Dictionary list, grouped by full category path (language folder + category,
-	// e.g. "khmer / music / chords"). Each group gets a single flat heading with
-	// every path segment as its own clickable link, followed by its files as a
-	// plain list - no nesting or per-depth indentation. Extras from other
-	// languages get a small microheader within the group.
-	let temp = `<h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
+	// ---------------------------------------------------------------
+	// Categories, add-ons and the user's dictionary order
+	// ---------------------------------------------------------------
+	const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
+		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
+		'music/chords': 'Chords', 'music/sheet': 'Sheet music', phonetics: 'Pronunciation', media: 'Audio & images', ref: 'Reference'};
+	const catLabel = cat => CAT_LABELS[cat.join('/')] || CAT_LABELS[cat[0]] || cap(cat.join(' / ')) || 'Other';
+	// Add-ons have no entries of their own worth reading alone (recordings,
+	// pictures, pronunciations): they're shown inside the other entries.
+	const ADDON_CATS = ['media', 'phonetics'];
+	function catOf(d){ return (files[d] && files[d].category[0]) || 'dict'; }
+	function isAddon(d){ return ADDON_CATS.includes(catOf(d)); }
+	const plain = html => { const t = document.createElement('template'); t.innerHTML = html || ''; return t.content.textContent.replace(/\s+/g, ' ').trim(); };
 
-	let prevGroupKey = null;
-	let prevLang = null;
-	dicts.forEach((dict, idx) => {
-		const { category, isPrimary, lang } = files[idx];
-		const fullPath = [...pLangParts, ...category];
-		const groupKey = fullPath.join('/');
+	const orderKey = `peakslab-order-${appname}`;
+	let userOrder = {};
+	try { userOrder = JSON.parse(localStorage.getItem(orderKey)) || {}; } catch (e) { /* not remembered */ }
+	function rankOf(d){ const r = userOrder[dicts[d][0]]; return typeof r === 'number' ? r : d; }
+	function moveDict(d, dir){
+		const list = dicts.map((_, i) => i).filter(i => !isAddon(i)).sort((a, b) => rankOf(a) - rankOf(b));
+		const k = list.indexOf(d), j = k + dir;
+		if (k < 0 || j < 0 || j >= list.length) return false;
+		[list[k], list[j]] = [list[j], list[k]];
+		userOrder = {};
+		list.forEach((i, n) => { userOrder[dicts[i][0]] = n; });
+		try { localStorage.setItem(orderKey, JSON.stringify(userOrder)); } catch (e) { /* not remembered */ }
+		resortEntries();
+		return true;
+	}
+	function entrySortId(d){ return isAddon(d) ? -1 : d === focus ? 0 : rankOf(d) + 1; }
+	function resortEntries(){
+		document.querySelectorAll('#results > p-d').forEach(pd => {
+			const es = [...pd.querySelectorAll(':scope > p-e')];
+			es.forEach(pe => { pe.dataset.id = entrySortId(+pe.dataset.d); });
+			es.sort((a, b) => a.dataset.id - b.dataset.id).forEach(pe => pd.appendChild(pe));
+		});
+	}
 
-		if (groupKey !== prevGroupKey) {
-			const crumbs = fullPath
-				.map((seg, i) => `<a href="/${fullPath.slice(0, i + 1).join('/')}" class="dictlist-crumb">${seg}</a>`)
-				.join('<span class="dictlist-crumb-sep"> / </span>');
-			temp += `<li class="dictlist-item dictlist-head"><h3 class="dictlist-crumbs">${crumbs}</h3></li>`;
-			prevGroupKey = groupKey;
-			prevLang = null; // new group — restart language grouping for extras
-		}
+	// ---------------------------------------------------------------
+	// Bible books: verse headers look like "gen 1.1"
+	// ---------------------------------------------------------------
+	const BOOKS = 'gen exo lev num deu jos jdg rut 1sa 2sa 1ki 2ki 1ch 2ch ezr neh est job psa pro ecc sol isa jer lam eze dan hos joe amo oba jon mic nah hab zep hag zec mal mat mar luk joh act rom 1co 2co gal eph phi col 1th 2th 1ti 2ti tit phm heb jam 1pe 2pe 1jo 2jo 3jo jud rev'.split(' ');
+	const CHAPTERS = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22];
+	const BOOKS_EN = ['Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth','1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra','Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Songs','Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos','Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi','Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians','2 Corinthians','Galatians','Ephesians','Philippians','Colossians','1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon','Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'];
+	const BOOKS_KM = ['លោកុប្បត្តិ','និក្ខមនំ','លេវីវិន័យ','ជនគណនា','ទុតិយកថា','យ៉ូស្វេ','ចៅហ្វាយ','នាងរស់','១ សាំយូអែល','២ សាំយូអែល','១ ពង្សាវតារក្សត្រ','២ ពង្សាវតារក្សត្រ','១ របាក្សត្រ','២ របាក្សត្រ','អែសរ៉ា','នេហេមា','នាងអេសធើរ','យ៉ូប','ទំនុកតម្កើង','សុភាសិត','សាស្ដា','បទចំរៀង','អេសាយ','យេរេមា','បរិទេវ','អេសេគាល','ដានីយ៉ែល','ហូសេ','យ៉ូអែល','អេម៉ុស','អូបាឌា','យ៉ូណាស','មីកា','ណាហ៊ូម','ហាបាគូក','សេផានា','ហាកាយ','សាការី','ម៉ាឡាគី','ម៉ាថាយ','ម៉ាកុស','លូកា','យ៉ូហាន','កិច្ចការ','រ៉ូម','១ កូរិនថូស','២ កូរិនថូស','កាឡាទី','អេភេសូ','ភីលីព','កូឡូស','១ ថេស្សាឡូនិក','២ ថេស្សាឡូនិក','១ ធីម៉ូថេ','២ ធីម៉ូថេ','ទីតុស','ភីលេម៉ូន','ហេប្រឺ','យ៉ាកុប','១ ពេត្រុស','២ ពេត្រុស','១ យ៉ូហាន','២ យ៉ូហាន','៣ យ៉ូហាន','យូដាស','វិវរណៈ'];
+	const BOOK_GROUPS = [['ot', 'Old Testament', 0, 38], ['nt', 'New Testament', 39, 65], ['pent', 'Pentateuch', 0, 4],
+		['hist', 'History', 5, 16], ['wis', 'Wisdom', 17, 21], ['proph', 'Prophets', 22, 38], ['gosp', 'Gospels', 39, 42],
+		['acts', 'Acts', 43, 43], ['epi', 'Epistles', 44, 64], ['rev', 'Revelation', 65, 65]];
+	const khmerPage = pLangParts[0] === 'khmer';
+	const kmNum = n => khmerPage ? String(n).replace(/\d/g, x => '០១២៣៤៥៦៧៨៩'[x]) : String(n);
+	const bookName = i => (khmerPage ? BOOKS_KM : BOOKS_EN)[i];
+	function verseOf(h){
+		const m = /^([1-3]?[a-z]{2,3}) (\d+)\.(\d+)$/.exec(h || '');
+		if (!m) return null;
+		const i = BOOKS.indexOf(m[1]);
+		return i < 0 ? null : {b: m[1], i, c: +m[2], v: +m[3]};
+	}
+	function bookGroups(b){
+		const i = BOOKS.indexOf(b);
+		return BOOK_GROUPS.filter(g => i >= g[2] && i <= g[3]).map(g => g[0]).join(' ');
+	}
+	// A typed reference ("John 3", "1 cor 13:4", "gen 1") as the search for it
+	function bibleRef(q){
+		if (!hasBible || !q) return null;
+		const m = /^([1-3]?\s?[a-z][a-z ]*?)\s*(\d+)(?:[:.](\d+))?$/.exec(q.trim());
+		if (!m) return null;
+		const name = m[1].replace(/\s+/g, '');
+		const i = BOOKS.indexOf(name) >= 0 ? BOOKS.indexOf(name)
+			: name.length >= 3 ? BOOKS_EN.findIndex(b => b.toLowerCase().replace(/\s+/g, '').startsWith(name)) : -1;
+		return i < 0 ? null : `${BOOKS[i]} ${m[2]}.${m[3] || ''}`;
+	}
+	const hasBible = files.some(f => f.category[0] === 'bible' && f.category[1] === 'text');
 
-		if (!isPrimary && lang !== prevLang) {
-			temp += `<li class="dictlist-extra-label">${lang}</li>`;
-		}
-		prevLang = isPrimary ? null : lang; // next extra language (or the primary again) gets its own header
+	// ---------------------------------------------------------------
+	// Bottom sheet (menus, Learn, languages, books)
+	// ---------------------------------------------------------------
+	const sheet = document.getElementById('sheet');
+	const sheetBody = sheet.querySelector('.sheet-body');
+	const sheetTitle = sheet.querySelector('.sheet-title');
+	let sheetClick = null;
+	function openSheet(title, html, onClick){
+		sheetTitle.innerHTML = title;
+		sheetBody.innerHTML = html;
+		sheetClick = onClick || null;
+		sheet.classList.remove('hide');
+		document.body.classList.add('no-scroll');
+		sheetBody.scrollTop = 0;
+	}
+	function closeSheet(){
+		sheet.classList.add('hide');
+		document.body.classList.remove('no-scroll');
+		sheetBody.replaceChildren();
+		sheetClick = null;
+	}
+	sheet.querySelector('.sheet-bg').addEventListener('click', closeSheet);
+	sheet.querySelector('.sheet-close').addEventListener('click', closeSheet);
+	sheetBody.addEventListener('click', e => sheetClick?.(e));
+	document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.classList.contains('hide')) closeSheet(); });
 
-		temp += `<li class="dictlist-item dictlist-file" data-id="${dict[0]}" data-idx="${idx}">${idx+1}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><button type="button" class="dictlist-focus" onclick="setFocus(${idx})" title="Focus: show ${dict[1]} first and translate with it"><strong>${dict[1]}</strong></button><a href="?dict=${encodeURIComponent(dict[1])}" class="dictlist-solo" title="Open ${dict[1]} on its own">↗</a> : ${dict[3]}</li>`;
+	// ---------------------------------------------------------------
+	// Header: language button, section chips, hide on scroll
+	// ---------------------------------------------------------------
+	const header = document.getElementById('header');
+	const subbar = document.getElementById('subbar');
+	const tabs = document.getElementById('tabs');
+	const langBtn = document.getElementById('langBtn');
+	const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+	const langSym = l => (Array.isArray(abbr[l]) && abbr[l][1]) || cap(l).slice(0, 2);
+	const curLang = pLangParts[0] || pParts[0] || '';
+	langBtn.innerHTML = `<span class="lang-sym">${escapeHTML(langSym(curLang))}</span><span class="lang-name">${escapeHTML(cap(curLang))}${pParts.length > 1 ? ' · ' + escapeHTML(pParts.slice(1).map(cap).join(' · ')) : ''}</span>${chevron}`;
+	langBtn.setAttribute('aria-label', `Language: ${cap(curLang)}. Change language`);
+	subbar.classList.remove('hide');
+	langBtn.addEventListener('click', () => {
+		const counts = {};
+		filesJson.dicts.forEach(f => { const l = f[0].split('/')[0]; counts[l] = (counts[l] || 0) + 1; });
+		const qs = queryText ? '?text=' + encodeURIComponent(queryText) : '';
+		const sections = [...new Set(filesJson.dicts.filter(f => f[0].startsWith(curLang + '/')).map(f => f[0].split('/')[1]))]
+			.filter(c => !ADDON_CATS.includes(c));
+		const row = (l, cur) => `<a class="ls-row${cur ? ' cur' : ''}" href="/${l}${qs}"><span class="ls-sym">${escapeHTML(langSym(l))}</span><span class="ls-name">${escapeHTML(cap(l))}</span><span class="ls-c">${counts[l]}</span></a>`;
+		openSheet('Language',
+			row(curLang, true) +
+			`<div class="ls-secs">${['', ...sections].map(c => `<a class="chip${(pParts[1] || '') === c ? ' on' : ''}" href="/${curLang}${c ? '/' + c : ''}${qs}">${c ? escapeHTML(catLabel([c])) : 'Everything'}</a>`).join('')}</div>` +
+			`<h3 class="sheet-h">Other languages</h3>` +
+			Object.keys(counts).filter(l => l !== curLang).sort((a, b) => counts[b] - counts[a]).map(l => row(l, false)).join(''));
 	});
-	temp += `</ol>`;
+
+	// Section chips: All, then each kind of resource on this page (add-ons
+	// excluded, they live inside the others); a tap shows only that kind.
+	const chipCats = [...new Set(dicts.map((_, d) => d).filter(d => !isAddon(d)).map(catOf))];
+	const filterStyle = document.head.appendChild(document.createElement('style'));
+	filterStyle.textContent = chipCats.map(c => `#results[data-cat="${c}"]>p-d:not(:has(>p-e[data-cat="${c}"])),#results[data-cat="${c}"]>p-d>p-e:not([data-cat="${c}"]):not(.addon){display:none}`).join('');
+	function setCat(c){
+		if (c) resultsDiv.dataset.cat = c; else delete resultsDiv.dataset.cat;
+		if (c !== 'bible') delete resultsDiv.dataset.scope;
+		updateChips();
+		scheduleViews();
+		loadmore();
+	}
+	function updateChips(){
+		const cur = resultsDiv.dataset.cat || '';
+		const secs = [...resultsDiv.querySelectorAll(':scope > p-d')];
+		const count = c => secs.filter(pd => pd.querySelector(`:scope > p-e[data-cat="${c}"]`)).length;
+		const chip = (c, label, n) => `<button type="button" role="tab" class="chip${cur === c ? ' on' : ''}" aria-selected="${cur === c}" data-cat="${c}">${escapeHTML(label)}${n !== '' ? ` <span class="n">${n}</span>` : ''}</button>`;
+		tabs.innerHTML = (chipCats.length > 1 ? chip('', 'All', secs.length || '') + chipCats.map(c => chip(c, catLabel([c]), count(c) || '')).join('') : '') +
+			(hasBible ? '<button type="button" class="chip books" data-books="1">Books ›</button>' : '');
+	}
+	tabs.addEventListener('click', e => {
+		const b = e.target.closest('button');
+		if (!b) return;
+		if (b.dataset.books) openBooks();
+		else setCat(b.dataset.cat);
+	});
+	updateChips();
+
+	let lastY = 0;
+	window.addEventListener('scroll', throttle(() => {
+		const y = window.scrollY;
+		if (y > lastY + 6 && y > 80) header.classList.add('compact');
+		else if (y < lastY - 6 || y < 40) header.classList.remove('compact');
+		lastY = y;
+	}, 60), {passive: true});
+	new ResizeObserver(() => {
+		if (!header.classList.contains('compact'))
+			document.documentElement.style.setProperty('--hh', header.offsetHeight + 'px');
+	}).observe(header);
+
+	// ---------------------------------------------------------------
+	// Results: folded headwords, dictionary tags, verse runs, views
+	// ---------------------------------------------------------------
+	let expandAll = false;
+	let combined = true;
+	const viewBar = document.createElement('div');
+	viewBar.id = 'viewBar';
+	viewBar.className = 'hide';
+	searchBar.insertAdjacentElement('afterend', viewBar);
+	const byDictDiv = document.createElement('div');
+	byDictDiv.id = 'byDict';
+	byDictDiv.className = 'hide';
+	resultsDiv.insertAdjacentElement('beforebegin', byDictDiv);
+	const speakerSVG = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16 9a4 4 0 010 6"/></svg>';
+
+	const dirty = new Set();
+	let viewsTimer = null;
+	function sectionChanged(div){
+		dirty.add(div);
+		scheduleViews();
+	}
+	function scheduleViews(){
+		if (viewsTimer) return;
+		viewsTimer = setTimeout(() => {
+			viewsTimer = null;
+			dirty.forEach(updateTags);
+			dirty.clear();
+			markRuns();
+			updateChips();
+			updateViewBar();
+			if (!combined) renderByDict();
+		}, 120);
+	}
+	function updateTags(div){
+		const tags = div.querySelector(':scope > .ptags');
+		if (!tags) return;
+		const es = [...div.querySelectorAll(':scope > p-e')];
+		const names = es.filter(e => !e.classList.contains('addon')).map(e => e.dataset.dict);
+		const audio = es.some(e => e.classList.contains('addon') && e.querySelector('audio, .c2-play'));
+		tags.innerHTML = (audio ? `<span class="tg-audio" title="Has a recording">${speakerSVG}</span>` : '') +
+			names.slice(0, 3).map(n => `<span class="tg">${escapeHTML(n)}</span>`).join('') +
+			(names.length > 3 ? `<span class="tg-more">+${names.length - 3}</span>` : '') +
+			(names.length ? `<span class="tg-n">in ${names.length}</span>` : '');
+	}
+	// Verses next to each other read like a Bible page; scattered ones stay cards.
+	function markRuns(){
+		const ps = [...resultsDiv.querySelectorAll(':scope > p-d.verse')];
+		const next = (a, b) => a && b && b.classList.contains('verse') && a.dataset.book === b.dataset.book &&
+			a.dataset.ch === b.dataset.ch && +b.dataset.v === +a.dataset.v + 1;
+		ps.forEach(p => {
+			const prev = next(p.previousElementSibling, p);
+			const nxt = next(p, p.nextElementSibling);
+			p.classList.toggle('run', prev || nxt);
+			p.classList.toggle('run-start', !prev && nxt);
+			p.classList.toggle('run-end', prev && !nxt);
+		});
+	}
+	// A chapter is open when the search is one ("gen 1" or "gen 1.")
+	function chapterOfResults(){
+		const m = /^([1-3]?[a-z]{2,3}) (\d+)\.?$/.exec(query || '');
+		const i = m ? BOOKS.indexOf(m[1]) : -1;
+		return i >= 0 && resultsDiv.querySelector(':scope > p-d.verse') ? {i, c: +m[2]} : null;
+	}
+	function updateViewBar(){
+		const secs = [...resultsDiv.querySelectorAll(':scope > p-d')];
+		const verses = secs.filter(p => p.classList.contains('verse'));
+		const words = secs.length - verses.length;
+		if (!secs.length) { viewBar.classList.add('hide'); return; }
+		const chap = chapterOfResults();
+		resultsDiv.classList.toggle('chapter', !!chap);
+		let html = '';
+		if (chap) {
+			html += `<div class="vb-chap"><button type="button" data-a="prevch" aria-label="Previous chapter">‹</button>` +
+				`<button type="button" class="vb-book" data-a="books">${escapeHTML(bookName(chap.i))} ${kmNum(chap.c)} ${chevron}</button>` +
+				`<button type="button" data-a="nextch" aria-label="Next chapter">›</button></div>`;
+		}
+		if (verses.length && !chap) {
+			const scope = resultsDiv.dataset.scope || '';
+			const n = g => verses.filter(p => p.dataset.grp.split(' ').includes(g)).length;
+			html += `<div class="vb-scope" role="radiogroup" aria-label="Search in">` +
+				`<button type="button" role="radio" class="chip${scope ? '' : ' on'}" aria-checked="${!scope}" data-scope="">Whole Bible <span class="n">${verses.length}</span></button>` +
+				BOOK_GROUPS.filter(g => n(g[0])).map(g => `<button type="button" role="radio" class="chip${scope === g[0] ? ' on' : ''}" aria-checked="${scope === g[0]}" data-scope="${g[0]}">${g[1]} <span class="n">${n(g[0])}</span></button>`).join('') +
+				`</div>`;
+		}
+		if (words > 1) {
+			html += `<div class="vb-row"><button type="button" class="vb-exp" data-a="expand">${expandAll ? 'Fold all' : 'Open all'}</button>` +
+				`<label class="vb-comb">Combined <button type="button" role="switch" class="sw${combined ? ' on' : ''}" aria-checked="${combined}" data-a="combined" aria-label="Combine dictionaries"><span></span></button></label></div>`;
+		}
+		viewBar.innerHTML = html;
+		viewBar.classList.toggle('hide', !html);
+	}
+	viewBar.addEventListener('click', e => {
+		const b = e.target.closest('button');
+		if (!b) return;
+		if (b.dataset.scope !== undefined) {
+			if (b.dataset.scope) resultsDiv.dataset.scope = b.dataset.scope; else delete resultsDiv.dataset.scope;
+			updateViewBar();
+			loadmore();
+		} else if (b.dataset.a === 'expand') {
+			expandAll = !expandAll;
+			resultsDiv.querySelectorAll(':scope > p-d').forEach(p => p.classList.toggle('folded', !expandAll && p !== resultsDiv.querySelector(':scope > p-d')));
+			updateViewBar();
+		} else if (b.dataset.a === 'combined') {
+			combined = !combined;
+			resultsDiv.classList.toggle('bydict', !combined);
+			byDictDiv.classList.toggle('hide', combined);
+			if (!combined) renderByDict();
+			updateViewBar();
+		} else if (b.dataset.a === 'books') {
+			openBooks();
+		} else if (b.dataset.a === 'prevch' || b.dataset.a === 'nextch') {
+			const chap = chapterOfResults();
+			if (!chap) return;
+			let {i, c} = chap;
+			c += b.dataset.a === 'nextch' ? 1 : -1;
+			if (c < 1) { i = (i + 65) % 66; c = CHAPTERS[i]; }
+			if (c > CHAPTERS[i]) { i = (i + 1) % 66; c = 1; }
+			goChapter(i, c);
+		}
+	});
+	// Tap a headword (or its tags) to open or fold it; tap a verse in a
+	// Bible page to show its buttons.
+	document.addEventListener('click', e => {
+		if (e.target.closest('button, a, p-a, audio, input, textarea, .tr-entry, #sheet')) return;
+		if (!window.getSelection().isCollapsed) return;
+		const h = e.target.closest('#results > p-d > h2, #results > p-d > .ptags, #pinnedResults > p-d > h2');
+		if (h) {
+			h.parentElement.classList.toggle('folded');
+			return;
+		}
+		const pd = e.target.closest('#results > p-d.run');
+		if (pd) {
+			const was = pd.classList.contains('sel');
+			resultsDiv.querySelectorAll(':scope > p-d.sel').forEach(p => p.classList.remove('sel'));
+			pd.classList.toggle('sel', !was);
+		}
+	});
+
+	// By dictionary: one row per dictionary with the headwords it has;
+	// opening a row shows those entries.
+	const byDictOpen = new Set();
+	function renderByDict(){
+		const cat = resultsDiv.dataset.cat;
+		const groups = new Map();
+		resultsDiv.querySelectorAll(':scope > p-d > p-e:not(.addon)').forEach(pe => {
+			if (cat && pe.dataset.cat !== cat) return;
+			const d = +pe.dataset.d;
+			if (!groups.has(d)) groups.set(d, []);
+			groups.get(d).push(pe);
+		});
+		const ds = [...groups.keys()].sort((a, b) => entrySortId(a) - entrySortId(b));
+		byDictDiv.innerHTML = ds.map(d => {
+			const hws = groups.get(d).map(pe => pe.parentElement.querySelector('.hw')?.textContent || '');
+			return `<details class="bd" data-d="${d}"${byDictOpen.has(d) ? ' open' : ''}><summary>` +
+				`<span class="bd-main"><span class="bd-n">${d === focus ? '<span class="star">★</span>' : ''}${escapeHTML(dicts[d][1])}</span>` +
+				`<span class="bd-w">${escapeHTML(hws.slice(0, 6).join(' · '))}${hws.length > 6 ? '…' : ''}</span></span>` +
+				`<span class="bd-c">${hws.length}</span></summary><div class="bd-body"></div></details>`;
+		}).join('') || '<p class="bd-none">No entries yet.</p>';
+		byDictDiv.querySelectorAll('details[open]').forEach(fillByDict);
+	}
+	function fillByDict(det){
+		const d = +det.dataset.d;
+		const body = det.querySelector('.bd-body');
+		body.replaceChildren();
+		resultsDiv.querySelectorAll(`:scope > p-d > p-e[data-d="${d}"]`).forEach(pe => {
+			const hw = document.createElement('div');
+			hw.className = 'bd-hw';
+			hw.textContent = pe.parentElement.querySelector('.hw')?.textContent || '';
+			body.append(hw, pe.cloneNode(true));
+		});
+	}
+	byDictDiv.addEventListener('toggle', e => {
+		const det = e.target;
+		if (!det.classList?.contains('bd')) return;
+		const d = +det.dataset.d;
+		if (det.open) { byDictOpen.add(d); fillByDict(det); } else byDictOpen.delete(d);
+	}, true);
+
+	// ---------------------------------------------------------------
+	// Bible books and chapters
+	// ---------------------------------------------------------------
+	function goChapter(i, c){
+		setQueryText(`${BOOKS[i]} ${c}.`);
+		if (chipCats.includes('bible')) resultsDiv.dataset.cat = 'bible';
+		delete resultsDiv.dataset.scope;
+		closeSheet();
+		startSearch();
+	}
+	function openBooks(group = 'all', book = -1){
+		const cur = chapterOfResults();
+		const groupsHTML = `<div class="bk-groups">${[['all', 'All'], ...BOOK_GROUPS].map(g => `<button type="button" class="chip${g[0] === group ? ' on' : ''}" data-g="${g[0]}">${g[1]}</button>`).join('')}</div>`;
+		const tile = i => `<button type="button" class="bk${cur && cur.i === i ? ' cur' : ''}" data-b="${i}"><span class="bk-n">${escapeHTML(bookName(i))}</span>${khmerPage ? `<span class="bk-e">${escapeHTML(BOOKS_EN[i])}</span>` : ''}</button>`;
+		const range = g => { const r = BOOK_GROUPS.find(x => x[0] === g); return Array.from({length: r[3] - r[2] + 1}, (_, k) => r[2] + k); };
+		let html;
+		if (book >= 0) {
+			html = `<div class="bk-top"><button type="button" class="bk-back" data-g="${group}">‹ Books</button><span class="bk-title">${escapeHTML(bookName(book))}</span></div>` +
+				`<div class="ch-grid">${Array.from({length: CHAPTERS[book]}, (_, k) => `<button type="button" class="ch${cur && cur.i === book && cur.c === k + 1 ? ' cur' : ''}" data-b="${book}" data-c="${k + 1}">${kmNum(k + 1)}</button>`).join('')}</div>`;
+		} else {
+			const secs = group === 'all' ? [['Old Testament', range('ot')], ['New Testament', range('nt')]] : [[BOOK_GROUPS.find(g => g[0] === group)[1], range(group)]];
+			html = groupsHTML + secs.map(([t, is]) => `<h3 class="sheet-h">${t} <span class="n">${is.length}</span></h3><div class="bk-grid">${is.map(tile).join('')}</div>`).join('');
+		}
+		openSheet('Go to', html, e => {
+			const b = e.target.closest('button');
+			if (!b) return;
+			if (b.dataset.c) goChapter(+b.dataset.b, +b.dataset.c);
+			else if (b.dataset.b) openBooks(group, +b.dataset.b);
+			else if (b.dataset.g) openBooks(b.dataset.g, -1);
+		});
+	}
+
+	// ---------------------------------------------------------------
+	// Entry menu (⋯)
+	// ---------------------------------------------------------------
+	const speakLang = d => ((abbr[files[d].lang] || [])[2] || '').replace('_', '-');
+	window.entryMenu = btn => {
+		const pe = btn.closest('p-e');
+		const d = +pe.dataset.d;
+		const name = dicts[d][1];
+		const slab = dicts[d][0].includes('.slab');
+		const collapsed = collapsedDicts.includes(pe.dataset.dict);
+		openSheet(`${d === focus ? '<span class="star">★</span> ' : ''}${escapeHTML(name)}`,
+			`<p class="em-sub">${escapeHTML(catLabel(files[d].category))} · ${escapeHTML(cap(files[d].lang))}</p>` +
+			`<div class="em-quick">` +
+				`<button type="button" data-a="focus"><span class="em-i">★</span>${d === focus ? 'Unfocus' : 'Focus'}</button>` +
+				(slab ? '' : `<button type="button" data-a="learn"><span class="em-i">?</span>Learn</button>`) +
+				(slab ? '' : `<button type="button" data-a="copy"><span class="em-i">⧉</span>Copy</button>`) +
+				(slab || !window.speechSynthesis ? '' : `<button type="button" data-a="speak"><span class="em-i">${speakerSVG}</span>Speak</button>`) +
+			`</div>` +
+			`<div class="em-list">` +
+				(isAddon(d) ? '' : `<div class="em-row"><span>Order in results</span><button type="button" data-a="up" aria-label="Move up">↑</button><button type="button" data-a="down" aria-label="Move down">↓</button></div>`) +
+				`<button type="button" class="em-row" data-a="collapse">${collapsed ? 'Expand' : 'Shrink'} ${escapeHTML(name)}'s entries</button>` +
+				`<a class="em-row" href="?dict=${encodeURIComponent(name)}">Open ${escapeHTML(name)} on its own ↗</a>` +
+				`<button type="button" class="em-row em-off" data-a="off">Turn off ${escapeHTML(name)}</button>` +
+			`</div>` +
+			`<details class="em-about"><summary>About &amp; source</summary><div>${dicts[d][3] || 'No description.'}</div></details>`,
+			e => {
+				const b = e.target.closest('button[data-a]');
+				if (!b) return;
+				const a = b.dataset.a;
+				if (a === 'focus') { closeSheet(); setFocus(d); }
+				else if (a === 'learn') { closeSheet(); learnEntry(pe.querySelector('.learn-btn') || btn); }
+				else if (a === 'copy') {
+					navigator.clipboard?.writeText(entryText(pe)).then(() => { b.lastChild.textContent = 'Copied'; }, () => {});
+				} else if (a === 'speak') {
+					const u = new SpeechSynthesisUtterance(entryText(pe));
+					u.lang = speakLang(d);
+					speechSynthesis.cancel();
+					speechSynthesis.speak(u);
+				} else if (a === 'up' || a === 'down') {
+					moveDict(d, a === 'up' ? -1 : 1);
+					pe.scrollIntoView({block: 'nearest'});
+				} else if (a === 'collapse') { toggleDictName(pe.dataset.dict); closeSheet(); }
+				else if (a === 'off') {
+					closeSheet();
+					const cb = document.getElementById(`${d}`);
+					if (cb) { cb.checked = false; updateDictList(cb); }
+					document.querySelectorAll(`#results p-e[data-d="${d}"]`).forEach(x => { const pd = x.parentElement; x.remove(); sectionChanged(pd); });
+				}
+			});
+	};
+
+	// ---------------------------------------------------------------
+	// Learn (?): word by word translation in a style the user picks
+	// ---------------------------------------------------------------
+	const learnKey = `peakslab-learn-${appname}`;
+	let learnPrefs = {};
+	try { learnPrefs = JSON.parse(localStorage.getItem(learnKey)) || {}; } catch (e) { /* not remembered */ }
+	const learnable = i => canTranslate(i) && !['bible/text', 'music/sheet', 'music/chords'].includes(files[i].category.join('/'));
+	function runLearn(pe, i){
+		pe.querySelector('.tr-entry')?.remove();
+		const box = pe.appendChild(document.createElement('div'));
+		box.className = 'tr-entry';
+		translateEntryWith(box, entryText(pe), i);
+	}
+	window.learnEntry = btn => {
+		const pe = btn.closest('p-e');
+		const open = pe.querySelector('.tr-entry');
+		if (open) { open.remove(); return; }
+		const pref = dictIndex(learnPrefs[pe.dataset.dict]);
+		if (pref >= 0 && learnable(pref)) runLearn(pe, pref);
+		else learnPicker(pe);
+	};
+	window.learnChange = btn => learnPicker(btn.closest('p-e'));
+	function learnPicker(pe){
+		const opts = dicts.map((_, i) => i).filter(learnable);
+		if (!opts.length) {
+			openSheet('? Learn', '<p class="em-sub">Turn on a dictionary in the Library (⚙) to translate with it.</p>');
+			return;
+		}
+		const pref = dictIndex(learnPrefs[pe.dataset.dict]);
+		const sel = opts.includes(pref) ? pref : opts.includes(focus) ? focus : opts[0];
+		const groups = new Map();
+		opts.forEach(i => { const k = catLabel(files[i].category); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i); });
+		const preview = entryText(pe).split('\n').find(Boolean) || '';
+		openSheet('<span class="learn-q">?</span> Learn this entry',
+			`<p class="lr-prev">${escapeHTML(preview.slice(0, 160))}</p>` +
+			`<form class="lr-form"><fieldset><legend>How should it be translated?</legend>` +
+			[...groups].map(([label, is]) => `<div class="lr-g">${escapeHTML(label)}</div>` + is.map(i =>
+				`<label class="lr-opt"><input type="radio" name="lrs" value="${i}"${i === sel ? ' checked' : ''}><span class="lr-t"><b>${escapeHTML(dicts[i][1])}</b><span>${escapeHTML(plain(dicts[i][3]).slice(0, 90))}</span></span></label>`).join('')).join('') +
+			`</fieldset><label class="lr-rem"><input type="checkbox" name="rem"${pref >= 0 ? ' checked' : ''}> Remember for ${escapeHTML(pe.dataset.dict)} — skip this question</label>` +
+			`<button type="submit" class="lr-go">Translate</button></form>`);
+		sheetBody.querySelector('form').addEventListener('submit', ev => {
+			ev.preventDefault();
+			const f = ev.target;
+			const i = +f.lrs.value;
+			if (f.rem.checked) learnPrefs[pe.dataset.dict] = dicts[i][1];
+			else delete learnPrefs[pe.dataset.dict];
+			try { localStorage.setItem(learnKey, JSON.stringify(learnPrefs)); } catch (e) { /* not remembered */ }
+			closeSheet();
+			runLearn(pe, i);
+		});
+	}
+
+	// ---------------------------------------------------------------
+	// Library (⚙): the dictionaries, grouped, with a filter
+	// ---------------------------------------------------------------
+	function renderLibrary(){
+		const groups = [];
+		dicts.forEach((dict, idx) => {
+			const {category, isPrimary, lang} = files[idx];
+			const key = (isAddon(idx) ? 'zz' : '') + category.join('/');
+			let g = groups.find(x => x.key === key);
+			if (!g) groups.push(g = {key, label: catLabel(category), addon: isAddon(idx), items: []});
+			g.items.push({idx, extra: !isPrimary, lang});
+		});
+		groups.sort((a, b) => a.addon - b.addon);
+		let html = `<div class="lib-top"><h2>Library</h2><span class="lib-sub">${escapeHTML(cap(curLang))} · ${dicts.length} resources</span></div>` +
+			`<input type="search" id="libFilter" placeholder="Filter by name or source" autocomplete="off">`;
+		html += groups.map((g, gi) => `<details class="lib-g${g.addon ? ' addon' : ''}" data-g="${gi}"${g.addon ? '' : ' open'}><summary>` +
+			`<span class="lib-gt"><span class="lib-gn">${escapeHTML(g.label)}</span><span class="lib-gc"></span></span>` +
+			`<button type="button" class="lib-all" data-g="${gi}">All on</button></summary>` +
+			(g.addon ? '<p class="lib-note">Shown inside the other entries, not on their own.</p>' : '') +
+			`<ol class="dictlist">` + g.items.map(({idx, extra, lang}) => {
+				const dict = dicts[idx];
+				const desc = plain(dict[3]);
+				return `<li class="dictlist-item dictlist-file" data-id="${dict[0]}" data-idx="${idx}" data-text="${escapeHTML((dict[1] + ' ' + desc + ' ' + lang).toLowerCase())}">` +
+					`<button type="button" class="dictlist-focus" onclick="setFocus(${idx})" title="Focus: show ${escapeHTML(dict[1])} first and translate with it" aria-label="Focus ${escapeHTML(dict[1])}">★</button>` +
+					`<span class="lib-main"><span class="lib-name">${escapeHTML(dict[1])}${extra ? ` <span class="lib-lang">${escapeHTML(lang)}</span>` : ''}</span><span class="lib-desc" title="${escapeHTML(desc)}">${escapeHTML(desc)}</span></span>` +
+					`<a href="?dict=${encodeURIComponent(dict[1])}" class="dictlist-solo" title="Open ${escapeHTML(dict[1])} on its own" aria-label="Open ${escapeHTML(dict[1])} on its own">↗</a>` +
+					`<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? ' checked' : ''} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle" aria-label="Use ${escapeHTML(dict[1])}"><span class="toggle-switch"></span></label></li>`;
+			}).join('') + `</ol></details>`).join('');
+		listDiv.innerHTML = html;
+		listDiv.groups = groups;
+		updateLibCounts();
+	}
 	let listDiv = document.getElementById('listDiv');
-	listDiv.innerHTML += temp;
+	function updateLibCounts(){
+		(listDiv.groups || []).forEach((g, gi) => {
+			const on = g.items.filter(({idx}) => document.getElementById(`${idx}`)?.checked).length;
+			const det = listDiv.querySelector(`details[data-g="${gi}"]`);
+			if (!det) return;
+			det.querySelector('.lib-gc').textContent = `${on} of ${g.items.length} on`;
+			det.querySelector('.lib-all').textContent = on === g.items.length ? 'All off' : 'All on';
+		});
+	}
+	listDiv.addEventListener('click', e => {
+		const b = e.target.closest('.lib-all');
+		if (!b) return;
+		e.preventDefault();
+		const g = listDiv.groups[+b.dataset.g];
+		const turnOn = !g.items.every(({idx}) => document.getElementById(`${idx}`)?.checked);
+		g.items.forEach(({idx}) => {
+			const cb = document.getElementById(`${idx}`);
+			if (cb && cb.checked !== turnOn) { cb.checked = turnOn; updateDictList(cb); }
+		});
+		saveState();
+		updateLibCounts();
+	});
+	listDiv.addEventListener('change', updateLibCounts);
+	listDiv.addEventListener('input', e => {
+		if (e.target.id !== 'libFilter') return;
+		const q = e.target.value.trim().toLowerCase();
+		listDiv.querySelectorAll('.lib-g').forEach(det => {
+			let any = false;
+			det.querySelectorAll('.dictlist-file').forEach(li => {
+				const hit = !q || li.dataset.text.includes(q);
+				li.classList.toggle('hide', !hit);
+				any = any || hit;
+			});
+			det.classList.toggle('hide', !any);
+			if (q && any) det.open = true;
+		});
+	});
+	renderLibrary();
 	updateFocusUI();
 
 	ack = function(url){
@@ -878,6 +1429,7 @@ if(root){
 		if (checkbox) {
 				checkbox.checked = checked;
 		}
+		updateLibCounts();
 	}
 
 	function loadSavedState() {
@@ -1103,6 +1655,8 @@ if(root){
 		resultsDiv.replaceChildren();
 		translationDiv.replaceChildren();
 		searchBar.classList.add('hide');
+		viewBar.classList.add('hide');
+		byDictDiv.classList.add('hide');
 	}
 
 	// The worker's index for the focused dictionary, if worker i has it
@@ -1273,7 +1827,7 @@ if(root){
 		const box = entryTranslations.get(data.tag);
 		entryTranslations.delete(data.tag);
 		if (!box || !box.isConnected) return;
-		box.innerHTML = `<div class="tr-head">${escapeHTML(data.dict)}</div>` +
+		box.innerHTML = `<div class="tr-head"><span>Translated with <b>${escapeHTML(data.dict)}</b></span><button type="button" class="tr-change" onclick="learnChange(this)">Change style</button></div>` +
 			(data.pieces.some(p => p.body !== undefined) ? translationHTML(data.pieces) : 'No words found.');
 	}
 
@@ -1316,11 +1870,13 @@ if(root){
 		updateBig();
 		updateURL();
 		query = updateQuery();
+		query = bibleRef(query) || query; // "John 3" → "joh 3."
 		if(!query){
 			showSettings();
 			return;
 		}
 		renderSearchBar();
+		byDictDiv.classList.toggle('hide', combined);
 		if(query == prevquery){
 			return;
 		}
@@ -1616,4 +2172,4 @@ if(root){
 	let newtiming = document.createElement("div")
 	document.body.appendChild(newtiming);
 }
-document.body.appendChild(document.createTextNode(" v10.9"));
+document.body.appendChild(document.createTextNode(" v11.0"));
