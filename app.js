@@ -1278,14 +1278,14 @@ if(!isDictPage){
 	const phonTranslator = () => dictIds.find(isPhon);
 
 	// The query word by word, when the search found nothing: with every
-	// dictionary searched and the library's (so a filter like Bible still
-	// has them; not media) and a pronunciation one, loading any that
-	// aren't. A Bible text's headwords are its verses, so "rom 8.1 gal 1.1"
-	// links to each.
+	// dictionary searched and, while filtering, the library's and every
+	// priority 1 one (so a filter like Bible still has them; not media) and
+	// a pronunciation one, loading any that aren't. A Bible text's headwords
+	// are its verses, so "rom 8.1 gal 1.1" links to each.
 	function translate(){
 		if (globreg.test(query)) return;
 		const mask = searchMask(), lib = libraryOn(), q = query;
-		const ids = trOrder([...dictIds.filter(d => (mask[d] || lib[d]) && isWords(d)), phonTranslator()].filter(d => d !== undefined));
+		const ids = trOrder([...dictIds.filter(d => (mask[d] || lib[d] || (filtered() && dicts[d].on)) && isWords(d)), phonTranslator()].filter(d => d !== undefined));
 		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q));
 	}
 
