@@ -1,5 +1,6 @@
 #d	Google Khmer Lexicon via: <a href="https://huggingface.co/datasets/seanghay/google-khmer-lexicon">seanghay</a>. Rewritten in G2K's phonetics.
 #p	2
+#l	phon
 #f	khmer/phonetics/g2k.peak.zst
-#t	1792234565
-#b	147
+#t	1792406962
+#b	193

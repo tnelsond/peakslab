@@ -5,7 +5,7 @@
 # Output format:
 # {
 #   "core":  [ [file, timestamp], ... ],
-#   "dicts": [ [file, timestamp, description, buflen, priority], ... ],
+#   "dicts": [ [file, timestamp, description, buflen, priority, lang, collapsed], ... ],
 #   "abbr": {
 #     "khmer": ["km", "ខ"],
 #     "music": ["mus", "𝄞"],
@@ -13,6 +13,9 @@
 #   }
 # }
 # Dictionaries (.peak, .peak.zst, .slab, .slab.zst) go under "dicts".
+# lang (from #lang in the source) is what kind of dictionary it is: "mono"
+# (monolingual), "bi" (bilingual, to English), "rbi" (English to it), "phon"
+# (pronunciation) or "aux" (audio, images, word counts, ...); "" if not set. A missing priority is null.
 # All other files go under "core" (filename + timestamp only).
 # In both arrays, timestamp is always element[1] so it can be read the same
 # way regardless of file type.
@@ -36,6 +39,8 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
     file=""
     timestamp=""
     buflen=""
+    lang=""
+    collapsed=0
 
     while IFS= read -r line || [ -n "$line" ]; do
         line="${line%$'\r'}"  # strip Windows \r if present
@@ -45,6 +50,8 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
             "#f"*)  file="${line:3}"      ;;
             "#t"*)  timestamp="${line:3}"; timestamp="${timestamp%%[[:space:]]*}" ;;
             "#b"*)  buflen="${line:3}"; buflen="${buflen%%[[:space:]]*}" ;;
+            "#l"*)  lang="${line:3}"; lang="${lang%%[[:space:]]*}" ;;
+            "#c"*)  collapsed=1 ;;
         esac
     done < "$metafile"
 
@@ -69,7 +76,7 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
             else
                 printf ",\n" >> "$DICTS_TMP"
             fi
-            printf '    ["%s", %s, "%s", %s, %s]' "$file" "$timestamp" "$desc" "$buflen" "$priority" >> "$DICTS_TMP"
+            printf '    ["%s", %s, "%s", %s, %s, "%s", %s]' "$file" "$timestamp" "$desc" "$buflen" "${priority:-null}" "$lang" "$collapsed" >> "$DICTS_TMP"
             ;;
         *)
             if [ "$CORE_FIRST" -eq 1 ]; then

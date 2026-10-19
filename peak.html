@@ -20,22 +20,35 @@
   <div id="searchContainer" class="hide">
 		<a href="/">
 		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"><div class="logooverlay" id="appname"></div></div></a>
-    <input type="search" id="queryInput" value="" placeholder="Type your query here..." autofocus autocomplete="off">
+    <input type="search" id="queryInput" value="" placeholder="Look up a word or paste text" autofocus autocomplete="off" aria-label="Search">
+		<button type="button" class="head-btn" id="menuBtn" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="headMenu"><svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+		<div class="head-menu" id="headMenu">
+			<button type="button" class="head-btn" id="filterBtn" data-drawer="modes" title="Mode" aria-label="Mode" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg><span class="lbl">Mode</span></button>
+			<button type="button" class="head-btn" data-drawer="history" title="History" aria-label="History" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg><span class="lbl">History</span></button>
+			<button type="button" class="head-btn" data-drawer="bookmarks" title="Bookmarks" aria-label="Bookmarks" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg><span class="lbl">Bookmarks</span></button>
+			<button type="button" class="head-btn" id="settingsBtn" title="Library and settings" aria-label="Library and settings"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="M16.5 4.8l3.8-1 3.7 15.6-3.8 1z" transform="translate(-2 0)"/></svg><span class="lbl">Library and settings</span></button>
+		</div>
   </div>
-	<div id="tabs" class="hide"></div>
+	<div id="subbar" class="hide">
+		<button type="button" id="langBtn" aria-haspopup="dialog"></button>
+		<span class="sub-div" aria-hidden="true"></span>
+		<div id="quick" role="toolbar" aria-label="What to search"></div>
+	</div>
 </header>
 
 	<div id="content" class="hide">
-		<div id="version">Peakslab version: </div>
-		<div id="status">Status: Ready</div>
+		<div id="status" class="hide"><span class="st-text"></span><span class="st-loading hide" title="Loading dictionaries"></span><button type="button" class="st-share" title="Share a link to this search">Share</button></div>
 		<div id="results"></div>
-		<p-d id="settings">
-		<div id="listDiv"></div>
-		<div id="timing"></div>
-		<button class="setting" id="markT">Toggle marks</button>
-		<button class="setting" id="darkT">Toggle Dark Mode</button>
-		<button class="setting" id="debugT">Toggle Debug</button>
+		<div id="settings">
+		<div id="home"></div>
+		<p-d id="listDiv"></p-d>
+		<p-d class="prefs">
+			<h2>Settings</h2>
+			<div class="pref-row"><span>Text size</span><button class="setting" id="fontDecrease" title="Smaller text">A−</button><button class="setting" id="fontIncrease" title="Bigger text">A+</button></div>
+			<div class="pref-row"><button class="setting" id="darkT">Dark mode</button><button class="setting" id="markT">Highlight matches</button><button class="setting" id="debugT">Debug</button><button class="setting" id="install-button">Install app</button></div>
+			<details><summary>Version and loading times</summary><div id="version"></div><div id="timing"></div></details>
 		</p-d>
+		</div>
 	</div>
 
 	<div id="about">
@@ -50,16 +63,16 @@
 	</p-d>
 	</div>
 
-<div id="extra-btn">
-	<button class="control-btn hide" id="pinTab" title="Pins"><svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg></button>
-</div>
 	<div id="controls" class="hide">
-				<button class="control-btn" id="install-button">Install App</button>
-        <button class="control-btn" id="fontDecrease" title="Decrease font size">−</button>
-        <button class="control-btn" id="fontIncrease" title="Increase font size">+</button>
-        <button class="control-btn" id="settingsBtn" title="Diagnostics & Settings">⚙</button>
-				<button class="control-btn" id="f4" title="Fullscreen">⛶</button>
+				<button class="control-btn" id="f4" title="Fullscreen" aria-label="Fullscreen">⛶</button>
     </div>
+	<div id="drawer" class="hide">
+		<div class="drawer-bg"></div>
+		<aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+			<div class="drawer-head"><h2 class="drawer-title" id="drawerTitle"></h2><button type="button" class="drawer-close close-btn" aria-label="Close">×</button></div>
+			<div class="drawer-body"></div>
+		</aside>
+	</div>
     <div id="popupOverlay">
         <div id="popupContent">
 						<button id="popupClose" class="close-btn">×</button>

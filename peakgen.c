@@ -187,6 +187,13 @@ int readmeta(char *s, int len, int header){
 					printf("NO SORT enabled.\n");
 					nosort = 1;
 				}
+				else if(!ps_cmpe(s+skip, "#collapsed")){ // Its entries start as one line (Bible notes, ...)
+					vec_char_push(&desc, '#');
+					vec_char_push(&desc, 'c');
+					vec_char_push(&desc, '\t');
+					vec_char_push(&desc, '1');
+					vec_char_push(&desc, '\n');
+				}
 				else if(!ps_cmpe(s+skip, "#no compress")){
 					printf("NO COMPRESS enabled.\n");
 					compress = 0;
@@ -213,6 +220,26 @@ int readmeta(char *s, int len, int header){
 					skip += 10;
 					vec_char_push(&desc, '#');
 					vec_char_push(&desc, 'p');
+					vec_char_push(&desc, '\t');
+					while(s[skip] && skip < len){
+						vec_char_push(&desc, s[skip]);
+						++skip;
+					}
+					if(skip > len)
+						break;
+					vec_char_push(&desc, '\n');
+					beg = 1;
+					++skip;
+					continue;
+				}
+				// What kind of dictionary: mono (monolingual), bi (bilingual,
+				// to English), rbi (English to it), phon (pronunciation) or
+				// aux (audio, images, word counts, ...)
+				else if(!ps_cmpe(s+skip, "#lang")){
+					printf("##LANG: %s\n", s+skip);
+					skip += 6;
+					vec_char_push(&desc, '#');
+					vec_char_push(&desc, 'l');
 					vec_char_push(&desc, '\t');
 					while(s[skip] && skip < len){
 						vec_char_push(&desc, s[skip]);

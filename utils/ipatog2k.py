@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Rewrite the Google Khmer Lexicon's phonemes (ipa.tsv) the way G2K's word
-lists do (L1-Week 1 New Word List: kʰɲom, ɓɔːŋ, pʰʔoᶷn, lo̞kkru, ruᵊhnəᶤ).
+lists do (L1-Week 1 New Word List: kʰɲom, ɓɔŋ, pʰʔoᶷn, lọkkru, ruᵊhnəⁱ).
 
-Usage: ipatog2k.py ipa.tsv g2k.tsv
+Usage: ipatog2k.py ipa.tsv g2k.tsv [more.tsv ...]
+
+Words in more.tsv files (already in G2K, e.g. nathtog2k.pl's) that ipa.tsv
+doesn't have are added after it.
 
 Only the transcription column changes. Google's notation is phonemic and its
 vowels mostly say which consonant series they follow (ក kɑɑ, គ kɔɔ), so most
@@ -13,7 +16,7 @@ clusters (ខ្ញុំ kɲom), which the spelling puts back (kʰɲom).
 """
 import re, sys
 
-SRC, OUT = sys.argv[1:3]
+SRC, OUT, MORE = sys.argv[1], sys.argv[2], sys.argv[3:]
 
 S1 = set('កខចឆដឋណតថបផសហឡអឞ')
 S2 = set('គឃងជឈញឌឍនទធពភមយរលវ')
@@ -24,29 +27,31 @@ COENG, TO1, TO2 = '្', '៉', '៊'  # ្ ៉ ៊
 SIGNS = set('ិីឹឺើូោេ័ឥឦឫឬឭឮ')  # the vowels that decide an ambiguous Google vowel
 
 # Google vowel -> G2K, where it only means one thing
+# (no length marks, as on the word lists: ta, kʰnɔŋ)
 VOWEL = {
-	'aa': 'aː', 'a': 'a', 'ie': 'iᵊ', 'iə': 'iᵊ', 'ea': 'eᵃ', 'oa': 'oᵃ',
-	'ɑɑ': 'ɔː', 'ɑ': 'ɔ', 'ɔɔ': 'oː', 'ɔ': 'o',
-	'ii': 'i', 'i': 'i', 'ɨɨ': 'ɨ', 'uu': 'u', 'u': 'o̞', 'o': 'o',
-	'uə': 'uᵊ', 'ɨə': 'ɨᵊ', 'aə': 'aᵊ',
-	'ae': 'aᵋ', 'ɛɛ': 'ɛː', 'ɛ': 'ɛ', 'ɛə': 'ɛᵊ', 'ao': 'aᵒ',
+	'aa': 'a', 'a': 'a', 'ie': 'iᵊ', 'iə': 'iᵊ', 'ea': 'eᵃ', 'oa': 'oᵃ',
+	'ɑɑ': 'ɔ', 'ɑ': 'ɔ', 'ɔɔ': 'o', 'ɔ': 'o',
+	'ii': 'i', 'i': 'i', 'uu': 'u', 'u': 'ọ', 'o': 'o',
+	'uə': 'uᵊ', 'ɨə': 'ɯᵊ', 'aə': 'aᵊ',
+	'ae': 'aᵋ', 'ɛɛ': 'ɛ', 'ɛ': 'ɛ', 'ɛə': 'ɛᵊ', 'ao': 'aᵒ',
 }
 # Diphthongs Google writes with a glide
-GLIDE = {'əj': 'eʲ', 'aj': 'aʲ', 'ej': 'ɛʲ', 'aw': 'aɯ', 'aaw': 'aɯ', 'ɨw': 'əᶤ', 'əw': 'əᶤ', 'aəj': 'aᵒj'}
+GLIDE = {'əj': 'eʲ', 'aj': 'aʲ', 'ej': 'ɛʲ', 'aw': 'aᶭ', 'aaw': 'aɯ', 'ɨw': 'əⁱ', 'əw': 'əⁱ', 'aəj': 'aᵊj'}  # ក្រៅ kraᶭ, អាវ aɯ, ទៅ təⁱ
 # Google vowel -> (Khmer signs it can come from, how to choose, default)
 AMBIGUOUS = {
-	'əə': ({'ឺ', 'ើ', '័'}, lambda sign, ser: 'ə' if sign == 'ឺ' or (sign == '័' and ser == 1) else 'ɨ', 'ɨ'),
-	'oo': ({'ូ', 'ោ'}, lambda sign, ser: 'oᶷ' if sign == 'ូ' else 'o̞ː', 'oᶷ'),
+	'əə': ({'ឺ', 'ើ', '័'}, lambda sign, ser: 'ə' if sign == 'ឺ' or (sign == '័' and ser == 1) else 'ɨ', 'ɨ'),  # ជើង cɨŋ
+	'ɨɨ': ({'ឺ'}, lambda sign, ser: 'ə' if ser == 1 else 'ɯ', 'ɯ'),  # កឺ kə, គឺ kɯ, យឺត jɯt
+	'oo': ({'ូ', 'ោ'}, lambda sign, ser: 'oᶷ' if sign == 'ូ' else 'ọ', 'oᶷ'),
 	'ee': ({'េ', 'ិ', 'ី'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'e', 'e'),
 	'e': ({'េ', 'ិ'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'e', 'e'),
 	'ə': ({'ិ', 'ី', 'ឹ', 'េ', 'ឥ', 'ឦ'}, lambda sign, ser: 'e' if sign == 'េ' else 'ə', 'ə'),
 	'ɨ': ({'ិ', 'ឹ', 'េ', 'ឥ', 'ឫ', 'ឬ', 'ឭ', 'ឮ'},
-		lambda sign, ser: 'ə' if sign in 'ិឥ' else 'ɛ' if sign == 'េ' else 'ɨ', 'ɨ'),
+		lambda sign, ser: 'ə' if sign in 'ិឥ' or ser == 1 else 'ɛ' if sign == 'េ' else 'ɯ', 'ɯ'),  # គឹ ɯʔ
 }
 # Unambiguous Google vowels that still use up one of the deciding signs
-SOURCE = {'aə': {'ើ'}, 'ɨɨ': {'ឺ'}, 'uu': {'ូ'}, 'ao': {'ោ'}, 'ii': {'ី'}, 'i': {'ិ', 'ី'},
+SOURCE = {'aə': {'ើ'}, 'uu': {'ូ'}, 'ao': {'ោ'}, 'ii': {'ី'}, 'i': {'ិ', 'ី'},
 	'əj': {'ី'}, 'aəj': {'ើ'}}
-GLOTTAL_K = ('a', 'ɑ', 'ea', 'oa', 'ie', 'iə', 'uə')  # final ក is ʔ after these (neaʔ)
+GLOTTAL_K = ('a', 'aa', 'ɑ', 'ɑɑ', 'ea', 'oa', 'ie', 'iə', 'uə')  # final ក is ʔ after these (neaʔ, piʔɓaʔ, kʰʔɔʔ)
 PALATAL_K = ('ae', 'ee')  # and c after these (sʔaᵋc)
 VOWELCHARS = 'aeiouəɑɔɛɨ'
 
@@ -103,14 +108,17 @@ def convert(key, ipa):
 					if cl.pop(n) in ASPIRATED:
 						o = o[0] + 'h' + o[1:]
 					break
-		if o[:2] == 'pʔ' or i == 0 and o[:2] == 'pɗ':
-			o = 'ph' + o[1:]  # ប្អូន pʰʔoᶷn, ប្ដី pʰɗeʲ
+		if o[:1] in STOP and o[1:2] == 'ʔ' or i == 0 and o[:2] == 'pɗ':
+			o = o[0] + 'h' + o[1:]  # ប្អូន pʰʔoᶷn, ក្អក kʰʔɔʔ, ប្តី pʰɗeʲ
 		if o == 'ʔ':
 			o = ''  # no glottal stop before a vowel (ɔt, ajuʔ, ខោអាវ kʰaᵒaɯ)
 		elif i == 0 and o[:1] == 'ʔ':
 			o = 'ə' + o[1:]  # អ្វី əweʲ
 		o = re.sub('([kctp])h', '\\1ʰ', o)
-		o = re.sub('^k([mn])', 'kʰ\\1', o)  # ក្មេង kʰmeɲ, ក្នុង kʰnoŋ
+		o = re.sub('^k([mnl])', 'kʰ\\1', o)  # ក្មេង kʰmeɲ, ក្នុង kʰnoŋ, ក្លាយ kʰlaj
+		o = re.sub('tj', 'c', o)  # វិទ្យាល័យ wiʔciᵊlaʲ
+		if coda == 's' and 'ស្ស' in key:
+			coda = 'h'  # មនុស្ស monọh, like ចាស្ស cah
 		if coda == 'k' and v in GLOTTAL_K:
 			coda = 'ʔ'
 		elif coda == 'k' and v in PALATAL_K:
@@ -122,22 +130,25 @@ def convert(key, ipa):
 			signs, choose, default = AMBIGUOUS[v]
 			e = take(signs)
 			nuc = choose(*e) if e else default
-			if e and e[0] == 'ិ' and nuc == 'ə' and coda in ('ɲ', 't', 'c'):
-				nuc = 'e' if coda == 'c' else 'ɛ'  # វិញ wɛɲ, ចិត្ត cɛt, តិច tec
+			if e and e[0] == 'ិ' and nuc == 'ə' and (coda in ('ɲ', 'c') or coda == 't' and e[1] == 1):
+				nuc = 'e' if coda == 'c' else 'ɛ'  # វិញ wɛɲ, ចិត្ត cɛt, តិច tec (but បណ្ឌិត ɓɔnɗət)
+			if e and e[0] == 'ឹ' and coda not in ('', 'ʔ', 'h'):
+				nuc = 'ə'  # a closed ឹ: ទឹក tək, នឹង nəŋ
 		else:
 			take(SOURCE.get(v, ()))
 			nuc = VOWEL.get(v, v)
-		if nuc == 'o̞' and coda == 'm':
+		if nuc == 'ọ' and coda == 'm':
 			nuc = 'ʊ'  # ុំ cʊm, phnʊm
-		elif nuc == 'o̞' and coda in ('', 'ʔ'):
-			nuc = 'u'  # an open ុ: ajuʔ
+		elif nuc == 'ọ' and coda in ('', 'ʔ', 'h'):
+			nuc = 'u'  # an open ុ: ajuʔ, and before h: នោះ nuh
 		if nuc == 'aᵊ' and coda == 'c':
-			nuc = 'aᵒ'  # សើច saᵒc, like ហើយ haᵒj
-		if coda == 'ŋ' and nuc.rstrip('ː') in ('i', 'e', 'ɛ', 'aᵋ', 'ɛᵉ'):
+			nuc = 'aᵒ'  # សើច saᵒc
+		if coda == 'ŋ' and nuc in ('i', 'e', 'ɛ', 'aᵋ', 'ɛᵉ'):
 			coda = 'ɲ'  # មីង miɲ, ក្មេង kʰmeɲ, កន្លែង kɔnlaᵋɲ
 		out.append(o + nuc + coda)
-	return ''.join(out)
+	return '.'.join(out)  # syllables split with periods, as in IPA
 
+seen = set()
 with open(SRC, encoding='utf-8') as f, open(OUT, 'w', encoding='utf-8') as out:
 	for line in f:
 		line = line.rstrip('\n')
@@ -148,3 +159,11 @@ with open(SRC, encoding='utf-8') as f, open(OUT, 'w', encoding='utf-8') as out:
 			continue
 		key, ipa = line.split('\t', 1)
 		out.write(f'{key}\t{convert(key, ipa) if ipa else ""}\n')
+		seen.add(key)
+	for more in MORE:
+		for line in open(more, encoding='utf-8'):
+			key, _, g2k = line.rstrip('\n').partition('\t')
+			key = ' '.join(re.sub(r'\([^)]*\)|<[^>]+>|[!?—–―…]|\.\.\.', ' ', key).split())  # (Nath's កុំអំពល់!, កម្ពុជ—, ... (<strong>ផ.ស.ស.</strong>))
+			if g2k and not key.startswith('#') and key not in seen:
+				out.write(f'{key}\t{g2k}\n')
+				seen.add(key)

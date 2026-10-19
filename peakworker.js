@@ -34,7 +34,7 @@ const cachedWasm = (async () => {
 // Everything peak() below uses. A cached peak.wasm missing some of these is
 // an old build saved under a newer timestamp (downloaded while a deploy was
 // still reaching the CDN): drop it everywhere so a fresh copy gets fetched.
-const wasmExports = ['malloc', 'free', 'load_peak', 'free_peak', 'peak_init', 'init_search', 'continue_search', 'get_result', 'switchstate', 'init_translate', 'translate_next'];
+const wasmExports = ['malloc', 'free', 'load_peak', 'free_peak', 'peak_init', 'init_search', 'continue_search', 'get_result', 'switchstate', 'match_at', 'last_match', 'last_index', 'render_match', 'head_at'];
 function hasExports(module) {
 	const have = WebAssembly.Module.exports(module).map(x => x.name);
 	return wasmExports.every(name => have.includes(name));
@@ -54,15 +54,12 @@ let adicts = []
 let query = ''
 let cdic = 0;
 let st = 0;
-let order = []; // Dictionaries in the order searched: the focused one first
+let order = []; // Dictionaries in the order searched: the starred ones first
 let gen = 0; // Which search this is; the page drops results from older ones
 
-function searchOrder(focus){
-	order = Array.from({length: dicts.length}, (_, i) => i);
-	if(focus >= 0 && focus < order.length){
-		order.splice(focus, 1);
-		order.unshift(focus);
-	}
+function searchOrder(stars){
+	const first = (Array.isArray(stars) ? stars : [stars]).filter(f => f >= 0 && f < dicts.length);
+	order = [...first, ...Array.from({length: dicts.length}, (_, i) => i).filter(i => !first.includes(i))];
 }
 
 
@@ -147,48 +144,59 @@ self.onmessage = async (e) => {
 				}
 			}
 		});
-	}else if(e.data.type == "translate"){
+	}else if(e.data.type == "matchall"){
+		// For translating with several dictionaries at once: this one's
+		// headwords at each place in the text, every length (second index
+		// words where no headword starts), as [start, length, match, index,
+		// second] in UTF-16 offsets, like the page's strings. The page picks
+		// between the dictionaries, then asks for the entries (renderlines).
 		const d = dicts[e.data.did];
-		if(d && d.module){
-			d.switchState(); // Same as tempsearch: leave the main search alone
-			const pieces = [];
-			let found = false;
-			if(e.data.check){ // Only translate when there's no entry (index searches)
-				d.setQuery(d.fitQuery(e.data.query));
-				for(const s of [3, 4, 5]){
-					d.module._init_search(s, 0);
-					if(d.getResult(1) > 0){
-						found = true;
-						break;
-					}
+		const matches = [];
+		const bytes = new TextEncoder().encode(e.data.query);
+		if(d && d.module && bytes.length){
+			const tptr = d.module._malloc(bytes.length + 1);
+			d.module.HEAPU8.set(bytes, tptr);
+			d.module.HEAPU8[tptr + bytes.length] = 0;
+			// Each byte offset's UTF-16 offset
+			const u16 = new Uint32Array(bytes.length + 1);
+			let b = 0, u = 0;
+			for(const ch of e.data.query){
+				const cp = ch.codePointAt(0);
+				u16[b] = u;
+				b += cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+				u += ch.length;
+			}
+			u16[bytes.length] = u;
+			for(let p = 0; p < bytes.length; ++p){
+				if((bytes[p] & 0xC0) === 0x80) continue; // Inside a character
+				for(const second of [0, 1]){
+					const n = matches.length;
+					for(let k = d.module._match_at(tptr, bytes.length, p, 0, second); k > 0; k = k > 1 ? d.module._match_at(tptr, bytes.length, p, k - 1, second) : 0)
+						matches.push([u16[p], u16[p + k] - u16[p], d.module._last_match(), d.module._last_index(), second]);
+					if(matches.length > n) break;
 				}
 			}
-			// The text gets its own buffer: it can be any length.
-			const bytes = found ? null : new TextEncoder().encode(e.data.query);
-			const tptr = found ? 0 : d.module._malloc(bytes.length + 1);
-			if(tptr){
-				d.module.HEAPU8.set(bytes, tptr);
-				d.module.HEAPU8[tptr + bytes.length] = 0;
-			}
-			if(tptr && d.module._init_translate(tptr, bytes.length) == 0){
-				while((d.rlen = d.module._translate_next()) > 0){
-					const z = new Uint8Array(d.module.HEAPU8.buffer, d.rptr, d.rlen).indexOf(0);
-					const piece = {text: d.module.UTF8ToString(d.rptr, z)};
-					if(z + 1 < d.rlen){
-						const entry = d.module.UTF8ToString(d.rptr + z + 1, d.rlen - z - 1);
-						const tab = entry.indexOf('\t');
-						piece.header = entry.slice(0, tab).trim();
-						piece.body = entry.slice(tab + 1);
-					}
-					pieces.push(piece);
-				}
-			}
-			if(tptr)
-				d.module._free(tptr);
-			d.switchState();
-			if(!found)
-				self.postMessage({type: "translation", id: id, did: e.data.did, dict: d.name, query: e.data.query, tag: e.data.tag, pieces: pieces});
+			d.module._free(tptr);
 		}
+		self.postMessage({type: "matches", id: id, did: e.data.did, tag: e.data.tag, matches: matches});
+	}else if(e.data.type == "heads"){
+		// Every headword, in the file's order
+		const d = dicts[e.data.did];
+		const heads = [];
+		if(d && d.module)
+			for(let i = 0, n; (n = d.module._head_at(i)) >= 0; ++i)
+				heads.push(d.module.UTF8ToString(d.rptr, n));
+		self.postMessage({type: "rendered", id: id, did: e.data.did, tag: e.data.tag, heads: heads});
+	}else if(e.data.type == "renderlines"){
+		const d = dicts[e.data.did];
+		const entries = (e.data.lines || []).map(([m, index]) => {
+			const n = d && d.module ? d.module._render_match(m, index) : -1;
+			if(n <= 0) return null;
+			const entry = d.module.UTF8ToString(d.rptr, n);
+			const tab = entry.indexOf('\t');
+			return {header: entry.slice(0, tab).trim(), body: entry.slice(tab + 1)};
+		});
+		self.postMessage({type: "rendered", id: id, did: e.data.did, tag: e.data.tag, entries: entries});
 	}else if(e.data.type == "getresults"){
 		let num = 0;
 		while(num == 0){
@@ -239,8 +247,11 @@ async function peak(wasmModule){
 		_continue_search: exp.continue_search,
 		_get_result:      exp.get_result,
 		_switchstate:     exp.switchstate,
-		_init_translate:  exp.init_translate,
-		_translate_next:  exp.translate_next,
+		_match_at:        exp.match_at,
+		_last_match:      exp.last_match,
+		_last_index:      exp.last_index,
+		_render_match:    exp.render_match,
+		_head_at:         exp.head_at,
  
 		get HEAPU8() { return new Uint8Array(mem.buffer); },
  

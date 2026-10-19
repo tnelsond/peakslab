@@ -52,6 +52,12 @@ $(SLAB_META_FILES): peakgen FORCE
 		echo "Up to date: $@"; \
 	fi
 
+# g2k.tsv is made: ipa.tsv in G2K's phonetics, then the words only nath2022 has
+dict_src/khmer/phonetics/g2k.tsv: dict_src/khmer/phonetics/ipa.tsv dict_src/khmer/dict/nath2022.tsv utils/ipatog2k.py utils/nathtog2k.pl
+	perl utils/nathtog2k.pl dict_src/khmer/dict/nath2022.tsv > $@.nath
+	python3 utils/ipatog2k.py dict_src/khmer/phonetics/ipa.tsv $@ $@.nath
+	rm $@.nath
+
 meta:
 	mkdir -p meta
 peakgen : peakgen.c peak.h zstd.o zstd.h
@@ -81,7 +87,7 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
 # (i.e. dictionary load time) about twice as slow, so it's not used.
 CLANG ?= clang
 WASM_OPT ?= $(shell command -v wasm-opt 2>/dev/null)
-PEAK_EXPORTS = load_peak peak_init init_search continue_search get_result free_peak malloc free switchstate init_translate translate_next
+PEAK_EXPORTS = load_peak peak_init init_search continue_search get_result free_peak malloc free switchstate match_at last_match last_index render_match head_at
 peak.wasm : peak.c zstddeclib.c peak.h utils/walloc-master/walloc.c $(wildcard utils/minilibc/*)
 	$(CLANG) --target=wasm32 -Oz -flto -nostdlib -isystem utils/minilibc \
 	-mbulk-memory -msimd128 -Wno-pointer-sign \

@@ -658,6 +658,144 @@ int translate_next(){
 	return len;
 }
 
+// Matching mode, for translating with several dictionaries at once: the
+// longest headword at one place in a text (its own buffer, any length).
+// The page goes through the text and picks between the dictionaries.
+static int32_t m_match = -1;
+static int m_index = INDEX1;
+
+// Where a word in the second index (the @ places inside entries) can end:
+// not inside a word
+static int m_wordend(const uint8_t *e){
+	uint32_t c = p_utf8(e);
+	return (c < 0x80 && !p_isletter(c)) || (c >= 0xA0 && c < 0xC0) || (c >= 0x2000 && c < 0x2070) || (c >= 0x3000 && c < 0x3040); // ASCII, Latin-1, general and CJK punctuation
+}
+
+// The longest match in index st at text+pos (text[len] is '\0' here), no
+// longer than maxk bytes (0: any), or 0.
+// A headword ends where its line's first column does (exact); a second
+// index word just has to end at a word end.
+static int m_longest(enum searchtype st, int n, uint8_t *text, uint32_t len, uint32_t pos, uint32_t maxk, int exact){
+	uint8_t *s = text + pos;
+	uint32_t rest = len - pos;
+	// Every headword that starts s sorts between itself and s, so the
+	// entries around where s would go share at least that much with it.
+	int lb = p_lowerbound(st, n, s);
+	uint32_t k = 0;
+	for(int m = lb - 1; m <= lb; ++m){
+		if(m < 0 || m >= n) continue;
+		uint8_t *e = p_linetostr(m, st);
+		uint32_t j = 0;
+		while(j < rest && e[j] == s[j]) ++j;
+		if(j > k) k = j;
+	}
+	if(maxk && k > maxk)
+		k = maxk;
+	for(; k > 0; --k){ // Longest first
+		if(!p_boundary(text, pos + k, len) || text[pos + k - 1] == ' ' || text[pos + k - 1] == '\n')
+			continue; // (a match doesn't take the space after a word)
+		uint8_t c = s[k];
+		s[k] = '\0';
+		int m = p_lowerbound(st, n, s);
+		int found = -1;
+		if(exact){
+			if(m < n && !ps_cmpe(p_linetostr(m, st), s))
+				found = m;
+		}else{
+			// Of the ones starting with it, the ones ending there sort first
+			// (where a word can end: m_wordend)
+			for(int t = 0; t < 16 && m < n; ++t, ++m){
+				uint8_t *e = p_linetostr(m, st);
+				if(memcmp(e, s, k)) break;
+				if(m_wordend(e + k)){
+					found = m;
+					break;
+				}
+			}
+		}
+		s[k] = c;
+		if(found >= 0){
+			m_match = found;
+			m_index = st;
+			return k;
+		}
+	}
+	return 0;
+}
+
+// pos is a byte offset into text, which needs len+1 bytes. Looks in the
+// headwords, or with second, in the second index (words marked in the
+// entries). With maxk, no longer than that: called again with the last
+// length - 1, it gives the shorter ones too.
+// Returns:
+// >0 = how many bytes the longest match there is; last_match() and
+//      last_index() say which one, for render_match()
+//  0 = nothing starts there
+// -1 = a piece can't start there (inside a character, a word or a cluster)
+// -3 = not loaded
+EMSCRIPTEN_KEEPALIVE
+int match_at(uint8_t *text, uint32_t len, uint32_t pos, uint32_t maxk, int second){
+	m_match = -1;
+	if(!ps_h || !g_d) return -3;
+	if(!text || pos >= len || !p_boundary(text, pos, len)) return -1;
+	int nosort = ps_h->features & NOSORT; // Its headwords are in the second index
+	if(second && (nosort || !ps_h->idx2_len)) return 0;
+	uint8_t end = text[len];
+	text[len] = '\0';
+	int k = nosort ? m_longest(INDEX2, ps_h->idx2_len, text, len, pos, maxk, 1)
+		: second ? m_longest(INDEX2, ps_h->idx2_len, text, len, pos, maxk, 0)
+		: m_longest(INDEX1, ps_h->line_idx_len - 1, text, len, pos, maxk, 1); // line_idx has an extra end entry
+	text[len] = end;
+	return k;
+}
+
+// The match match_at() found last, and which index it's in
+EMSCRIPTEN_KEEPALIVE
+int last_match(){
+	return m_match;
+}
+EMSCRIPTEN_KEEPALIVE
+int last_index(){
+	return m_index;
+}
+
+// Writes the entry a match (in index st, from last_index()) is in into the
+// result buffer.
+// Returns:
+// >0 = bytes written
+// -1 = no such match
+// -3 = not loaded
+// Line i's headword (in the file's order: a Bible text's is the Bible's),
+// in the result buffer; its length, or -1 past the end
+EMSCRIPTEN_KEEPALIVE
+int head_at(int i){
+	if(!ps_h || !g_d)
+		return -3;
+	if(i < 0 || i >= (int)ps_h->line_idx_len - 1)
+		return -1;
+	uint8_t *s = p_linetostr(i, INDEX1);
+	int n = 0;
+	while(n < (int)g_result_max - 1 && s[n] && s[n] != '\t'){
+		g_result_loc[n] = s[n];
+		++n;
+	}
+	g_result_loc[n] = 0;
+	return n;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int render_match(int32_t match, int st){
+	if(!ps_h || !g_d)
+		return -3;
+	int n = st == INDEX2 ? ps_h->idx2_len : ps_h->line_idx_len - 1;
+	if(match < 0 || match >= n)
+		return -1;
+	int line = st == INDEX2 ? p_getline(p_linetostr(match, INDEX2)) : match;
+	if(line < 0)
+		return -1;
+	return p_render(g_result_loc, g_result_max, line);
+}
+
 int p_binarysearch(){
 	if(psa->line > psa->idxlen-1 || psa->line < 0){
 		return -1;

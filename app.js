@@ -15,11 +15,10 @@ let appname = '?';
 // block-scoped and invisible from here, silently throwing a ReferenceError
 // on every 'status' message instead of clearing the "not downloaded" state.
 let ack = null;
-// Reused for every pin button (the fixed one and one per result) — defined
-// once so we're not rebuilding this markup on every streamed result.
-const pinIconSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M16,12V4h1V2H7v2h1v8l-2,2v2h5.2v6h1.6v-6H18v-2L16,12z"/></svg>';
-const pinCloseIconSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
-const pinCloseIconSVGSmall = pinCloseIconSVG.replace(/width="20" height="20"/, 'width="16" height="16"');
+// Reused for every bookmark button (one per result) — defined once so we're
+// not rebuilding this markup on every streamed result. CSS fills it in when
+// it's bookmarked (aria-pressed).
+const bookmarkSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
 // Chords (<p-m chord="...">) are hidden by default (CSS). The button toggles
 // one class on <body>, remembered; CSS shows them and switches every
 // button's label (see .chords-btn).
@@ -31,15 +30,20 @@ window.toggleChords = () => {
 try { if (localStorage.getItem('showChords') === 'true') document.body.classList.add('show-chords'); } catch (e) {}
 // Collapse a dictionary: every one of its entries (data-dict) shrinks to its
 // first line, everywhere in the results, and stays collapsed (remembered).
+// Some start collapsed (files.json's 7th field, #collapsed in the source:
+// Bible notes, ...); what's remembered is the ones flipped from that.
 // Done with one generated CSS rule per collapsed dictionary.
 const collapseBtnHTML = '<button type="button" class="collapse-btn" onclick="toggleDict(this)" title="Collapse or expand this dictionary"></button>';
 // Translates an entry word by word, see translateEntry
 const translateBtnHTML = '<button type="button" class="translate-btn" onclick="translateEntry(this)" title="Translate word by word">⇄</button>';
 const collapseStyle = document.head.appendChild(document.createElement('style'));
-let collapsedDicts = [];
+let collapsedDicts = []; // Flipped from their default
 try { collapsedDicts = JSON.parse(localStorage.getItem('collapsedDicts')) || []; } catch (e) {}
+let startCollapsed = new Set(); // (set once files.json is read)
 const applyCollapsed = () => {
-	const sel = collapsedDicts.map(d => `p-e[data-dict="${CSS.escape(d)}"]`);
+	const flipped = new Set(collapsedDicts);
+	const sel = [...startCollapsed].filter(d => !flipped.has(d)).concat(collapsedDicts.filter(d => !startCollapsed.has(d)))
+		.map(d => `p-e[data-dict="${CSS.escape(d)}"]`);
 	collapseStyle.textContent = sel.length ? `${sel.join(',')}{max-height:1.8em;overflow:hidden;opacity:.6;font-size:.8em;margin-top:.4em;padding-top:.2em}` +
 		`${sel.map(s => s + ' .collapse-btn::after').join(',')}{content:"+"}` +
 		`${sel.map(s => s + ' p-h').join(',')}{padding:0 3px}` : '';
@@ -143,7 +147,7 @@ if(root){
 	const links = '<ul class="dictlist-root">' + tlangs.map(dir => `<li><a class="dictlist-link" href="/${dir}">${dir}</a></li>`).join(' ') + '</ul>';
 	document.getElementById("list").innerHTML = links;
 }else{
-	['searchContainer', 'content', 'about', 'controls'].forEach(id => {
+	['searchContainer', 'subbar', 'content', 'about', 'controls'].forEach(id => {
 		document.getElementById(id).classList.toggle('hide');
 	});
 	let num = 0;
@@ -193,14 +197,21 @@ if(root){
 					const d = e.data.did*workers.length + e.data.id - 1;
 					dict_master_code[d] = false;
 					loading.delete(d);
+					if(!document.getElementById(`${d}`)?.checked && !extraLoaded.has(d)) // Turned off (or the filter changed) while it loaded
+						unloadDict(d);
+					(pendingLoad.get(d) || []).forEach(f => f());
+					pendingLoad.delete(d);
 					document.getElementById(`${d}`)?.classList.remove('down');
 					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
 					--nload;
 					newtiming.innerHTML = `${Math.round(performance.now())}ms `;
+					updateStatus();
 					if(nload == 0)
 						saveState();
-					query = ""; // Triggers a search
-					startSearch();
+					if(!extraLoaded.has(d)){ // Ones just to translate with aren't searched
+						query = ""; // Triggers a search
+						startSearch();
+					}
 				}
 				else if(e.data.type == "nomore"){
 					if(e.data.st == st && e.data.gen === searchGen){
@@ -208,143 +219,200 @@ if(root){
 						if(!worker_code.includes(false)){
 							if(nextst()){
 								continueSearch();
-							}else{
+							}else{ // The search is done
 								if (loader) {
 									loader.remove();
 									loader = null;
 								}
+								if (num == 0)
+									translate(); // Nothing has all of it: word by word
 							}
 						}
 					}
-				}else if(e.data.type == "translation"){
-					if(e.data.tag)
-						showEntryTranslation(e.data);
-					else
-						showTranslation(e.data);
+				}else if(e.data.type == "matches" || e.data.type == "rendered"){
+					gotReply(e.data);
 				}else if(e.data.type == "result"){
-					const popup = e.data.dest == "popup";
-					if(!popup && e.data.gen !== searchGen)
-						return; // Sent for an earlier search (it restarts as dictionaries load)
-					if(!popup && num == 0){ // Popup results leave the main results alone
-						cleanup(tout);
-						if(loader)
-							tout.append(loader)
-					}
-					let idpre = popup ? "pid" : "mid";
-					const nheader = updateQuery(e.data.header);
-					let div = document.getElementById(`${idpre}-${nheader}`);
-					const first = div === null;
-					if(first){
-						div = document.createElement('p-d');
-						div.id = `${idpre}-${nheader}`;
-						if(idpre == "mid" || e.data.st == 2){
-							let temp_dict_code = new Array(dicts.length).fill(true);
-							temp_dict_code[dicts.findIndex(file => file[1] === e.data.dict)] = false;
-							workers.forEach((w, i) =>{
-								let code = temp_dict_code.filter((_, index) => index % workers.length == i);
-								w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: e.data.dest, dicts: code, gen: searchGen});
-							});
-						}
-					}
-					let el = document.createElement('p-e');
-					const d = e.data.did*workers.length + e.data.id - 1;
-					const sortid = d === focus ? 0 : d + 1; // The focused dictionary first
-					el.setAttribute('data-id', sortid);
-					el.dataset.dict = e.data.dict;
-					if(debug)
-						el.innerHTML += `<p-h>${e.data.dict} ${e.data.st} '${e.data.query}' #${sortid}</p-h>`;
-					else
-						el.innerHTML += `<p-h>${e.data.dict}</p-h>`;
-					if(first)
-						div.innerHTML += `<h2>${e.data.header} <button type="button" class="pin-btn" onclick="togglePin(this)" title="Pin this section" style="background:var(--control-btn-bg);border:none;border-radius:50%;width:22px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;vertical-align:middle;">${pinIconSVG}</button></h2>`;
-					if(e.data.filetype){
-						if(e.data.subheader){
-							let sh = e.data.subheader;	
-							el.innerHTML += `<p-n>${sh.join(",<br>")}<br></p-n>`;
-						}
-						if (e.data.filetype.toLowerCase().includes('webp')) {
-							const blob = new Blob([e.data.body], { type: 'image/webp' });
-							const url = URL.createObjectURL(blob);
-							el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
-						}else if (e.data.filetype.toLowerCase().includes('jbig2')) {
-							jbig2to1bpng(e.data.body).then(blob => {
-								const url = URL.createObjectURL(blob);
-								el.innerHTML += `<img src="${url}" alt="${e.data.header}" style="max-width:100%;">`;
-							});
-						}else if (e.data.filetype.toLowerCase().includes('webm')) {
-							const blob = new Blob([e.data.body], { type: 'audio/webm; codecs=opus'});
-							const url = URL.createObjectURL(blob);
-							el.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${e.data.header}.${e.data.filetype}"></audio>`;
-						}else if (e.data.filetype.toLowerCase().includes('codec2') || e.data.filetype.toLowerCase().includes('c2')) {
-							const body = e.data.body;
-							const btn = document.createElement('button');
-							btn.textContent = '▶ Play';
-							btn.addEventListener('click', function onClick() {
-								btn.disabled = true;
-								btn.textContent = 'Decoding…';
-								codec2toWav(body).then(blob => {
-									const audio = document.createElement('audio');
-									audio.controls = true;
-									audio.src = URL.createObjectURL(blob);
-									btn.replaceWith(audio);
-									audio.play();
-								});
-							}, { once: true });
-							el.appendChild(btn);
-						}else{
-							el.innerHTML += `${e.data.filetype}<br> filetype not supported`;
-						}
-					}else{
-						if(mark){
-							el.innerHTML += highlightText(e.data.body, e.data.query);
-						} else{
-							el.innerHTML += `${e.data.body}`;
-						}
-						// Entries with chords get a show/hide button next to the dictionary name.
-						if (e.data.body && e.data.body.includes('<p-m')) {
-							el.querySelector('p-h')?.insertAdjacentHTML('afterend', chordsBtnHTML);
-						}
-					}
-					if(!e.data.filetype)
-						el.querySelector('p-h')?.insertAdjacentHTML('afterend', translateBtnHTML);
-					el.querySelector('p-h')?.insertAdjacentHTML('afterend', collapseBtnHTML);
-					
-					const children = Array.from(div.children);
-					const insertBeforeElement = children.find(child => {
-						const childId = parseInt(child.dataset.id);
-						return childId > sortid;
-					});
-					if (insertBeforeElement) {
-						div.insertBefore(el, insertBeforeElement);
-					} else {
-						div.appendChild(el);
-					}
-
-					let place = popup ? popupResults : resultsDiv;
-					if(!popup && d === focus){ // Its sections go above the other dictionaries'
-						if(!focusEnd.isConnected)
-							resultsDiv.prepend(focusEnd);
-						if(first || focusEnd.compareDocumentPosition(div) & Node.DOCUMENT_POSITION_FOLLOWING)
-							resultsDiv.insertBefore(div, focusEnd);
-					}else if(first){
-						if(place == resultsDiv && loader){
-							place.insertBefore(div, loader); 
-						}else{
-							place.appendChild(div); 
-						}
-					}
-					if(first && popup){
-						popupOpen();
-						document.addEventListener('click', closePopupClick); 
-					}
-					if(!popup){
-						++num;
-						queryInput.classList.remove("error");
-						statusDiv.textContent = `Found ${num}+ matching lines.`;
-						loadmore();
-					}
+					addResult(e.data);
 				}
 			}
+	}
+
+	// A result from a worker (or an entry a translated word came from), into
+	// the results or the popup (dest "popup")
+	function addResult(data){
+		const popup = data.dest == "popup";
+		if(!popup && data.gen !== searchGen)
+			return; // Sent for an earlier search (it restarts as dictionaries load)
+		if(!popup && num == 0){ // Popup results leave the main results alone
+			cleanup(tout);
+			if(loader)
+				tout.append(loader)
+		}
+		let idpre = popup ? "pid" : "mid";
+		const nheader = updateQuery(data.header);
+		if(!popup && !data.filetype && chapterOf(nheader) === query)
+			return addVerse(data, nheader);
+		let div = document.getElementById(`${idpre}-${nheader}`);
+		const first = div === null;
+		if(first){
+			div = document.createElement('p-d');
+			div.id = `${idpre}-${nheader}`;
+			if(idpre == "mid" || data.st == 2){
+				let temp_dict_code = searchMask();
+				temp_dict_code[dicts.findIndex(file => file[1] === data.dict)] = false;
+				workers.forEach((w, i) =>{
+					let code = temp_dict_code.filter((_, index) => index % workers.length == i);
+					w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: data.dest, dicts: code, gen: searchGen});
+				});
+			}
+		}
+		const d = data.did*workers.length + data.id - 1;
+		if(isBibleText(d))
+			div.classList.add('verse');
+		const seen = div.seen ??= new Set(); // An entry found twice (e.g. a translated word's, then by the popup search) shows once
+		if (typeof data.body === 'string' && seen.has(d + '\t' + data.body)) return;
+		seen.add(d + '\t' + data.body);
+		let el = document.createElement('p-e');
+		const sortid = sortId(d); // Starred dictionaries first
+		el.setAttribute('data-id', sortid);
+		el.dataset.dict = data.dict;
+		el.dataset.d = d;
+		el.classList.toggle('starred', isStar(d));
+		const name = debug ? `${data.dict} ${data.st} '${data.query}' #${sortid}` : data.dict;
+		el.innerHTML += `<p-h title="${escapeHTML(typeLabel(d) || '')}">${starBtnHTML(d)}<span class="dn">${name}</span></p-h>`;
+		if(first){
+			const ctx = isBibleText(d) && chapterOf(nheader) && chapterOf(nheader) !== query ? '<button type="button" class="ctx-btn" onclick="readInContext(this)">Read in context</button>' : '';
+			div.innerHTML += `<h2><span class="hw">${data.header}</span>${ctx}<button type="button" class="bm-btn" onclick="toggleBookmark(this)" title="Bookmark" aria-label="Bookmark" aria-pressed="false">${bookmarkSVG}</button></h2>`;
+			markBookmark(div);
+		}
+		if(data.filetype){
+			if(data.subheader){
+				let sh = data.subheader;	
+				el.innerHTML += `<p-n>${sh.join(",<br>")}<br></p-n>`;
+			}
+			if (data.filetype.toLowerCase().includes('webp')) {
+				const blob = new Blob([data.body], { type: 'image/webp' });
+				const url = URL.createObjectURL(blob);
+				el.innerHTML += `<img src="${url}" alt="${data.header}" style="max-width:100%;">`;
+			}else if (data.filetype.toLowerCase().includes('jbig2')) {
+				jbig2to1bpng(data.body).then(blob => {
+					const url = URL.createObjectURL(blob);
+					el.innerHTML += `<img src="${url}" alt="${data.header}" style="max-width:100%;">`;
+				});
+			}else if (data.filetype.toLowerCase().includes('webm')) {
+				const blob = new Blob([data.body], { type: 'audio/webm; codecs=opus'});
+				const url = URL.createObjectURL(blob);
+				el.innerHTML += `<audio controls><source src="${url}" type="audio/webm; codecs=opus" alt="${data.header}.${data.filetype}"></audio>`;
+			}else if (data.filetype.toLowerCase().includes('codec2') || data.filetype.toLowerCase().includes('c2')) {
+				const body = data.body;
+				const btn = document.createElement('button');
+				btn.textContent = '▶ Play';
+				btn.addEventListener('click', function onClick() {
+					btn.disabled = true;
+					btn.textContent = 'Decoding…';
+					codec2toWav(body).then(blob => {
+						const audio = document.createElement('audio');
+						audio.controls = true;
+						audio.src = URL.createObjectURL(blob);
+						btn.replaceWith(audio);
+						audio.play();
+					});
+				}, { once: true });
+				el.appendChild(btn);
+			}else{
+				el.innerHTML += `${data.filetype}<br> filetype not supported`;
+			}
+		}else{
+			if(mark){
+				el.innerHTML += highlightText(data.body, data.query);
+			} else{
+				el.innerHTML += `${data.body}`;
+			}
+			// Entries with chords get a show/hide button next to the dictionary name.
+			if (data.body && data.body.includes('<p-m')) {
+				el.querySelector('p-h')?.insertAdjacentHTML('afterend', chordsBtnHTML);
+			}
+		}
+		if(!data.filetype)
+			el.querySelector('p-h')?.insertAdjacentHTML('afterend', translateBtnHTML);
+		el.querySelector('p-h')?.insertAdjacentHTML('afterend', collapseBtnHTML);
+		
+		const children = Array.from(div.children);
+		const insertBeforeElement = children.find(child => {
+			const childId = parseInt(child.dataset.id);
+			return childId > sortid;
+		});
+		if (insertBeforeElement) {
+			div.insertBefore(el, insertBeforeElement);
+		} else {
+			div.appendChild(el);
+		}
+
+		let place = popup ? popupResults : resultsDiv;
+		if(!popup && isStar(d)){ // Its sections go above the other dictionaries'
+			if(!focusEnd.isConnected)
+				resultsDiv.prepend(focusEnd);
+			if(first || focusEnd.compareDocumentPosition(div) & Node.DOCUMENT_POSITION_FOLLOWING)
+				resultsDiv.insertBefore(div, focusEnd);
+		}else if(first){
+			if(place == resultsDiv && loader){
+				place.insertBefore(div, loader); 
+			}else{
+				place.appendChild(div); 
+			}
+		}
+		if(first && popup){
+			popupOpen();
+			setTimeout(() => document.addEventListener('click', closePopupClick)); // (after the click that opened it, if one did)
+		}
+		if(!popup){
+			++num;
+			queryInput.classList.remove("error");
+			updateStatus(`Found ${num}+ matching lines.`);
+			loadmore();
+		}
+	}
+
+	// A verse of the chapter searched ("rom 8."): each dictionary's verses
+	// run together in one card, numbered as its references have them
+	// ("យ៉ូហាន ៣:១៦"); a verse's number translates it word by word
+	function addVerse(data, h){
+		const d = data.did*workers.length + data.id - 1;
+		const label = /<p-n>@?([^<]*)<\/p-n>/.exec(data.body);
+		let card = document.getElementById(`ch-${d}`);
+		if(!card){
+			card = document.createElement('p-d');
+			card.id = `ch-${d}`;
+			card.className = 'chapter';
+			card.dataset.id = sortId(d);
+			const title = label ? label[1].replace(/\s*[:.]\s*\p{Nd}+[^:.]*$/u, '') : query; // Its chapter
+			card.innerHTML = `<h2><span class="hw">${escapeHTML(title)}</span></h2>` +
+				`<p-e data-dict="${escapeHTML(data.dict)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}><p-h title="${escapeHTML(typeLabel(d) || '')}">${starBtnHTML(d)}<span class="dn">${data.dict}</span></p-h>${collapseBtnHTML}</p-e>`;
+			const after = [...resultsDiv.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > sortId(d));
+			resultsDiv.insertBefore(card, after || (loader && loader.parentNode === resultsDiv ? loader : null));
+		}
+		const n = ((label && /\p{Nd}+\s*[:.]\s*(\p{Nd}+)/u.exec(label[1])) || [, h.split('.').pop()])[1];
+		let body = data.body.replace(/<p-n>[\s\S]*?<\/p-n>/, '');
+		const text = isBibleText(d);
+		if(text) // Verses run on
+			body = body.replace(/<\/?p(?=[\s>])[^>]*>/gi, ' ');
+		// Its headings go above its number, which stays on the line with its
+		// first word
+		const heads = (/^\s*(?:<h\d[^>]*>[\s\S]*?<\/h\d>\s*)+/i.exec(body) || [''])[0];
+		const rest = body.slice(heads.length).trimStart();
+		const word = /^[^\s\u200B<]*/.exec(rest)[0];
+		const vs = document.createElement(text ? 'span' : 'div');
+		vs.className = 'vs';
+		vs.innerHTML = `${heads}<span class="vs-start"><button type="button" class="vs-n" onclick="translateEntry(this)" title="Translate word by word">${escapeHTML(n)}</button>${word}</span>${rest.slice(word.length)} `;
+		card.querySelector('p-e').append(vs);
+		if(h === readHl){ // Read in context: the verse in each card, the top one's in view
+			vs.classList.add('hl');
+			resultsDiv.querySelector('.vs.hl').scrollIntoView({block: 'center'});
+		}
+		++num;
+		queryInput.classList.remove("error");
+		updateStatus(`Found ${num}+ matching lines.`);
+		loadmore();
 	}
 
 	const abbr = filesJson.abbr || {};
@@ -450,19 +518,97 @@ if(root){
 			description,
 			defaultEnabled(priority)
 	]);
+	startCollapsed = new Set(dicts.filter((_, i) => files[i].file[6]).map(d => d[1]));
+	applyCollapsed();
 
-	// Focus: one dictionary's results come first, and text it has no entry
-	// for is translated word by word with it. ?dict=h97 is a page with only
-	// that dictionary loaded ("solo"), focused; ?focus=h97 just focuses it.
+	// What kind of dictionary each one is (files.json's 6th field, #lang in
+	// the source): mono (in the language), bi (the language to English), rbi
+	// (English to the language), phon (pronunciation) or aux (audio, images,
+	// word counts, ...)
+	const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+	const TYPE_ORDER = ['mono', 'bi', 'rbi', 'phon', 'aux'];
+	const typeOf = d => files[d].file[5] || '';
+	const typeLabel = d => {
+		const l = cap(files[d].lang);
+		return {mono: l, bi: `${l} → English`, rbi: `English → ${l}`, phon: 'Pronunciation', aux: 'Auxiliary'}[typeOf(d)] || '';
+	};
+
+	// The filter: categories made from the files on the page, by kind (the
+	// folders: Dictionaries, Bible, Bible texts, Music, Pronunciation, ...)
+	// and by language (Khmer only, Khmer → English, English → Khmer). Pick
+	// any number of them and searches use just their dictionaries; none
+	// picked is Everything (the library's choices). Each category keeps its
+	// own choice of which of its dictionaries it uses.
+	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
+		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
+		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation',
+		media: 'Audio & images', ref: 'Reference'};
+	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
+	const cats = []; // {id, label, group, sub, members: [d, ...]}
+	{
+		const addCat = (id, label, group, test, sub) => {
+			const members = files.map((_, d) => d).filter(test);
+			// Not if it's empty or the same as another
+			if (members.length && !cats.some(c => c.members.join() === members.join()))
+				cats.push({id, label, group, sub, members});
+		};
+		const tops = [...new Set(files.map(f => f.category[0] || 'other'))];
+		tops.forEach(c => {
+			addCat(c, catLabel(c), 'kind', d => (files[d].category[0] || 'other') === c);
+			const subs = [...new Set(files.filter(f => f.category[0] === c && f.category[1]).map(f => f.category[1]))];
+			if (subs.length > 1)
+				subs.forEach(sc => addCat(`${c}/${sc}`, catLabel(`${c}/${sc}`), 'kind', d => files[d].category[0] === c && files[d].category[1] === sc, true));
+		});
+		const curLang = pLangParts[0] || pParts[0];
+		TYPE_ORDER.forEach(t => {
+			const label = {mono: `${cap(curLang)} only`, bi: `${cap(curLang)} → English`, rbi: `English → ${cap(curLang)}`, phon: 'Pronunciation', aux: 'Other extras'}[t];
+			addCat(`type-${t}`, label, 'language', d => typeOf(d) === t && (t === 'aux' || files[d].lang === curLang));
+		});
+	}
+	const catById = id => cats.find(c => c.id === id);
+	const filterKey = `peakslab-filter-${appname}`;
+	let selected = (new URLSearchParams(window.location.search).get('mode') || '').split(',').filter(catById);
+	if (!selected.length && !new URLSearchParams(window.location.search).has('mode')) {
+		try { selected = (JSON.parse(localStorage.getItem(filterKey)) || []).filter(catById); } catch (e) { /* not remembered */ }
+	}
+	const filtered = () => selected.length > 0;
+	const selCats = () => selected.map(catById);
+	const inFilter = d => !filtered() || selCats().some(c => c.members.includes(d));
+	// A category's choice of dictionaries: saved, or the ones on by default
+	// (from the dict definition) in it, or all of it if none are
+	const catStoreKey = id => `peakslab-cat-${appname}-${id}`;
+	const defaultOn = d => dicts[d][4] === true || dicts[d][4] === undefined;
+	function catChosen(c){
+		try {
+			const saved = JSON.parse(localStorage.getItem(catStoreKey(c.id)));
+			if (Array.isArray(saved)) return new Set(c.members.filter(d => saved.includes(dicts[d][0])));
+		} catch (e) { /* not remembered */ }
+		const on = c.members.filter(defaultOn);
+		return new Set(on.length ? on : c.members);
+	}
+	function setCatChosen(c, set){
+		try { localStorage.setItem(catStoreKey(c.id), JSON.stringify(c.members.filter(d => set.has(d)).map(d => dicts[d][0]))); } catch (e) { /* not remembered */ }
+	}
+
+	// Stars: a starred dictionary's entries come first and stand out, in the
+	// order they were starred, and its words are the ones searched first.
+	// Text with no entry is translated word by word with the first starred
+	// one that can (see translator). ?dict=h97 is a page with only that
+	// dictionary loaded ("solo").
 	const urlParams = new URLSearchParams(window.location.search);
 	const dictIndex = name => name ? dicts.findIndex(d => d[1] === name) : -1;
 	let solo = dictIndex(urlParams.get('dict'));
-	const focusKey = `peakslab-focus-${appname}`;
-	let focus = solo >= 0 ? solo : dictIndex(urlParams.get('focus'));
-	if (focus < 0 && !urlParams.has('focus')) {
-		try { const f = localStorage.getItem(focusKey); focus = f ? dicts.findIndex(d => d[0] === f) : -1; } catch (e) { /* not remembered */ }
-	}
-	const focusEnd = document.createElement('span'); // The focused dictionary's sections go above this
+	const starKey = `peakslab-stars-${appname}`;
+	let stars = [];
+	try {
+		// Older versions kept one focused dictionary instead
+		const saved = JSON.parse(localStorage.getItem(starKey)) || [localStorage.getItem(`peakslab-focus-${appname}`)];
+		stars = saved.map(f => dicts.findIndex(d => d[0] === f)).filter(i => i >= 0);
+	} catch (e) { /* not remembered */ }
+	const isStar = d => stars.includes(d);
+	const sortId = d => isStar(d) ? stars.indexOf(d) - 1000 : d + 1;
+	const starBtnHTML = d => `<button type="button" class="star-btn" data-d="${d}" onclick="toggleStar(${d})" aria-pressed="${isStar(d)}" title="${isStar(d) ? 'Unstar' : 'Star: show it first'}" aria-label="Star ${escapeHTML(dicts[d][1])}">${isStar(d) ? '★' : '☆'}</button>`;
+	const focusEnd = document.createElement('span'); // The starred dictionaries' sections go above this
 
 	let workers_num = dicts.length > 1 ? 2 : 1;
 	let workers = [];
@@ -474,6 +620,18 @@ if(root){
 	let dict_master_code = new Array(dicts.length).fill(true);
 	let dict_code = [...dict_master_code];
 	const loading = new Set(); // Dictionaries asked for and not loaded yet (loadDict)
+	// Loaded just to translate with (pronunciation), not to search: they
+	// stay loaded while the page is open, but out of the results
+	const extraLoaded = new Set();
+	const pendingLoad = new Map(); // dictionary -> what to do once it's loaded
+	function ensureLoaded(d, then){
+		if (!dict_master_code[d]) return then();
+		if (!pendingLoad.has(d)) pendingLoad.set(d, []);
+		pendingLoad.get(d).push(then);
+		if (!document.getElementById(`${d}`)?.checked) extraLoaded.add(d);
+		loadDict(d);
+	}
+	const searchMask = () => dicts.map((_, d) => !extraLoaded.has(d) || !!document.getElementById(`${d}`)?.checked);
 
 
 	function escapeRegExp(string) {
@@ -642,108 +800,384 @@ if(root){
 	const defaultPlaceholder = queryInput.placeholder;
 
 	const statusDiv  = document.getElementById('status');
+	const statusText = statusDiv.querySelector('.st-text');
 	const resultsDiv = document.getElementById('results');
 	const popupOverlay = document.getElementById('popupOverlay');
 	const popupQuery = document.getElementById('popupQuery');
 	const popupResults = document.getElementById('popupResults');
 	const popupClose = document.getElementById('popupClose');
 
-	// Pinning: pinning clones a p-d section into its own (non-persistent) view.
-	// The "Pinned" button matches the round control buttons and just shows an
-	// icon, no text. It only appears once there's at least one pin. The
-	// original section stays right where it was.
-	let pinned = [];
-	let showingPinned = false;
 	// Above the results: the big text box for long queries and the
-	// focused dictionary's word by word translation.
+	// starred dictionary's word by word translation.
 	const topDiv = document.createElement('div');
 	resultsDiv.insertAdjacentElement('beforebegin', topDiv);
 	const bigQuery = topDiv.appendChild(document.createElement('textarea'));
 	bigQuery.id = 'bigQuery';
 	bigQuery.classList.add('hide');
-	// Share button and the enabled dictionaries (tap one to focus it)
-	const searchBar = topDiv.appendChild(document.createElement('div'));
-	searchBar.id = 'searchBar';
-	searchBar.classList.add('hide');
-	searchBar.addEventListener('click', e => {
-		const b = e.target.closest('button');
-		if (!b) return;
-		if (b.dataset.idx) cycleDict(+b.dataset.idx);
-		else if (b.classList.contains('sb-more')) {
-			barShowAll = !barShowAll;
-			renderSearchBar();
-		}
-		else share(b);
-	});
 	const translationDiv = topDiv.appendChild(document.createElement('div'));
 
-	const pinnedDiv = document.createElement('div');
-	pinnedDiv.id = 'pinnedResults';
-	pinnedDiv.classList.add('hide');
-	resultsDiv.insertAdjacentElement('afterend', pinnedDiv);
-
-	const pinTabBtn = document.getElementById('pinTab');
-	pinTabBtn.addEventListener('click', () => {
-		showingPinned = !showingPinned;
-		// Swap to a red X so it's obvious this now closes the pinned view.
-		pinTabBtn.innerHTML = showingPinned ? pinCloseIconSVG : pinIconSVG;
-		pinTabBtn.style.background = showingPinned ? '#c0392b' : '';
-		pinTabBtn.title = showingPinned ? 'Close pins' : 'Pins';
-		resultsDiv.classList.toggle('hide', showingPinned);
-		topDiv.classList.toggle('hide', showingPinned);
-		pinnedDiv.classList.toggle('hide', !showingPinned);
-		// Pinned view is just a scrapbook of saved sections — hide the search
-		// bar and all the live-search diagnostics/status while looking at it.
-		document.getElementById('searchContainer')?.classList.toggle('hide', showingPinned);
-		document.getElementById('version')?.classList.toggle('hide', showingPinned);
-		statusDiv.classList.toggle('hide', showingPinned);
-		newtiming.classList.toggle('hide', showingPinned);
-	});
-
-	let isfull = false;
+	// Fullscreen: just the results, no search bar or buttons
 	const f4 = document.getElementById('f4');
 	f4.addEventListener('click', () => {
-		isfull = !isfull;
-		document.getElementById('controls')?.classList.toggle('hidev', isfull);
-		document.getElementById('searchContainer')?.classList.toggle('hide', isfull);
+		const full = document.body.classList.toggle('fullscreen');
+		f4.title = full ? 'Show the search bar' : 'Fullscreen';
 	});
 
-	function updatePinnedTab(){
-		pinTabBtn.classList.toggle('hide', pinned.length === 0);
-		if(pinned.length === 0 && showingPinned){
-			pinTabBtn.click(); // switch back to live results
-		}
-	}
+	// Small screens: the header's buttons are in a menu (☰)
+	const menuBtn = document.getElementById('menuBtn');
+	const headMenu = document.getElementById('headMenu');
+	const setMenu = open => {
+		headMenu.classList.toggle('open', open);
+		menuBtn.setAttribute('aria-expanded', open);
+	};
+	menuBtn.addEventListener('click', () => setMenu(!headMenu.classList.contains('open')));
+	headMenu.addEventListener('click', e => { if (e.target.closest('button')) setMenu(false); });
+	document.addEventListener('click', e => { if (!e.target.closest('#menuBtn, #headMenu')) setMenu(false); });
 
-	window.togglePin = function(btn){
-		const pd = btn.closest('p-d');
-		if(!pd) return;
-		if(pd.parentElement === pinnedDiv){
-			// This is a pinned clone — unpin just removes it.
-			pinned = pinned.filter(p => p !== pd);
-			pd.remove();
-		}else{
-			// Clone the section; the original stays put.
-			const clone = pd.cloneNode(true);
-			clone.removeAttribute('id'); // avoid duplicate ids in the document
-			const cloneBtn = clone.querySelector('.pin-btn');
-			if(cloneBtn){
-				cloneBtn.innerHTML = pinCloseIconSVGSmall;
-				cloneBtn.title = 'Unpin';
-			}
-			pinned.push(clone);
-			pinnedDiv.appendChild(clone);
-		}
-		updatePinnedTab();
+	// ---------------------------------------------------------------
+	// Bible: a Bible text's headwords are its verses ("rom 8.1"), so a
+	// chapter is just a search for "rom 8.", which finds its verses, each
+	// with every translation and note that's on (notes start collapsed).
+	// Books lists the books as a Bible has them.
+	// ---------------------------------------------------------------
+	const isBibleText = d => files[d].category.join('/') === 'bible/text';
+	const hasBible = files.some((_, d) => isBibleText(d));
+	// A verse's chapter: "rom 8.1" -> "rom 8.", else null
+	const chapterOf = h => (/^(.+ \d+\.)\d+$/.exec(h || '') || [])[1] || null;
+	const search = text => { setQueryText(text); startSearch(); addHistory(queryText); };
+	let readHl = ''; // The verse to show in its chapter (Read in context)
+	window.readInContext = btn => {
+		const h = btn.closest('p-d').id.replace(/^[mp]id-/, '');
+		closePopup();
+		readHl = h;
+		query = ''; // (searches again even if it's the chapter showing)
+		search(chapterOf(h));
 	};
 
+	// The books: a Bible text's headwords in its order give the books and
+	// their chapters, and each book's first verse's reference (e.g.
+	// "លោកុប្បត្តិ ១:១") its name and digits. From the first Bible that's on.
+	let books = null; // [{code, n (chapters), name, zero (where its digits' 0 is)}]
+	function loadBooks(then){
+		if (books) return then();
+		const mask = searchMask();
+		const d = dicts.map((_, i) => i).filter(isBibleText).sort((a, b) => mask[b] - mask[a] || sortId(a) - sortId(b))[0];
+		ensureLoaded(d, () => askDict(d, {type: 'heads'}, r => {
+			const list = [], firsts = [];
+			r.heads.forEach((h, i) => {
+				const m = /^(.+) (\d+)\.\d+$/.exec(h);
+				if (!m) return;
+				if (list.at(-1)?.code !== m[1]) { list.push({code: m[1], n: 0, name: m[1], zero: 48}); firsts.push(i); }
+				list.at(-1).n = Math.max(list.at(-1).n, +m[2]);
+			});
+			askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}, r => {
+				r.entries.forEach((e, i) => {
+					const ref = e && /<p-n>@?([^<]*?)\s*(\p{Nd})\s*[:.]\s*\p{Nd}+\s*<\/p-n>/u.exec(e.body);
+					if (!ref) return;
+					list[i].name = ref[1] || list[i].name;
+					list[i].zero = ref[2].codePointAt(0) - 1; // (chapter 1)
+				});
+				books = list;
+				then();
+			});
+		}));
+	}
+	let booksPick = null; // The book whose chapters are showing
+	function booksHTML(){
+		if (!books) {
+			loadBooks(() => { if (drawerView === 'books') renderDrawer(); });
+			return '<p class="empty">Loading…</p>';
+		}
+		const at = chapterOf(query + '1');
+		const b = books.find(x => x.code === booksPick);
+		if (b) {
+			const num = n => String(n).replace(/\d/g, c => String.fromCodePoint(b.zero + +c));
+			const ref = ch => `${b.code.toLowerCase()} ${ch}.`;
+			return `<button type="button" class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h">${escapeHTML(b.name)}</h3>` +
+				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `<button type="button" data-read="${ref(i + 1)}"${at === ref(i + 1) ? ' aria-current="true"' : ''}>${num(i + 1)}</button>`).join('')}</div>`;
+		}
+		return `<div class="bk-grid">${books.map(x => `<button type="button" data-book="${escapeHTML(x.code)}"${at?.startsWith(x.code.toLowerCase() + ' ') ? ' aria-current="true"' : ''}>${escapeHTML(x.name)}</button>`).join('')}</div>`;
+	}
+	// Bible mode (a Bible category picked, or a Bible page): the Books button
+	const bibleMode = () => hasBible && (pParts.includes('bible') || selected.some(id => id.startsWith('bible')));
 
-	// Dictionary list, grouped by full category path (language folder + category,
-	// e.g. "khmer / music / chords"). Each group gets a single flat heading with
-	// every path segment as its own clickable link, followed by its files as a
-	// plain list - no nesting or per-depth indentation. Extras from other
-	// languages get a small microheader within the group.
-	let temp = `<h2>${appname.toUpperCase()} Dictionary List:</h2><ol class="dictlist">`;
+	// ---------------------------------------------------------------
+	// The header's second line: the language, and quick switches for what
+	// a search uses (the filter's categories). It hides while scrolling
+	// down, and comes back scrolling up.
+	// ---------------------------------------------------------------
+	const header = document.getElementById('header');
+	const langBtn = document.getElementById('langBtn');
+	const quick = document.getElementById('quick');
+	const curLang = pLangParts[0] || pParts[0] || '';
+	const langSym = l => (Array.isArray(abbr[l]) && abbr[l][1]) || cap(l).slice(0, 2);
+	langBtn.innerHTML = `<span class="lang-sym">${escapeHTML(langSym(curLang))}</span><span class="lang-name">${escapeHTML(cap(curLang))}${pParts.length > 1 ? ' · ' + escapeHTML(pParts.slice(1).map(cap).join(' · ')) : ''}</span>` +
+		'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+	langBtn.title = langBtn.ariaLabel = `Language: ${cap(curLang)}. Change language`;
+	langBtn.addEventListener('click', () => openDrawer('lang'));
+	// The language panel: this language and its sections, then the others,
+	// biggest first
+	function langHTML(){
+		const counts = {};
+		filesJson.dicts.forEach(f => { const l = f[0].split('/')[0]; counts[l] = (counts[l] || 0) + 1; });
+		const qs = queryText ? '?text=' + encodeURIComponent(queryText) : '';
+		const row = (href, sym, name, n, cur) => `<li class="row"><a class="row-main lang-row" href="${href}"${cur ? ' aria-current="page"' : ''}><span class="ls-sym">${escapeHTML(sym)}</span><span class="row-w">${escapeHTML(name)}</span><span class="row-t">${n} ${n === 1 ? 'dictionary' : 'dictionaries'}</span></a></li>`;
+		const mine = filesJson.dicts.filter(f => f[0].startsWith(curLang + '/'));
+		const secs = [...new Set(mine.map(f => f[0].split('/')[1]))].filter(c => !['media', 'phonetics'].includes(c));
+		return `<ul class="rows">${row(`/${curLang}${qs}`, langSym(curLang), cap(curLang), counts[curLang], pParts.length < 2)}` +
+			(secs.length > 1 ? secs.map(c => row(`/${curLang}/${c}${qs}`, langSym(c), `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c)).join('') : '') + '</ul>' +
+			'<h3 class="drawer-h">Other languages</h3><ul class="rows">' +
+			Object.keys(counts).filter(l => l !== curLang).sort((a, b) => counts[b] - counts[a]).map(l => row(`/${l}${qs}`, langSym(l), cap(l), counts[l], false)).join('') + '</ul>';
+	}
+	// How many dictionaries Everything uses: what's on now, or (while
+	// filtering) the library's saved choices
+	function everythingCount(){
+		if (!filtered()) return dicts.filter((_, d) => document.getElementById(`${d}`)?.checked).length;
+		let saved = null;
+		try { saved = JSON.parse(localStorage.getItem(`peakslab-dicts-${appname}`)); } catch (e) { /* not remembered */ } // lsGet's
+		const savedMap = new Map((Array.isArray(saved) ? saved : []).map(item => [item.file, !!item.enabled]));
+		return dicts.filter((dict, d) => savedMap.has(dict[0]) ? savedMap.get(dict[0]) : defaultOn(d)).length;
+	}
+	// Everything, the top-level categories (and any picked sub-category),
+	// then the whole filter
+	function renderQuick(){
+		const btn = (attrs, label, on, n) => `<button type="button" class="qk" ${attrs} aria-pressed="${on}">${escapeHTML(label)}${n !== undefined ? ` <span class="n">${n}</span>` : ''}</button>`;
+		const html = (bibleMode() ? '<button type="button" class="qk qk-books" data-qbooks="1">Books ›</button>' : '') +
+			btn('data-qall="1"', 'Everything', !filtered(), everythingCount()) +
+			cats.filter(c => !c.sub || selected.includes(c.id)).map(c => btn(`data-qsel="${c.id}"`, c.label, selected.includes(c.id), selected.includes(c.id) ? catChosen(c).size : undefined)).join('') +
+			'<button type="button" class="qk qk-more" data-qmore="1">Filter…</button>';
+		if (quick._html !== html) { quick._html = html; quick.innerHTML = html; } // Only when changed: keeps it tappable
+	}
+	quick.addEventListener('click', e => {
+		const b = e.target.closest('button');
+		if (!b) return;
+		if (b.dataset.qbooks) {
+			booksPick = null;
+			openDrawer('books');
+		}
+		else if (b.dataset.qall) setFilter([]);
+		else if (b.dataset.qsel) setFilter(selected.includes(b.dataset.qsel) ? selected.filter(x => x !== b.dataset.qsel) : [...selected, b.dataset.qsel]);
+		else openDrawer('modes');
+	});
+	let lastY = 0;
+	window.addEventListener('scroll', () => {
+		const y = window.scrollY;
+		if (y > lastY + 6 && y > 80) header.classList.add('compact');
+		else if (y < lastY - 6 || y < 40) header.classList.remove('compact');
+		lastY = y;
+	}, {passive: true});
+	// The results start below the whole header
+	new ResizeObserver(() => {
+		if (!header.classList.contains('compact'))
+			document.documentElement.style.setProperty('--hh', header.offsetHeight + 'px');
+	}).observe(header);
+
+	// ---------------------------------------------------------------
+	// History and bookmarks, remembered per page (e.g. khmer, khmer/music)
+	// ---------------------------------------------------------------
+	const historyKey = `peakslab-history-${appname}`;
+	const bookmarksKey = `peakslab-bookmarks-${appname}`;
+	const readList = k => { try { const l = JSON.parse(localStorage.getItem(k)); return Array.isArray(l) ? l : []; } catch (e) { return []; } };
+	const writeList = (k, l) => { try { localStorage.setItem(k, JSON.stringify(l)); } catch (e) { /* not remembered */ } };
+	let searchHistory = readList(historyKey); // [{q, t}], newest first
+	let bookmarks = readList(bookmarksKey);   // [{w, g, t}], newest first
+	const HISTORY_MAX = 200;
+
+	// A search goes in the history once typing stops on it with something
+	// found. Typing on from the last one (kh, khm, khmer) replaces it.
+	function addHistory(q){
+		q = q.trim();
+		if (!q) return;
+		const now = Date.now();
+		const last = searchHistory[0];
+		if (last && now - last.t < 60000 && (q.startsWith(last.q) || last.q.startsWith(q))) searchHistory.shift();
+		searchHistory = [{q, t: now}, ...searchHistory.filter(h => h.q !== q)].slice(0, HISTORY_MAX);
+		writeList(historyKey, searchHistory);
+	}
+	const historyTimer = debounce(() => {
+		if (queryText.trim() && (num > 0 || translationDiv.childElementCount)) addHistory(queryText);
+	}, 1500);
+
+	const headwordOf = pd => (pd.querySelector(':scope > h2 .hw')?.textContent || '').trim();
+	const isBookmarked = w => bookmarks.some(b => b.w === w);
+	function markBookmark(pd){
+		const b = pd.querySelector(':scope > h2 .bm-btn');
+		if (!b) return;
+		const on = isBookmarked(headwordOf(pd));
+		b.setAttribute('aria-pressed', on);
+		b.title = on ? 'Remove bookmark' : 'Bookmark';
+	}
+	// The first line of a section's first entry, kept with the bookmark
+	function glossOf(pd){
+		const pe = pd.querySelector(':scope > p-e');
+		const line = pe ? entryText(pe).split('\n').find(x => x && !/^(\[[^\]]*\]+\s*)+$/.test(x)) || '' : '';
+		return line.length > 120 ? line.slice(0, 119) + '…' : line;
+	}
+	function setBookmark(w, on, g = ''){
+		bookmarks = bookmarks.filter(b => b.w !== w);
+		if (on) bookmarks.unshift({w, g, t: Date.now()});
+		writeList(bookmarksKey, bookmarks);
+		document.querySelectorAll('#results > p-d, #popupResults > p-d').forEach(markBookmark);
+		renderHome();
+	}
+	window.toggleBookmark = btn => {
+		const pd = btn.closest('p-d');
+		const w = headwordOf(pd);
+		if (!w) return;
+		setBookmark(w, !isBookmarked(w), glossOf(pd));
+		if (pd.closest('#results')) addHistory(queryText);
+	};
+
+	function timeAgo(t){
+		const m = Math.round((Date.now() - t) / 60000);
+		if (m < 1) return 'just now';
+		if (m < 60) return `${m} min ago`;
+		const h = Math.round(m / 60);
+		if (h < 24) return `${h} h ago`;
+		const d = Math.round(h / 24);
+		return d < 7 ? `${d} d ago` : new Date(t).toLocaleDateString();
+	}
+	const historyRow = h => `<li class="row"><button type="button" class="row-main" data-q="${escapeHTML(h.q)}"><span class="row-w">${escapeHTML(h.q.replace(/\n/g, ' '))}</span><span class="row-t">${timeAgo(h.t)}</span></button><button type="button" class="row-x" data-rmh="${escapeHTML(h.q)}" title="Remove" aria-label="Remove ${escapeHTML(h.q)} from history">✕</button></li>`;
+	const bookmarkRow = b => `<li class="row"><button type="button" class="row-main" data-q="${escapeHTML(b.w)}"><span class="row-w">${escapeHTML(b.w)}</span>${b.g ? `<span class="row-g">${escapeHTML(b.g)}</span>` : ''}</button><button type="button" class="row-x" data-rmb="${escapeHTML(b.w)}" title="Remove" aria-label="Remove the bookmark for ${escapeHTML(b.w)}">✕</button></li>`;
+	const historyHTML = list => list.length ? `<ul class="rows">${list.map(historyRow).join('')}</ul>` : '<p class="empty">Words you look up show up here.</p>';
+	const bookmarksHTML = list => list.length ? `<ul class="rows">${list.map(bookmarkRow).join('')}</ul>` : '<p class="empty">Tap the bookmark next to a word to keep it here.</p>';
+
+	// The side panel for the whole history or all the bookmarks
+	const drawer = document.getElementById('drawer');
+	const drawerBody = drawer.querySelector('.drawer-body');
+	let drawerView = null;
+	const expandedCats = new Set(); // Filter categories opened to show their dictionaries
+	function renderDrawer(){
+		if (drawerView === 'history') {
+			drawer.querySelector('.drawer-title').textContent = 'History';
+			drawerBody.innerHTML = historyHTML(searchHistory) +
+				(searchHistory.length ? '<button type="button" class="text-btn" data-clear="history">Clear history</button>' : '');
+		} else if (drawerView === 'bookmarks') {
+			drawer.querySelector('.drawer-title').textContent = 'Bookmarks';
+			drawerBody.innerHTML = bookmarksHTML(bookmarks);
+		} else if (drawerView === 'books') {
+			drawer.querySelector('.drawer-title').textContent = 'Books';
+			drawerBody.innerHTML = booksHTML();
+			drawerBody.scrollTop = 0;
+		} else if (drawerView === 'lang') {
+			drawer.querySelector('.drawer-title').textContent = 'Language';
+			drawerBody.innerHTML = langHTML();
+		} else if (drawerView === 'modes') {
+			drawer.querySelector('.drawer-title').textContent = 'Filter';
+			const scroll = drawerBody.scrollTop;
+			const cat = c => {
+				const chosen = catChosen(c);
+				const open = expandedCats.has(c.id);
+				return `<li class="cat${c.sub ? ' sub' : ''}"><div class="cat-row">` +
+					`<button type="button" class="cat-sel check" data-sel="${c.id}" aria-pressed="${selected.includes(c.id)}"><span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${chosen.size} of ${c.members.length} on</span></button>` +
+					`<button type="button" class="cat-exp" data-exp="${c.id}" aria-expanded="${open}" title="Choose its dictionaries" aria-label="Choose the dictionaries in ${escapeHTML(c.label)}">▸</button></div>` +
+					(open ? `<div class="cat-body"><ul class="cat-dicts">${c.members.map(d =>
+						`<li><button type="button" class="cat-dict check" data-cat="${c.id}" data-d="${d}" aria-pressed="${chosen.has(d)}">` +
+						`<span class="cd-name">${escapeHTML(dicts[d][1])}</span>${typeOf(d) ? `<span class="lib-type type-${typeOf(d)}">${escapeHTML(typeLabel(d))}</span>` : ''}</button></li>`).join('')}</ul>` +
+						`<div class="cat-acts"><button type="button" class="text-btn" data-cat-all="${c.id}">All</button><button type="button" class="text-btn" data-cat-none="${c.id}">None</button><button type="button" class="text-btn" data-cat-reset="${c.id}">Reset</button></div></div>` : '') +
+					'</li>';
+			};
+			const group = (g, title) => {
+				const cs = cats.filter(c => c.group === g);
+				return cs.length ? `<h3 class="drawer-h">${title}</h3><ul class="rows cats">${cs.map(cat).join('')}</ul>` : '';
+			};
+			drawerBody.innerHTML =
+				`<ul class="rows"><li class="row"><button type="button" class="row-main radio" data-everything="1" aria-pressed="${!filtered()}"><span class="row-w">Everything</span><span class="row-t">${everythingCount()} of ${dicts.length} on in the library</span></button></li></ul>` +
+				group('kind', 'By kind') + group('language', 'By language') +
+				'<p class="empty">Pick as many as you like. Open one (▸) to choose which of its dictionaries it uses.</p>';
+			drawerBody.scrollTop = scroll;
+		}
+	}
+	function openDrawer(view){
+		if (drawerView === view) return closeDrawer();
+		drawerView = view;
+		renderDrawer();
+		drawer.classList.remove('hide');
+		document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', b.dataset.drawer === view));
+		drawer.querySelector('.drawer-close').focus();
+	}
+	function closeDrawer(){
+		drawerView = null;
+		drawer.classList.add('hide');
+		document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', false));
+	}
+	document.querySelectorAll('[data-drawer]').forEach(b => b.addEventListener('click', () => openDrawer(b.dataset.drawer)));
+	drawer.querySelector('.drawer-close').addEventListener('click', closeDrawer);
+	drawer.querySelector('.drawer-bg').addEventListener('click', closeDrawer);
+	document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerView) closeDrawer(); });
+
+	// The home page (nothing searched): recent searches and bookmarks
+	const homeDiv = document.getElementById('home');
+	function renderHome(){
+		const more = (n, view) => n > 5 ? `<button type="button" class="text-btn" data-open="${view}">All ${n}</button>` : '';
+		homeDiv.innerHTML =
+			`<section><h2>Recent</h2>${historyHTML(searchHistory.slice(0, 5))}${more(searchHistory.length, 'history')}</section>` +
+			`<section><h2>Bookmarks</h2>${bookmarksHTML(bookmarks.slice(0, 5))}${more(bookmarks.length, 'bookmarks')}</section>`;
+		if (drawerView) renderDrawer();
+	}
+	// Rows in both: tap one to look it up, ✕ to remove it
+	function rowClick(e){
+		const b = e.target.closest('button');
+		if (!b) return;
+		const c = catById(b.dataset.sel || b.dataset.exp || b.dataset.cat || b.dataset.catAll || b.dataset.catNone || b.dataset.catReset);
+		if (b.dataset.book) {
+			booksPick = b.dataset.book;
+			renderDrawer();
+		} else if (b.dataset.booksBack) {
+			booksPick = null;
+			renderDrawer();
+		} else if (b.dataset.read) {
+			closeDrawer();
+			search(b.dataset.read);
+		} else if (b.dataset.everything) {
+			setFilter([]);
+		} else if (b.dataset.sel) {
+			setFilter(selected.includes(c.id) ? selected.filter(x => x !== c.id) : [...selected, c.id]);
+		} else if (b.dataset.exp) {
+			if (expandedCats.has(c.id)) expandedCats.delete(c.id); else expandedCats.add(c.id);
+			renderDrawer();
+		} else if (c && (b.dataset.cat || b.dataset.catAll || b.dataset.catNone || b.dataset.catReset)) {
+			// Changing a category's dictionaries
+			if (b.dataset.catReset) {
+				try { localStorage.removeItem(catStoreKey(c.id)); } catch (e) { /* not remembered */ }
+			} else {
+				const set = b.dataset.catAll ? new Set(c.members) : b.dataset.catNone ? new Set() : catChosen(c);
+				if (b.dataset.cat) { const d = +b.dataset.d; if (set.has(d)) set.delete(d); else set.add(d); }
+				setCatChosen(c, set);
+			}
+			if (selected.includes(c.id)) refilter();
+			else renderDrawer();
+		} else if (b.dataset.q !== undefined) {
+			closeDrawer();
+			setQueryText(b.dataset.q);
+			startSearch();
+			addHistory(b.dataset.q);
+		} else if (b.dataset.rmh !== undefined) {
+			searchHistory = searchHistory.filter(h => h.q !== b.dataset.rmh);
+			writeList(historyKey, searchHistory);
+			renderHome();
+		} else if (b.dataset.rmb !== undefined) {
+			setBookmark(b.dataset.rmb, false);
+		} else if (b.dataset.clear) {
+			if (!confirm('Clear the whole history?')) return;
+			searchHistory = [];
+			writeList(historyKey, searchHistory);
+			renderHome();
+		} else if (b.dataset.open) {
+			openDrawer(b.dataset.open);
+		}
+	}
+	drawerBody.addEventListener('click', rowClick);
+	homeDiv.addEventListener('click', rowClick);
+
+	// ---------------------------------------------------------------
+	// Library: every dictionary on this page, grouped by full category path
+	// (language folder + category, e.g. "khmer / music / chords"), each
+	// segment of its heading a link. Extras from other languages get a small
+	// heading within the group. Each one has its on/off switch, its star,
+	// and what kind of dictionary it is (Khmer, Khmer → English, ...).
+	// ---------------------------------------------------------------
+	let temp = `<h2>Library<span id="libMode"></span></h2><p class="lib-help">Turn dictionaries on or off. Star the ones you use most: their entries come first.</p><ol class="dictlist">`;
 
 	let prevGroupKey = null;
 	let prevLang = null;
@@ -762,16 +1196,26 @@ if(root){
 		}
 
 		if (!isPrimary && lang !== prevLang) {
-			temp += `<li class="dictlist-extra-label">${lang}</li>`;
+			temp += `<li class="dictlist-extra-label">${cap(lang)}</li>`;
 		}
 		prevLang = isPrimary ? null : lang; // next extra language (or the primary again) gets its own header
 
-		temp += `<li class="dictlist-item dictlist-file" data-id="${dict[0]}" data-idx="${idx}">${idx+1}.<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? "checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle"><span class="toggle-switch"></span></label><button type="button" class="dictlist-focus" onclick="setFocus(${idx})" title="Focus: show ${dict[1]} first and translate with it"><strong>${dict[1]}</strong></button><a href="?dict=${encodeURIComponent(dict[1])}" class="dictlist-solo" title="Open ${dict[1]} on its own">↗</a> : ${dict[3]}</li>`;
+		const type = typeOf(idx);
+		temp += `<li class="dictlist-item dictlist-file" data-id="${dict[0]}" data-idx="${idx}">` +
+			`<input type="checkbox" class="fcheckbox down" data-id="${idx}"${dict[4] ? " checked" : ""} onchange="updateDictList(this)" id="${idx}"><label for="${idx}" class="modern-toggle" title="On or off"><span class="toggle-switch"></span></label>` +
+			starBtnHTML(idx) +
+			`<span class="lib-main"><span class="lib-name"><strong>${dict[1]}</strong>` +
+			(type ? ` <span class="lib-type type-${type}">${escapeHTML(typeLabel(idx))}</span>` : '') +
+			` <a href="?dict=${encodeURIComponent(dict[1])}" class="dictlist-solo" title="Open ${dict[1]} on its own">↗</a></span>` +
+			`<span class="lib-desc">${dict[3]}</span></span></li>`;
 	});
 	temp += `</ol>`;
 	let listDiv = document.getElementById('listDiv');
 	listDiv.innerHTML += temp;
-	updateFocusUI();
+	renderHome();
+	const filterBtn = document.getElementById('filterBtn');
+	const libMode = document.getElementById('libMode');
+	updateFilterUI();
 
 	ack = function(url){
 		const x = dicts.findIndex(y => y[0] == url);
@@ -790,13 +1234,15 @@ if(root){
 	// stuck on "Loading dictionaries." with nothing ever loaded.
 	let db = null;
 	let stateApplied = false;
-	const lsKey = `peakslab-dicts-${appname}`;
+	// The library's choices (Everything); the filter's categories keep theirs
+	// separately (catChosen)
+	const lsKey = () => `peakslab-dicts-${appname}`;
 
 	function lsGet() {
-		try { return JSON.parse(localStorage.getItem(lsKey)); } catch (e) { return null; }
+		try { return JSON.parse(localStorage.getItem(lsKey())); } catch (e) { return null; }
 	}
 	function lsSet(state) {
-		try { localStorage.setItem(lsKey, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
+		try { localStorage.setItem(lsKey(), JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
 	}
 
 	// Called exactly once, with the saved array or null for defaults.
@@ -809,19 +1255,72 @@ if(root){
 			loadDict(solo);
 			return;
 		}
-		enableSaved(saved);
+		if (filtered()) applyFilter();
+		else enableSaved(saved);
 	}
 
-	// Loads the saved choices (or the defaults), and the focused dictionary.
+	// Turns these dictionaries on (loads them) and the rest off
+	function enableSet(want){
+		want.forEach((on, d) => {
+			setCheckbox(d, on);
+			if (on) loadDict(d);
+			else if (!dict_master_code[d] && !extraLoaded.has(d)) unloadDict(d);
+		});
+		renderQuick();
+	}
+
+	// Loads the saved choices (or the defaults), and unloads the rest.
 	function enableSaved(saved) {
 		const savedMap = new Map((Array.isArray(saved) ? saved : []).map(item => [item.file, !!item.enabled]));
-		dicts.forEach((dict, index) => {
-			const shouldEnable = index === focus || (savedMap.has(dict[0])
-				? savedMap.get(dict[0])
-				: (dict[4] === true || dict[4] === undefined)); // default from dict definition
-			setCheckbox(index, shouldEnable);
-			if (shouldEnable) loadDict(index);
+		enableSet(dicts.map((dict, d) => savedMap.has(dict[0]) ? savedMap.get(dict[0]) : defaultOn(d)));
+	}
+
+	// The picked categories' dictionaries, or the library's choices
+	function applyFilter(){
+		if (!filtered()) return enableSaved(lsGet());
+		const on = new Set(selCats().flatMap(c => [...catChosen(c)]));
+		enableSet(dicts.map((_, d) => on.has(d)));
+	}
+
+	// A dictionary turned on or off (in the library, or by starring it)
+	// while filtering: it's in or out of each picked category it belongs to
+	function setInFilter(d, on){
+		selCats().filter(c => c.members.includes(d)).forEach(c => {
+			const set = catChosen(c);
+			if (on) set.add(d); else set.delete(d);
+			setCatChosen(c, set);
 		});
+	}
+
+	// Changes what's picked: their dictionaries, the library showing just
+	// them, and the search again
+	function setFilter(ids){
+		selected = ids.filter(catById);
+		try { localStorage.setItem(filterKey, JSON.stringify(selected)); } catch (e) { /* not remembered */ }
+		refilter();
+	}
+	function refilter(){
+		if (solo < 0) applyFilter();
+		updateFilterUI();
+		query = ""; // Search again
+		startSearch();
+	}
+	function updateFilterUI(){
+		document.querySelectorAll('.dictlist-file').forEach(li => li.classList.toggle('out', !inFilter(+li.dataset.idx)));
+		document.querySelectorAll('.dictlist-head, .dictlist-extra-label').forEach(h => {
+			let n = h.nextElementSibling, any = false;
+			while (n && n.classList.contains('dictlist-file')) { any ||= !n.classList.contains('out'); n = n.nextElementSibling; }
+			h.classList.toggle('out', !any);
+		});
+		const on = filtered();
+		const label = on ? selCats().map(c => c.label).join(' + ') : 'Everything';
+		filterBtn.classList.toggle('on', on);
+		menuBtn.classList.toggle('on', on);
+		filterBtn.title = filterBtn.ariaLabel = `Filter: ${label}`;
+		libMode.textContent = on ? ` · ${label}` : '';
+		if (drawerView === 'modes') renderDrawer();
+		renderQuick();
+		updateURL();
 	}
 
 	function noIndexedDB(err) {
@@ -833,7 +1332,7 @@ if(root){
 	// Start loading right away from the copy in localStorage (synchronous)
 	// instead of waiting for IndexedDB to open; IndexedDB is only needed
 	// when there's no copy here yet (e.g. state saved by an older version).
-	applyState(lsGet(), true);
+	applyState(lsGet(), !filtered());
 
 	try {
 		const dbRequest = indexedDB.open(appname, 1);
@@ -858,10 +1357,11 @@ if(root){
 	setTimeout(() => { if (!stateApplied) noIndexedDB('no response from IndexedDB'); }, 3000);
 
 	function saveState() {
-		if (solo >= 0) return;
+		if (solo >= 0 || filtered()) return; // A filter's choices are its categories'
+
 		const state = dicts.map((dict, index) => ({
 			file: dict[0],                    // filename as stable key
-			enabled: !dict_master_code[index] // true = checkbox checked / dictionary loaded
+			enabled: !!document.getElementById(index)?.checked
 		}));
 		lsSet(state); // always kept as a backup copy
 		if (!db) return;
@@ -906,6 +1406,7 @@ if(root){
 					const w = workers[i % workers.length];
 					const did = Math.floor(i / workers.length);
 					++nload;
+					updateStatus();
 					// The worker reads it from the offline cache itself (off this
 					// thread), or asks for it with 'needbytes' if there's no
 					// current copy there.
@@ -925,99 +1426,58 @@ if(root){
 	let tout = resultsDiv;
 
 	function unloadDict(d){
+		extraLoaded.delete(d);
 		workers[d%workers.length].postMessage({type: 'destroy', did: Math.floor(d/workers.length)});
 		dict_master_code[d] = true;
 	}
 
 	function updateDictList(checkbox){
 		const d = parseInt(checkbox.dataset.id);
+		if (filtered()) setInFilter(d, checkbox.checked);
 		if(checkbox.checked){
 			loadDict(d);
 		}else{
 			unloadDict(d);
-			if(d === focus && solo < 0)
-				setFocus(d); // Unfocus it
 			saveState();
 		}
+		if (drawerView === 'modes') renderDrawer();
+		renderQuick();
 	}
 	window.updateDictList = updateDictList;
 
-	// Clicking a dictionary's name focuses it, or unfocuses it. On a solo
-	// page it switches to that dictionary instead.
-	function setFocus(i){
-		if (solo >= 0) {
-			if (i === solo) return;
-			unloadDict(solo);
-			setCheckbox(solo, false);
-			solo = i;
-		}
-		focus = i === focus ? -1 : i;
-		if (focus >= 0) {
-			setCheckbox(focus, true);
-			loadDict(focus); // Does nothing if it's loaded
+	// The star on a dictionary (in the library or on one of its entries):
+	// starred ones come first. Starring one turns it on.
+	function toggleStar(i){
+		stars = isStar(i) ? stars.filter(x => x !== i) : [...stars, i];
+		if (isStar(i)) {
+			if (filtered()) setInFilter(i, true);
+			setCheckbox(i, true);
+			loadDict(i); // Does nothing if it's loaded
 			saveState();
 		}
-		rememberFocus();
-		updateFocusUI();
+		if (solo < 0) writeList(starKey, stars.map(d => dicts[d][0]));
+		updateStarUI();
 		query = ""; // Search again
 		startSearch();
 	}
-	window.setFocus = setFocus;
-
-	function rememberFocus(){
-		if (solo >= 0) return;
-		try { focus >= 0 ? localStorage.setItem(focusKey, dicts[focus][0]) : localStorage.removeItem(focusKey); } catch (e) { /* not remembered */ }
-	}
-
-	// A dictionary button above the results: on → focused → off → on
-	function cycleDict(i){
-		barSeen.add(i); // Stays in the row when it's off
-		if (focus === i) {
-			focus = -1;
-			setCheckbox(i, false);
-			unloadDict(i);
-		} else if (document.getElementById(`${i}`)?.checked) {
-			focus = i;
-		} else {
-			setCheckbox(i, true);
-			loadDict(i);
-		}
-		saveState();
-		rememberFocus();
-		updateFocusUI();
-		query = ""; // Search again
-		startSearch();
-	}
+	window.toggleStar = toggleStar;
 
 	// The address bar always holds a link to what's on screen.
 	function updateURL(){
 		const p = new URLSearchParams();
 		if (solo >= 0) p.set('dict', dicts[solo][1]);
-		else if (focus >= 0) p.set('focus', dicts[focus][1]);
+		if (filtered()) p.set('mode', selected.join());
 		if (queryText) p.set('text', queryText);
 		const qs = p.toString();
 		history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
 	}
 
-	// The dictionaries that are on (and ones turned off here), in the
-	// list's order so they stay in place; tapping one cycles it
-	// (cycleDict). "+N" shows the rest.
-	let barShowAll = false;
-	const barSeen = new Set();
-	function renderSearchBar(){
-		const state = i => i === focus ? 'focused' : document.getElementById(`${i}`)?.checked ? 'on' : 'off';
-		const shown = dicts.map((_, i) => i).filter(i => barShowAll || state(i) !== 'off' || barSeen.has(i));
-		const more = dicts.length - shown.length;
-		searchBar.innerHTML = '<button type="button" class="sb-share" title="Share this search">⤴ Share</button>' +
-			shown.map(i => {
-				const next = {on: 'focus it', focused: 'turn it off', off: 'turn it on'}[state(i)];
-				return `<button type="button" class="sb-dict ${state(i)}" data-idx="${i}" title="${escapeHTML(dicts[i][1])}: ${state(i)}, tap to ${next}">${escapeHTML(dicts[i][1])}</button>`;
-			}).join('') +
-			(barShowAll ? '<button type="button" class="sb-more" title="Show fewer">−</button>'
-				: more ? `<button type="button" class="sb-more" title="Show the other ${more}">+${more}</button>` : '') +
-			(nload > 0 ? `<span class="sb-loading" title="Loading ${nload} more"></span>` : '');
-		searchBar.classList.remove('hide');
+	// The line above the results: how many were found, loading, and Share
+	function updateStatus(text){
+		if (text !== undefined) statusText.textContent = text;
+		statusDiv.querySelector('.st-loading').classList.toggle('hide', nload <= 0);
 	}
+	statusDiv.querySelector('.st-share').addEventListener('click', e => share(e.currentTarget));
 
 	async function share(btn){
 		updateURL();
@@ -1028,24 +1488,29 @@ if(root){
 				return;
 			}
 			await navigator.clipboard.writeText(url);
-			btn.textContent = '✓ Link copied';
-			setTimeout(() => { btn.textContent = '⤴ Share'; }, 1500);
+			btn.textContent = 'Link copied';
+			setTimeout(() => { btn.textContent = 'Share'; }, 1500);
 		} catch (e) {
 			if (e.name !== 'AbortError') window.prompt('Copy this link:', url);
 		}
 	}
 
-	function updateFocusUI(){
-		const name = focus >= 0 ? dicts[focus][1] : '';
-		queryInput.placeholder = focus >= 0 ? `Search or translate with ${name}…` : defaultPlaceholder;
-		document.querySelectorAll('.dictlist-file').forEach(li => li.classList.toggle('focused', +li.dataset.idx === focus));
-		updateURL();
+	function updateStarUI(){
+		document.querySelectorAll('.star-btn').forEach(b => {
+			b.outerHTML = starBtnHTML(+b.dataset.d);
+		});
+		document.querySelectorAll('.dictlist-file').forEach(li => li.classList.toggle('starred', isStar(+li.dataset.idx)));
+		const t = translator();
+		queryInput.placeholder = t >= 0 ? `Search or translate with ${dicts[t][1]}…` : defaultPlaceholder;
 	}
 
 
-	function openPopupSearch(text){
+	function openPopupSearch(text, entry){
 		cleanup(popupResults);
-		let temp_dict_code = new Array(dicts.length).fill(true);
+		let temp_dict_code = searchMask();
+		if (entry) // The entry a translated word came from
+			addResult({id: entry.d % workers.length + 1, did: Math.floor(entry.d / workers.length), dict: dicts[entry.d][1],
+				query: updateQuery(text), st: 1, header: entry.header, body: entry.body, dest: "popup"});
 		workers.forEach((w, i) =>{
 			let code = temp_dict_code.filter((_, index) => index % workers.length == i);
 			w.postMessage({type: "tempsearch", st: 1, query: updateQuery(text), dest: "popup", dicts: code});
@@ -1098,16 +1563,18 @@ if(root){
 
 	function showSettings(){
 		loader = null;
-		statusDiv.textContent = "";
+		updateStatus('');
+		statusDiv.classList.add('hide');
+		renderHome();
 		settings.style.display = 'block';
 		resultsDiv.replaceChildren();
 		translationDiv.replaceChildren();
-		searchBar.classList.add('hide');
 	}
 
-	// The worker's index for the focused dictionary, if worker i has it
-	function focusDid(i){
-		return focus >= 0 && focus % workers.length == i ? Math.floor(focus / workers.length) : -1;
+	// The worker's indexes for the starred dictionaries that worker i has,
+	// which it searches first
+	function starDids(i){
+		return stars.filter(d => d % workers.length == i).map(d => Math.floor(d / workers.length));
 	}
 
 	let searchGen = 0;
@@ -1116,7 +1583,7 @@ if(root){
 		++searchGen;
 		workers.forEach((w, i) =>{
 			let code = dict_code.filter((_, index) => index % workers.length == i);
-			w.postMessage({type: "initsearch", st: st, dicts: code, focus: focusDid(i), gen: searchGen});
+			w.postMessage({type: "initsearch", st: st, dicts: code, focus: starDids(i), gen: searchGen});
 			if(code.includes(true)){
 				w.postMessage({type: "getresults"});
 				worker_code[i] = false;
@@ -1131,7 +1598,7 @@ if(root){
 		workers.forEach((w, i) =>{
 			let code = dict_code.filter((_, index) => index % workers.length == i);
 			if(code.includes(true)){
-				w.postMessage({type: "continuesearch", st: st, focus: focusDid(i)});
+				w.postMessage({type: "continuesearch", st: st, focus: starDids(i)});
 				w.postMessage({type: "getresults"});
 				worker_code[i] = false;
 			}
@@ -1149,8 +1616,8 @@ if(root){
 	}
 
 	function loadmore(){
-		if(showingPinned) return;
-		if(wantloadmore(loader, 400) && worker_code.includes(false))
+		// (A chapter: all of it)
+		if((chapterOf(query + '1') === query || wantloadmore(loader, 400)) && worker_code.includes(false))
 			getResults();
 	}
 
@@ -1171,111 +1638,255 @@ if(root){
 
 	const globreg = /[!+*^]/;
 
-	// The worker translates only if the focused dictionary has no entry for
-	// the query (check: true).
+	// The first starred dictionary that can translate (loaded, not media), or -1
+	const translator = () => stars.find(d => canTranslate(d)) ?? -1;
+	// The query word by word, when the search found nothing: with every
+	// dictionary searched (starred first; not media) and a pronunciation
+	// one. A Bible text's headwords are its verses, so "rom 8.1 gal 1.1"
+	// links to each.
 	function translate(){
-		if (focus < 0 || dict_master_code[focus] || dicts[focus][0].includes('.slab') || globreg.test(query)) return;
-		workers[focus % workers.length].postMessage({type: 'translate', did: Math.floor(focus / workers.length), query: query, check: true});
+		if (globreg.test(query)) return;
+		const mask = searchMask();
+		const ids = dicts.map((_, i) => i).filter(i => mask[i] && canTranslate(i) && !isPhon(i)).sort((a, b) => sortId(a) - sortId(b));
+		const p = phonTranslator();
+		if (p >= 0) ids.push(p);
+		const q = query;
+		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q));
 	}
 
 	function escapeHTML(text){
 		return text.replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 	}
 
-	// The first line of an entry, as plain text, skipping lines that are only
-	// [pronunciation] or [[see also]] brackets (like h97's second column)
-	function firstLine(html){
+	// An entry as one line of plain text, without lines that are only
+	// [pronunciations] or [[see also]]s (h97's second column)
+	function summary(html){
 		const t = document.createElement('template');
-		t.innerHTML = html.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol)\b[^>]*>|\t/gi, '\n');
-		const lines = t.content.textContent.split('\n').map(x => x.trim()).filter(Boolean);
-		return lines.find(x => !/^(\[[^\]]*\]+\s*)+$/.test(x)) || lines[0] || '';
+		t.innerHTML = html.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol)(?=[\s/>])[^>]*>|\t/gi, '\n');
+		return t.content.textContent.split('\n').map(x => x.trim()).filter(x => x && !/^(\[[^\]]*\]+\s*)+$/.test(x)).join(' ');
 	}
 
-	// Each word with the first line of its entry under it; tapping the
-	// word (a p-a) opens the full entry in the popup.
-	function translationHTML(pieces){
-		return pieces.map(p => {
-			if (p.body === undefined) { // Unmatched text, newlines kept
-				return p.text.split('\n').map(line => line.trim() ? `<span class="tr-w tr-u">${escapeHTML(line.trim())}</span>` : '').join('<br>');
-			}
-			const gloss = escapeHTML(firstLine(p.body));
-			return `<span class="tr-w"><p-a>${escapeHTML(p.text)}</p-a><span class="tr-g" title="${gloss}">${gloss}</span></span>`;
-		}).join('');
-	}
-
-	function showTranslation(data){
-		if (data.query !== query || !data.pieces.some(p => p.body !== undefined)) return;
+	function showTranslation(pieces, q){
+		if (q !== query || num || !pieces.some(p => p.entry)) return;
+		const used = [...new Set(pieces.map(p => p.d).filter(d => d !== undefined))]; // The ones it came from
 		const div = document.createElement('p-d');
 		div.className = 'translation';
-		div.innerHTML = `<h2>${escapeHTML(data.dict)}</h2>` + translationHTML(data.pieces);
+		div.innerHTML = `<h2>${used.map(i => escapeHTML(dicts[i][1])).join(' + ')}</h2>` + translationHTML(pieces);
 		translationDiv.replaceChildren(div);
-		if (num == 0) {
-			cleanup(tout); // The last query's results would look like this one's
-			statusDiv.textContent = `No entry in ${data.dict}, translated word by word.`;
-			queryInput.classList.remove('error');
-		}
+		updateStatus('No entry for all of it, translated word by word.');
+		queryInput.classList.remove('error');
 	}
 
-	// The ⇄ button on an entry: translates its text with the focused
-	// dictionary, or asks which one. Tap again to hide it.
-	const entryTranslations = new Map(); // tag -> the box waiting for it
-	let entryTag = 0;
 	const canTranslate = i => !dict_master_code[i] && !dicts[i][0].includes('.slab');
+	const isPhon = i => typeOf(i) === 'phon' && !dicts[i][0].includes('.slab');
+	// The dictionary for the default choice: the first starred one that can
+	// translate, else the first loaded one to English, else any loaded one
+	function mainTranslator(){
+		const ok = i => canTranslate(i) && !isPhon(i);
+		const starred = stars.find(ok);
+		if (starred !== undefined) return starred;
+		const bi = dicts.findIndex((_, i) => ok(i) && typeOf(i) === 'bi');
+		return bi >= 0 ? bi : dicts.findIndex((_, i) => ok(i));
+	}
+	// The pronunciation one: g2k if it's here
+	const phonTranslator = () => { const ps = dicts.map((_, i) => i).filter(isPhon); return ps.find(i => dicts[i][1] === 'g2k') ?? ps[0] ?? -1; };
 
-	// An entry's text, a line per line (or list item, paragraph, ...)
+	// An entry's text, a line per line (or list item, paragraph, ...),
+	// without its labels (p-n: parts of speech, a verse's reference, ...)
 	function entryText(pe){
 		const c = pe.cloneNode(true);
-		c.querySelectorAll('p-h, button, .tr-entry, .tr-pick').forEach(x => x.remove());
+		c.querySelectorAll('p-h, p-n, button, .tr-entry, .tr-pick').forEach(x => x.remove());
 		const t = document.createElement('template');
-		t.innerHTML = c.innerHTML.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol|h[1-6]|p-n|p-ipa)\b[^>]*>|\t/gi, '\n');
+		t.innerHTML = c.innerHTML.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol|h[1-6]|p-ipa)(?=[\s/>])[^>]*>|\t/gi, '\n');
 		return t.content.textContent.split('\n').map(x => x.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 	}
 
-	function translateEntryWith(box, text, i){
-		box.textContent = `Translating with ${dicts[i][1]}…`;
-		entryTranslations.set(++entryTag, box);
-		workers[i % workers.length].postMessage({type: 'translate', did: Math.floor(i / workers.length), query: updateQuery(text), tag: entryTag});
+	// ---------------------------------------------------------------
+	// Translating with several dictionaries at once: each gives every
+	// headword at every place in the text (the worker's matchall, peak.c's
+	// match_at), the best way to split the text into them wins (splitText),
+	// and each dictionary renders the entries it gave (renderlines).
+	// ---------------------------------------------------------------
+	const workerReplies = new Map(); // tag -> what to do with the reply
+	let replyTag = 0;
+	function askDict(d, msg, then){
+		workerReplies.set(++replyTag, then);
+		workers[d % workers.length].postMessage({...msg, did: Math.floor(d / workers.length), tag: replyTag});
+	}
+	function gotReply(data){
+		const then = workerReplies.get(data.tag);
+		workerReplies.delete(data.tag);
+		then?.(data);
 	}
 
+	// done gets the pieces: {text, d (the dictionary), entry ({d, header,
+	// body, sec}), pron (pronunciations)}; text no dictionary has has no d
+	function translateText(ids, text, done){
+		text = text.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
+		const all = [];
+		let left = ids.length;
+		ids.forEach((d, k) => ensureLoaded(d, () => askDict(d, {type: 'matchall', query: text}, r => {
+			all[k] = r.matches.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k}));
+			if (--left === 0) pickPieces(all.flat(), text, done);
+		})));
+	}
+
+	// The best way to split text[a, b) into matches: the fewest characters
+	// none of them has, then the fewest second index words (headwords come
+	// first), then the fewest pieces, then the first dictionaries'. So a
+	// long match that leaves a piece no dictionary has loses to shorter ones
+	// that cover it all. Returns [{a, b, w (the match, none for unmatched)}].
+	function splitText(matches, a, b){
+		const at = new Map();
+		matches.forEach(x => { if (!at.has(x.a)) at.set(x.a, []); at.get(x.a).push(x); });
+		const n = b - a;
+		const cost = new Array(n + 1), pick = new Array(n + 1).fill(null);
+		cost[n] = [0, 0, 0, 0];
+		const less = (x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || x[3] - y[3];
+		for (let i = n - 1; i >= 0; --i) {
+			const c = cost[i + 1];
+			cost[i] = [c[0] + 1, c[1], c[2] + (pick[i + 1] ? 1 : 0), c[3]]; // Unmatched, joined to unmatched text after it
+			for (const x of at.get(a + i) || []) {
+				if (i + x.len > n) continue;
+				const e = cost[i + x.len];
+				const t = [e[0], e[1] + x.sec, e[2] + 1, e[3] + x.rank];
+				if (less(t, cost[i]) < 0) { cost[i] = t; pick[i] = x; }
+			}
+		}
+		const out = [];
+		for (let i = 0; i < n;) {
+			const x = pick[i];
+			let j = i + (x ? x.len : 1);
+			if (!x) while (j < n && !pick[j]) ++j;
+			out.push({a: a + i, b: a + j, w: x});
+			i = j;
+		}
+		return out;
+	}
+
+	// Each word's entry is the best one for exactly it (headwords first,
+	// then the first dictionaries'), and its pronunciation a pronunciation
+	// dictionary's for exactly it, or else its parts', if they make it up
+	function pickPieces(matches, text, done){
+		const words = matches.filter(x => !isPhon(x.d)), phons = matches.filter(x => isPhon(x.d));
+		const best = (xs, p) => xs.filter(x => x.a === p.a && x.len === p.b - p.a).sort((x, y) => x.sec - y.sec || x.rank - y.rank)[0];
+		const pieces = splitText(matches, 0, text.length);
+		pieces.forEach(p => {
+			p.prons = [];
+			if (!p.w) return;
+			p.entry = best(words, p);
+			const pr = best(phons, p);
+			const parts = pr ? [] : splitText(phons.filter(x => x.a >= p.a && x.a + x.len <= p.b), p.a, p.b);
+			p.prons = pr ? [pr] : parts.every(q => q.w) ? parts.map(q => q.w) : [];
+		});
+		const byDict = new Map();
+		pieces.forEach(p => [p.entry, ...p.prons].forEach(x => { if (x) byDict.set(x.d, [...(byDict.get(x.d) || []), x]); }));
+		const finish = () => done(pieces.map(p => ({
+			text: text.slice(p.a, p.b),
+			d: p.w?.d,
+			entry: p.entry?.r,
+			pron: p.prons.map(x => x.r && summary(x.r.body)).filter(Boolean),
+		})));
+		let left = byDict.size;
+		if (!left) return finish();
+		byDict.forEach((xs, d) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}, r => {
+			xs.forEach((x, i) => { if (r.entries[i]) x.r = {...r.entries[i], d, sec: x.sec}; });
+			if (--left === 0) finish();
+		}));
+	}
+
+	// Each word in a box, with its pronunciation and its entry in a line
+	// (a second index match is a word in an entry, so the entry's headword
+	// says what it means); tapping the word shows the entry, and what the
+	// popup search finds. Plain Latin text gets no pronunciation.
+	const latin = t => !/[^\u0000-ɏ]/.test(t);
+	const popupEntries = []; // The entries words came from, for p-a's data-e
+	function translationHTML(pieces){
+		return pieces.map(p => {
+			if (p.d === undefined) // Text no dictionary has: its words dashed, the rest as is
+				return p.text.split(/(\s+)/).map(t => /\p{L}/u.test(t) ? `<span class="tr-w tr-x">${escapeHTML(t)}</span>` : escapeHTML(t).replace(/\n/g, '<br>')).join('');
+			const pron = !latin(p.text) && p.pron.length ? `<span class="tr-p">${escapeHTML(p.pron.join(' '))}</span>` : '';
+			const gloss = p.entry ? escapeHTML(p.entry.sec ? p.entry.header : summary(p.entry.body)) : '';
+			return `<span class="tr-w${p.entry ? '' : ' tr-u'}" title="${escapeHTML(dicts[p.entry ? p.entry.d : p.d][1])}">` +
+				`<p-a${p.entry ? ` data-e="${popupEntries.push(p.entry) - 1}"` : ''}>${escapeHTML(p.text.trim())}</p-a>${pron}` +
+				(gloss ? `<span class="tr-g" title="${gloss}">${gloss}</span>` : '') + '</span>';
+		}).join('');
+	}
+
+	function translateEntryWith(box, text, ids){
+		const key = ids.join();
+		box.dataset.ids = key;
+		box.textContent = `Translating with ${ids.map(i => dicts[i][1]).join(' + ')}…`;
+		translateText(ids, updateQuery(text), pieces => {
+			if (!box.isConnected || box.dataset.ids !== key) return;
+			box.innerHTML = `<div class="tr-head">${ids.map(i => escapeHTML(dicts[i][1])).join(' + ')}</div>` +
+				(pieces.some(p => p.d !== undefined) ? translationHTML(pieces) : 'No words found.');
+		});
+	}
+
+	// The ⇄ button on an entry (or verse) asks which dictionaries to
+	// translate its text with, every time, any number at once: the ones that
+	// are on, pronunciation ones, and (loaded when used) the ones that are
+	// off. It starts with the last choice, or a dictionary and g2k. Tap ⇄
+	// again to hide it.
+	const trWithKey = `peakslab-translate-${appname}`;
+	// Ties go to starred dictionaries, then the library's order;
+	// pronunciation ones last
+	const trOrder = ids => [...ids].sort((a, b) => isPhon(a) - isPhon(b) || (isStar(a) ? stars.indexOf(a) : 1e6 + a) - (isStar(b) ? stars.indexOf(b) : 1e6 + b));
+	function lastTrWith(){
+		try {
+			const saved = JSON.parse(localStorage.getItem(trWithKey));
+			const ids = (Array.isArray(saved) ? saved : []).map(f => dicts.findIndex(d => d[0] === f)).filter(i => i >= 0 && !dicts[i][0].includes('.slab'));
+			if (ids.length) return ids;
+		} catch (e) { /* not remembered */ }
+		return [mainTranslator(), phonTranslator()].filter(i => i >= 0);
+	}
 	window.translateEntry = btn => {
-		const pe = btn.closest('p-e');
+		const pe = btn.closest('p-e, .vs');
 		const open = pe.querySelectorAll('.tr-entry, .tr-pick');
 		if (open.length) {
 			open.forEach(x => x.remove());
 			return;
 		}
 		const text = entryText(pe);
-		const translateWith = i => {
-			const box = pe.appendChild(document.createElement('div'));
-			box.className = 'tr-entry';
-			translateEntryWith(box, text, i);
-		};
-		if (focus >= 0 && canTranslate(focus)) {
-			translateWith(focus);
-			return;
-		}
-		// No focus: ask which, in a little menu under the button
+		const chosen = new Set(lastTrWith());
+		// Not media or Bible texts (verse references aren't words)
+		const usable = dicts.map((_, i) => i).filter(i => !dicts[i][0].includes('.slab') && files[i].category.join('/') !== 'bible/text');
+		const on = usable.filter(i => canTranslate(i) && !isPhon(i));
+		const phons = usable.filter(isPhon);
+		const off = usable.filter(i => !on.includes(i) && !phons.includes(i));
+		const opt = i => `<button type="button" class="check" data-idx="${i}" aria-pressed="${chosen.has(i)}">${isStar(i) ? '★ ' : ''}${escapeHTML(dicts[i][1])}</button>`;
 		const pick = document.createElement('div');
 		pick.className = 'tr-pick';
-		pick.innerHTML = 'Translate with: ' + dicts.map((_, i) => i).filter(canTranslate)
-			.map(i => `<button type="button" data-idx="${i}">${escapeHTML(dicts[i][1])}</button>`).join('');
+		pick.innerHTML = '<div class="tr-q">Translate with</div>' +
+			(on.length ? `<div class="tr-sub">On</div>${on.map(opt).join('')}` : '') +
+			(phons.length ? `<div class="tr-sub">Pronunciation</div>${phons.map(opt).join('')}` : '') +
+			(off.length ? `<details${off.some(i => chosen.has(i)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${off.map(opt).join('')}</details>` : '') +
+			'<button type="button" class="tr-go">Translate</button>';
 		btn.insertAdjacentElement('afterend', pick);
+		const goBtn = pick.querySelector('.tr-go');
+		const update = () => { goBtn.disabled = !pick.querySelector('.check[aria-pressed="true"]'); };
+		update();
+		goBtn.focus();
 		pick.onclick = e => {
-			const b = e.target.closest('button[data-idx]');
+			const b = e.target.closest('button');
 			if (!b) return;
-			e.stopPropagation(); // The button goes away, which would look like a click outside the popup
+			e.stopPropagation(); // A button going away would look like a click outside the popup
+			if (b.dataset.idx) {
+				b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
+				update();
+				return;
+			}
+			const ids = trOrder([...pick.querySelectorAll('.check[aria-pressed="true"]')].map(x => +x.dataset.idx));
+			if (!ids.length) return;
+			try { localStorage.setItem(trWithKey, JSON.stringify(ids.map(i => dicts[i][0]))); } catch (e) { /* not remembered */ }
 			pick.remove();
-			translateWith(+b.dataset.idx);
+			const box = pe.appendChild(document.createElement('div'));
+			box.className = 'tr-entry';
+			translateEntryWith(box, text, ids);
 		};
 	};
 
-	function showEntryTranslation(data){
-		const box = entryTranslations.get(data.tag);
-		entryTranslations.delete(data.tag);
-		if (!box || !box.isConnected) return;
-		box.innerHTML = `<div class="tr-head">${escapeHTML(data.dict)}</div>` +
-			(data.pieces.some(p => p.body !== undefined) ? translationHTML(data.pieces) : 'No words found.');
-	}
 
 	// Long text also gets a big text box above the results; it and the
 	// search bar stay in sync.
@@ -1316,11 +1927,16 @@ if(root){
 		updateBig();
 		updateURL();
 		query = updateQuery();
+		renderQuick();
 		if(!query){
 			showSettings();
 			return;
 		}
-		renderSearchBar();
+		statusDiv.classList.remove('hide');
+		updateStatus();
+		historyTimer();
+		if(chapterOf(readHl) !== query)
+			readHl = '';
 		if(query == prevquery){
 			return;
 		}
@@ -1328,9 +1944,9 @@ if(root){
 		window.scrollTo(0, 0);
 		worker_code.fill(false);
 		st = globreg.test(query) ? 0 : 3;
-		dict_code = new Array(dicts.length).fill(true); // worker-side null checks skip dicts that aren't loaded
+		dict_code = searchMask(); // worker-side null checks skip dicts that aren't loaded
 
-		statusDiv.textContent = "Searching...";
+		updateStatus("Searching...");
 
 		loader = null;
 		loader = document.createElement('p-d');
@@ -1340,9 +1956,8 @@ if(root){
 		setQuery()
 		initSearch();
 		getResults();
-		statusDiv.innerHTML = 'No matches found.';
+		updateStatus('No matches found.');
 		queryInput.classList.add("error");
-		translate();
 	}
 
 	function getResults() {
@@ -1438,7 +2053,7 @@ if(root){
 	}
 	document.getElementById('markT')?.addEventListener('click', () => {
 			mark = !mark;
-			localStorage.setItem('mark', document.body.classList.contains('mark'));
+			localStorage.setItem('mark', mark);
 	});
 	if (localStorage.getItem('mark') === 'false') {
 		mark = false;
@@ -1448,9 +2063,15 @@ if(root){
 			debug = !debug;
 	});
 
-	// Settings button
+	// Library button: back to the home page, at the library (what was
+	// searched is in the history)
 	document.getElementById('settingsBtn')?.addEventListener('click', () => {
-		showSettings();
+		closeDrawer();
+		if (queryText) {
+			setQueryText('');
+			startSearch();
+		}
+		listDiv.scrollIntoView({behavior: 'smooth'});
 	});
 
 	let voicetries = 2;
@@ -1606,7 +2227,7 @@ if(root){
 	class PaElement extends HTMLElement {
 			connectedCallback() {
 					this.addEventListener('click', () => {
-							openPopupSearch(this.textContent);
+							openPopupSearch(this.textContent, popupEntries[this.dataset.e]);
 					});
 			}
 	}

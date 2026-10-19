@@ -23,6 +23,14 @@
     --mark-bg: #FD5;
     --mark-fg: #000;
     --result-count-color: #8BAC0F;
+    --star: #b7790f;
+    --star-bg: #fbf0d4;
+    --muted: #6b5d48;
+    --line: #e6dcc8;
+    --type-mono: #dfe9c4;
+    --type-bi: #d6e4ef;
+    --type-rbi: #efdcd2;
+    --type-aux: #e6e0d6;
 }
 body.dark-mode {
     --alttext: #d75;
@@ -45,6 +53,14 @@ body.dark-mode {
     --mark-bg: #660;
     --mark-fg: #fff;
     --control-btn-bg: #890;
+    --star: #e9b64a;
+    --star-bg: #2e2510;
+    --muted: #b3a68f;
+    --line: #3a3220;
+    --type-mono: #2f3a17;
+    --type-bi: #1d2d3b;
+    --type-rbi: #3b2620;
+    --type-aux: #2e2a24;
 }
 a, p-a {
 		color: var(--link);
@@ -60,23 +76,16 @@ a:visited{
 }
 #install-button {
 		display: none;
-		background-color: #007bff;
-		font-size: 15px;
-		width: 8em;
-		color: white;
-		border: none;
-		border-radius: 5px;
-		cursor: pointer;
 }
 .setting{
-	background-color: #007bff;
+	background: var(--control-btn-bg);
+	font: inherit;
 	font-size: 15px;
-	width: 8em;
 	color: white;
 	border: none;
-	border-radius: 5px;
+	border-radius: 8px;
 	cursor: pointer;
-	padding: 10px;
+	padding: 8px 14px;
 }
 p-eg{
 	background: #ff9;
@@ -354,10 +363,10 @@ body.show-chords p-d:has(p-m) {
 	height: 1.6em;
 	margin: 0 6px 0 0;
 	padding: 0;
-	border: none;
+	border: 1px solid var(--control-btn-bg);
 	border-radius: 50%;
-	background: var(--control-btn-bg);
-	color: white;
+	background: transparent;
+	color: var(--control-btn-bg);
 	font-size: inherit;
 	line-height: 1.6em;
 	cursor: pointer;
@@ -456,7 +465,7 @@ img{
 }
 
 #content {
-    margin-top: 88px;
+    margin-top: calc(var(--hh, 96px) + 4px);
     padding: 2px;
     max-width: 1200px;
     margin-left: auto;
@@ -470,7 +479,7 @@ mark {
 		margin: 0;
 }
 
-#extra-btn, #controls {
+#controls {
     position: fixed;
     bottom: 10px;
     right: 10px;
@@ -479,17 +488,11 @@ mark {
     z-index: 900;
 }
 
-#extra-btn {
-	top: 60px;
-}
-
-.hidev{
-	visibility: hidden;
-}
-
-#f4{
-	visibility: visible;
-}
+body.fullscreen #searchContainer { display: none; }
+body.fullscreen #content { margin-top: 8px; }
+body.fullscreen #subbar { display: none; }
+#controls .control-btn { opacity: .55; width: 36px; height: 36px; font-size: 18px; }
+#controls .control-btn:hover, body.fullscreen #controls .control-btn { opacity: 1; }
 
 .control-btn {
     background: var(--control-btn-bg);
@@ -675,7 +678,7 @@ p-e{
 p-e + p-e {
 	margin-top: 1.5em;
 	padding-top: 1em;
-	border-top: 2px solid var(--accent-color);
+	border-top: 1px solid var(--line);
 }
 
 li:only-child{
@@ -700,11 +703,14 @@ p-d h1, p-d h2, p-d h3 {
 p-h{
 	background: var(--tab-bg);
 	display: flex;
+	align-items: center;
+	gap: 2px;
 	float: right;
 	margin: 0;
-	padding: 3px;
-	border-radius: 5px;
-	font-size: 13;
+	padding: 1px 8px 1px 2px;
+	border-radius: 999px;
+	font-size: 13px;
+	line-height: 1.6;
 	user-select: none; /* For most browsers */
 	-webkit-user-select: none; /* For Safari */
 	-moz-user-select: none; /* For Firefox */
@@ -735,22 +741,6 @@ p-ipa{
 	color: #303;
 }
 
-/* Focus: one dictionary first, with word by word translation */
-.dictlist-focus{
-	border: 0;
-	padding: 0 2px;
-	background: none;
-	color: var(--link);
-	font: inherit;
-	text-decoration: underline;
-	cursor: pointer;
-}
-.dictlist-file.focused .dictlist-focus{
-	background: var(--control-btn-bg);
-	color: #fff;
-	text-decoration: none;
-	border-radius: 4px;
-}
 .dictlist-solo{
 	margin-left: 4px;
 	text-decoration: none;
@@ -772,51 +762,21 @@ p-ipa{
 	overflow: hidden;
 	outline: none;
 }
-#searchBar{
-	max-width: 1200px;
-	margin: 0 auto .4em;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 3px;
-	font-size: .7em;
-}
-#searchBar button{
-	border: 0;
-	border-radius: 8px;
-	padding: 2px 7px;
-	background: var(--result-entry-bg);
-	color: var(--card-text);
-	font: inherit;
-	cursor: pointer;
-}
-#searchBar button.focused, #searchBar .sb-share{
-	background: var(--control-btn-bg);
-	color: #fff;
-}
-#searchBar button.off{
-	opacity: .45;
-	text-decoration: line-through;
-}
-.sb-loading{
-	align-self: center;
-	box-sizing: border-box;
-	width: 1.1em;
-	height: 1.1em;
-	margin-left: 2px;
-	border: 2px solid var(--control-btn-bg);
-	border-top-color: transparent;
-	border-radius: 50%;
-	animation: sb-spin .8s linear infinite;
-}
-@keyframes sb-spin{
-	to{ transform: rotate(360deg); }
-}
 .tr-w{
 	display: inline-flex;
 	flex-direction: column;
 	vertical-align: top;
 	max-width: 14em;
-	margin: 0 .5em .6em 0;
+	margin: 0 .35em .45em 0;
+	padding: 2px 7px 3px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--card-bg);
+}
+.tr-x{ /* a word no dictionary has */
+	border-style: dashed;
+	background: none;
+	opacity: .75;
 }
 .tr-w p-a{
 	color: var(--tr-link);
@@ -866,3 +826,494 @@ p-ipa{
 .tr-u{
 	opacity: .6;
 }
+
+/* Header: search and the History / Bookmarks / Library buttons */
+#searchContainer { gap: 4px; }
+.head-btn {
+	flex: none;
+	width: 40px;
+	height: 40px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	color: #f3e6c8;
+	cursor: pointer;
+}
+.head-btn:hover, .head-btn[aria-expanded="true"] { background: rgba(255,255,255,.14); }
+.head-btn[aria-expanded="true"] svg { fill: currentColor; fill-opacity: .25; }
+button:focus-visible, a:focus-visible, input:focus-visible + .modern-toggle, summary:focus-visible {
+	outline: 2px solid var(--star);
+	outline-offset: 2px;
+}
+
+/* The line above the results */
+#status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	max-width: 1200px;
+	margin: 4px auto 0;
+	padding: 0 4px;
+	font-size: 14px;
+	color: var(--maintext);
+}
+body.dark-mode #status { color: var(--card-text); }
+.st-text { flex: 1; }
+.st-loading {
+	box-sizing: border-box;
+	width: 14px;
+	height: 14px;
+	border: 2px solid var(--control-btn-bg);
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: spin .8s linear infinite;
+}
+.st-share, .text-btn {
+	border: 0;
+	background: none;
+	padding: 4px 6px;
+	font: inherit;
+	font-size: 14px;
+	color: var(--link);
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+/* Section headword and its bookmark */
+p-d > h2 .bm-btn {
+	margin-left: .35em;
+	padding: 2px;
+	border: 0;
+	background: none;
+	color: var(--muted);
+	vertical-align: middle;
+	cursor: pointer;
+	line-height: 0;
+}
+p-d > h2 .bm-btn[aria-pressed="true"] { color: var(--star); }
+p-d > h2 .bm-btn[aria-pressed="true"] svg { fill: currentColor; }
+
+/* Stars: starred dictionaries' entries stand out */
+.star-btn {
+	flex: none;
+	border: 0;
+	background: none;
+	padding: 0 3px;
+	font-size: 1.15em;
+	line-height: 1;
+	color: var(--muted);
+	cursor: pointer;
+}
+.star-btn[aria-pressed="true"] { color: var(--star); }
+p-e.starred {
+	margin-left: -18px;
+	padding-left: 14px;
+	border-left: 4px solid var(--star);
+}
+p-e.starred p-h { background: var(--star-bg); }
+p-e.starred + p-e:not(.starred) { border-top-width: 2px; }
+
+/* Home page: recent searches and bookmarks */
+#settings { display: block; }
+#home {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 0 16px;
+}
+#home section, .prefs, #listDiv {
+	background: var(--result-entry-bg);
+	border-radius: 12px;
+	padding: 14px 18px;
+	margin: 16px 0 0;
+	border-left: 0;
+}
+#home h2, .prefs h2, #listDiv h2 { margin: 0 0 .3em; font-size: 1.2em; color: var(--color1); }
+.rows { list-style: none; margin: 0; padding: 0; }
+.row { display: flex; align-items: stretch; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row-main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 1px;
+	padding: 8px 4px;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: var(--card-text);
+	text-align: left;
+	cursor: pointer;
+}
+.row-main:hover .row-w { text-decoration: underline; }
+.row-w { font-size: 1.05em; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-g, .row-t { font-size: .82em; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-x {
+	flex: none;
+	width: 40px;
+	border: 0;
+	background: none;
+	color: var(--muted);
+	cursor: pointer;
+	opacity: .6;
+}
+.row-x:hover { opacity: 1; }
+.empty { margin: .2em 0; color: var(--muted); font-size: .95em; }
+
+/* Side panel: all of the history or bookmarks */
+#drawer { position: fixed; inset: 0; z-index: 2500; }
+.drawer-bg { position: absolute; inset: 0; background: rgba(30,20,10,.45); }
+.drawer-panel {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: min(420px, 100%);
+	display: flex;
+	flex-direction: column;
+	background: var(--result-entry-bg);
+	color: var(--card-text);
+	box-shadow: -8px 0 30px rgba(0,0,0,.3);
+	animation: drawer-in .18s ease-out;
+}
+@keyframes drawer-in { from { transform: translateX(40px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .drawer-panel { animation: none; } }
+.drawer-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 8px 6px 18px;
+	background: var(--header-bg);
+	color: #f3e6c8;
+}
+.drawer-head h2 { margin: 0; font-size: 1.15em; }
+.drawer-head .close-btn { color: #f3e6c8; opacity: 1; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 4px 14px 24px; }
+
+/* Library */
+.lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
+.dictlist-file {
+	display: flex;
+	align-items: flex-start;
+	gap: 4px;
+	padding: 8px 0;
+	border-top: 1px solid var(--line);
+	line-height: 1.45;
+}
+.dictlist-file .modern-toggle { margin: 2px 2px 0 0; }
+.dictlist-file .star-btn { font-size: 1.4em; margin-top: 2px; }
+.lib-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lib-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.lib-desc { font-size: .85em; color: var(--muted); overflow-wrap: anywhere; }
+.lib-type {
+	font-size: .75em;
+	padding: 0 7px;
+	border-radius: 999px;
+	color: var(--card-text);
+	white-space: nowrap;
+}
+.type-mono { background: var(--type-mono); }
+.type-bi { background: var(--type-bi); }
+.type-rbi { background: var(--type-rbi); }
+.type-aux { background: var(--type-aux); }
+.dictlist-file.starred .lib-name strong { color: var(--star); }
+.dictlist-head { margin: 1em 0 .3em; }
+.prefs .pref-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: .5em 0; }
+.prefs details { margin-top: .6em; font-size: .85em; color: var(--muted); }
+
+@media (max-width: 480px) {
+	#content { padding: 2px 6px; }
+	p-d { padding: 14px; }
+	p-e.starred { margin-left: -14px; padding-left: 10px; }
+}
+
+/* Modes (the filter button) */
+.head-btn { position: relative; }
+.head-btn.on { color: #fff; background: rgba(255,255,255,.14); }
+.head-btn.on::after {
+	content: "";
+	position: absolute;
+	top: 7px;
+	right: 7px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--star);
+	box-shadow: 0 0 0 2px var(--header-bg);
+}
+.drawer-h { margin: 1em 0 .1em; font-size: .95em; color: var(--muted); font-weight: 600; }
+/* Filter: pick any number of categories; open one to choose its dictionaries */
+.check, .radio { position: relative; padding-left: 34px !important; }
+.check::before, .radio::before {
+	content: "";
+	position: absolute;
+	left: 6px;
+	top: 50%;
+	width: 18px;
+	height: 18px;
+	transform: translateY(-50%);
+	box-sizing: border-box;
+	border: 2px solid var(--muted);
+	border-radius: 5px;
+	background: var(--card-bg);
+}
+.radio::before { border-radius: 50%; }
+.check[aria-pressed="true"]::before {
+	border-color: var(--control-btn-bg);
+	background: var(--control-btn-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+.radio[aria-pressed="true"]::before { border-color: var(--control-btn-bg); box-shadow: inset 0 0 0 3px var(--card-bg); background: var(--control-btn-bg); }
+.check[aria-pressed="true"] .row-w, .radio[aria-pressed="true"] .row-w { color: var(--color1); }
+.cats > .cat { border-top: 1px solid var(--line); }
+.cats > .cat:first-child { border-top: 0; }
+.cat.sub .cat-sel { margin-left: 18px; }
+.cat-row { display: flex; align-items: stretch; }
+.cat-sel {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 8px 4px;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: var(--card-text);
+	text-align: left;
+	cursor: pointer;
+}
+.cat-exp {
+	flex: none;
+	width: 44px;
+	border: 0;
+	background: none;
+	color: var(--muted);
+	font-size: 1.1em;
+	cursor: pointer;
+	transition: transform .15s;
+}
+.cat-exp[aria-expanded="true"] { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .cat-exp { transition: none; } }
+.cat-body { margin: 0 0 8px 34px; padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
+.cat.sub .cat-body { margin-left: 52px; }
+.cat-dicts { list-style: none; margin: 0; padding: 0; }
+.cat-dict {
+	width: 100%;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 2px 8px;
+	min-height: 36px;
+	border: 0;
+	background: none;
+	font: inherit;
+	font-size: .95em;
+	color: var(--card-text);
+	text-align: left;
+	cursor: pointer;
+}
+.cat-dict[aria-pressed="false"] .cd-name { color: var(--muted); }
+.cat-acts { display: flex; gap: 4px; }
+
+/* Translate: how to, every time */
+.tr-pick {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	min-width: 12em;
+	padding: 6px;
+	font-size: .85em;
+	line-height: 1.4;
+}
+.tr-pick .tr-q { font-weight: 600; padding: 2px 4px 4px; }
+.tr-pick .tr-sub { padding: 6px 4px 2px; color: var(--muted); font-size: .9em; }
+.tr-pick button {
+	margin: 1px 0;
+	padding: 6px 10px;
+	text-align: left;
+	background: transparent;
+	color: var(--card-text);
+	border-radius: 6px;
+}
+.tr-pick button:hover { background: var(--line); }
+.tr-pick button.tr-default { background: var(--control-btn-bg); color: #fff; font-weight: 600; }
+.tr-p { font-size: .8em; color: var(--muted); font-style: italic; }
+.dictlist .out { display: none; }
+
+/* The header's buttons; on small screens in a menu (☰) */
+.head-menu { display: flex; gap: 4px; }
+.head-btn .lbl, #menuBtn { display: none; }
+@media (max-width: 560px) {
+	#menuBtn { display: inline-flex; }
+	.head-menu {
+		display: none;
+		position: absolute;
+		top: 100%;
+		right: 4px;
+		flex-direction: column;
+		gap: 0;
+		min-width: 220px;
+		padding: 6px;
+		background: var(--header-bg);
+		border-radius: 0 0 12px 12px;
+		box-shadow: 0 10px 24px rgba(0,0,0,.35);
+	}
+	.head-menu.open { display: flex; }
+	.head-menu .head-btn {
+		width: 100%;
+		height: 46px;
+		justify-content: flex-start;
+		gap: 14px;
+		padding: 0 12px;
+		font: inherit;
+		font-size: 16px;
+	}
+	.head-menu .head-btn .lbl { display: inline; }
+	.head-menu .head-btn.on::after { top: 50%; right: 14px; transform: translateY(-50%); }
+}
+#listDiv { scroll-margin-top: 60px; }
+
+/* The header's second line: language, and quick switches for the filter.
+   Slides away while scrolling down (#header.compact). */
+#subbar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 1200px;
+	max-height: 48px;
+	margin: 0 auto;
+	padding: 0 3px 6px;
+	overflow: hidden;
+	transition: max-height .2s, padding .2s, opacity .2s;
+}
+#header.compact #subbar { max-height: 0; padding-bottom: 0; opacity: 0; }
+@media (prefers-reduced-motion: reduce) { #subbar { transition: none; } }
+#langBtn {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 32px;
+	padding: 0 8px 0 3px;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(255,255,255,.12);
+	color: #f3e6c8;
+	font: inherit;
+	font-size: 14px;
+	cursor: pointer;
+}
+.lang-sym, .ls-sym {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 26px;
+	height: 26px;
+	padding: 0 3px;
+	box-sizing: border-box;
+	border-radius: 999px;
+	background: #fd9;
+	color: #432;
+	font-weight: 700;
+	font-size: 13px;
+}
+.sub-div { flex: none; width: 1px; height: 20px; background: rgba(255,255,255,.25); }
+#quick {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	gap: 6px;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+#quick::-webkit-scrollbar { display: none; }
+.qk {
+	flex: none;
+	height: 30px;
+	padding: 0 12px;
+	border: 1px solid rgba(243,230,200,.35);
+	border-radius: 999px;
+	background: transparent;
+	color: #f3e6c8;
+	font: inherit;
+	font-size: 14px;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.qk[aria-pressed="true"] { border-color: transparent; background: var(--tab-bg); color: var(--color1); font-weight: 600; }
+.qk .n { font-weight: 500; opacity: .8; }
+.qk-more { border-style: dashed; }
+.lang-row { flex-direction: row !important; align-items: center !important; gap: 10px !important; flex-wrap: wrap; text-decoration: none; }
+.lang-row .row-t { margin-left: auto; }
+.lang-row[aria-current="page"] .row-w { color: var(--color1); }
+.tr-pick .check { padding-left: 32px !important; }
+.tr-pick .check::before { left: 8px; width: 16px; height: 16px; }
+.tr-pick details summary { cursor: pointer; list-style-position: inside; }
+.tr-pick button.tr-go {
+	margin-top: 6px;
+	text-align: center;
+	background: var(--control-btn-bg);
+	color: #fff;
+	font-weight: 600;
+}
+.tr-pick button.tr-go:hover { background: var(--control-btn-bg); filter: brightness(1.1); }
+.tr-pick button.tr-go:disabled { opacity: .5; cursor: default; }
+.tr-pick { max-height: 60vh; overflow-y: auto; }
+
+/* Bible: a verse's section (a Bible text's result) has a small
+   reference, so a chapter's verses read on */
+p-d.verse > h2 { font-size: 1em; margin-top: .3em; margin-bottom: .3em; }
+p-d.verse p-e { line-height: 1.8; }
+p-d.verse p-e h3, p-d.verse p-e h4 { margin: .3em 0; font-size: 1.05em; color: var(--color1); }
+/* A chapter: each dictionary's verses in one card, running on */
+p-d.chapter p-e { line-height: 1.9; }
+p-d.chapter p-e h3, p-d.chapter p-e h4 { display: block; margin: .8em 0 .3em; font-size: 1.05em; color: var(--color1); }
+.vs-n {
+	padding: 0 .2em 0 .1em;
+	border: 0;
+	background: none;
+	color: var(--color1);
+	font: inherit;
+	font-size: .62em;
+	font-weight: 700;
+	line-height: 1;
+	vertical-align: super;
+	cursor: pointer;
+}
+p-d.chapter .vs-start { white-space: nowrap; }
+.vs.hl { background: var(--mark-bg); color: var(--mark-fg); border-radius: 3px; box-shadow: 0 0 0 3px var(--mark-bg); }
+.ctx-btn {
+	margin-left: .5em;
+	padding: 2px 10px;
+	border: 1px solid var(--control-btn-bg);
+	border-radius: 999px;
+	background: none;
+	color: var(--control-btn-bg);
+	font: inherit;
+	font-size: 13px;
+	vertical-align: middle;
+	cursor: pointer;
+}
+.qk-books { border-style: solid; background: rgba(255,255,255,.12); font-weight: 600; }
+/* The book picker */
+.bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
+.bk-grid button {
+	min-height: 40px;
+	padding: 4px 6px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: var(--card-bg);
+	color: var(--card-text);
+	font: inherit;
+	font-size: .92em;
+	cursor: pointer;
+}
+.bk-grid button:hover { border-color: var(--control-btn-bg); }
+.bk-grid button[aria-current="true"] { background: var(--control-btn-bg); border-color: transparent; color: #fff; }
+
