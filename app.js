@@ -1277,15 +1277,21 @@ if(!isDictPage){
 	// The pronunciation one: the first (by priority)
 	const phonTranslator = () => dictIds.find(isPhon);
 
+	// The dictionaries to translate with: the ones on, and the ones
+	// Everything has on (so a filter like Bible still has them)
+	function trOn(){
+		const lib = libraryOn();
+		return d => !!$(`${d}`)?.checked || lib[d];
+	}
+
 	// The query word by word, when the search found nothing: with every
-	// dictionary searched and, while filtering, the library's and every
-	// priority 1 one (so a filter like Bible still has them; not media) and
-	// a pronunciation one, loading any that aren't. A Bible text's headwords
-	// are its verses, so "rom 8.1 gal 1.1" links to each.
+	// dictionary trOn (not media) and a pronunciation one, loading any that
+	// aren't. A Bible text's headwords are its verses, so "rom 8.1 gal 1.1"
+	// links to each.
 	function translate(){
 		if (globreg.test(query)) return;
-		const mask = searchMask(), lib = libraryOn(), q = query;
-		const ids = trOrder([...dictIds.filter(d => (mask[d] || lib[d] || (filtered() && dicts[d].on)) && isWords(d)), phonTranslator()].filter(d => d !== undefined));
+		const on = trOn(), q = query;
+		const ids = trOrder([...dictIds.filter(d => on(d) && isWords(d)), phonTranslator()].filter(d => d !== undefined));
 		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q));
 	}
 
@@ -1430,14 +1436,13 @@ if(!isDictPage){
 		}).join('');
 	}
 
-	// A word's recording, if an audio dictionary searched or in the library
-	// has one (loading it): a 🔊 in its box plays it (no player)
+	// A word's recording, if an audio dictionary trOn has one (loading it): a 🔊 in its box plays it (no player)
 	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2/i;
 	function addAudio(box, pieces){
 		const words = [...new Set(pieces.filter(p => p.d !== undefined).map(p => p.text.trim()))];
 		if (!words.length) return;
-		const mask = searchMask(), lib = libraryOn();
-		dictIds.filter(d => dicts[d].media && dicts[d].type === 'aux' && (mask[d] || lib[d])).forEach(d =>
+		const on = trOn();
+		dictIds.filter(d => dicts[d].media && dicts[d].type === 'aux' && on(d)).forEach(d =>
 			ensureLoaded(d, () => askDict(d, {type: 'media', words}, r => r.files.forEach((f, k) => {
 				if (!f || !f[1] || !AUDIO.test(f[0])) return;
 				box.querySelectorAll(`.tr-w[data-w="${CSS.escape(words[k])}"]:not(.has-audio)`).forEach(w => {
