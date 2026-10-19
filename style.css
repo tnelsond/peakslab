@@ -1,4 +1,5 @@
 :root {
+	--tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
 	--font-size: 16px;
 	--link: #00a;
 	--link-old: #409;
@@ -89,7 +90,7 @@ a:hover, p-a:hover {
 a:visited { color: var(--link-old); }
 button { cursor: pointer; }
 button:disabled { cursor: default; }
-button:focus-visible, a:focus-visible, input:focus-visible + .modern-toggle, summary:focus-visible {
+button:focus-visible, a:focus-visible, input:focus-visible + .lib-check, summary:focus-visible {
 	outline: 2px solid var(--star);
 	outline-offset: 2px;
 }
@@ -214,6 +215,11 @@ img { margin: 0; } /* (not the 3px of <img align>) */
 	color: var(--header-fg);
 }
 .head-btn:hover, .head-btn[aria-expanded="true"], .head-btn.on { background: rgba(255,255,255,.14); }
+/* The icons: lines in the text's color */
+button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#langBtn svg { stroke-width: 3; }
+.head-btn svg { width: 22px; height: 22px; }
+#menuBtn svg { width: 24px; height: 24px; }
 .head-btn[aria-expanded="true"] svg { fill: currentColor; fill-opacity: .25; }
 .head-btn.on { color: #fff; }
 .head-btn.on::after { /* a filter is on */
@@ -491,7 +497,7 @@ p-m::before {
 	pointer-events: none;
 }
 body:not(.show-chords) p-m::before { display: none; }
-body.show-chords p-d:has(p-m) { line-height: 2.5; }
+body.show-chords p-e:has(p-m) { line-height: 2.5; } /* (just the entries with chords) */
 .chords-btn {
 	padding: 3px 8px;
 	border-radius: 5px;
@@ -544,6 +550,8 @@ p-e.starred + p-e:not(.starred) { border-top-width: 2px; }
 	background: var(--card-bg);
 }
 .tr-w.has-audio { padding-right: 1.9em; }
+.tr-w:has(p-a) { cursor: pointer; }
+.tr-play audio { display: none; }
 .tr-w p-a {
 	color: var(--tr-link);
 	font-weight: 600;
@@ -741,67 +749,12 @@ p-d.chapter .vs-start { white-space: nowrap; }
 
 /* The library */
 .lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
-.dictlist {
-	list-style: none;
-	padding-left: 0;
-	margin: 0;
-}
 .dictlist .out { display: none; }
-.dictlist-head { margin: 1em 0 .3em; }
-/* Its category, e.g. "khmer / music / chords", each part a link */
-.dictlist-crumbs {
-	color: var(--color1);
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: .2em;
-	margin: 0;
-	font-weight: 600;
-}
-.dictlist-crumb {
-	display: inline-block;
-	text-decoration: none;
-	color: var(--card-text) !important;
-	border-radius: 6px;
-	background: var(--accent-color);
-	padding: .3em .6em;
-	font-size: .95em;
-	transition: background .15s;
-}
-.dictlist-crumb:hover { background: color-mix(in srgb, var(--accent-color) 30%, var(--result-entry-bg)); }
-.dictlist-crumb-sep {
-	opacity: .55;
-	font-weight: 400;
-}
-.dictlist-extra-label {
-	display: flex;
-	align-items: center;
-	gap: .5em;
-	font-size: .75em;
-	text-transform: uppercase;
-	letter-spacing: .05em;
-	color: var(--maintext);
-	opacity: .65;
-	margin: .5em 0 .15em;
-}
-.dictlist-file {
-	display: flex;
-	align-items: flex-start;
-	gap: 4px;
-	padding: 8px 0;
-	border-top: 1px solid var(--line);
-	line-height: 1.45;
-}
-.dictlist-file .star-btn { font-size: 1.4em; margin-top: 2px; }
-.dictlist-file.starred .lib-name strong { color: var(--star); }
-.dictlist-solo {
-	margin-left: 4px;
-	text-decoration: none;
-}
-.lib-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dictlist-file input { display: block; position: absolute; opacity: 0; pointer-events: none; }
+.lib-check { gap: 2px; cursor: pointer; }
+.lib-h + .row { border-top: 0; }
 .lib-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
-.lib-size { font-size: .8em; color: var(--muted); white-space: nowrap; }
-.lib-desc { font-size: .85em; color: var(--muted); overflow-wrap: anywhere; }
+.lib-desc { font-size: .85em; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
 .lib-type {
 	font-size: .75em;
 	padding: 0 7px;
@@ -813,48 +766,23 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .type-bi { background: var(--type-bi); }
 .type-rbi { background: var(--type-rbi); }
 .type-aux { background: var(--type-aux); }
-/* A dictionary's on/off switch */
-.modern-toggle {
-	display: inline-flex;
-	margin: 2px 2px 0 0;
-	border-radius: 8px;
-	cursor: pointer;
-	user-select: none;
+.lib-size { font-size: .8em; color: var(--muted); white-space: nowrap; }
+.dictlist-file .star-btn { font-size: 1.4em; padding: 0 10px; }
+/* On, and while it's downloading */
+input:checked + .lib-check::before {
+	border-color: var(--control-btn-bg);
+	background: var(--control-btn-bg) var(--tick) center / 14px no-repeat;
 }
-.toggle-switch {
-	position: relative;
-	flex-shrink: 0;
-	width: 52px;
-	height: 28px;
-	background: #cbd5e0;
-	border-radius: 14px;
-	transition: background .3s;
-}
-.toggle-switch::after {
-	content: "";
-	position: absolute;
-	top: 2px;
-	left: 2px;
-	width: 24px;
-	height: 24px;
-	background: #fff;
+input:checked + .lib-check .row-w { color: var(--color1); }
+input.down:checked + .lib-check::before {
+	background: none;
+	border-top-color: transparent;
 	border-radius: 50%;
-	transition: left .3s cubic-bezier(.4, 0, .2, 1);
-	box-shadow: 0 2px 4px rgba(0,0,0,.2);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 14px;
+	animation: spin-box .8s linear infinite;
 }
-input:checked + .modern-toggle .toggle-switch { background: var(--accent-color); }
-input:checked + .modern-toggle .toggle-switch::after { left: 26px; }
-/* Not downloaded yet, and loading */
-input.down + .modern-toggle .toggle-switch::after { content: "⬇"; color: red; }
-input.down:checked + .modern-toggle .toggle-switch::after {
-	content: "↻";
-	color: green;
-	animation: spin 1s linear infinite;
-}
+@keyframes spin-box { from { transform: translateY(-50%) rotate(0); } to { transform: translateY(-50%) rotate(360deg); } }
+/* Not downloaded yet */
+input.down:not(:checked) + .lib-check .row-w::after { content: " ⬇"; color: var(--muted); font-size: .8em; }
 /* Side panel: history, bookmarks, the filter, languages, books */
 #drawer { position: fixed; inset: 0; z-index: 2500; }
 .drawer-bg { position: absolute; inset: 0; background: rgba(30,20,10,.45); }
@@ -902,7 +830,7 @@ input.down:checked + .modern-toggle .toggle-switch::after {
 .radio::before { border-radius: 50%; }
 .check[aria-pressed="true"]::before, .radio[aria-pressed="true"]::before { border-color: var(--control-btn-bg); background: var(--control-btn-bg); }
 .check[aria-pressed="true"]::before {
-	background: var(--control-btn-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 14px no-repeat;
+	background: var(--control-btn-bg) var(--tick) center / 14px no-repeat;
 }
 .radio[aria-pressed="true"]::before { box-shadow: inset 0 0 0 3px var(--card-bg); }
 .check[aria-pressed="true"] .row-w, .radio[aria-pressed="true"] .row-w { color: var(--color1); }
@@ -1014,28 +942,6 @@ input.down:checked + .modern-toggle .toggle-switch::after {
 	height: 48px;
 }
 body.selmenu-docked #controls { display: none; }
-
-/* How to install on iOS */
-#ios-instructions {
-	display: none;
-	position: fixed;
-	bottom: 20px;
-	left: 20px;
-	z-index: 20;
-	max-width: 300px;
-	padding: 10px;
-	background: #f7f7f7;
-	border: 1px solid #ddd;
-	border-radius: 5px;
-	box-shadow: 0 2px 5px rgba(0,0,0,.4);
-}
-#ios-close-btn {
-	padding: 5px 10px;
-	background: #007bff;
-	color: #fff;
-	border: 0;
-	border-radius: 5px;
-}
 
 @media (max-width: 480px) {
 	#content { padding: 2px 6px; }

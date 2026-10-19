@@ -154,6 +154,8 @@ with open(SRC, encoding='utf-8') as f, open(OUT, 'w', encoding='utf-8') as out:
 		line = line.rstrip('\n')
 		if line.startswith('#desc'):
 			line += " Rewritten in G2K's phonetics."
+		if line.startswith('#priority'):
+			line = '#priority\t1'  # On, and the pronunciation one translations use (the first)
 		if line.startswith('#') or '\t' not in line:
 			out.write(line + '\n')
 			continue

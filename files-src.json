@@ -1,11 +1,12 @@
 {
   "core": [
-    ["404.html", 1792411287],
+    ["404.html", 1792420795],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
+    ["media.js", 1792420795],
     ["peakslab.svg", 1789218198],
-    ["peak.wasm", 1792401328]
+    ["peak.wasm", 1792420795]
   ],
   "dicts": [
     ["chitonga/bible/text/toibible.peak.zst", 1788875079, "TOI Chitonga Bible", 693, 1, "mono", 0, 1566426],
@@ -65,7 +66,7 @@
     ["khmer/music/sheet/kora-pb1.slab", 1792328786, "The first half of the purple book via <a href=\"https/www.korapraise.com\">Kora Praise</a>", 90942, 2, "mono", 0, 4760754],
     ["khmer/music/sheet/kora-pb2.slab", 1792239167, "The second half of the purple book via <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 26494, 1, "mono", 0, 5690944],
     ["khmer/music/sheet/kora-snl.slab", 1789364966, "The SnL songbook from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 32462, 2, "mono", 0, 9404902],
-    ["khmer/phonetics/g2k.peak.zst", 1792406962, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>. Rewritten in G2K's phonetics.", 193, 2, "phon", 0, 765697],
+    ["khmer/phonetics/g2k.peak.zst", 1792415990, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>. Rewritten in G2K's phonetics.", 193, 1, "phon", 0, 765697],
     ["khmer/phonetics/ipa.peak.zst", 1792403327, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>.", 149, 2, "phon", 0, 593732],
     ["khmer/phonetics/khmervowels.peak.zst", 1792401693, "Khmer vowel charts and recordings, from the <a href=\"https://archive.org/details/aakanee_archive\">aakanee.com archive</a>", 6270, 1, "phon", 0, 17797],
     ["khmer/phonetics/phnom.peak.zst", 1792401695, "Khmer pronouncing dictionary: standard Khmer and Phnom Penh dialect by <a href=\"https://unesdoc.unesco.org/ark:/48223/pf0000246360\">Unesco</a>", 131, 2, "phon", 0, 72157],
@@ -88,6 +89,8 @@
     ["lao/dict/lowiktionary.peak.zst", 1788857375, "<a href=\"https://lo.wiktionary.org/\">Lao Wiktionary</a>", 2276, 2, "mono", 0, 834098],
     ["lao/dict/pat.peak.zst", 1788854627, "Lao-English Dictionary, William L. Patterson and Mario E. Severino (1995, Dunwoody Press) via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1991, 1, "bi", 0, 922134],
     ["lao/music/text/mekong.peak.zst", 1788867248, "<a href=\"https://www.mekongchristian.com/\">Mekong Lao Lyrics</a>", 10103, 1, "mono", 0, 54945],
+    ["lao/phonetics/laoipa.peak.zst", 1792418455, "Lao pronunciation (Vientiane), from <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>'s Patterson and Kerr: á high, ā mid, à low, â falling, ǎ rising, ȁ low falling", 402, 2, "phon", 0, 475255],
+    ["lao/phonetics/laosouth.peak.zst", 1792418458, "Southern Lao pronunciation (Pakxé), <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>'s Patterson and Kerr with Hartmann's Pakxé tones: ˦˥ high rising, ˧ mid, ˨ lower mid, ˩ low, ˨˩ low falling, ˧˩ mid falling, ̰ creaky", 440, 2, "phon", 0, 462295],
     ["lao/ref/lowiki.peak.zst", 1788857384, "<a href=\"https://lo.wikipedia.org/\">Lao Wikipedia</a>", 2480, 3, "mono", 0, 1023044],
     ["levantine/bible/text/vandyke.peak.zst", 1788875436, "Van Dyke Levantine Arabic Bible", 916, 1, "mono", 0, 1518794],
     ["levantine/dict/livinglevantineforms.peak.zst", 1788854640, "Living Levantine Forms", 300, 1, "aux", 0, 193568],

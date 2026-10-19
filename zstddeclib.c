@@ -590,6 +590,10 @@ int g_debuglevel = DEBUGLEVEL;
  * branches.
  */
 #define FORCE_INLINE_TEMPLATE static INLINE_KEYWORD FORCE_INLINE_ATTR UNUSED_ATTR
+/* peakslab: inlined even with ZSTD_NO_INLINE (a third smaller peak.wasm): the
+ * bit reader and sequence decoding, decompression's inner loop (5% slower
+ * loading instead of 25%) */
+#define ZSTD_HOT_INLINE static inline __attribute__((always_inline)) UNUSED_ATTR
 /**
  * HINT_INLINE is used to help the compiler generate better code. It is *not*
  * used for "templates", so it can be tweaked based on the compilers
@@ -2258,7 +2262,7 @@ MEM_STATIC size_t BIT_initCStream(BIT_CStream_t* bitC,
     return 0;
 }
 
-FORCE_INLINE_TEMPLATE BitContainerType BIT_getLowerBits(BitContainerType bitContainer, U32 const nbBits)
+ZSTD_HOT_INLINE BitContainerType BIT_getLowerBits(BitContainerType bitContainer, U32 const nbBits)
 {
 #if STATIC_BMI2 && !defined(ZSTD_NO_INTRINSICS)
 #  if (defined(__x86_64__) || defined(_M_X64)) && !defined(__ILP32__)
@@ -2398,12 +2402,12 @@ MEM_STATIC size_t BIT_initDStream(BIT_DStream_t* bitD, const void* srcBuffer, si
     return srcSize;
 }
 
-FORCE_INLINE_TEMPLATE BitContainerType BIT_getUpperBits(BitContainerType bitContainer, U32 const start)
+ZSTD_HOT_INLINE BitContainerType BIT_getUpperBits(BitContainerType bitContainer, U32 const start)
 {
     return bitContainer >> start;
 }
 
-FORCE_INLINE_TEMPLATE BitContainerType BIT_getMiddleBits(BitContainerType bitContainer, U32 const start, U32 const nbBits)
+ZSTD_HOT_INLINE BitContainerType BIT_getMiddleBits(BitContainerType bitContainer, U32 const start, U32 const nbBits)
 {
     U32 const regMask = sizeof(bitContainer)*8 - 1;
     /* if start > regMask, bitstream is corrupted, and result is undefined */
@@ -2426,7 +2430,7 @@ FORCE_INLINE_TEMPLATE BitContainerType BIT_getMiddleBits(BitContainerType bitCon
  *  On 32-bits, maxNbBits==24.
  *  On 64-bits, maxNbBits==56.
  * @return : value extracted */
-FORCE_INLINE_TEMPLATE BitContainerType BIT_lookBits(const BIT_DStream_t*  bitD, U32 nbBits)
+ZSTD_HOT_INLINE BitContainerType BIT_lookBits(const BIT_DStream_t*  bitD, U32 nbBits)
 {
     /* arbitrate between double-shift and shift+mask */
 #if 1
@@ -2449,7 +2453,7 @@ MEM_STATIC BitContainerType BIT_lookBitsFast(const BIT_DStream_t* bitD, U32 nbBi
     return (bitD->bitContainer << (bitD->bitsConsumed & regMask)) >> (((regMask+1)-nbBits) & regMask);
 }
 
-FORCE_INLINE_TEMPLATE void BIT_skipBits(BIT_DStream_t* bitD, U32 nbBits)
+ZSTD_HOT_INLINE void BIT_skipBits(BIT_DStream_t* bitD, U32 nbBits)
 {
     bitD->bitsConsumed += nbBits;
 }
@@ -2458,7 +2462,7 @@ FORCE_INLINE_TEMPLATE void BIT_skipBits(BIT_DStream_t* bitD, U32 nbBits)
  *  Read (consume) next n bits from local register and update.
  *  Pay attention to not read more than nbBits contained into local register.
  * @return : extracted value. */
-FORCE_INLINE_TEMPLATE BitContainerType BIT_readBits(BIT_DStream_t* bitD, unsigned nbBits)
+ZSTD_HOT_INLINE BitContainerType BIT_readBits(BIT_DStream_t* bitD, unsigned nbBits)
 {
     BitContainerType const value = BIT_lookBits(bitD, nbBits);
     BIT_skipBits(bitD, nbBits);
@@ -2508,7 +2512,7 @@ MEM_STATIC BIT_DStream_status BIT_reloadDStreamFast(BIT_DStream_t* bitD)
  *  This function is safe, it guarantees it will not never beyond src buffer.
  * @return : status of `BIT_DStream_t` internal register.
  *           when status == BIT_DStream_unfinished, internal register is filled with at least 25 or 57 bits */
-FORCE_INLINE_TEMPLATE BIT_DStream_status BIT_reloadDStream(BIT_DStream_t* bitD)
+ZSTD_HOT_INLINE BIT_DStream_status BIT_reloadDStream(BIT_DStream_t* bitD)
 {
     /* note : once in overflow mode, a bitstream remains in this mode until it's reset */
     if (UNLIKELY(bitD->bitsConsumed > (sizeof(bitD->bitContainer)*8))) {
@@ -21230,7 +21234,7 @@ ZSTD_initFseState(ZSTD_fseState* DStatePtr, BIT_DStream_t* bitD, const ZSTD_seqS
     DStatePtr->table = dt + 1;
 }
 
-FORCE_INLINE_TEMPLATE void
+ZSTD_HOT_INLINE void
 ZSTD_updateFseStateWithDInfo(ZSTD_fseState* DStatePtr, BIT_DStream_t* bitD, U16 nextState, U32 nbBits)
 {
     size_t const lowBits = BIT_readBits(bitD, nbBits);
@@ -21255,7 +21259,7 @@ typedef enum { ZSTD_lo_isRegularOffset, ZSTD_lo_isLongOffset=1 } ZSTD_longOffset
  *                  only used in 32-bit mode
  * @return : Sequence (litL + matchL + offset)
  */
-FORCE_INLINE_TEMPLATE seq_t
+ZSTD_HOT_INLINE seq_t
 ZSTD_decodeSequence(seqState_t* seqState, const ZSTD_longOffset_e longOffsets, const int isLastSeq)
 {
     seq_t seq;

@@ -19,33 +19,32 @@
 <body>
 	<header id="header">
   <div id="searchContainer">
-		<a href="/">
-		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"></div></a>
+		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"></div>
     <input type="search" id="queryInput" value="" placeholder="Look up a word or paste text" autofocus autocomplete="off" aria-label="Search">
-		<button type="button" class="head-btn" id="menuBtn" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="headMenu"><svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+		<button class="head-btn" id="menuBtn" title="Menu" aria-expanded="false" aria-controls="headMenu"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 		<div class="head-menu" id="headMenu">
-			<button type="button" class="head-btn" id="filterBtn" data-drawer="modes" title="Mode" aria-label="Mode" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg><span class="lbl">Mode</span></button>
-			<button type="button" class="head-btn" data-drawer="history" title="History" aria-label="History" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg><span class="lbl">History</span></button>
-			<button type="button" class="head-btn" data-drawer="bookmarks" title="Bookmarks" aria-label="Bookmarks" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg><span class="lbl">Bookmarks</span></button>
-			<button type="button" class="head-btn" id="settingsBtn" title="Library and settings" aria-label="Library and settings"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="M16.5 4.8l3.8-1 3.7 15.6-3.8 1z" transform="translate(-2 0)"/></svg><span class="lbl">Library and settings</span></button>
+			<button class="head-btn" id="filterBtn" data-drawer="modes" title="Mode" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg><span class="lbl">Mode</span></button>
+			<button class="head-btn" data-drawer="history" title="History" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg><span class="lbl">History</span></button>
+			<button class="head-btn" data-drawer="bookmarks" title="Bookmarks" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg><span class="lbl">Bookmarks</span></button>
+			<button class="head-btn" id="settingsBtn" title="Library and settings"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="M16.5 4.8l3.8-1 3.7 15.6-3.8 1z" transform="translate(-2 0)"/></svg><span class="lbl">Library and settings</span></button>
 		</div>
   </div>
 	<div id="subbar">
-		<button type="button" id="langBtn" aria-haspopup="dialog"></button>
+		<button id="langBtn" aria-haspopup="dialog"></button>
 		<span class="sub-div" aria-hidden="true"></span>
 		<div id="quick" role="toolbar" aria-label="What to search"></div>
 	</div>
 </header>
 
 	<div id="content">
-		<div id="status" class="hide"><span class="st-text"></span><span class="st-loading hide" title="Loading dictionaries"></span><button type="button" class="st-share" title="Share a link to this search">Share</button></div>
+		<div id="status" class="hide"><span class="st-text"></span><span class="st-loading hide" title="Loading dictionaries"></span><button class="st-share" title="Share a link to this search">Share</button></div>
 		<div id="results"></div>
 		<div id="settings">
 		<div id="home"></div>
 		<p-d id="listDiv"></p-d>
 		<p-d class="prefs">
 			<h2>Settings</h2>
-			<div class="pref-row"><button class="setting" id="darkT">Dark mode</button><button class="setting" id="markT">Highlight matches</button><button class="setting" id="debugT">Debug</button><button class="setting" id="install-button">Install app</button></div>
+			<div class="pref-row"><button class="setting" id="darkT">Dark mode</button><button class="setting" id="markT">Highlight matches</button><button class="setting" id="install-button">Install app</button></div>
 			<details><summary>Version (v10.9) and loading times</summary><div id="version"></div><div id="timing"></div></details>
 		</p-d>
 		</div>
@@ -53,25 +52,25 @@
 		<p-d>
 		<img src="/peakslab.svg" alt="PeakSlab" height="100px" align="left" style="padding-right:1em">
 		<h2>Peak Slab</h2>
-		<p><button type="button" class="setting" id="pickLang">Choose a language</button></p>
+		<p><button class="setting" id="pickLang">Choose a language</button></p>
 		<h3>What is it?</h3>
 		<p>Peak Slab is an offline knowledge retrieval engine. (E.g. dictionaries, bibles, sheet music, media) The name comes from the Khmer words ពាក្យ ស្លាប់ which means <b>word</b> [that is] <b>dead</b>, a reference to the Ten Commandments which were written on <b>Slabs</b> of stone received on a mountain <b>Peak</b>.</p>
 		<h3>Technical Details</h3>
-		<p>Peak Slab is tiny (the core js, wasm, css, and html is under 160kb uncompressed) and very fast (runs multiple dictionaries in parallel even on old systems). <a href="https://github.com/tnelsond/peakslab">Learn more on Github</a>.
+		<p>Peak Slab is tiny (the core js, wasm, css, and html is under 128kb uncompressed) and very fast (runs multiple dictionaries in parallel even on old systems). <a href="https://github.com/tnelsond/peakslab">Learn more on Github</a>.
 		</p-d>
 		</div>
 	</div>
 
 
 	<div id="controls">
-		<button type="button" class="control-btn txt" id="fontDecrease" title="Smaller text" aria-label="Smaller text">A−</button>
-		<button type="button" class="control-btn txt" id="fontIncrease" title="Bigger text" aria-label="Bigger text">A+</button>
-		<button type="button" class="control-btn" id="f4" title="Fullscreen" aria-label="Fullscreen">⛶</button>
+		<button class="control-btn txt" id="fontDecrease" title="Smaller text">A−</button>
+		<button class="control-btn txt" id="fontIncrease" title="Bigger text">A+</button>
+		<button class="control-btn" id="f4" title="Fullscreen">⛶</button>
     </div>
 	<div id="drawer" class="hide">
 		<div class="drawer-bg"></div>
 		<aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
-			<div class="drawer-head"><h2 class="drawer-title" id="drawerTitle"></h2><button type="button" class="drawer-close close-btn" aria-label="Close">×</button></div>
+			<div class="drawer-head"><h2 class="drawer-title" id="drawerTitle"></h2><button class="drawer-close close-btn" aria-label="Close">×</button></div>
 			<div class="drawer-body"></div>
 		</aside>
 	</div>
@@ -80,18 +79,6 @@
 						<button id="popupClose" class="close-btn">×</button>
             <div id="popupResults"></div>
         </div>
-    </div>
-
-    <div id="ios-instructions">
-        <p>To install this app on your iPhone or iPad:</p>
-        <ol>
-            <li>Tap the <strong>Share</strong> button in Safari.</li>
-            <li>Scroll down and select <strong>Add to Home Screen</strong>.</li>
-            <li>Follow the on-screen instructions.</li>
-        </ol>
-        <button id="ios-close-btn">
-            Got it
-        </button>
     </div>
 
 <script src="/app.js" type="module"></script>

@@ -43,14 +43,14 @@ async function build() {
 
 		const [appMin, workerMin] = await Promise.all([
 			minifyJs(appJs, { module: true }),
-			minifyJs(workerJs),
+			minifyJs(workerJs, { toplevel: true }), // (nothing outside it uses its names)
 		]);
 		if (appMin.error) throw appMin.error;
 		if (workerMin.error) throw workerMin.error;
 		appJs = appMin.code;
 		workerJs = workerMin.code;
 
-		const cssResult = new CleanCSS().minify(css);
+		const cssResult = new CleanCSS({ level: { 2: { restructureRules: true } } }).minify(css);
 		if (cssResult.errors.length) throw new Error(cssResult.errors.join('\n'));
 		css = cssResult.styles;
 	}
@@ -63,19 +63,19 @@ async function build() {
 	if (!workerCallRe.test(appJs)) {
 		throw new Error(`Could not find new Worker('/peakworker.js') in app.js — has it changed? Update build.mjs to match.`);
 	}
-	const workerUrlVar = '__peakWorkerUrl';
-	appJs = `const __peakWorkerSrc = ${JSON.stringify(workerJs)};\n` +
-		`const ${workerUrlVar} = URL.createObjectURL(new Blob([__peakWorkerSrc], {type: 'application/javascript'}));\n` +
+	// (A name the minifier won't have used: its are a few characters long)
+	const workerUrlVar = '__pw_';
+	appJs = `const ${workerUrlVar}=URL.createObjectURL(new Blob([${JSON.stringify(workerJs)}],{type:"text/javascript"}));` +
 		appJs.replace(new RegExp(workerCallRe, 'g'), `new Worker(${workerUrlVar})`);
 
 	// Inline the stylesheet <link> and the app.js <script src>.
 	html = html.replace(
 		/<link[^>]*rel=["']stylesheet["'][^>]*href=["']\/style\.css["'][^>]*>/i,
-		() => `<style>\n${css}\n</style>`
+		() => `<style>${css}</style>`
 	);
 	html = html.replace(
 		/<script[^>]*src=["']\/app\.js["'][^>]*><\/script>/i,
-		() => `<script type="module">\n${appJs}\n</script>`
+		() => `<script type="module">${appJs}</script>`
 	);
 
 	if (minify) {
@@ -83,6 +83,9 @@ async function build() {
 		html = await minifyHtml(html, {
 			collapseWhitespace: true,
 			removeComments: true,
+			removeAttributeQuotes: true,
+			collapseBooleanAttributes: true,
+			removeRedundantAttributes: true,
 			// JS/CSS are already minified above; skip re-minifying them here.
 			minifyCSS: false,
 			minifyJS: false,

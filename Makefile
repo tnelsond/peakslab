@@ -1,5 +1,5 @@
 comma := ,
-all : peakgen peakgen.wasm sw.js peak.wasm peak 404.html files.json
+all : peakgen peakgen.wasm sw.js media.js peak.wasm peak 404.html files.json
 
 # Find .tsv files - clean paths without leading ./
 # A big file split into x.tsv.1, x.tsv.2, ... (see utils/splittsv.sh) is listed
@@ -58,6 +58,11 @@ dict_src/khmer/phonetics/g2k.tsv: dict_src/khmer/phonetics/ipa.tsv dict_src/khme
 	python3 utils/ipatog2k.py dict_src/khmer/phonetics/ipa.tsv $@ $@.nath
 	rm $@.nath
 
+# The Lao pronunciation dictionaries are made from pat's and kerr's
+dict_src/lao/phonetics/laoipa.tsv dict_src/lao/phonetics/laosouth.tsv &: dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv utils/laophonetics.py
+	mkdir -p dict_src/lao/phonetics
+	python3 utils/laophonetics.py dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv dict_src/lao/phonetics
+
 meta:
 	mkdir -p meta
 peakgen : peakgen.c peak.h zstd.o zstd.h
@@ -82,9 +87,12 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
 # peak.wasm is built with plain clang + wasm-ld (no Emscripten): any clang with
 # the wasm32 target works (e.g. Debian/Ubuntu: apt install clang lld).
 # utils/minilibc supplies the few libc functions needed; malloc is walloc.
-# wasm-opt (binaryen) is optional and shaves ~2 kB if installed.
-# -DZSTD_NO_INLINE would make it ~11 kB smaller but zstd decompression
-# (i.e. dictionary load time) about twice as slow, so it's not used.
+# wasm-opt (binaryen) is optional and shaves ~2 kB if installed. (Not -all:
+# it can use features browsers don't have yet. --low-memory-unused: the
+# stack is first, growing down to 0, so the lowest 1 kB is never used short
+# of a stack overflow.)
+# -DZSTD_NO_INLINE: a third smaller; zstddeclib.c still inlines its inner
+# loop (ZSTD_HOT_INLINE), so dictionaries load only ~5% slower.
 CLANG ?= clang
 WASM_OPT ?= $(shell command -v wasm-opt 2>/dev/null)
 PEAK_EXPORTS = load_peak peak_init init_search continue_search get_result free_peak malloc free switchstate match_at last_match last_index render_match head_at
@@ -94,11 +102,11 @@ peak.wasm : peak.c zstddeclib.c peak.h utils/walloc-master/walloc.c $(wildcard u
 	-DNDEBUG \
 	-DHUF_FORCE_DECOMPRESS_X1 \
 	-DZSTD_FORCE_DECOMPRESS_SEQUENCES_SHORT \
-	-DZSTD_NO_UNUSED_FUNCTIONS \
+	-DZSTD_NO_UNUSED_FUNCTIONS -DZSTD_NO_INLINE \
 	-Wl,--no-entry -Wl,--gc-sections -Wl,--strip-all \
 	$(addprefix -Wl$(comma)--export=,$(PEAK_EXPORTS)) \
 	-o peak.wasm peak.c utils/walloc-master/walloc.c utils/minilibc/libc.c
-	$(if $(WASM_OPT),$(WASM_OPT) -Oz --converge --strip-debug --strip-producers -all peak.wasm -o peak.wasm)
+	$(if $(WASM_OPT),$(WASM_OPT) -Oz --converge --low-memory-unused --strip-debug --strip-producers --strip-target-features peak.wasm -o peak.wasm)
 	du -b peak.wasm
 	./createmeta.sh peak.wasm
 peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
@@ -119,8 +127,12 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 	node build.mjs --minify
 	./createmeta.sh 404.html
 	cp 404.html index.html
+# The media decoders' code, loaded with their wasm when first used
+media.js : media-src.js
+	node_modules/.bin/terser media-src.js --module --compress --mangle -o media.js
+	./createmeta.sh media.js
 sw.js : sw-src.js
-	minify sw-src.js > sw.js
+	node_modules/.bin/terser sw-src.js --compress passes=2 --mangle --toplevel -o sw.js
 
 .PHONY: FORCE
 FORCE:

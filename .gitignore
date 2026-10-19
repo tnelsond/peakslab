@@ -8,3 +8,4 @@ node_modules/
 test/
 dict_src
 .*
+__pycache__/
