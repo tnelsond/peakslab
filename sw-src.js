@@ -121,11 +121,6 @@ async function sendStatus(client) {
   }
 }
 
-async function broadcastNew(path) {
-  const all = await self.clients.matchAll();
-  all.forEach(c => c.postMessage({ type: 'new', url: path }));
-}
-
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return; // let cross-origin pass through
@@ -376,7 +371,6 @@ async function fetchInto(path, meta, newCache) {
         const headers = new Headers(res.headers);
         headers.set('x-peak-timestamp', String(meta.timestamp));
         await newCache.put(path, new Response(buf, { status: res.status, statusText: res.statusText, headers }));
-        broadcastNew(path);
         return true;
       }
       return false;
@@ -727,7 +721,6 @@ async function cacheFirst(request, pathname) {
       const headers = new Headers(res.headers);
       headers.set('x-peak-timestamp', String(meta ? meta.timestamp : Date.now()));
       await cache.put(pathname, new Response(buf, { status: res.status, statusText: res.statusText, headers }));
-      broadcastNew(pathname);
     }
     return res;
   } catch (e) {

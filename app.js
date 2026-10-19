@@ -62,13 +62,7 @@ const isDictPage = window.location.pathname.length > 1;
 const earlyWorkers = isDictPage ? [new Worker('/peakworker.js'), new Worker('/peakworker.js')] : [];
 const filesJson = await fetch('/files.json').then(r => r.json());
 
-// Ask the browser not to auto-evict our cached dictionaries/app-shell under
-// storage pressure. This is a request, not a guarantee - browsers grant it
-// based on heuristics like install/engagement state - but it costs nothing
-// to ask, and offline-first apps like this one are exactly the case it
-// exists for. It only affects eviction under low-disk-space pressure; it
-// doesn't help with cache entries that failed to download in the first
-// place (that's handled in the service worker).
+// Ask the browser not to evict the cached dictionaries when disk space is low
 if ('storage' in navigator && 'persist' in navigator.storage) {
 	navigator.storage.persisted().then(async isPersisted => {
 		if (!isPersisted) {
@@ -83,19 +77,9 @@ if ('serviceWorker' in navigator) {
 		.then(reg => console.log('Root SW registered with scope:', reg.scope))
 		.catch(err => console.error('Registration failed:', err));
 
-	navigator.serviceWorker.getRegistrations().then(registrations => {
-		registrations.forEach(reg => {
-			const rootUrl = new URL('/', location.origin).href;
-			if (reg.scope !== rootUrl) {
-				reg.unregister().then(() => console.log('Unregistered old SW:', reg.scope));
-			}
-		});
-	});
 	navigator.serviceWorker.addEventListener('message', event => {
 		if(event.data){
-			if(event.data.type === 'new'){
-				console.log(`${event.data.url} is new!`);
-			}else if(event.data.type === 'filesupdated'){
+			if(event.data.type === 'filesupdated'){
 				// The service worker applied a new files.json. Refresh the
 				// downloaded/version indicators; new or removed dictionaries
 				// show up in the list on the next load.
@@ -116,15 +100,8 @@ if ('serviceWorker' in navigator) {
 		}
 	});
 
-	// Ask right away rather than waiting for window's 'load' event: this
-	// script has a top-level await above (fetching files.json), and once a
-	// module script suspends on that it's a race whether 'load' fires before
-	// or after it resumes and gets around to registering that listener - if
-	// 'load' wins, requestCacheVersion() (and every ack() call downstream of
-	// it) never happens at all, which is why already-downloaded files could
-	// keep showing their "not downloaded" icon forever. A controller may
-	// also not exist yet on the very first controlled load, so retry once
-	// one shows up.
+	// Right away, not on 'load' (which may have fired during the await
+	// above), and again once there's a controller (the first load has none)
 	requestCacheVersion();
 	navigator.serviceWorker.addEventListener('controllerchange', requestCacheVersion);
 	// An installed PWA can sit in the background for days without a
@@ -141,15 +118,44 @@ function requestCacheVersion() {
 	}
 }
 
-const root = window.location.pathname.length <= 1;
-if(root){
-	const tlangs = [...new Set(filesJson.dicts.map(arr => arr[0].split('/')[0]))];
-	const links = '<ul class="dictlist-root">' + tlangs.map(dir => `<li><a class="dictlist-link" href="/${dir}">${dir}</a></li>`).join(' ') + '</ul>';
-	document.getElementById("list").innerHTML = links;
+function escapeHTML(text){
+	return text.replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
+}
+const abbr = filesJson.abbr || {};
+const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+const langSym = l => (Array.isArray(abbr[l]) && abbr[l][1]) || cap(l).slice(0, 2);
+const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+// The language panel's rows: the languages, biggest first
+const langCounts = {};
+filesJson.dicts.forEach(f => { const l = f[0].split('/')[0]; langCounts[l] = (langCounts[l] || 0) + 1; });
+const langRow = (href, sym, name, n, cur) => `<li class="row"><a class="row-main lang-row" href="${href}"${cur ? ' aria-current="page"' : ''}><span class="ls-sym">${escapeHTML(sym)}</span><span class="row-w">${escapeHTML(name)}</span><span class="row-t">${n} ${n === 1 ? 'dictionary' : 'dictionaries'}</span></a></li>`;
+const langRows = (skip, qs) => '<ul class="rows">' + Object.keys(langCounts).filter(l => l !== skip).sort((a, b) => langCounts[b] - langCounts[a])
+	.map(l => langRow(`/${l}${qs}`, langSym(l), cap(l), langCounts[l], false)).join('') + '</ul>';
+
+if(!isDictPage){
+	// The root page: the app with nothing but the language button (typing
+	// opens it too, and the text goes along), and what Peak Slab is
+	const drawer = document.getElementById('drawer');
+	const langBtn = document.getElementById('langBtn');
+	const queryInput = document.getElementById('queryInput');
+	['menuBtn', 'headMenu', 'quick', 'settings', 'controls'].forEach(id => document.getElementById(id).classList.add('hide'));
+	document.querySelector('.sub-div').classList.add('hide');
+	document.getElementById('about').classList.remove('hide');
+	langBtn.innerHTML = `<span class="lang-sym">?</span><span class="lang-name">Choose a language</span>${chevron}`;
+	const openLangs = () => {
+		const qs = queryInput.value ? '?text=' + encodeURIComponent(queryInput.value) : '';
+		drawer.querySelector('.drawer-title').textContent = 'Language';
+		drawer.querySelector('.drawer-body').innerHTML = langRows('', qs);
+		drawer.classList.remove('hide');
+	};
+	const closeLangs = () => drawer.classList.add('hide');
+	langBtn.addEventListener('click', openLangs);
+	document.getElementById('pickLang').addEventListener('click', openLangs);
+	queryInput.addEventListener('input', openLangs);
+	drawer.querySelector('.drawer-close').addEventListener('click', closeLangs);
+	drawer.querySelector('.drawer-bg').addEventListener('click', closeLangs);
+	document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLangs(); });
 }else{
-	['searchContainer', 'subbar', 'content', 'about', 'controls'].forEach(id => {
-		document.getElementById(id).classList.toggle('hide');
-	});
 	let num = 0;
 	let debug = false;
 	let mark = true;
@@ -204,7 +210,6 @@ if(root){
 					document.getElementById(`${d}`)?.classList.remove('down');
 					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
 					--nload;
-					newtiming.innerHTML = `${Math.round(performance.now())}ms `;
 					updateStatus();
 					if(nload == 0)
 						saveState();
@@ -244,9 +249,9 @@ if(root){
 		if(!popup && data.gen !== searchGen)
 			return; // Sent for an earlier search (it restarts as dictionaries load)
 		if(!popup && num == 0){ // Popup results leave the main results alone
-			cleanup(tout);
+			cleanup(resultsDiv);
 			if(loader)
-				tout.append(loader)
+				resultsDiv.append(loader)
 		}
 		let idpre = popup ? "pid" : "mid";
 		const nheader = updateQuery(data.header);
@@ -373,9 +378,43 @@ if(root){
 		}
 	}
 
+	// Above a chapter: ‹ the book (tap: its chapters) ›, going on to the
+	// next or previous book at the ends
+	function chapterNav(title){
+		const [, code, c] = /^(.+) (\d+)\.$/.exec(query);
+		const ch = +c;
+		const nav = document.createElement('div');
+		nav.id = 'chNav';
+		nav.innerHTML = '<button type="button" class="ch-go" data-go="-1" aria-label="Previous chapter">‹</button>' +
+			`<button type="button" class="ch-book">${escapeHTML(title)} ▾</button>` +
+			'<button type="button" class="ch-go" data-go="1" aria-label="Next chapter">›</button>';
+		nav.onclick = e => {
+			const b = e.target.closest('button');
+			if (!b) return;
+			if (!b.dataset.go) {
+				booksPick = code;
+				return openDrawer('books');
+			}
+			loadBooks(() => {
+				const i = books.findIndex(x => x.code === code);
+				const to = ch + +b.dataset.go;
+				const bk = to < 1 ? books[i - 1] : to > books[i]?.n ? books[i + 1] : books[i];
+				if (bk) search(`${bk.code} ${to < 1 ? bk.n : bk === books[i] ? to : 1}.`);
+			});
+		};
+		loadBooks(() => { // The book's name in the Bible, and the ends
+			const i = books.findIndex(x => x.code === code);
+			if (i < 0) return;
+			nav.querySelector('.ch-book').textContent = `${books[i].name} ${String(ch).replace(/\d/g, d => String.fromCodePoint(books[i].zero + +d))} ▾`;
+			nav.firstChild.disabled = !i && ch === 1;
+			nav.lastChild.disabled = i === books.length - 1 && ch === books[i].n;
+		});
+		return nav;
+	}
+
 	// A verse of the chapter searched ("rom 8."): each dictionary's verses
 	// run together in one card, numbered as its references have them
-	// ("យ៉ូហាន ៣:១៦"); a verse's number translates it word by word
+	// ("យ៉ូហាន ៣:១៦"); the ⇄ after a verse translates it word by word
 	function addVerse(data, h){
 		const d = data.did*workers.length + data.id - 1;
 		const label = /<p-n>@?([^<]*)<\/p-n>/.exec(data.body);
@@ -385,9 +424,9 @@ if(root){
 			card.id = `ch-${d}`;
 			card.className = 'chapter';
 			card.dataset.id = sortId(d);
-			const title = label ? label[1].replace(/\s*[:.]\s*\p{Nd}+[^:.]*$/u, '') : query; // Its chapter
-			card.innerHTML = `<h2><span class="hw">${escapeHTML(title)}</span></h2>` +
-				`<p-e data-dict="${escapeHTML(data.dict)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}><p-h title="${escapeHTML(typeLabel(d) || '')}">${starBtnHTML(d)}<span class="dn">${data.dict}</span></p-h>${collapseBtnHTML}</p-e>`;
+			if(!document.getElementById('chNav'))
+				resultsDiv.prepend(chapterNav(label ? label[1].replace(/\s*[:.]\s*\p{Nd}+[^:.]*$/u, '') : query));
+			card.innerHTML = `<p-e data-dict="${escapeHTML(data.dict)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}><p-h title="${escapeHTML(typeLabel(d) || '')}">${starBtnHTML(d)}<span class="dn">${data.dict}</span></p-h>${collapseBtnHTML}</p-e>`;
 			const after = [...resultsDiv.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > sortId(d));
 			resultsDiv.insertBefore(card, after || (loader && loader.parentNode === resultsDiv ? loader : null));
 		}
@@ -403,7 +442,8 @@ if(root){
 		const word = /^[^\s\u200B<]*/.exec(rest)[0];
 		const vs = document.createElement(text ? 'span' : 'div');
 		vs.className = 'vs';
-		vs.innerHTML = `${heads}<span class="vs-start"><button type="button" class="vs-n" onclick="translateEntry(this)" title="Translate word by word">${escapeHTML(n)}</button>${word}</span>${rest.slice(word.length)} `;
+		vs.innerHTML = `${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
+			'<button type="button" class="vs-tr" onclick="translateEntry(this)" title="Translate word by word" aria-label="Translate this verse">⇄</button> ';
 		card.querySelector('p-e').append(vs);
 		if(h === readHl){ // Read in context: the verse in each card, the top one's in view
 			vs.classList.add('hl');
@@ -414,8 +454,6 @@ if(root){
 		updateStatus(`Found ${num}+ matching lines.`);
 		loadmore();
 	}
-
-	const abbr = filesJson.abbr || {};
 
 	// Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
 	let pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
@@ -444,7 +482,7 @@ if(root){
 	// Extras: low-priority (priority <= 0) files from other languages that share a category
 	// with at least one primary file on this page — whatever page depth we're browsing at.
 	const primaryCategories = new Set(allFiles.filter(x => x.isPrimary).map(x => x.category.join('/')));
-	// A file's tuple is now [path, timestamp, description, buflen, priority].
+	// A file's tuple is [path, timestamp, description, buflen, priority, lang, collapsed, size].
 	const files = allFiles.filter(x =>
 		x.isPrimary || (x.file[4] <= 0 && primaryCategories.has(x.category.join('/')))
 	);
@@ -494,10 +532,10 @@ if(root){
 			const current = meta.getAttribute('content') || '';
 			meta.setAttribute('content', current + appname);
 		}
-		const el = document.getElementById("appname");
-		if (el) el.textContent = appname;
 		document.title = (document.title || '') + appname;
 	})();
+
+	const sizeText = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
 
 	// Strip extension from basename
 	function fileBasename(filename) {
@@ -510,11 +548,11 @@ if(root){
 			return priority === undefined || priority === 1 || priority === -1;
 	}
 
-	// dict entry: [filename, basename, buflen, description, enabled]
-	let dicts = files.map(({file: [filename, , description, buflen, priority]}) => [
+	// dict entry: [filename, basename, size (bytes, to download), description, enabled]
+	let dicts = files.map(({file: [filename, , description, , priority, , , size]}) => [
 			filename,
 			fileBasename(filename),
-			buflen,
+			size || 0,
 			description,
 			defaultEnabled(priority)
 	]);
@@ -525,7 +563,6 @@ if(root){
 	// the source): mono (in the language), bi (the language to English), rbi
 	// (English to the language), phon (pronunciation) or aux (audio, images,
 	// word counts, ...)
-	const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 	const TYPE_ORDER = ['mono', 'bi', 'rbi', 'phon', 'aux'];
 	const typeOf = d => files[d].file[5] || '';
 	const typeLabel = d => {
@@ -592,8 +629,7 @@ if(root){
 
 	// Stars: a starred dictionary's entries come first and stand out, in the
 	// order they were starred, and its words are the ones searched first.
-	// Text with no entry is translated word by word with the first starred
-	// one that can (see translator). ?dict=h97 is a page with only that
+	// ?dict=h97 is a page with only that
 	// dictionary loaded ("solo").
 	const urlParams = new URLSearchParams(window.location.search);
 	const dictIndex = name => name ? dicts.findIndex(d => d[1] === name) : -1;
@@ -601,9 +637,7 @@ if(root){
 	const starKey = `peakslab-stars-${appname}`;
 	let stars = [];
 	try {
-		// Older versions kept one focused dictionary instead
-		const saved = JSON.parse(localStorage.getItem(starKey)) || [localStorage.getItem(`peakslab-focus-${appname}`)];
-		stars = saved.map(f => dicts.findIndex(d => d[0] === f)).filter(i => i >= 0);
+		stars = (JSON.parse(localStorage.getItem(starKey)) || []).map(f => dicts.findIndex(d => d[0] === f)).filter(i => i >= 0);
 	} catch (e) { /* not remembered */ }
 	const isStar = d => stars.includes(d);
 	const sortId = d => isStar(d) ? stars.indexOf(d) - 1000 : d + 1;
@@ -640,7 +674,7 @@ if(root){
 		return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	}
 
-	function cleanup(container = tout){
+	function cleanup(container){
 		container.querySelectorAll('img[src^="blob:"], object[data^="blob:"], audio source[src^="blob:"]').forEach(el => {
 			URL.revokeObjectURL(el.src);
 			el.src = '';
@@ -797,13 +831,11 @@ if(root){
 		queryInput.value = queryText.replace(/\n/g, ' ');
 	}
 	setQueryText(params.get('text'));
-	const defaultPlaceholder = queryInput.placeholder;
 
 	const statusDiv  = document.getElementById('status');
 	const statusText = statusDiv.querySelector('.st-text');
 	const resultsDiv = document.getElementById('results');
 	const popupOverlay = document.getElementById('popupOverlay');
-	const popupQuery = document.getElementById('popupQuery');
 	const popupResults = document.getElementById('popupResults');
 	const popupClose = document.getElementById('popupClose');
 
@@ -910,24 +942,20 @@ if(root){
 	const langBtn = document.getElementById('langBtn');
 	const quick = document.getElementById('quick');
 	const curLang = pLangParts[0] || pParts[0] || '';
-	const langSym = l => (Array.isArray(abbr[l]) && abbr[l][1]) || cap(l).slice(0, 2);
 	langBtn.innerHTML = `<span class="lang-sym">${escapeHTML(langSym(curLang))}</span><span class="lang-name">${escapeHTML(cap(curLang))}${pParts.length > 1 ? ' · ' + escapeHTML(pParts.slice(1).map(cap).join(' · ')) : ''}</span>` +
-		'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+		chevron;
 	langBtn.title = langBtn.ariaLabel = `Language: ${cap(curLang)}. Change language`;
 	langBtn.addEventListener('click', () => openDrawer('lang'));
 	// The language panel: this language and its sections, then the others,
 	// biggest first
 	function langHTML(){
-		const counts = {};
-		filesJson.dicts.forEach(f => { const l = f[0].split('/')[0]; counts[l] = (counts[l] || 0) + 1; });
 		const qs = queryText ? '?text=' + encodeURIComponent(queryText) : '';
-		const row = (href, sym, name, n, cur) => `<li class="row"><a class="row-main lang-row" href="${href}"${cur ? ' aria-current="page"' : ''}><span class="ls-sym">${escapeHTML(sym)}</span><span class="row-w">${escapeHTML(name)}</span><span class="row-t">${n} ${n === 1 ? 'dictionary' : 'dictionaries'}</span></a></li>`;
+		const row = langRow;
 		const mine = filesJson.dicts.filter(f => f[0].startsWith(curLang + '/'));
 		const secs = [...new Set(mine.map(f => f[0].split('/')[1]))].filter(c => !['media', 'phonetics'].includes(c));
-		return `<ul class="rows">${row(`/${curLang}${qs}`, langSym(curLang), cap(curLang), counts[curLang], pParts.length < 2)}` +
+		return `<ul class="rows">${row(`/${curLang}${qs}`, langSym(curLang), cap(curLang), langCounts[curLang], pParts.length < 2)}` +
 			(secs.length > 1 ? secs.map(c => row(`/${curLang}/${c}${qs}`, langSym(c), `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c)).join('') : '') + '</ul>' +
-			'<h3 class="drawer-h">Other languages</h3><ul class="rows">' +
-			Object.keys(counts).filter(l => l !== curLang).sort((a, b) => counts[b] - counts[a]).map(l => row(`/${l}${qs}`, langSym(l), cap(l), counts[l], false)).join('') + '</ul>';
+			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
 	// How many dictionaries Everything uses: what's on now, or (while
 	// filtering) the library's saved choices
@@ -1206,6 +1234,7 @@ if(root){
 			starBtnHTML(idx) +
 			`<span class="lib-main"><span class="lib-name"><strong>${dict[1]}</strong>` +
 			(type ? ` <span class="lib-type type-${type}">${escapeHTML(typeLabel(idx))}</span>` : '') +
+			(dict[2] ? ` <span class="lib-size">${sizeText(dict[2])}</span>` : '') +
 			` <a href="?dict=${encodeURIComponent(dict[1])}" class="dictlist-solo" title="Open ${dict[1]} on its own">↗</a></span>` +
 			`<span class="lib-desc">${dict[3]}</span></span></li>`;
 	});
@@ -1226,14 +1255,9 @@ if(root){
 		}
 	}
 
-	// Which dictionaries are enabled is remembered in IndexedDB, falling back
-	// to localStorage. Storage is a convenience only: if neither works
-	// (blocked in some privacy modes and in-app webviews, quota errors, ...)
-	// the defaults load and the page works normally - it just won't remember
-	// the user's choices. Previously a failed IndexedDB open left the page
-	// stuck on "Loading dictionaries." with nothing ever loaded.
-	let db = null;
-	let stateApplied = false;
+	// Which dictionaries are enabled is remembered in localStorage. If that
+	// doesn't work (some privacy modes, in-app webviews) the defaults load
+	// and the page works normally; it just won't remember.
 	// The library's choices (Everything); the filter's categories keep theirs
 	// separately (catChosen)
 	const lsKey = () => `peakslab-dicts-${appname}`;
@@ -1245,11 +1269,8 @@ if(root){
 		try { localStorage.setItem(lsKey(), JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
 	}
 
-	// Called exactly once, with the saved array or null for defaults.
-	// With onlyIfSaved, does nothing unless there's a saved array.
-	function applyState(saved, onlyIfSaved) {
-		if (stateApplied || (onlyIfSaved && !Array.isArray(saved) && solo < 0)) return;
-		stateApplied = true;
+	// The saved choices (an array, or null for the defaults)
+	function applyState(saved) {
 		if (solo >= 0) { // Leaves the saved choices alone for the normal page
 			dicts.forEach((_, index) => setCheckbox(index, index === solo));
 			loadDict(solo);
@@ -1323,38 +1344,7 @@ if(root){
 		updateURL();
 	}
 
-	function noIndexedDB(err) {
-		if (err) console.warn('IndexedDB unavailable, using localStorage instead:', err);
-		db = null;
-		applyState(lsGet());
-	}
-
-	// Start loading right away from the copy in localStorage (synchronous)
-	// instead of waiting for IndexedDB to open; IndexedDB is only needed
-	// when there's no copy here yet (e.g. state saved by an older version).
-	applyState(lsGet(), !filtered());
-
-	try {
-		const dbRequest = indexedDB.open(appname, 1);
-		dbRequest.onupgradeneeded = (event) => {
-			const upgradeDb = event.target.result;
-			if (!upgradeDb.objectStoreNames.contains(appname)) {
-				upgradeDb.createObjectStore(appname, { keyPath: 'id' });
-			}
-		};
-		dbRequest.onsuccess = () => {
-			db = dbRequest.result;
-			loadSavedState();
-		};
-		dbRequest.onerror = (event) => noIndexedDB(event.target.error);
-		// Another tab holding an old version open: don't wait on it.
-		dbRequest.onblocked = () => noIndexedDB('blocked by another tab');
-	} catch (e) {
-		noIndexedDB(e); // indexedDB missing, or open() threw (e.g. SecurityError)
-	}
-	// Last resort: if IndexedDB never answers at all, don't leave the page
-	// without dictionaries.
-	setTimeout(() => { if (!stateApplied) noIndexedDB('no response from IndexedDB'); }, 3000);
+	applyState(lsGet());
 
 	function saveState() {
 		if (solo >= 0 || filtered()) return; // A filter's choices are its categories'
@@ -1363,14 +1353,7 @@ if(root){
 			file: dict[0],                    // filename as stable key
 			enabled: !!document.getElementById(index)?.checked
 		}));
-		lsSet(state); // always kept as a backup copy
-		if (!db) return;
-		try {
-			const request = db.transaction([appname], 'readwrite').objectStore(appname).put({ id: 1, array: state });
-			request.onerror = (e) => console.warn('Error saving state to IndexedDB:', e.target.error);
-		} catch (e) {
-			console.warn('Error saving state to IndexedDB:', e);
-		}
+		lsSet(state);
 	}
 
 	function setCheckbox(index, checked){
@@ -1380,18 +1363,6 @@ if(root){
 		}
 	}
 
-	function loadSavedState() {
-		try {
-			const request = db.transaction([appname], 'readonly').objectStore(appname).get(1);
-			request.onsuccess = () => {
-				const result = request.result;
-				applyState(result && Array.isArray(result.array) ? result.array : lsGet());
-			};
-			request.onerror = (event) => noIndexedDB(event.target.error);
-		} catch (e) {
-			noIndexedDB(e);
-		}
-	}
 
 	// The dictionary bytes are fetched HERE, on the page, and transferred
 	// (zero-copy) to the worker, rather than letting the worker fetch them.
@@ -1423,7 +1394,6 @@ if(root){
 	}
 
 	let query = null;
-	let tout = resultsDiv;
 
 	function unloadDict(d){
 		extraLoaded.delete(d);
@@ -1500,8 +1470,6 @@ if(root){
 			b.outerHTML = starBtnHTML(+b.dataset.d);
 		});
 		document.querySelectorAll('.dictlist-file').forEach(li => li.classList.toggle('starred', isStar(+li.dataset.idx)));
-		const t = translator();
-		queryInput.placeholder = t >= 0 ? `Search or translate with ${dicts[t][1]}…` : defaultPlaceholder;
 	}
 
 
@@ -1561,12 +1529,15 @@ if(root){
 		});
 	}
 
+	let showLibrary = false;
 	function showSettings(){
 		loader = null;
 		updateStatus('');
 		statusDiv.classList.add('hide');
 		renderHome();
 		settings.style.display = 'block';
+		settings.classList.toggle('library', showLibrary);
+		showLibrary = false;
 		resultsDiv.replaceChildren();
 		translationDiv.replaceChildren();
 	}
@@ -1616,8 +1587,8 @@ if(root){
 	}
 
 	function loadmore(){
-		// (A chapter: all of it)
-		if((chapterOf(query + '1') === query || wantloadmore(loader, 400)) && worker_code.includes(false))
+		// (A chapter: all of it.) Nothing searched: nothing to load
+		if(query && (chapterOf(query + '1') === query || wantloadmore(loader, 400)) && worker_code.includes(false))
 			getResults();
 	}
 
@@ -1638,8 +1609,6 @@ if(root){
 
 	const globreg = /[!+*^]/;
 
-	// The first starred dictionary that can translate (loaded, not media), or -1
-	const translator = () => stars.find(d => canTranslate(d)) ?? -1;
 	// The query word by word, when the search found nothing: with every
 	// dictionary searched (starred first; not media) and a pronunciation
 	// one. A Bible text's headwords are its verses, so "rom 8.1 gal 1.1"
@@ -1652,10 +1621,6 @@ if(root){
 		if (p >= 0) ids.push(p);
 		const q = query;
 		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q));
-	}
-
-	function escapeHTML(text){
-		return text.replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 	}
 
 	// An entry as one line of plain text, without lines that are only
@@ -1673,6 +1638,7 @@ if(root){
 		div.className = 'translation';
 		div.innerHTML = `<h2>${used.map(i => escapeHTML(dicts[i][1])).join(' + ')}</h2>` + translationHTML(pieces);
 		translationDiv.replaceChildren(div);
+		addAudio(div, pieces);
 		updateStatus('No entry for all of it, translated word by word.');
 		queryInput.classList.remove('error');
 	}
@@ -1695,7 +1661,7 @@ if(root){
 	// without its labels (p-n: parts of speech, a verse's reference, ...)
 	function entryText(pe){
 		const c = pe.cloneNode(true);
-		c.querySelectorAll('p-h, p-n, button, .tr-entry, .tr-pick').forEach(x => x.remove());
+		c.querySelectorAll('p-h, p-n, button, .vs-n, .tr-entry, .tr-pick').forEach(x => x.remove());
 		const t = document.createElement('template');
 		t.innerHTML = c.innerHTML.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol|h[1-6]|p-ipa)(?=[\s/>])[^>]*>|\t/gi, '\n');
 		return t.content.textContent.split('\n').map(x => x.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -1807,10 +1773,41 @@ if(root){
 				return p.text.split(/(\s+)/).map(t => /\p{L}/u.test(t) ? `<span class="tr-w tr-x">${escapeHTML(t)}</span>` : escapeHTML(t).replace(/\n/g, '<br>')).join('');
 			const pron = !latin(p.text) && p.pron.length ? `<span class="tr-p">${escapeHTML(p.pron.join(' '))}</span>` : '';
 			const gloss = p.entry ? escapeHTML(p.entry.sec ? p.entry.header : summary(p.entry.body)) : '';
-			return `<span class="tr-w${p.entry ? '' : ' tr-u'}" title="${escapeHTML(dicts[p.entry ? p.entry.d : p.d][1])}">` +
+			return `<span class="tr-w${p.entry ? '' : ' tr-u'}" data-w="${escapeHTML(p.text.trim())}" title="${escapeHTML(dicts[p.entry ? p.entry.d : p.d][1])}">` +
 				`<p-a${p.entry ? ` data-e="${popupEntries.push(p.entry) - 1}"` : ''}>${escapeHTML(p.text.trim())}</p-a>${pron}` +
 				(gloss ? `<span class="tr-g" title="${gloss}">${gloss}</span>` : '') + '</span>';
 		}).join('');
+	}
+
+	// A word's recording, if a media dictionary that's loaded has one: a 🔊
+	// in its box plays it (no player)
+	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2/i;
+	function addAudio(box, pieces){
+		const words = [...new Set(pieces.filter(p => p.d !== undefined).map(p => p.text.trim()))];
+		if (!words.length) return;
+		dicts.forEach((_, d) => {
+			if (!dicts[d][0].includes('.slab') || dict_master_code[d] || typeOf(d) !== 'aux') return;
+			askDict(d, {type: 'media', words}, r => r.files.forEach((f, k) => {
+				if (!f || !f[1] || !AUDIO.test(f[0])) return;
+				box.querySelectorAll(`.tr-w[data-w="${CSS.escape(words[k])}"]:not(.has-audio)`).forEach(w => {
+					w.classList.add('has-audio');
+					const b = w.appendChild(document.createElement('button'));
+					b.type = 'button';
+					b.className = 'tr-play';
+					b.title = b.ariaLabel = 'Play';
+					b.textContent = '🔊';
+					b.onclick = e => { e.stopPropagation(); playAudio(f[0], f[1]); };
+				});
+			}));
+		});
+	}
+	function playAudio(type, bytes){
+		const blob = /codec2|c2/i.test(type) ? codec2toWav(bytes) : Promise.resolve(new Blob([bytes], {type: /webm/i.test(type) ? 'audio/webm' : 'audio/' + type.toLowerCase()}));
+		blob.then(b => {
+			const a = new Audio(URL.createObjectURL(b));
+			a.onended = () => URL.revokeObjectURL(a.src);
+			a.play();
+		});
 	}
 
 	function translateEntryWith(box, text, ids){
@@ -1821,6 +1818,7 @@ if(root){
 			if (!box.isConnected || box.dataset.ids !== key) return;
 			box.innerHTML = `<div class="tr-head">${ids.map(i => escapeHTML(dicts[i][1])).join(' + ')}</div>` +
 				(pieces.some(p => p.d !== undefined) ? translationHTML(pieces) : 'No words found.');
+			addAudio(box, pieces);
 		});
 	}
 
@@ -1858,16 +1856,16 @@ if(root){
 		const opt = i => `<button type="button" class="check" data-idx="${i}" aria-pressed="${chosen.has(i)}">${isStar(i) ? '★ ' : ''}${escapeHTML(dicts[i][1])}</button>`;
 		const pick = document.createElement('div');
 		pick.className = 'tr-pick';
-		pick.innerHTML = '<div class="tr-q">Translate with</div>' +
+		pick.innerHTML = '<div class="tr-q">Translate with <button type="button" class="tr-go">Translate</button></div>' +
 			(on.length ? `<div class="tr-sub">On</div>${on.map(opt).join('')}` : '') +
 			(phons.length ? `<div class="tr-sub">Pronunciation</div>${phons.map(opt).join('')}` : '') +
-			(off.length ? `<details${off.some(i => chosen.has(i)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${off.map(opt).join('')}</details>` : '') +
-			'<button type="button" class="tr-go">Translate</button>';
+			(off.length ? `<details${off.some(i => chosen.has(i)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${off.map(opt).join('')}</details>` : '');
 		btn.insertAdjacentElement('afterend', pick);
+		pick.scrollIntoView({block: 'nearest'});
 		const goBtn = pick.querySelector('.tr-go');
 		const update = () => { goBtn.disabled = !pick.querySelector('.check[aria-pressed="true"]'); };
 		update();
-		goBtn.focus();
+		goBtn.focus({preventScroll: true});
 		pick.onclick = e => {
 			const b = e.target.closest('button');
 			if (!b) return;
@@ -1881,8 +1879,13 @@ if(root){
 			if (!ids.length) return;
 			try { localStorage.setItem(trWithKey, JSON.stringify(ids.map(i => dicts[i][0]))); } catch (e) { /* not remembered */ }
 			pick.remove();
-			const box = pe.appendChild(document.createElement('div'));
+			// Above the text (after the entry's name and buttons), so a long
+			// one doesn't push it out of view
+			const box = document.createElement('div');
 			box.className = 'tr-entry';
+			const text1 = [...pe.childNodes].find(n => n.nodeType === 1 ? !n.matches('p-h, button, .tr-pick') : n.textContent.trim());
+			pe.insertBefore(box, text1 || null);
+			box.scrollIntoView({block: 'nearest'});
 			translateEntryWith(box, text, ids);
 		};
 	};
@@ -1932,6 +1935,7 @@ if(root){
 			showSettings();
 			return;
 		}
+		settings.style.display = 'none'; // (a translation doesn't clear it)
 		statusDiv.classList.remove('hide');
 		updateStatus();
 		historyTimer();
@@ -2063,15 +2067,15 @@ if(root){
 			debug = !debug;
 	});
 
-	// Library button: back to the home page, at the library (what was
-	// searched is in the history)
+	// Library button: the library and settings, instead of the home page
+	// (what was searched is in the history)
 	document.getElementById('settingsBtn')?.addEventListener('click', () => {
 		closeDrawer();
-		if (queryText) {
-			setQueryText('');
-			startSearch();
-		}
-		listDiv.scrollIntoView({behavior: 'smooth'});
+		showLibrary = true;
+		setQueryText('');
+		query = null; // (shows it even if nothing was searched)
+		startSearch();
+		window.scrollTo(0, 0);
 	});
 
 	let voicetries = 2;
@@ -2233,8 +2237,4 @@ if(root){
 	}
 	customElements.define('p-a', PaElement);
 	createSelMenu();
-
-	let newtiming = document.createElement("div")
-	document.body.appendChild(newtiming);
 }
-document.body.appendChild(document.createTextNode(" v10.9"));

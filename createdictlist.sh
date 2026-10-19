@@ -5,7 +5,7 @@
 # Output format:
 # {
 #   "core":  [ [file, timestamp], ... ],
-#   "dicts": [ [file, timestamp, description, buflen, priority, lang, collapsed], ... ],
+#   "dicts": [ [file, timestamp, description, buflen, priority, lang, collapsed, size], ... ],
 #   "abbr": {
 #     "khmer": ["km", "ខ"],
 #     "music": ["mus", "𝄞"],
@@ -16,6 +16,7 @@
 # lang (from #lang in the source) is what kind of dictionary it is: "mono"
 # (monolingual), "bi" (bilingual, to English), "rbi" (English to it), "phon"
 # (pronunciation) or "aux" (audio, images, word counts, ...); "" if not set. A missing priority is null.
+# size is the file's size in bytes (what downloading it takes).
 # All other files go under "core" (filename + timestamp only).
 # In both arrays, timestamp is always element[1] so it can be read the same
 # way regardless of file type.
@@ -76,7 +77,8 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
             else
                 printf ",\n" >> "$DICTS_TMP"
             fi
-            printf '    ["%s", %s, "%s", %s, %s, "%s", %s]' "$file" "$timestamp" "$desc" "$buflen" "${priority:-null}" "$lang" "$collapsed" >> "$DICTS_TMP"
+            size=$(stat -c %s "$file" 2>/dev/null || echo 0)
+            printf '    ["%s", %s, "%s", %s, %s, "%s", %s, %s]' "$file" "$timestamp" "$desc" "$buflen" "${priority:-null}" "$lang" "$collapsed" "$size" >> "$DICTS_TMP"
             ;;
         *)
             if [ "$CORE_FIRST" -eq 1 ]; then

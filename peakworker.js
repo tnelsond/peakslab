@@ -137,13 +137,27 @@ self.onmessage = async (e) => {
 							const filetype = header[header.length-1];
 							let subheader = header.slice(1, -1);
 							header = header[0];
-							self.postMessage({type: "result", id: id, did: i, query: e.data.query, dict: d.name, st: e.data.st, header: header, subheader: subheader, filetype: filetype, body: d.getBytes(), dest: e.data.dest, gen: e.data.gen});
+							self.postMessage({type: "result", id: id, did: i, query: e.data.query, dict: d.name, st: e.data.st, header: header, subheader: subheader, filetype: filetype, body: d.getBytes()?.slice(), dest: e.data.dest, gen: e.data.gen}); // (slice: just the file, not all of the wasm memory)
 						}
 					}
 					d.switchState(); // Switched it back :D
 				}
 			}
 		});
+	}else if(e.data.type == "media"){
+		// A media dictionary's file for each word (exactly it), or null:
+		// [filetype, bytes]
+		const d = dicts[e.data.did];
+		const files = e.data.words.map(w => {
+			if(!d || !d.module || !d.slab) return null;
+			d.switchState();
+			d.setQuery(w);
+			d.module._init_search(1, 0);
+			const f = d.getResult(1) > 0 ? [d.getHeader().split('\t').pop(), d.getBytes()?.slice()] : null; // (a copy: the next search overwrites it)
+			d.switchState();
+			return f;
+		});
+		self.postMessage({type: "rendered", id: id, did: e.data.did, tag: e.data.tag, files: files});
 	}else if(e.data.type == "matchall"){
 		// For translating with several dictionaries at once: this one's
 		// headwords at each place in the text, every length (second index
@@ -211,7 +225,7 @@ self.onmessage = async (e) => {
 					let subheader = header.slice(1, -1);
 					header = header[0];
 					//header = header.substring(0, header.indexOf(9));
-					self.postMessage({type: "result", id: id, did: c, dict: dicts[c].name, query: query, header: header, subheader: subheader, st: st, filetype: filetype, body: dicts[c].getBytes(), gen: gen});
+					self.postMessage({type: "result", id: id, did: c, dict: dicts[c].name, query: query, header: header, subheader: subheader, st: st, filetype: filetype, body: dicts[c].getBytes()?.slice(), gen: gen}); // (just the file)
 				}
 				++num;
 			}
