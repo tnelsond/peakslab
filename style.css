@@ -650,6 +650,11 @@ p-d.verse p-e :is(h3, h4) { margin: .3em 0; }
 p-d.chapter p-e { line-height: 1.9; }
 p-d.chapter p-e :is(h3, h4) { display: block; margin: .8em 0 .3em; }
 p-d.chapter .vs-start { white-space: nowrap; }
+/* Parallel: verse by verse, each text's on its own line under its name */
+.pv { padding: .35em 0; border-bottom: 1px solid var(--line); }
+.pv:last-child { border-bottom: 0; }
+.pv-t + .pv-t { margin-top: .15em; }
+.pv-d { margin-right: .3em; color: var(--muted); font-size: .72em; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
 .vs-n {
 	padding: 0 .2em 0 .1em;
 	color: var(--color1);
