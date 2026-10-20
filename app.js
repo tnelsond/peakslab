@@ -495,38 +495,37 @@ if(!isDictPage){
 	};
 
 	// The filter: categories made from the dictionaries on the page, by kind
-	// (the folders: Dictionaries, Bible, Bible texts, Music, Pronunciation,
-	// ...) and by language (Khmer only, Khmer → English, English → Khmer).
-	// Pick any number of them and searches use just their dictionaries; none
-	// picked is Everything (the library's choices). Each category keeps its
-	// own choice of which of its dictionaries it uses.
+	// (the folders: Bible, Dictionaries, Bible texts, Music, Pronunciation,
+	// ...), Bible first. Pick any number of them and searches use just their
+	// dictionaries; none picked is Everything (the library's choices). Each
+	// category keeps its own choice of which of its dictionaries it uses.
 	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
 		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
 		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation',
 		media: 'Audio & images', ref: 'Reference'};
 	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
-	const cats = []; // {id, label, group, sub, members: [d, ...]}
+	const cats = []; // {id, label, sub, members: [d, ...]}
 	{
-		const addCat = (id, label, group, test, sub) => {
+		const addCat = (id, label, test, sub) => {
 			const members = dictIds.filter(d => test(dicts[d]));
-			// Not if it's empty or the same as another
-			if (members.length && !cats.some(c => c.members.join() === members.join()))
-				cats.push({id, label, group, sub, members});
+			// Not if it's empty, everything (Greek's Bible) or the same as another
+			if (members.length && members.length < dictIds.length && !cats.some(c => c.members.join() === members.join()))
+				cats.push({id, label, sub, members});
 		};
 		const top = x => x.cat.split('/')[0] || 'other', two = x => x.cat.split('/').slice(0, 2).join('/');
-		new Set(dicts.map(top)).forEach(c => {
-			addCat(c, catLabel(c), 'kind', x => top(x) === c);
+		[...new Set(dicts.map(top))].sort((a, b) => (b === 'bible') - (a === 'bible')).forEach(c => {
+			addCat(c, catLabel(c), x => top(x) === c);
 			const subs = new Set(dicts.filter(x => top(x) === c && x.cat.includes('/')).map(two));
-			if (subs.size > 1) subs.forEach(s => addCat(s, catLabel(s), 'kind', x => two(x) === s, true));
+			if (subs.size > 1) subs.forEach(s => addCat(s, catLabel(s), x => two(x) === s, true));
 		});
-		const l = cap(curLang);
-		Object.entries({mono: `${l} only`, bi: `${l} → English`, rbi: `English → ${l}`, phon: 'Pronunciation', aux: 'Other extras'})
-			.forEach(([t, label]) => addCat(`type-${t}`, label, 'language', x => x.type === t && (t === 'aux' || x.lang === curLang)));
 	}
+	// Choosing is worth it only with two or more: one category is everything.
+	// The bar has the top-level ones, so it needs two of those.
+	const choice = cats.length > 1, barChoice = cats.filter(c => !c.sub).length > 1;
 	const catById = id => cats.find(c => c.id === id);
 	const urlParams = new URLSearchParams(window.location.search);
 	const filterKey = `peakslab-filter-${appname}`;
-	let selected = (urlParams.has('mode') ? urlParams.get('mode').split(',') : readList(filterKey)).filter(catById);
+	let selected = (urlParams.has('mode') ? urlParams.get('mode').split(',') : readList(filterKey)).filter(id => choice && catById(id));
 	const filtered = () => selected.length > 0;
 	const selCats = () => selected.map(catById);
 	const inFilter = d => !filtered() || selCats().some(c => c.members.includes(d));
@@ -777,8 +776,8 @@ if(!isDictPage){
 	function renderQuick(){
 		const btn = (attrs, label, on, n) => `<button class="qk" ${attrs} aria-pressed="${on}">${escapeHTML(label)}${n !== undefined ? ` <span class="n">${n}</span>` : ''}</button>`;
 		const html = (bibleMode() ? '<button class="qk qk-books" data-qbooks="1">Books ›</button>' : '') +
-			btn('data-qall="1"', 'Everything', !filtered(), everythingCount()) +
-			cats.filter(c => !c.sub || selected.includes(c.id)).map(c => btn(`data-qsel="${c.id}"`, c.label, selected.includes(c.id), selected.includes(c.id) ? catChosen(c).size : undefined)).join('') +
+			(barChoice || filtered() ? btn('data-qall="1"', 'Everything', !filtered(), everythingCount()) : '') +
+			cats.filter(c => (barChoice && !c.sub) || selected.includes(c.id)).map(c => btn(`data-qsel="${c.id}"`, c.label, selected.includes(c.id), selected.includes(c.id) ? catChosen(c).size : undefined)).join('') +
 			'<button class="qk qk-more" data-qmore="1">Filter…</button>';
 		if (quick._html !== html) { quick._html = html; quick.innerHTML = html; } // Only when changed: keeps it tappable
 	}
@@ -885,8 +884,8 @@ if(!isDictPage){
 			v === 'books' ? booksHTML() : v === 'lang' ? langHTML() : filterHTML();
 		drawerBody.scrollTop = scroll;
 	}
-	// The filter: Everything, then the categories by kind and by language;
-	// each opens (▸) to choose its dictionaries
+	// The filter: Everything, then the categories (Everything only with two
+	// or more); each opens (▸) to choose its dictionaries
 	function filterHTML(){
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => {
@@ -899,12 +898,8 @@ if(!isDictPage){
 					`<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All')}${btn(c, 'none', 'class="text-btn"', 'None')}${btn(c, 'reset', 'class="text-btn"', 'Reset')}</div></div>` : '') +
 				'</li>';
 		};
-		const group = (g, title) => {
-			const cs = cats.filter(c => c.group === g);
-			return cs.length ? `<h3 class="drawer-h">${title}</h3><ul class="rows cats">${cs.map(cat).join('')}</ul>` : '';
-		};
-		return `<ul class="rows"><li class="row"><button class="row-main radio" data-everything="1" aria-pressed="${!filtered()}"><span class="row-w">Everything</span><span class="row-t">${everythingCount()} of ${dicts.length} on in the library</span></button></li></ul>` +
-			group('kind', 'By kind') + group('language', 'By language') +
+		return (choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-everything="1" aria-pressed="${!filtered()}"><span class="row-w">Everything</span><span class="row-t">${everythingCount()} of ${dicts.length} on in the library</span></button></li></ul>` : '') +
+			`<ul class="rows cats">${cats.map(cat).join('')}</ul>` +
 			'<p class="empty">Pick as many as you like. Open one (▸) to choose which of its dictionaries it uses.</p>';
 	}
 	function openDrawer(view){
