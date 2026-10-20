@@ -89,7 +89,7 @@
     ["lao/dict/lowiktionary.peak.zst", 1788857375, "<a href=\"https://lo.wiktionary.org/\">Lao Wiktionary</a>", 2276, 2, "mono", 0, 834098],
     ["lao/dict/pat.peak.zst", 1788854627, "Lao-English Dictionary, William L. Patterson and Mario E. Severino (1995, Dunwoody Press) via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1991, 1, "bi", 0, 922134],
     ["lao/dict/thesaurus.peak.zst", 1792456159, "The Lao Thesaurus (ວັດຈະນານຸກົມລາວ) from <a href=\"https://thesaurus.la\">thesaurus.la</a>", 4564, 1, "mono", 0, 2150775],
-    ["lao/media/audio.slab", 1792458099, "Contains audio from <a href=\"https://thesaurus.la\">thesaurus.la</a>", 11397, 1, "aux", 0, 47875552],
+    ["lao/media/audio.slab", 1792459874, "Contains audio from <a href=\"https://thesaurus.la\">thesaurus.la</a>", 11397, 2, "aux", 0, 47875552],
     ["lao/music/text/mekong.peak.zst", 1792452389, "<a href=\"https://www.mekongchristian.com/\">Mekong Lao Lyrics</a>", 10103, 1, "mono", 0, 53976],
     ["lao/phonetics/laoipa.peak.zst", 1792418455, "Lao pronunciation (Vientiane), from <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>'s Patterson and Kerr: á high, ā mid, à low, â falling, ǎ rising, ȁ low falling", 402, 2, "phon", 0, 475255],
     ["lao/phonetics/laosouth.peak.zst", 1792418458, "Southern Lao pronunciation (Pakxé), <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>'s Patterson and Kerr with Hartmann's Pakxé tones: ˦˥ high rising, ˧ mid, ˨ lower mid, ˩ low, ˨˩ low falling, ˧˩ mid falling, ̰ creaky", 440, 2, "phon", 0, 462295],
