@@ -699,13 +699,26 @@ if(!isDictPage){
 				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${!!$(`${d}`)?.checked}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul></details>`;
 	}
 	// The Bible bar, at the top of the results in Bible mode (or reading a
-	// chapter): ‹ book ▾ chapter ▾ ›, a book's name in the Bible and in
-	// English; and under it Parallel Bibles. The search bar's still there
-	// to type in.
+	// chapter): ‹ book and chapter ▾ ›. The ▾ opens the picker under it:
+	// Parallel Bibles (a drop-down too), then the books, then the book's
+	// chapters (a book's name in the Bible and in English). The search
+	// bar's still there to type in.
 	let lastRead = ''; // The chapter read last ("joh 3.")
+	let pickOpen = false, booksPick = null; // The picker open, and the book whose chapters it shows
 	const bibleBar = document.createElement('div');
 	bibleBar.id = 'bibleBar';
 	topDiv.prepend(bibleBar);
+	const bookName = x => escapeHTML(x.name) + (x.en && x.en !== x.name ? `<small>${escapeHTML(x.en)}</small>` : '');
+	const bookNum = (x, n) => String(n).replace(/\d/g, d => String.fromCodePoint(x.zero + +d)); // In the Bible's digits
+	function pickerHTML(){
+		const b = books.find(x => x.code === booksPick);
+		if (b) {
+			const ref = ch => `${b.code} ${ch}.`;
+			return `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
+				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `<button data-read="${ref(i + 1)}"${lastRead === ref(i + 1) ? ' aria-current="true"' : ''}>${bookNum(b, i + 1)}</button>`).join('')}</div>`;
+		}
+		return `<div class="bk-grid">${books.map(x => `<button data-book="${escapeHTML(x.code)}"${lastRead.startsWith(x.code + ' ') ? ' aria-current="true"' : ''}>${bookName(x)}</button>`).join('')}</div>`;
+	}
 	function renderBibleBar(){
 		const reading = query && chapterOf(query + '1') === query;
 		if (reading) lastRead = query;
@@ -717,26 +730,33 @@ if(!isDictPage){
 		}
 		const [, code, c] = /^(.+) (\d+)\.$/.exec(lastRead) || [];
 		const i = books.findIndex(x => x.code === code), b = books[i], ch = +c;
-		const num = (x, n) => String(n).replace(/\d/g, d => String.fromCodePoint(x.zero + +d));
-		const opt = (v, label, on) => `<option value="${v}"${on ? ' selected' : ''}>${escapeHTML(label)}</option>`;
 		const html = '<div id="chNav"><button class="ch-go" data-go="-1" aria-label="Previous chapter"' + (!b || !i && ch === 1 ? ' disabled' : '') + '>‹</button>' +
-			`<select class="ch-book" aria-label="Book">${b ? '' : opt('', 'Book', true)}${books.map((x, k) => opt(x.code, x.en && x.en !== x.name ? `${x.name} · ${x.en}` : x.name, k === i)).join('')}</select>` +
-			(b ? `<select class="ch-ch" aria-label="Chapter">${Array.from({length: b.n}, (_, k) => opt(k + 1, num(b, k + 1), k + 1 === ch)).join('')}</select>` : '') +
+			`<button class="ch-book" aria-expanded="${pickOpen}">${b ? `${escapeHTML(b.name)} ${bookNum(b, ch)}` : 'Books'} ▾</button>` +
 			'<button class="ch-go" data-go="1" aria-label="Next chapter"' + (!b || i === books.length - 1 && ch === b.n ? ' disabled' : '') + '>›</button></div>' +
-			parHTML();
+			(pickOpen ? `<div class="bk-pick">${parHTML()}${pickerHTML()}</div>` : '');
 		if (bibleBar._html !== html) { bibleBar._html = html; bibleBar.innerHTML = html; } // Only when changed: keeps a drop-down open
 	}
-	bibleBar.addEventListener('change', e => {
-		const book = bibleBar.querySelector('.ch-book').value, ch = e.target.matches('.ch-ch') ? e.target.value : 1;
-		if (book) search(`${book} ${ch}.`);
-	});
 	bibleBar.addEventListener('click', e => {
 		const b = e.target.closest('button');
-		if (!b?.dataset.go) return rowClick(e); // Parallel Bibles
-		const [, code, c] = /^(.+) (\d+)\.$/.exec(lastRead);
-		const i = books.findIndex(x => x.code === code), to = +c + +b.dataset.go;
-		const bk = to < 1 ? books[i - 1] : to > books[i].n ? books[i + 1] : books[i];
-		if (bk) search(`${bk.code} ${to < 1 ? bk.n : bk === books[i] ? to : 1}.`);
+		if (!b) return;
+		const {go, book, booksBack, read} = b.dataset;
+		if (b.matches('.ch-book')) {
+			pickOpen = !pickOpen;
+			booksPick = pickOpen && lastRead ? lastRead.split(' ')[0] : null; // The chapters of the book read
+			renderBibleBar();
+		} else if (book || booksBack) {
+			booksPick = book || null;
+			renderBibleBar();
+			bibleBar.scrollIntoView({block: 'nearest'});
+		} else if (read) {
+			pickOpen = false;
+			search(read);
+		} else if (go) {
+			const [, code, c] = /^(.+) (\d+)\.$/.exec(lastRead);
+			const i = books.findIndex(x => x.code === code), to = +c + +go;
+			const bk = to < 1 ? books[i - 1] : to > books[i].n ? books[i + 1] : books[i];
+			if (bk) search(`${bk.code} ${to < 1 ? bk.n : bk === books[i] ? to : 1}.`);
+		} else rowClick(e); // Parallel Bibles
 	});
 	// Bible mode (a Bible category picked, or a Bible page): the Bible bar
 	const bibleMode = () => hasBible && (pParts.includes('bible') || selected.some(id => id.startsWith('bible')));
@@ -792,7 +812,10 @@ if(!isDictPage){
 		const b = e.target.closest('button');
 		if (!b) return;
 		if (b.dataset.qall) setFilter([]);
-		else if (b.dataset.qsel) toggleCat(b.dataset.qsel);
+		else if (b.dataset.qsel) {
+			if (!selected.includes(b.dataset.qsel) && b.dataset.qsel.startsWith('bible') && !query) pickOpen = true; // Which book?
+			toggleCat(b.dataset.qsel);
+		}
 		else openDrawer('modes');
 	});
 	let lastY = 0;

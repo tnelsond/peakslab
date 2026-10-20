@@ -114,7 +114,7 @@ mark {
 	background: none;
 }
 .st-share, .text-btn, .row-main, .cat-sel, .cat-dict, .tr-pick button,
-.setting, .tr-entry button, .qk, #langBtn, .ctx-btn, .vs-tr, #chNav button {
+.setting, .tr-entry button, .qk, #langBtn, .ctx-btn, .vs-tr, .bk-grid button, #chNav button {
 	font: inherit;
 }
 /* Filled */
@@ -719,25 +719,35 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	padding: 2px 10px;
 	font-size: 13px;
 }
-/* The Bible bar, at the top of the results: ‹ book ▾ chapter ▾ ›, and Parallel Bibles */
+/* The Bible bar, at the top of the results: ‹ book and chapter ▾ ›, and
+   under it the picker: Parallel Bibles, the books, a book's chapters */
 #bibleBar { max-width: 640px; margin: 10px auto 4px; }
 #chNav { display: flex; align-items: center; justify-content: center; gap: 8px; }
-#chNav button, #chNav select {
+#chNav button, .bk-grid button {
 	min-height: 40px;
-	border: 0;
-	border-radius: 999px;
 	background: var(--card-bg);
 	color: var(--card-text);
 }
+#chNav button { border: 0; border-radius: 999px; }
 #chNav .ch-go { flex: none; width: 40px; font-size: 1.5em; line-height: 1; color: var(--color1); }
 #chNav .ch-go:disabled { opacity: .35; }
-#chNav select { min-width: 0; padding: 0 12px; font: inherit; font-size: 1.1em; font-weight: 600; cursor: pointer; }
-#chNav .ch-book { flex: 0 1 auto; max-width: 60%; text-overflow: ellipsis; }
+#chNav .ch-book { min-width: 0; padding: 0 18px; font-size: 1.15em; font-weight: 600; }
 #chNav .ch-load { color: var(--muted); }
-#bibleBar .par-dd { margin: 6px 0 0; padding: 0 8px; border: 0; border-radius: 10px; background: var(--card-bg); }
-#bibleBar .par-dd:not([open]) { width: fit-content; margin-left: auto; margin-right: auto; }
-#bibleBar .par-dd > summary { padding: 4px 4px 4px 22px; }
-#bibleBar .par-dd > summary::before { top: 5px; }
+.bk-pick { margin-top: 8px; padding: 8px; border-radius: 12px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
+.bk-grid button {
+	padding: 4px 6px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	font-size: .92em;
+}
+.bk-grid button:hover { border-color: var(--control-btn-bg); }
+.bk-grid button[aria-current="true"] { background: var(--control-btn-bg); border-color: transparent; color: #fff; }
+/* A book's name in English, under (or after) its name in the Bible */
+.bk-grid small { display: block; font-size: .72em; color: var(--muted); }
+.bk-grid button[aria-current="true"] small { color: inherit; opacity: .85; }
+.bk-name small { margin-left: .5em; font-size: .8em; font-weight: normal; color: var(--muted); }
 
 /* Nothing searched: the home page (recent, bookmarks); the menu's Library
    shows the library and settings instead */
