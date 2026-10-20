@@ -592,7 +592,8 @@ if(!isDictPage){
 	bigQuery.classList.add('hide');
 	const translationDiv = topDiv.appendChild(document.createElement('div'));
 
-	// Fullscreen: just the results, no search bar or buttons
+	// Fullscreen: just the results, no search bar or buttons (and a popup
+	// fills the window)
 	const f4 = $('f4');
 	f4.addEventListener('click', () => {
 		const full = document.body.classList.toggle('fullscreen');
@@ -1236,7 +1237,7 @@ if(!isDictPage){
 		document.body.classList.add('no-scroll');
 	}
 	function closePopupClick(e){
-		if (!e.target.closest('#popupContent')) { 
+		if (!e.target.closest('#popupContent, #controls')) { // (its buttons below are usable)
 			document.removeEventListener('click', closePopupClick);
 			closePopup();
 		}

@@ -938,6 +938,17 @@ input.down:not(:checked) + .lib-check .row-w::after { content: " ⬇"; color: va
 	box-shadow: 0 20px 50px rgba(0,0,0,.7);
 }
 #popupClose { float: right; }
+/* Fullscreen (the ⛶ below): it fills the window */
+body.fullscreen #popupContent {
+	position: fixed;
+	inset: 0;
+	width: auto;
+	max-width: none;
+	max-height: none;
+	border-radius: 0;
+	padding-top: max(20px, env(safe-area-inset-top));
+	padding-bottom: 60px; /* (its end scrolls clear of the buttons below) */
+}
 
 /* The fullscreen button */
 #controls {
@@ -948,6 +959,7 @@ input.down:not(:checked) + .lib-check .row-w::after { content: " ⬇"; color: va
 	gap: 8px;
 	z-index: 900;
 }
+body.no-scroll #controls { z-index: 3001; } /* Over a popup too */
 .control-btn {
 	width: 36px;
 	height: 36px;
