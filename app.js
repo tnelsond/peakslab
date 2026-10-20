@@ -463,7 +463,7 @@ if(!isDictPage){
 	// The filter: categories made from the dictionaries on the page, by kind
 	// (the folders: Bible, Dictionaries, Bible texts, Music, Pronunciation,
 	// ...), Bible first. Pick any number of them and searches use just their
-	// dictionaries; none picked is Everything (the library's choices). Each
+	// dictionaries; none picked is All (the library's choices). Each
 	// category keeps its own choice of which of its dictionaries it uses.
 	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
 		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
@@ -527,7 +527,7 @@ if(!isDictPage){
 	let dict_master_code = new Array(dicts.length).fill(true);
 	let dict_code = [...dict_master_code];
 	const loading = new Set(); // Dictionaries asked for and not loaded yet (loadDict)
-	// Loaded just to translate with (pronunciation), or Everything's while
+	// Loaded just to gloss with (pronunciation), or All's ones while
 	// filtering, not to search: they stay loaded, but out of the results
 	const extraLoaded = new Set();
 	const pendingLoad = new Map(); // dictionary -> what to do once it's loaded
@@ -540,7 +540,7 @@ if(!isDictPage){
 	}
 	const searchMask = () => dicts.map((_, d) => !extraLoaded.has(d) || !!$(`${d}`)?.checked);
 	// What translating and the popup use: the ones on (searched), and the
-	// ones Everything has on (priority 1, or as the library has them), so a
+	// ones All has on (priority 1, or as the library has them), so a
 	// filter like Bible still has them
 	function trOn(){
 		const lib = libraryOn();
@@ -768,12 +768,12 @@ if(!isDictPage){
 			(secs.length > 1 ? secs.map(c => row(`/${curLang}/${c}${qs}`, langSym(c), `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c)).join('') : '') + '</ul>' +
 			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
-	// How many dictionaries Everything uses: what's on now, or (while
+	// How many dictionaries All uses: what's on now, or (while
 	// filtering) the library's saved choices
-	function everythingCount(){
+	function allCount(){
 		return (filtered() ? libraryOn() : dictIds.map(d => $(d)?.checked)).filter(Boolean).length;
 	}
-	// The library's choices (Everything), whatever is picked: saved
+	// The library's choices (All), whatever is picked: saved
 	// ([{file, enabled}]), or the defaults. If storage doesn't work (some
 	// privacy modes, in-app webviews) the defaults load and the page works
 	// normally; it just won't remember.
@@ -782,12 +782,12 @@ if(!isDictPage){
 		const saved = new Map(readList(libKey).map(x => [x.file, !!x.enabled]));
 		return dicts.map(x => saved.get(x.path) ?? x.on);
 	}
-	// Everything, the top-level categories (and any picked sub-category),
+	// All, the top-level categories (and any picked sub-category),
 	// then the whole filter
 	function renderQuick(){
 		const btn = (attrs, label, on, n) => `<button class="qk" ${attrs} aria-pressed="${on}">${escapeHTML(label)}${n !== undefined ? ` <span class="n">${n}</span>` : ''}</button>`;
 		renderBibleBar();
-		const html = (barChoice || filtered() ? btn('data-qall="1"', 'Everything', !filtered(), everythingCount()) : '') +
+		const html = (barChoice || filtered() ? btn('data-qall="1"', 'All', !filtered(), allCount()) : '') +
 			cats.filter(c => (barChoice && !c.sub) || selected.includes(c.id)).map(c => btn(`data-qsel="${c.id}"`, c.label, selected.includes(c.id), selected.includes(c.id) ? catChosen(c).size : undefined)).join('') +
 			'<button class="qk qk-more" data-qmore="1">Filter…</button>';
 		if (quick._html !== html) { quick._html = html; quick.innerHTML = html; } // Only when changed: keeps it tappable
@@ -892,7 +892,7 @@ if(!isDictPage){
 			v === 'books' ? booksHTML() : v === 'lang' ? langHTML() : filterHTML();
 		drawerBody.scrollTop = scroll;
 	}
-	// The filter: Everything, then the categories (Everything only with two
+	// The filter: All, then the categories (All only with two
 	// or more); each opens (▸) to choose its dictionaries
 	function filterHTML(){
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
@@ -906,7 +906,7 @@ if(!isDictPage){
 					`<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All')}${btn(c, 'none', 'class="text-btn"', 'None')}${btn(c, 'reset', 'class="text-btn"', 'Reset')}</div></div>` : '') +
 				'</li>';
 		};
-		return (choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-everything="1" aria-pressed="${!filtered()}"><span class="row-w">Everything</span><span class="row-t">${everythingCount()} of ${dicts.length} on in the library</span></button></li></ul>` : '') +
+		return (choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${allCount()} of ${dicts.length} on in the library</span></button></li></ul>` : '') +
 			`<ul class="rows cats">${cats.map(cat).join('')}</ul>` +
 			'<p class="empty">Pick as many as you like. Open one (▸) to choose which of its dictionaries it uses.</p>';
 	}
@@ -944,7 +944,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, everything, q, rm, w, clear, open, act, par, ptext} = b.dataset;
+		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, ptext} = b.dataset;
 		if (par) {
 			parallel = !parallel;
 			store(parKey, parallel);
@@ -962,7 +962,7 @@ if(!isDictPage){
 		} else if (read) {
 			closeDrawer();
 			search(read);
-		} else if (everything) {
+		} else if (all) {
 			setFilter([]);
 		} else if (act) { // A category's
 			const c = catById(b.dataset.cat);
@@ -1055,8 +1055,8 @@ if(!isDictPage){
 	}
 
 	// The picked categories' dictionaries, or the library's choices. While
-	// filtering, Everything's (not media) load too, unsearched, for
-	// translating and the popup.
+	// filtering, All's ones (not media) load too, unsearched, for
+	// glossing and the popup.
 	function applyFilter(){
 		if (!filtered()) return enableSet(libraryOn());
 		const on = new Set(selCats().flatMap(c => [...catChosen(c)])), lib = libraryOn();
@@ -1096,7 +1096,7 @@ if(!isDictPage){
 			h.classList.toggle('out', !any);
 		});
 		const on = filtered();
-		const label = on ? selCats().map(c => c.label).join(' + ') : 'Everything';
+		const label = on ? selCats().map(c => c.label).join(' + ') : 'All';
 		filterBtn.classList.toggle('on', on);
 		menuBtn.classList.toggle('on', on);
 		filterBtn.title = filterBtn.ariaLabel = `Filter: ${label}`;
@@ -1164,7 +1164,7 @@ if(!isDictPage){
 				startSearch();
 			}
 			loadDict(d);
-		}else if (filtered() && libraryOn()[d] && !dicts[d].media){ // Still Everything's: kept, unsearched
+		}else if (filtered() && libraryOn()[d] && !dicts[d].media){ // Still one of All's: kept, unsearched
 			extraLoaded.add(d);
 			query = "";
 			startSearch();
