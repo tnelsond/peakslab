@@ -41,6 +41,8 @@ function result(d, did, extra){
 	return {...msg, header: h[0], subheader: h.slice(1, -1), filetype: h.at(-1), body: d.getBytes()?.slice()}; // (slice: just the file, not all of the wasm memory)
 }
 const loaded = d => d?.x;
+// The reply to the page's ask (askDict: its tag)
+const reply = (data, extra) => self.postMessage({type: 'rendered', id, did: data.did, tag: data.tag, ...extra});
 
 self.onmessage = async ({data}) => {
 	const d = dicts[data.did];
@@ -48,10 +50,10 @@ self.onmessage = async ({data}) => {
 	case 'init': {
 		id = data.id;
 		const c = await cachedWasm;
-		const current = c && c.ts >= data.wasmTimestamp;
-		if (current && !hasExports(c.module))
+		const current = c && c.ts >= data.wasmTimestamp, ok = current && hasExports(c.module);
+		if (current && !ok)
 			try { for (const name of await caches.keys()) await (await caches.open(name)).delete(new URL('peak.wasm', origin)); } catch (e) { /* no Cache API here */ }
-		wasmModuleResolve(current && hasExports(c.module) ? c.module : await askPage('wasm', {type: 'needwasm', id}));
+		wasmModuleResolve(ok ? c.module : await askPage('wasm', {type: 'needwasm', id}));
 		break;
 	}
 	case 'wasm': fromPage.wasm(data.wasm); break;
@@ -86,25 +88,15 @@ self.onmessage = async ({data}) => {
 	case 'tempsearch': // Another search, without losing this one's place (the popup, a section's other entries)
 		data.dicts.forEach((on, i) => {
 			const d = dicts[i];
-			if (!on || !loaded(d)) return;
-			d.switchState();
-			d.setQuery(data.query);
-			d.x.init_search(data.st, 0);
-			while (d.getResult(data.dest == 'popup' ? 1 : 0) != -1)
-				self.postMessage(result(d, i, {query: data.query, st: data.st, dest: data.dest, gen: data.gen}));
-			d.switchState();
+			if (on && loaded(d)) d.aside(data.query, data.st, () => {
+				while (d.getResult(data.dest == 'popup' ? 1 : 0) != -1)
+					self.postMessage(result(d, i, {query: data.query, st: data.st, dest: data.dest, gen: data.gen}));
+			});
 		});
 		break;
 	case 'media': // A media dictionary's file for each word (exactly it), or null: [filetype, bytes]
-		self.postMessage({type: 'rendered', id, did: data.did, tag: data.tag, files: data.words.map(w => {
-			if (!loaded(d) || !d.slab) return null;
-			d.switchState();
-			d.setQuery(w);
-			d.x.init_search(1, 0);
-			const f = d.getResult(1) > 0 ? [d.getHeader().split('\t').pop(), d.getBytes()?.slice()] : null; // (a copy: the next search overwrites it)
-			d.switchState();
-			return f;
-		})});
+		reply(data, {files: data.words.map(w => loaded(d) && d.slab ? d.aside(w, 1, () =>
+			d.getResult(1) > 0 ? [d.getHeader().split('\t').pop(), d.getBytes()?.slice()] : null) : null)}); // (a copy: the next search overwrites it)
 		break;
 	case 'matchall': {
 		// For translating with several dictionaries at once: this one's
@@ -140,7 +132,7 @@ self.onmessage = async ({data}) => {
 			}
 			x.free(t);
 		}
-		self.postMessage({type: 'matches', id, did: data.did, tag: data.tag, matches});
+		reply(data, {matches});
 		break;
 	}
 	case 'heads': { // Every headword, in the file's order
@@ -148,11 +140,11 @@ self.onmessage = async ({data}) => {
 		if (loaded(d))
 			for (let i = 0, n; (n = d.x.head_at(i)) >= 0; ++i)
 				heads.push(d.str(d.rptr, n));
-		self.postMessage({type: 'rendered', id, did: data.did, tag: data.tag, heads});
+		reply(data, {heads});
 		break;
 	}
 	case 'renderlines':
-		self.postMessage({type: 'rendered', id, did: data.did, tag: data.tag, entries: (data.lines || []).map(([m, index]) => {
+		reply(data, {entries: (data.lines || []).map(([m, index]) => {
 			const n = loaded(d) ? d.x.render_match(m, index) : -1;
 			if (n <= 0) return null;
 			const entry = d.str(d.rptr, n), tab = entry.indexOf('\t');
@@ -248,6 +240,18 @@ class Dic{
 		this.qc = this.qc == this.q[0] ? this.q[1] : this.q[0];
 		this.x.switchstate();
 	}
+	// f's search for query (stage st), in the other state: what's being
+	// searched keeps its place
+	aside(query, st, f){
+		this.switchState();
+		try {
+			this.setQuery(query);
+			this.x.init_search(st, 0);
+			return f();
+		} finally {
+			this.switchState();
+		}
+	}
 	getResult(skip = 0){
 		if (!this.x) return -1;
 		this.rlen = this.x.get_result(skip);
@@ -260,7 +264,8 @@ class Dic{
 		return this.str(this.rptr, this.tab).trim();
 	}
 	getBody(){
-		return this.rlen > 0 && this.tab < this.rlen ? this.str(this.rptr + this.tab + 1, this.rlen - this.tab - 1) : null;
+		const b = this.getBytes();
+		return b && decoder.decode(b);
 	}
 	getBytes(){
 		return this.rlen > 0 && this.tab < this.rlen ? new Uint8Array(this.x.memory.buffer, this.rptr + this.tab + 1, this.rlen - this.tab - 1) : null;

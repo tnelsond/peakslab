@@ -124,12 +124,20 @@ mark {
 	color: #fff;
 }
 /* Outlined pills */
-.ctx-btn, .vs-tr {
+.ctx-btn {
 	border: 1px solid var(--control-btn-bg);
 	border-radius: 999px;
 	background: none;
 	color: var(--control-btn-bg);
 	vertical-align: middle;
+}
+/* Gloss: filled, white letters (an entry's and a verse's) */
+.translate-btn, .vs-tr {
+	border: 1px solid var(--gloss);
+	border-radius: 999px;
+	background: var(--gloss);
+	color: #fff;
+	font-weight: 600;
 }
 /* Next to an entry's dictionary name */
 .chords-btn, .collapse-btn, .translate-btn {
@@ -508,9 +516,9 @@ body.show-chords p-e:has(p-m) { line-height: 2.5; } /* (just the entries with ch
 }
 .chords-btn::after { content: "Show chords"; }
 body.show-chords .chords-btn::after { content: "Hide chords"; }
-/* Collapse and translate an entry */
-.collapse-btn, .translate-btn {
-	width: 1.6em; /* em: shrinks along with a collapsed entry */
+/* Collapse and gloss an entry (em: they shrink along with a collapsed entry) */
+.collapse-btn {
+	width: 1.6em;
 	height: 1.6em;
 	padding: 0;
 	border: 1px solid var(--control-btn-bg);
@@ -520,16 +528,10 @@ body.show-chords .chords-btn::after { content: "Hide chords"; }
 	font-size: inherit;
 	line-height: 1.6em;
 }
-.translate-btn { /* filled, with its name: it's the main thing to do with an entry */
-	width: auto;
-	padding: 0 .6em;
-	border-color: var(--gloss);
-	border-radius: 999px;
-	background: var(--gloss);
-	color: #fff;
-	font-weight: 600;
-	font-size: .85em;
+.translate-btn { /* with its name: it's the main thing to do with an entry */
 	height: 1.9em; /* (1.6em of the entry's) */
+	padding: 0 .6em;
+	font-size: .85em;
 	line-height: 1.9em;
 }
 .collapse-btn::after { content: "−"; }
@@ -704,12 +706,10 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .vs-tr { /* gloss the verse */
 	margin: 0 .2em;
 	padding: 0 .45em;
-	border-color: var(--gloss);
-	background: var(--gloss);
-	color: #fff;
 	font-weight: 700;
 	font-size: .7em;
 	line-height: 1.4;
+	vertical-align: middle;
 }
 .vs .tr-entry { margin: .3em 0 .5em; }
 .vs.hl { background: var(--mark-bg); color: var(--mark-fg); border-radius: 3px; box-shadow: 0 0 0 3px var(--mark-bg); }
