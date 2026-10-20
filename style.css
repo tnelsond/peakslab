@@ -580,6 +580,29 @@ p-e.starred + p-e:not(.starred) { border-top-width: 2px; }
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
+/* Interlinear (p-il): each word over its transliteration, gloss, Strong's
+   number and grammar */
+.il-w {
+	display: inline-flex;
+	flex-direction: column;
+	vertical-align: top;
+	margin: 0 .55em .5em 0;
+	line-height: 1.35;
+	text-align: center;
+}
+p-il[dir=rtl] { display: inline-block; vertical-align: top; } /* Its lines wrap from the right */
+p-il[dir=rtl] .il-w { margin: 0 0 .5em .55em; }
+.il-w > :not(.il-o) { direction: ltr; unicode-bidi: isolate; }
+.il-o { font-size: 1.15em; }
+p-il[dir=rtl] .il-o { font-size: 1.4em; }
+.il-t { font-size: .75em; color: var(--tr-pron); font-style: italic; }
+.il-g { font-size: .8em; color: var(--tr-gloss); }
+.il-s { font-size: .7em; color: var(--muted); }
+.il-s p-a { color: var(--tr-link); }
+.il-v { opacity: .6; } /* only in some manuscripts */
+/* A word with its Strong's number (p-w): tap for the Greek or Hebrew */
+p-w { cursor: pointer; }
+p-w:hover { text-decoration: underline dotted; }
 /* An entry's translation */
 .tr-entry {
 	clear: both;

@@ -497,6 +497,8 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 				longest = clen;
 			}
 			cstart = a;
+			if(upper && textflat2.len - upper_idx + 1 > 1) // Capitals to the end of the line ("... KJV")
+				tag.items[pupper] = CAPITAL_RUN_START;
 			vec_char_push(&textflat2, '\0'); // null delimited strings
 			taggap = 0;
 			upper = 0;
@@ -521,6 +523,15 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 		}
 		if(!inside && textflat2.len > 0 && c == ' ' && textflat2.data[textflat2.len-1] == ' '){ // Not inside a tag, or "text <a href" loses its space
 			continue;
+		}
+		if(upper && !inside && !isupper(c)){ // A run of capitals ends, before a tag, tab or marker too ("<b>NOTE</b>")
+			if(textflat2.len - upper_idx + 1 > 1){
+				tag.items[pupper] = CAPITAL_RUN_START;
+				vec_u32_push(&tag, taggap);
+				vec_u32_push(&tag, CAPITAL_RUN_END);
+				taggap = 0;
+			}
+			upper = 0;
 		}
 		if(isslab){
 			if(c == '.'){
@@ -597,16 +608,6 @@ uint8_t * peakslab_gen(char *src, size_t len, const char *path, int wantcompress
 			}
 			++taggap;
 		}else{
-			if(upper){
-				int x = textflat2.len - upper_idx + 1;
-				if(x > 1){
-					tag.items[pupper] = CAPITAL_RUN_START;
-					vec_u32_push(&tag, taggap);
-					vec_u32_push(&tag, CAPITAL_RUN_END);
-					taggap = 0;
-				}
-				upper = 0;
-			}
 			vec_char_push(&textflat2, c);
 			taggap++;
 		}

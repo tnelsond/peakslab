@@ -1240,7 +1240,17 @@ if(!isDictPage){
 		if (entry) // The entry a translated word came from
 			addResult({id: entry.d % workers.length + 1, did: didOf(entry.d), dict: dicts[entry.d].name,
 				query: q, st: 1, header: entry.header, body: entry.body, dest: "popup"});
-		forWorkers(trMask(), (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
+		// A Strong's number ("g976"): its language's lexicons too, on or not
+		const lex = /^([gh])\d+$/.exec(q) ? dictIds.filter(d => dicts[d].cat === 'bible/dict' && dicts[d].lang === (q[0] === 'g' ? 'greek' : 'hebrew')) : [];
+		let left = lex.length + 1;
+		const go = () => {
+			if (--left) return;
+			const on = trMask();
+			lex.forEach(d => { on[d] = true; });
+			forWorkers(on, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
+		};
+		lex.forEach(d => ensureLoaded(d, go));
+		go();
 	}
 	function popupOpen(){
 		popupOverlay.style.display = 'block';
@@ -1811,6 +1821,25 @@ if(!isDictPage){
 	customElements.define('p-a', class extends HTMLElement {
 		connectedCallback() {
 			this.addEventListener('click', () => openPopupSearch(this.textContent, popupEntries[this.dataset.e]));
+		}
+	});
+	// <p-w s="G976">word</p-w>: a word with its Strong's number, tap for its entry
+	customElements.define('p-w', class extends HTMLElement {
+		connectedCallback() {
+			this.onclick = () => openPopupSearch(this.getAttribute('s'));
+		}
+	});
+	// <p-il>word|transliteration|gloss|G976|grammar ¦ ...</p-il>: an
+	// interlinear verse, each word over the rest (and a sixth field: a note,
+	// for a word only some manuscripts have)
+	customElements.define('p-il', class extends HTMLElement {
+		connectedCallback() {
+			if (this.firstElementChild) return; // Done already (moved)
+			this.innerHTML = this.textContent.split('¦').map(w => {
+				const [o, t = '', g = '', s, m = '', v] = w.trim().split('|').map(escapeHTML);
+				return `<span class="il-w${v ? ' il-v' : ''}"${v ? ` title="${v}"` : ''}><span class="il-o">${o}</span>` +
+					`<span class="il-t">${t}</span><span class="il-g">${g}</span><span class="il-s">${s ? `<p-a>${s}</p-a> ` : ''}${m}</span></span>`;
+			}).join(' ');
 		}
 	});
 }

@@ -10,6 +10,8 @@
   "chitonga": ["toi", "Toi", "tih_ZM"],
   "levantine": ["lb", "Lb", "ar_LB"],
   "lozi": ["loz", "Lz", "loz_ZM"],
+  "greek": ["el", "Ω", "el_GR"],
+  "hebrew": ["he", "א", "he_IL"],
   "bible": ["bib", "✝️"],
   "text": ["txt", "A"],
   "dict": ["dic", "D"],

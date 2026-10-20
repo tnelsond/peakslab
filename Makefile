@@ -63,6 +63,17 @@ dict_src/lao/phonetics/laoipa.tsv dict_src/lao/phonetics/laosouth.tsv &: dict_sr
 	mkdir -p dict_src/lao/phonetics
 	python3 utils/laophonetics.py dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv dict_src/lao/phonetics
 
+# The Greek and Hebrew interlinear Bibles and their lexicons are made from
+# STEPBible's data (https://github.com/STEPBible/STEPBible-Data: the TAGNT,
+# TAHOT, TBESG and TBESH .txt files in dict_src/stepbible)
+STEP_TSV := dict_src/greek/bible/text/grc-tagnt.tsv dict_src/greek/bible/dict/tbesg.tsv dict_src/hebrew/bible/text/hbo-tahot.tsv dict_src/hebrew/bible/dict/tbesh.tsv
+$(STEP_TSV) &: $(wildcard dict_src/stepbible/*.txt) utils/stepbibletotsv.py
+	python3 utils/stepbibletotsv.py dict_src/stepbible dict_src
+
+# The KJV with Strong's numbers, from eBible's eng-kjv2006 USFM (dict_src/ebible/eng-kjv2006)
+dict_src/english/bible/text/eng-kjvs.tsv: $(wildcard dict_src/ebible/eng-kjv2006/*.usfm) utils/usfmstrongstotsv.py
+	python3 utils/usfmstrongstotsv.py $@ 'King James Version (1769) with Strong’s numbers: tap a word for its Greek or Hebrew. Public domain, from <a href="https://ebible.org/find/details.php?id=eng-kjv2006">eBible</a>' $(sort $(wildcard dict_src/ebible/eng-kjv2006/*.usfm))
+
 meta:
 	mkdir -p meta
 peakgen : peakgen.c peak.h zstd.o zstd.h

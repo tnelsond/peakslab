@@ -18,6 +18,7 @@ Current languages:
 - Spanish
 - Indonesian
 - Levantine (Lebanese Arabic)
+- Biblical Greek and Hebrew (interlinear New and Old Testaments with lexicons, and a KJV with Strong's numbers, on every page with a Bible)
 
 ![April 2026](docs/screenshot-2026-04-27.webp)
 

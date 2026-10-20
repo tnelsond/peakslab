@@ -30,3 +30,7 @@ I don't really like putting `<div class="ipa">` everywhere, especially since it 
 - `<p-l>សុខសប្បាយ</p-l>` this is a **language** tag to differentiate languages when they're packed together so you can have a sentence and its translation flow together but still be distinct.
 - `<p-n>Notes</p-n>` This is great for putting notes or position and other stuff that doesn't need to be as prominent.
 - `<p-ipa>ɑ:lɑ:ˈməʊd</p-ipa>` for putting pronounciation in.
+- `<p-w s=H430>God</p-w>` a word with its Strong's number: tapping it opens its Greek or Hebrew lexicon entry (the lexicons load for it even when they're off).
+- `<p-il>λόγος|logos|Word|G3056|N-NSM ¦ καὶ|kai|and|G2532|CONJ</p-il>` an interlinear verse: each word (separated by ` ¦ `) is drawn over its transliteration, gloss, Strong's number (a link) and grammar; an optional sixth field is a note that dims the word (e.g. a word only some manuscripts have). `<p-il dir=rtl>` for Hebrew. It's one tag for the whole verse, so the file stays small and every part of it can still be searched (`g3056` finds every verse with λόγος).
+
+Greek and Hebrew (`utils/stepbibletotsv.py`, `utils/usfmstrongstotsv.py`) are made with these from STEPBible's tagged texts and lexicons and eBible's KJV with Strong's numbers; see the Makefile.
