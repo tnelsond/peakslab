@@ -333,35 +333,6 @@ if(!isDictPage){
 
 	// Above a chapter: ‹ the book (tap: its chapters) ›, going on to the
 	// next or previous book at the ends
-	function chapterNav(title){
-		const [, code, c] = /^(.+) (\d+)\.$/.exec(query);
-		const ch = +c;
-		const nav = document.createElement('div');
-		nav.id = 'chNav';
-		nav.innerHTML = '<button class="ch-go" data-go="-1" aria-label="Previous chapter">‹</button>' +
-			`<button class="ch-book">${escapeHTML(title)} ▾</button>` +
-			'<button class="ch-go" data-go="1" aria-label="Next chapter">›</button>';
-		nav.onclick = e => {
-			const b = e.target.closest('button');
-			if (!b) return;
-			if (!b.dataset.go) return showBooks(code);
-			loadBooks(() => {
-				const i = books.findIndex(x => x.code === code);
-				const to = ch + +b.dataset.go;
-				const bk = to < 1 ? books[i - 1] : to > books[i]?.n ? books[i + 1] : books[i];
-				if (bk) search(`${bk.code} ${to < 1 ? bk.n : bk === books[i] ? to : 1}.`);
-			});
-		};
-		loadBooks(() => { // The book's name in the Bible, and the ends
-			const i = books.findIndex(x => x.code === code);
-			if (i < 0) return;
-			nav.querySelector('.ch-book').textContent = `${books[i].name} ${String(ch).replace(/\d/g, d => String.fromCodePoint(books[i].zero + +d))} ▾`;
-			nav.firstChild.disabled = !i && ch === 1;
-			nav.lastChild.disabled = i === books.length - 1 && ch === books[i].n;
-		});
-		return nav;
-	}
-
 	// A verse of the chapter searched ("rom 8."): each dictionary's verses
 	// run together in one card, numbered as its references have them
 	// ("យ៉ូហាន ៣:១៦"); the ⇄ after a verse translates it word by word.
@@ -377,8 +348,6 @@ if(!isDictPage){
 			card.id = cardId;
 			card.className = par ? 'chapter parallel' : 'chapter';
 			card.dataset.id = cardSort;
-			if(!$('chNav'))
-				resultsDiv.prepend(chapterNav(label ? label[1].replace(/\s*[:.]\s*\p{Nd}+[^:.]*$/u, '') : query));
 			card.innerHTML = par ? '<p-e></p-e>' : `<p-e data-dict="${escapeHTML(data.dict)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${collapseBtnHTML}</p-e>`;
 			const after = [...resultsDiv.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > cardSort);
 			resultsDiv.insertBefore(card, after || (loader && loader.parentNode === resultsDiv ? loader : null));
@@ -619,6 +588,7 @@ if(!isDictPage){
 	// newlines, so it shows them as spaces (same length, so the positions
 	// match) and the big text box shows the real thing.
 	let queryText = '';
+	let query = null; // What's searched: queryText as it's searched (updateQuery)
 	function setQueryText(text){
 		queryText = (text || '').replace(/\r\n?/g, '\n');
 		queryInput.value = queryText.replace(/\n/g, ' ');
@@ -728,36 +698,47 @@ if(!isDictPage){
 			`<h3 class="drawer-h">Texts</h3><ul class="cat-dicts">${bibleTexts.map(d =>
 				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${!!$(`${d}`)?.checked}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul></details>`;
 	}
-	// The books, on the home page in Bible mode: under the search bar, to
-	// pick one or type instead. A book's name in the Bible and in English.
-	let booksPick = null; // The book whose chapters are showing
-	let lastRead = ''; // The chapter read last ("joh 3."), marked
-	const bookName = x => escapeHTML(x.name) + (x.en && x.en !== x.name ? `<small>${escapeHTML(x.en)}</small>` : '');
-	function booksHTML(){
+	// The Bible bar, at the top of the results in Bible mode (or reading a
+	// chapter): ‹ book ▾ chapter ▾ ›, a book's name in the Bible and in
+	// English; and under it Parallel Bibles. The search bar's still there
+	// to type in.
+	let lastRead = ''; // The chapter read last ("joh 3.")
+	const bibleBar = document.createElement('div');
+	bibleBar.id = 'bibleBar';
+	topDiv.prepend(bibleBar);
+	function renderBibleBar(){
+		const reading = query && chapterOf(query + '1') === query;
+		if (reading) lastRead = query;
+		bibleBar.hidden = !bibleMode() && !reading;
+		if (bibleBar.hidden) return;
 		if (!books) {
-			loadBooks(renderHome);
-			return '<p class="empty">Loading…</p>';
+			bibleBar.innerHTML = '<div id="chNav"><span class="ch-load">Loading…</span></div>';
+			return loadBooks(renderBibleBar);
 		}
-		const at = lastRead;
-		const b = books.find(x => x.code === booksPick);
-		if (b) {
-			const num = n => String(n).replace(/\d/g, c => String.fromCodePoint(b.zero + +c));
-			const ref = ch => `${b.code.toLowerCase()} ${ch}.`;
-			return parHTML() + `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
-				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `<button data-read="${ref(i + 1)}"${at === ref(i + 1) ? ' aria-current="true"' : ''}>${num(i + 1)}</button>`).join('')}</div>`;
-		}
-		return parHTML() + `<div class="bk-grid">${books.map(x => `<button data-book="${escapeHTML(x.code)}"${at?.startsWith(x.code.toLowerCase() + ' ') ? ' aria-current="true"' : ''}>${bookName(x)}</button>`).join('')}</div>`;
+		const [, code, c] = /^(.+) (\d+)\.$/.exec(lastRead) || [];
+		const i = books.findIndex(x => x.code === code), b = books[i], ch = +c;
+		const num = (x, n) => String(n).replace(/\d/g, d => String.fromCodePoint(x.zero + +d));
+		const opt = (v, label, on) => `<option value="${v}"${on ? ' selected' : ''}>${escapeHTML(label)}</option>`;
+		const html = '<div id="chNav"><button class="ch-go" data-go="-1" aria-label="Previous chapter"' + (!b || !i && ch === 1 ? ' disabled' : '') + '>‹</button>' +
+			`<select class="ch-book" aria-label="Book">${b ? '' : opt('', 'Book', true)}${books.map((x, k) => opt(x.code, x.en && x.en !== x.name ? `${x.name} · ${x.en}` : x.name, k === i)).join('')}</select>` +
+			(b ? `<select class="ch-ch" aria-label="Chapter">${Array.from({length: b.n}, (_, k) => opt(k + 1, num(b, k + 1), k + 1 === ch)).join('')}</select>` : '') +
+			'<button class="ch-go" data-go="1" aria-label="Next chapter"' + (!b || i === books.length - 1 && ch === b.n ? ' disabled' : '') + '>›</button></div>' +
+			parHTML();
+		if (bibleBar._html !== html) { bibleBar._html = html; bibleBar.innerHTML = html; } // Only when changed: keeps a drop-down open
 	}
-	// The books (a book's chapters), with the search bar empty to type in
-	function showBooks(code = null){
-		lastRead = chapterOf(query + '1') || lastRead;
-		booksPick = code;
-		closeDrawer();
-		setQueryText('');
-		startSearch();
-		window.scrollTo(0, 0);
-	}
-	// Bible mode (a Bible category picked, or a Bible page): the Books button
+	bibleBar.addEventListener('change', e => {
+		const book = bibleBar.querySelector('.ch-book').value, ch = e.target.matches('.ch-ch') ? e.target.value : 1;
+		if (book) search(`${book} ${ch}.`);
+	});
+	bibleBar.addEventListener('click', e => {
+		const b = e.target.closest('button');
+		if (!b?.dataset.go) return rowClick(e); // Parallel Bibles
+		const [, code, c] = /^(.+) (\d+)\.$/.exec(lastRead);
+		const i = books.findIndex(x => x.code === code), to = +c + +b.dataset.go;
+		const bk = to < 1 ? books[i - 1] : to > books[i].n ? books[i + 1] : books[i];
+		if (bk) search(`${bk.code} ${to < 1 ? bk.n : bk === books[i] ? to : 1}.`);
+	});
+	// Bible mode (a Bible category picked, or a Bible page): the Bible bar
 	const bibleMode = () => hasBible && (pParts.includes('bible') || selected.some(id => id.startsWith('bible')));
 
 	// ---------------------------------------------------------------
@@ -801,8 +782,8 @@ if(!isDictPage){
 	// then the whole filter
 	function renderQuick(){
 		const btn = (attrs, label, on, n) => `<button class="qk" ${attrs} aria-pressed="${on}">${escapeHTML(label)}${n !== undefined ? ` <span class="n">${n}</span>` : ''}</button>`;
-		const html = (bibleMode() ? '<button class="qk qk-books" data-qbooks="1">Books ›</button>' : '') +
-			(barChoice || filtered() ? btn('data-qall="1"', 'Everything', !filtered(), everythingCount()) : '') +
+		renderBibleBar();
+		const html = (barChoice || filtered() ? btn('data-qall="1"', 'Everything', !filtered(), everythingCount()) : '') +
 			cats.filter(c => (barChoice && !c.sub) || selected.includes(c.id)).map(c => btn(`data-qsel="${c.id}"`, c.label, selected.includes(c.id), selected.includes(c.id) ? catChosen(c).size : undefined)).join('') +
 			'<button class="qk qk-more" data-qmore="1">Filter…</button>';
 		if (quick._html !== html) { quick._html = html; quick.innerHTML = html; } // Only when changed: keeps it tappable
@@ -810,15 +791,8 @@ if(!isDictPage){
 	quick.addEventListener('click', e => {
 		const b = e.target.closest('button');
 		if (!b) return;
-		if (b.dataset.qbooks) showBooks();
-		else if (b.dataset.qall) setFilter([]);
-		else if (b.dataset.qsel) {
-			const on = !selected.includes(b.dataset.qsel);
-			toggleCat(b.dataset.qsel);
-			// Picking the Bible: which book? (A word searched for stays,
-			// searched in the Bible)
-			if (on && b.dataset.qsel.startsWith('bible') && bibleMode() && (!query || chapterOf(query + '1'))) showBooks();
-		}
+		if (b.dataset.qall) setFilter([]);
+		else if (b.dataset.qsel) toggleCat(b.dataset.qsel);
 		else openDrawer('modes');
 	});
 	let lastY = 0;
@@ -950,12 +924,11 @@ if(!isDictPage){
 	drawer.querySelector('.drawer-bg').addEventListener('click', closeDrawer);
 	document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerView) closeDrawer(); });
 
-	// The home page (nothing searched): in Bible mode the books, then recent
-	// searches and bookmarks
+	// The home page (nothing searched): recent searches and bookmarks
 	const homeDiv = $('home');
 	function renderHome(){
 		const more = (n, view) => n > 5 ? `<button class="text-btn" data-open="${view}">All ${n}</button>` : '';
-		homeDiv.innerHTML = (bibleMode() ? `<section class="books-home"><h2>Bible</h2>${booksHTML()}</section>` : '') +
+		homeDiv.innerHTML =
 			`<section><h2>Recent</h2>${listHTML('history', 5)}${more(lists.history.items.length, 'history')}</section>` +
 			`<section><h2>Bookmarks</h2>${listHTML('bookmarks', 5)}${more(lists.bookmarks.items.length, 'bookmarks')}</section>`;
 		if (drawerView) renderDrawer();
@@ -966,25 +939,18 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, everything, q, rm, w, clear, open, act, par, ptext} = b.dataset;
+		const {everything, q, rm, w, clear, open, act, par, ptext} = b.dataset;
 		if (par) {
 			parallel = !parallel;
 			store(parKey, parallel);
-			renderHome();
+			renderBibleBar();
 			if (chapterOf(query + '1') === query) { query = ''; startSearch(); } // The chapter showing, again
 		} else if (ptext) {
 			const cb = $(ptext);
 			if (!cb) return;
 			cb.checked = !cb.checked;
 			updateDictList(cb);
-			renderHome();
-		} else if (book || booksBack) {
-			booksPick = book || null;
-			renderHome();
-			window.scrollTo(0, 0);
-		} else if (read) {
-			closeDrawer();
-			search(read);
+			renderBibleBar();
 		} else if (everything) {
 			setFilter([]);
 		} else if (act) { // A category's
@@ -1171,8 +1137,6 @@ if(!isDictPage){
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		return r.arrayBuffer();
 	}
-
-	let query = null;
 
 	function unloadDict(d){
 		extraLoaded.delete(d);
