@@ -644,11 +644,8 @@ if(!isDictPage){
 	// The books: a Bible text's headwords in its order give the books and
 	// their chapters, and each book's first verse's reference (e.g.
 	// "លោកុប្បត្តិ ១:១") its name and digits. From the first Bible that's
-	// on. And its name in English, by its code.
-	const BOOK_EN = (names => Object.fromEntries('gen exo lev num deu jos jdg rut 1sa 2sa 1ki 2ki 1ch 2ch ezr neh est job psa pro ecc sol isa jer lam eze dan hos joe amo oba jon mic nah hab zep hag zec mal mat mar luk joh act rom 1co 2co gal eph phi col 1th 2th 1ti 2ti tit phm heb jam 1pe 2pe 1jo 2jo 3jo jud rev'.split(' ').map((c, i) => [c, names[i]])))(
-		('Genesis,Exodus,Leviticus,Numbers,Deuteronomy,Joshua,Judges,Ruth,1 Samuel,2 Samuel,1 Kings,2 Kings,1 Chronicles,2 Chronicles,Ezra,Nehemiah,Esther,Job,Psalms,Proverbs,Ecclesiastes,Song of Solomon,Isaiah,Jeremiah,Lamentations,Ezekiel,Daniel,Hosea,Joel,Amos,Obadiah,Jonah,Micah,Nahum,Habakkuk,Zephaniah,Haggai,Zechariah,Malachi,' +
-			'Matthew,Mark,Luke,John,Acts,Romans,1 Corinthians,2 Corinthians,Galatians,Ephesians,Philippians,Colossians,1 Thessalonians,2 Thessalonians,1 Timothy,2 Timothy,Titus,Philemon,Hebrews,James,1 Peter,2 Peter,1 John,2 John,3 John,Jude,Revelation').split(','));
-	let books = null; // [{code, n (chapters), name, en, zero (where its digits' 0 is)}]
+	// on. Its code ("gen") shows with its name: it's what to type.
+	let books = null; // [{code, n (chapters), name, zero (where its digits' 0 is)}]
 	let booksWait = null; // Waiting for them to load
 	function loadBooks(then){
 		if (books) return then();
@@ -661,7 +658,7 @@ if(!isDictPage){
 			r.heads.forEach((h, i) => {
 				const m = /^(.+) (\d+)\.\d+$/.exec(h);
 				if (!m) return;
-				if (list.at(-1)?.code !== m[1]) { list.push({code: m[1], n: 0, name: m[1], en: BOOK_EN[m[1]], zero: 48}); firsts.push(i); }
+				if (list.at(-1)?.code !== m[1]) { list.push({code: m[1], n: 0, name: m[1], zero: 48}); firsts.push(i); }
 				list.at(-1).n = Math.max(list.at(-1).n, +m[2]);
 			});
 			askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}, r => {
@@ -677,7 +674,7 @@ if(!isDictPage){
 			});
 		}));
 	}
-	const bookName = x => escapeHTML(x.name) + (x.en && x.en !== x.name ? `<small>${escapeHTML(x.en)}</small>` : '');
+	const bookName = x => escapeHTML(x.name) + (x.name !== x.code ? `<small>${escapeHTML(x.code.toUpperCase())}</small>` : '');
 	const bookNum = (x, n) => String(n).replace(/\d/g, d => String.fromCodePoint(x.zero + +d)); // In the Bible's digits
 	// A chapter ("joh 3."): its book and number; and the one before or
 	// after it (dir -1 or 1), across books (none at the ends)
@@ -799,11 +796,7 @@ if(!isDictPage){
 		const b = e.target.closest('button');
 		if (!b) return;
 		if (b.dataset.qall) setFilter([]);
-		else if (b.dataset.qsel) {
-			const on = !selected.includes(b.dataset.qsel);
-			toggleCat(b.dataset.qsel);
-			if (on && b.dataset.qsel.startsWith('bible') && bibleMode() && !query) openBooks(); // Which book?
-		}
+		else if (b.dataset.qsel) toggleCat(b.dataset.qsel);
 		else openDrawer('modes');
 	});
 	let lastY = 0;

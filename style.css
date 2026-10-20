@@ -741,7 +741,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .bk-grid button:hover { border-color: var(--control-btn-bg); }
 .bk-grid button[aria-current="true"] { background: var(--control-btn-bg); border-color: transparent; color: #fff; }
-/* A book's name in English, under (or after) its name in the Bible */
+/* A book's code ("GEN"), under (or after) its name in the Bible */
 .bk-grid small { display: block; font-size: .72em; color: var(--muted); }
 .bk-grid button[aria-current="true"] small { color: inherit; opacity: .85; }
 .bk-name small { margin-left: .5em; font-size: .8em; font-weight: normal; color: var(--muted); }
