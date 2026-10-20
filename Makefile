@@ -76,10 +76,11 @@ dict_src/english/bible/text/eng-kjvs.tsv: $(wildcard dict_src/ebible/eng-kjv2006
 
 # The Hammond 1954 New Testament with Strong's numbers, matched to the Greek
 # by utils/alignstrongs.py (pip install eflomal), learning the words from the
-# other Khmer Bibles too
+# other Khmer Bibles too, with the Khmer dictionaries saying which parts make a word
 KHMER_BIBLES := $(addprefix dict_src/khmer/bible/text/,khsv.tsv khov2016.tsv khmus.tsv kcb.tsv gkb.tsv)
-dict_src/khmer/bible/text/khovs.tsv: dict_src/khmer/bible/text/khov.tsv dict_src/greek/bible/text/grc-tagnt.tsv $(KHMER_BIBLES) utils/alignstrongs.py
-	python3 utils/alignstrongs.py dict_src/greek/bible/text/grc-tagnt.tsv $< $@ 'Hammond 1954 Khmer New Testament with Strong’s numbers (a trial): tap a word for its Greek. The words were matched to the Greek automatically, so some are wrong and many are left out. Text from <a href="https://ebible.org/study/content/texts/khm-h/">eBible</a>' 2 $(KHMER_BIBLES)
+KHMER_WORDS := $(addprefix dict_src/khmer/dict/,h97.tsv nath2022.tsv aakanee.tsv kmwiktionary.tsv sonv.tsv seacount.tsv) $(addprefix dict_src/khmer/bible/dict/,bible.tsv biblewordkm.tsv)
+dict_src/khmer/bible/text/khovs.tsv: dict_src/khmer/bible/text/khov.tsv dict_src/greek/bible/text/grc-tagnt.tsv $(KHMER_BIBLES) $(KHMER_WORDS) utils/alignstrongs.py
+	python3 utils/alignstrongs.py dict_src/greek/bible/text/grc-tagnt.tsv $< $@ 'Hammond 1954 Khmer New Testament with Strong’s numbers (a trial): tap a word for its Greek. The words were matched to the Greek automatically, so some are wrong and some are left out. Text from <a href="https://ebible.org/study/content/texts/khm-h/">eBible</a>' 2 $(KHMER_BIBLES) --words $(KHMER_WORDS)
 
 meta:
 	mkdir -p meta

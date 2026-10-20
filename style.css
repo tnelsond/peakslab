@@ -6,6 +6,7 @@
 	--tr-gloss: #400;
 	--tr-link: #002;
 	--tr-pron: #333;
+	--strongs: #1d5a78; /* a word with a Strong's number */
 	--bg-color: #ba8;
 	--card-bg: #fff;
 	--card-text: #1a1a1a;
@@ -39,6 +40,7 @@ body.dark-mode {
 	--tr-gloss: #fb9;
 	--tr-link: #cdf;
 	--tr-pron: #ccc;
+	--strongs: #9fd3e6;
 	--alttext: #d75;
 	--tab-bg: #672;
 	--color1: #df8;
@@ -601,7 +603,7 @@ p-il[dir=rtl] .il-o { font-size: 1.4em; }
 .il-s p-a { color: var(--tr-link); }
 .il-v { opacity: .6; } /* only in some manuscripts */
 /* A word with its Strong's number (p-w): tap for the Greek or Hebrew */
-p-w { cursor: pointer; }
+p-w { cursor: pointer; color: var(--strongs); }
 p-w:hover { text-decoration: underline dotted; }
 /* An entry's translation */
 .tr-entry {
