@@ -344,10 +344,7 @@ if(!isDictPage){
 		nav.onclick = e => {
 			const b = e.target.closest('button');
 			if (!b) return;
-			if (!b.dataset.go) {
-				booksPick = code;
-				return openDrawer('books');
-			}
+			if (!b.dataset.go) return showBooks(code);
 			loadBooks(() => {
 				const i = books.findIndex(x => x.code === code);
 				const to = ch + +b.dataset.go;
@@ -504,6 +501,14 @@ if(!isDictPage){
 		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation',
 		media: 'Audio & images', ref: 'Reference'};
 	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
+	// The Bible's books in English, by their codes, to go with their names in a Bible
+	const BOOK_EN = {};
+	{
+		const names = 'Genesis,Exodus,Leviticus,Numbers,Deuteronomy,Joshua,Judges,Ruth,1 Samuel,2 Samuel,1 Kings,2 Kings,1 Chronicles,2 Chronicles,Ezra,Nehemiah,Esther,Job,Psalms,Proverbs,Ecclesiastes,Song of Solomon,Isaiah,Jeremiah,Lamentations,Ezekiel,Daniel,Hosea,Joel,Amos,Obadiah,Jonah,Micah,Nahum,Habakkuk,Zephaniah,Haggai,Zechariah,Malachi,' +
+			'Matthew,Mark,Luke,John,Acts,Romans,1 Corinthians,2 Corinthians,Galatians,Ephesians,Philippians,Colossians,1 Thessalonians,2 Thessalonians,1 Timothy,2 Timothy,Titus,Philemon,Hebrews,James,1 Peter,2 Peter,1 John,2 John,3 John,Jude,Revelation';
+		'GEN EXO LEV NUM DEU JOS JDG RUT 1SA 2SA 1KI 2KI 1CH 2CH EZR NEH EST JOB PSA PRO ECC SOL ISA JER LAM EZE DAN HOS JOE AMO OBA JON MIC NAH HAB ZEP HAG ZEC MAL MAT MAR LUK JOH ACT ROM 1CO 2CO GAL EPH PHI COL 1TH 2TH 1TI 2TI TIT PHM HEB JAM 1PE 2PE 1JO 2JO 3JO JUD REV'
+			.split(' ').forEach((c, i) => { BOOK_EN[c] = names.split(',')[i]; });
+	}
 	const cats = []; // {id, label, sub, members: [d, ...]}
 	{
 		const addCat = (id, label, test, sub) => {
@@ -678,8 +683,12 @@ if(!isDictPage){
 	// their chapters, and each book's first verse's reference (e.g.
 	// "លោកុប្បត្តិ ១:១") its name and digits. From the first Bible that's on.
 	let books = null; // [{code, n (chapters), name, zero (where its digits' 0 is)}]
+	let booksWait = null; // Waiting for them to load
 	function loadBooks(then){
 		if (books) return then();
+		if (booksWait) return booksWait.push(then);
+		booksWait = [then];
+		then = () => { const w = booksWait; booksWait = null; w.forEach(f => f()); };
 		const mask = searchMask();
 		const d = dictIds.filter(isBibleText).sort((a, b) => mask[b] - mask[a] || sortId(a) - sortId(b))[0];
 		ensureLoaded(d, () => askDict(d, {type: 'heads'}, r => {
@@ -687,7 +696,7 @@ if(!isDictPage){
 			r.heads.forEach((h, i) => {
 				const m = /^(.+) (\d+)\.\d+$/.exec(h);
 				if (!m) return;
-				if (list.at(-1)?.code !== m[1]) { list.push({code: m[1], n: 0, name: m[1], zero: 48}); firsts.push(i); }
+				if (list.at(-1)?.code !== m[1]) { list.push({code: m[1], n: 0, name: m[1], en: BOOK_EN[m[1].toUpperCase()], zero: 48}); firsts.push(i); }
 				list.at(-1).n = Math.max(list.at(-1).n, +m[2]);
 			});
 			askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}, r => {
@@ -702,37 +711,51 @@ if(!isDictPage){
 			});
 		}));
 	}
-	// Parallel reading: a chapter verse by verse, each verse in every Bible
-	// text that's on, one after the other (else each text's chapter in its
-	// own card). Above the books: it, and the texts to read.
+	// Parallel reading (unless it's turned off): a chapter verse by verse,
+	// each verse in every Bible text that's on, one after the other (else
+	// each text's chapter in its own card). Above the books: it, and the
+	// texts to read.
 	const parKey = `peakslab-parallel-${appname}`;
-	let parallel = !!stored(parKey);
+	let parallel = stored(parKey) ?? true; // (on unless turned off)
 	const bibleTexts = dictIds.filter(isBibleText);
-	let parOpen = false; // Its drop-down
+	let parOpen = false; // Its drop-down, as it stays when redrawn
+	document.addEventListener('toggle', e => { if (e.target.matches?.('.par-dd')) parOpen = e.target.open; }, true);
 	function parHTML(){
 		if (bibleTexts.length < 2) return '';
 		const on = bibleTexts.filter(d => $(`${d}`)?.checked).length;
 		return `<details class="par-dd"${parOpen ? ' open' : ''}><summary><span class="row-w">Parallel Bibles</span><span class="row-t">${parallel ? 'On' : 'Off'} · ${on} of ${bibleTexts.length} texts</span></summary>` +
 			`<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel reading</span><span class="row-t">Verse by verse in each text</span></button></li></ul>` +
 			`<h3 class="drawer-h">Texts</h3><ul class="cat-dicts">${bibleTexts.map(d =>
-				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${!!$(`${d}`)?.checked}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul></details>` +
-			'<h3 class="drawer-h">Books</h3>';
+				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${!!$(`${d}`)?.checked}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul></details>`;
 	}
+	// The books, on the home page in Bible mode: under the search bar, to
+	// pick one or type instead. A book's name in the Bible and in English.
 	let booksPick = null; // The book whose chapters are showing
+	let lastRead = ''; // The chapter read last ("joh 3."), marked
+	const bookName = x => escapeHTML(x.name) + (x.en && x.en !== x.name ? `<small>${escapeHTML(x.en)}</small>` : '');
 	function booksHTML(){
 		if (!books) {
-			loadBooks(() => { if (drawerView === 'books') renderDrawer(); });
+			loadBooks(renderHome);
 			return '<p class="empty">Loading…</p>';
 		}
-		const at = chapterOf(query + '1');
+		const at = lastRead;
 		const b = books.find(x => x.code === booksPick);
 		if (b) {
 			const num = n => String(n).replace(/\d/g, c => String.fromCodePoint(b.zero + +c));
 			const ref = ch => `${b.code.toLowerCase()} ${ch}.`;
-			return parHTML() + `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h">${escapeHTML(b.name)}</h3>` +
+			return parHTML() + `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
 				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `<button data-read="${ref(i + 1)}"${at === ref(i + 1) ? ' aria-current="true"' : ''}>${num(i + 1)}</button>`).join('')}</div>`;
 		}
-		return parHTML() + `<div class="bk-grid">${books.map(x => `<button data-book="${escapeHTML(x.code)}"${at?.startsWith(x.code.toLowerCase() + ' ') ? ' aria-current="true"' : ''}>${escapeHTML(x.name)}</button>`).join('')}</div>`;
+		return parHTML() + `<div class="bk-grid">${books.map(x => `<button data-book="${escapeHTML(x.code)}"${at?.startsWith(x.code.toLowerCase() + ' ') ? ' aria-current="true"' : ''}>${bookName(x)}</button>`).join('')}</div>`;
+	}
+	// The books (a book's chapters), with the search bar empty to type in
+	function showBooks(code = null){
+		lastRead = chapterOf(query + '1') || lastRead;
+		booksPick = code;
+		closeDrawer();
+		setQueryText('');
+		startSearch();
+		window.scrollTo(0, 0);
 	}
 	// Bible mode (a Bible category picked, or a Bible page): the Books button
 	const bibleMode = () => hasBible && (pParts.includes('bible') || selected.some(id => id.startsWith('bible')));
@@ -787,18 +810,14 @@ if(!isDictPage){
 	quick.addEventListener('click', e => {
 		const b = e.target.closest('button');
 		if (!b) return;
-		if (b.dataset.qbooks) {
-			booksPick = null;
-			openDrawer('books');
-		}
+		if (b.dataset.qbooks) showBooks();
 		else if (b.dataset.qall) setFilter([]);
 		else if (b.dataset.qsel) {
 			const on = !selected.includes(b.dataset.qsel);
 			toggleCat(b.dataset.qsel);
-			if (on && b.dataset.qsel.startsWith('bible') && bibleMode()) { // Picking the Bible: which book?
-				booksPick = null;
-				openDrawer('books');
-			}
+			// Picking the Bible: which book? (A word searched for stays,
+			// searched in the Bible)
+			if (on && b.dataset.qsel.startsWith('bible') && bibleMode() && (!query || chapterOf(query + '1'))) showBooks();
 		}
 		else openDrawer('modes');
 	});
@@ -884,15 +903,14 @@ if(!isDictPage){
 	// The side panel for the whole history or all the bookmarks
 	const drawer = $('drawer');
 	const drawerBody = drawer.querySelector('.drawer-body');
-	drawerBody.addEventListener('toggle', e => { if (e.target.matches('.par-dd')) parOpen = e.target.open; }, true); // (it stays as it is when redrawn)
 	let drawerView = null;
 	const expandedCats = new Set(); // Filter categories opened to show their dictionaries
-	const drawerTitles = {history: 'History', bookmarks: 'Bookmarks', books: 'Books', lang: 'Language', modes: 'Filter'};
+	const drawerTitles = {history: 'History', bookmarks: 'Bookmarks', lang: 'Language', modes: 'Filter'};
 	function renderDrawer(){
 		const v = drawerView, scroll = drawerBody.scrollTop;
 		drawer.querySelector('.drawer-title').textContent = drawerTitles[v];
 		drawerBody.innerHTML = lists[v] ? listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '') :
-			v === 'books' ? booksHTML() : v === 'lang' ? langHTML() : filterHTML();
+			v === 'lang' ? langHTML() : filterHTML();
 		drawerBody.scrollTop = scroll;
 	}
 	// The filter: Everything, then the categories (Everything only with two
@@ -932,11 +950,12 @@ if(!isDictPage){
 	drawer.querySelector('.drawer-bg').addEventListener('click', closeDrawer);
 	document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerView) closeDrawer(); });
 
-	// The home page (nothing searched): recent searches and bookmarks
+	// The home page (nothing searched): in Bible mode the books, then recent
+	// searches and bookmarks
 	const homeDiv = $('home');
 	function renderHome(){
 		const more = (n, view) => n > 5 ? `<button class="text-btn" data-open="${view}">All ${n}</button>` : '';
-		homeDiv.innerHTML =
+		homeDiv.innerHTML = (bibleMode() ? `<section class="books-home"><h2>Bible</h2>${booksHTML()}</section>` : '') +
 			`<section><h2>Recent</h2>${listHTML('history', 5)}${more(lists.history.items.length, 'history')}</section>` +
 			`<section><h2>Bookmarks</h2>${listHTML('bookmarks', 5)}${more(lists.bookmarks.items.length, 'bookmarks')}</section>`;
 		if (drawerView) renderDrawer();
@@ -951,17 +970,18 @@ if(!isDictPage){
 		if (par) {
 			parallel = !parallel;
 			store(parKey, parallel);
-			renderDrawer();
+			renderHome();
 			if (chapterOf(query + '1') === query) { query = ''; startSearch(); } // The chapter showing, again
 		} else if (ptext) {
 			const cb = $(ptext);
 			if (!cb) return;
 			cb.checked = !cb.checked;
 			updateDictList(cb);
-			renderDrawer();
+			renderHome();
 		} else if (book || booksBack) {
 			booksPick = book || null;
-			renderDrawer();
+			renderHome();
+			window.scrollTo(0, 0);
 		} else if (read) {
 			closeDrawer();
 			search(read);

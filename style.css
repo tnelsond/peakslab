@@ -741,6 +741,10 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .bk-grid button:hover { border-color: var(--control-btn-bg); }
 .bk-grid button[aria-current="true"] { background: var(--control-btn-bg); border-color: transparent; color: #fff; }
+/* A book's name in English, under (or after) its name in the Bible */
+.bk-grid small { display: block; font-size: .72em; color: var(--muted); }
+.bk-grid button[aria-current="true"] small { color: inherit; opacity: .85; }
+.bk-name small { margin-left: .5em; font-size: .8em; font-weight: normal; color: var(--muted); }
 
 /* Nothing searched: the home page (recent, bookmarks); the menu's Library
    shows the library and settings instead */
@@ -777,7 +781,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .row-main { gap: 1px; }
 /* The Books drawer's Parallel Bibles: a drop-down with the texts */
-.par-dd { border-bottom: 1px solid var(--line); }
+.par-dd { margin-bottom: 8px; border-bottom: 1px solid var(--line); }
 .par-dd > summary { display: flex; flex-direction: column; gap: 1px; padding: 8px 4px 8px 24px; position: relative; cursor: pointer; list-style: none; color: var(--card-text); }
 .par-dd > summary::-webkit-details-marker { display: none; }
 .par-dd > summary::before { content: "▸"; position: absolute; left: 6px; top: 9px; color: var(--muted); transition: transform .15s; }
