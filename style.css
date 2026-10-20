@@ -332,7 +332,6 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 .qk[aria-pressed="true"] { border-color: transparent; background: var(--tab-bg); color: var(--color1); font-weight: 600; }
 .qk .n { font-weight: 500; opacity: .8; }
 .qk-more { border-style: dashed; }
-.qk-books { border-style: solid; background: rgba(255,255,255,.12); font-weight: 600; }
 
 /* Content */
 #content {
@@ -719,10 +718,10 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	padding: 2px 10px;
 	font-size: 13px;
 }
-/* The Bible bar, at the top of the results: ‹ book and chapter ▾ ›, and
-   under it the picker: Parallel Bibles, the books, a book's chapters */
-#bibleBar { max-width: 640px; margin: 10px auto 4px; }
-#chNav { display: flex; align-items: center; justify-content: center; gap: 8px; }
+/* The Bible bar, at the top of the results: ‹ book and chapter ▾ ›; and
+   the Books drawer's books and chapters */
+#chNav { display: flex; align-items: center; justify-content: center; gap: 8px; max-width: 640px; margin: 10px auto 4px; }
+#chNav[hidden] { display: none; }
 #chNav button, .bk-grid button {
 	min-height: 40px;
 	background: var(--card-bg);
@@ -732,8 +731,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 #chNav .ch-go { flex: none; width: 40px; font-size: 1.5em; line-height: 1; color: var(--color1); }
 #chNav .ch-go:disabled { opacity: .35; }
 #chNav .ch-book { min-width: 0; padding: 0 18px; font-size: 1.15em; font-weight: 600; }
-#chNav .ch-load { color: var(--muted); }
-.bk-pick { margin-top: 8px; padding: 8px; border-radius: 12px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
 .bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
 .bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
 .bk-grid button {
