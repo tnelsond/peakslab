@@ -7,6 +7,7 @@
 	--tr-link: #002;
 	--tr-pron: #333;
 	--strongs: #1d5a78; /* a word with a Strong's number */
+	--gloss: #1f7a34; /* the Gloss buttons (white on it) */
 	--bg-color: #ba8;
 	--card-bg: #fff;
 	--card-text: #1a1a1a;
@@ -41,6 +42,7 @@ body.dark-mode {
 	--tr-link: #cdf;
 	--tr-pron: #ccc;
 	--strongs: #9fd3e6;
+	--gloss: #2b7d3c;
 	--alttext: #d75;
 	--tab-bg: #672;
 	--color1: #df8;
@@ -519,6 +521,18 @@ body.show-chords .chords-btn::after { content: "Hide chords"; }
 	font-size: inherit;
 	line-height: 1.6em;
 }
+.translate-btn { /* filled, with its name: it's the main thing to do with an entry */
+	width: auto;
+	padding: 0 .6em;
+	border-color: var(--gloss);
+	border-radius: 999px;
+	background: var(--gloss);
+	color: #fff;
+	font-weight: 600;
+	font-size: .85em;
+	height: 1.9em; /* (1.6em of the entry's) */
+	line-height: 1.9em;
+}
 .collapse-btn::after { content: "−"; }
 
 /* Stars: starred dictionaries' entries stand out */
@@ -656,7 +670,7 @@ p-w:hover { text-decoration: underline dotted; }
 .tr-pick button.tr-go {
 	margin: 0 0 0 auto;
 	text-align: center;
-	background: var(--control-btn-bg);
+	background: var(--gloss);
 	color: #fff;
 	font-weight: 600;
 }
@@ -688,11 +702,13 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	line-height: 1;
 	vertical-align: super;
 }
-.vs-tr { /* translate the verse */
+.vs-tr { /* gloss the verse */
 	margin: 0 .2em;
-	padding: 0 .4em;
-	border-color: var(--color1);
-	color: var(--color1);
+	padding: 0 .45em;
+	border-color: var(--gloss);
+	background: var(--gloss);
+	color: #fff;
+	font-weight: 700;
 	font-size: .7em;
 	line-height: 1.4;
 }
@@ -760,6 +776,13 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	text-align: left;
 }
 .row-main { gap: 1px; }
+/* The Books drawer's Parallel Bibles: a drop-down with the texts */
+.par-dd { border-bottom: 1px solid var(--line); }
+.par-dd > summary { display: flex; flex-direction: column; gap: 1px; padding: 8px 4px 8px 24px; position: relative; cursor: pointer; list-style: none; color: var(--card-text); }
+.par-dd > summary::-webkit-details-marker { display: none; }
+.par-dd > summary::before { content: "▸"; position: absolute; left: 6px; top: 9px; color: var(--muted); transition: transform .15s; }
+.par-dd[open] > summary::before { transform: rotate(90deg); }
+.par-dd > :not(summary) { margin-left: 12px; }
 .row-main:hover .row-w { text-decoration: underline; }
 .row-w, .row-g, .row-t { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-w { font-size: 1.05em; font-weight: 600; }
@@ -963,6 +986,7 @@ input.down:not(:checked) + .lib-check .row-w::after { content: " ⬇"; color: va
 	opacity: .9;
 	color: var(--header-text);
 }
+.selection-menu .sel-gloss { background: var(--gloss); color: #fff; font-weight: 600; opacity: 1; }
 /* iOS: docked at the bottom of the screen, clear of the native menu
    (see createSelMenu in app.js), over the round buttons */
 .selection-menu.docked {

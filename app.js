@@ -34,8 +34,8 @@ try { if (localStorage.getItem('showChords') === 'true') document.body.classList
 // Bible notes, ...); what's remembered is the ones flipped from that.
 // Done with one generated CSS rule per collapsed dictionary.
 const collapseBtnHTML = '<button class="collapse-btn" onclick="toggleDict(this)" title="Collapse or expand this dictionary"></button>';
-// Translates an entry word by word, see translateEntry
-const translateBtnHTML = '<button class="translate-btn" onclick="translateEntry(this)" title="Translate word by word">⇄</button>';
+// Glosses an entry word by word, see translateEntry
+const translateBtnHTML = '<button class="translate-btn" onclick="translateEntry(this)" title="Gloss word by word">⇄ Gloss</button>';
 const collapseStyle = document.head.appendChild(document.createElement('style'));
 let collapsedDicts = []; // Flipped from their default
 try { collapsedDicts = JSON.parse(localStorage.getItem('collapsedDicts')) || []; } catch (e) {}
@@ -399,7 +399,7 @@ if(!isDictPage){
 		const vs = document.createElement(text ? 'span' : 'div');
 		vs.className = 'vs';
 		vs.innerHTML = `${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
-			'<button class="vs-tr" onclick="translateEntry(this)" title="Translate word by word" aria-label="Translate this verse">⇄</button> ';
+			'<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button> ';
 		if(par){ // In the verse's group, by verse, each text as the dictionaries go, with its name
 			const pe = card.querySelector('p-e'), v = +h.split('.').pop();
 			let group = pe.querySelector(`:scope > .pv[data-v="${v}"]`);
@@ -708,11 +708,14 @@ if(!isDictPage){
 	const parKey = `peakslab-parallel-${appname}`;
 	let parallel = !!stored(parKey);
 	const bibleTexts = dictIds.filter(isBibleText);
+	let parOpen = false; // Its drop-down
 	function parHTML(){
 		if (bibleTexts.length < 2) return '';
-		return `<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel reading</span><span class="row-t">Verse by verse in each text</span></button></li></ul>` +
+		const on = bibleTexts.filter(d => $(`${d}`)?.checked).length;
+		return `<details class="par-dd"${parOpen ? ' open' : ''}><summary><span class="row-w">Parallel Bibles</span><span class="row-t">${parallel ? 'On' : 'Off'} · ${on} of ${bibleTexts.length} texts</span></summary>` +
+			`<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel reading</span><span class="row-t">Verse by verse in each text</span></button></li></ul>` +
 			`<h3 class="drawer-h">Texts</h3><ul class="cat-dicts">${bibleTexts.map(d =>
-				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${!!$(`${d}`)?.checked}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul>` +
+				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${!!$(`${d}`)?.checked}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul></details>` +
 			'<h3 class="drawer-h">Books</h3>';
 	}
 	let booksPick = null; // The book whose chapters are showing
@@ -789,7 +792,14 @@ if(!isDictPage){
 			openDrawer('books');
 		}
 		else if (b.dataset.qall) setFilter([]);
-		else if (b.dataset.qsel) toggleCat(b.dataset.qsel);
+		else if (b.dataset.qsel) {
+			const on = !selected.includes(b.dataset.qsel);
+			toggleCat(b.dataset.qsel);
+			if (on && b.dataset.qsel.startsWith('bible') && bibleMode()) { // Picking the Bible: which book?
+				booksPick = null;
+				openDrawer('books');
+			}
+		}
 		else openDrawer('modes');
 	});
 	let lastY = 0;
@@ -874,6 +884,7 @@ if(!isDictPage){
 	// The side panel for the whole history or all the bookmarks
 	const drawer = $('drawer');
 	const drawerBody = drawer.querySelector('.drawer-body');
+	drawerBody.addEventListener('toggle', e => { if (e.target.matches('.par-dd')) parOpen = e.target.open; }, true); // (it stays as it is when redrawn)
 	let drawerView = null;
 	const expandedCats = new Set(); // Filter categories opened to show their dictionaries
 	const drawerTitles = {history: 'History', bookmarks: 'Bookmarks', books: 'Books', lang: 'Language', modes: 'Filter'};
@@ -1362,7 +1373,7 @@ if(!isDictPage){
 		div.innerHTML = `<h2>${names([...new Set(pieces.map(p => p.d).filter(d => d !== undefined))])}</h2>` + translationHTML(pieces);
 		translationDiv.replaceChildren(div);
 		addAudio(div, pieces);
-		updateStatus('No entry for all of it, translated word by word.');
+		updateStatus('No entry for all of it, glossed word by word.');
 		queryInput.classList.remove('error');
 	}
 
@@ -1527,7 +1538,7 @@ if(!isDictPage){
 
 	function translateEntryWith(box, text, ids){
 		const key = box.dataset.ids = ids.join();
-		box.textContent = `Translating with ${ids.map(d => dicts[d].name).join(' + ')}…`;
+		box.textContent = `Glossing with ${ids.map(d => dicts[d].name).join(' + ')}…`;
 		translateText(ids, updateQuery(text), pieces => {
 			if (!box.isConnected || box.dataset.ids !== key) return;
 			box.innerHTML = `<div class="tr-head">${names(ids)}</div>` +
@@ -1559,7 +1570,7 @@ if(!isDictPage){
 		const opts = ids => ids.map(d => `<button class="check" data-idx="${d}" aria-pressed="${chosen.has(d)}">${isStar(d) ? '★ ' : ''}${escapeHTML(dicts[d].name)}</button>`).join('');
 		const pick = document.createElement('div');
 		pick.className = 'tr-pick';
-		pick.innerHTML = '<div class="tr-q">Translate with <button class="tr-go">Translate</button></div>' +
+		pick.innerHTML = '<div class="tr-q">Gloss with <button class="tr-go">Gloss</button></div>' +
 			(on.length ? `<div class="tr-sub">On</div>${opts(on)}` : '') +
 			(phons.length ? `<div class="tr-sub">Pronunciation</div>${opts(phons)}` : '') +
 			(off.length ? `<details${off.some(d => chosen.has(d)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${opts(off)}</details>` : '');
@@ -1582,16 +1593,21 @@ if(!isDictPage){
 			if (!ids.length) return;
 			store(trWithKey, ids.map(d => dicts[d].path));
 			pick.remove();
-			// Above the text (after the entry's name and buttons), so a long
-			// one doesn't push it out of view
-			const box = document.createElement('div');
-			box.className = 'tr-entry';
-			const text1 = [...pe.childNodes].find(n => n.nodeType === 1 ? !n.matches('p-h, button, .tr-pick') : n.textContent.trim());
-			pe.insertBefore(box, text1 || null);
-			box.scrollIntoView({block: 'nearest'});
-			translateEntryWith(box, text, ids);
+			glossInto(pe, text, ids);
 		};
 	};
+	// The gloss of an entry's (or verse's) text, or some of it: above the
+	// text (after the entry's name and buttons), so a long one doesn't push
+	// it out of view
+	function glossInto(pe, text, ids){
+		pe.querySelectorAll(':scope > .tr-entry, :scope > .tr-pick').forEach(x => x.remove());
+		const box = document.createElement('div');
+		box.className = 'tr-entry';
+		const text1 = [...pe.childNodes].find(n => n.nodeType === 1 ? !n.matches('p-h, button, .tr-pick') : n.textContent.trim());
+		pe.insertBefore(box, text1 || null);
+		box.scrollIntoView({block: 'nearest'});
+		translateEntryWith(box, text, ids);
+	}
 
 
 	// Long text also gets a big text box above the results; it and the
@@ -1747,10 +1763,10 @@ if(!isDictPage){
 	const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // (iPadOS says it's a Mac)
 	const selMenu = document.body.appendChild(document.createElement('div'));
 	selMenu.className = ios ? 'selection-menu docked' : 'selection-menu';
-	let selText = '';
+	let selText = '', selEntry = null; // (the entry or verse it's in, to gloss it there)
 	const selButtons = () => {
 		const voices = window.speechSynthesis?.getVoices() || [];
-		selMenu.innerHTML = '<button data-act="search">🔍Search</button><button data-act="popup">🔍Popup</button>' +
+		selMenu.innerHTML = '<button data-act="gloss" class="sel-gloss">⇄ Gloss</button><button data-act="search">🔍Search</button><button data-act="popup">🔍Popup</button>' +
 			lang.filter(x => voices.some(v => v.lang.toLowerCase().startsWith(x.val.split('_')[0]))).map(x => `<button data-lang="${x.val}">🔊 ${x.name}</button>`).join('');
 	};
 	selButtons();
@@ -1765,6 +1781,9 @@ if(!isDictPage){
 		} else if (b.dataset.act === 'search') {
 			setQueryText(selText);
 			startSearch();
+		} else if (b.dataset.act === 'gloss') {
+			const ids = lastTrWith();
+			if (selEntry?.isConnected && ids.length) glossInto(selEntry, selText, ids);
 		} else {
 			openPopupSearch(selText);
 		}
@@ -1780,6 +1799,10 @@ if(!isDictPage){
 		const sel = getSelection();
 		selText = sel.toString().trim();
 		if (!selText || !sel.rangeCount || sel.isCollapsed) return hideSelMenu();
+		const at = sel.getRangeAt(0).commonAncestorContainer;
+		selEntry = (at.nodeType === 1 ? at : at.parentElement)?.closest('.vs, p-e');
+		if (selEntry?.closest('.tr-entry, .tr-pick')) selEntry = null; // Not a gloss's own words
+		selMenu.querySelector('.sel-gloss').hidden = !selEntry;
 		if (ios) document.body.classList.add('selmenu-docked'); // (hides the round buttons it would cover)
 		else selMenu.style.top = `${sel.getRangeAt(0).getBoundingClientRect().bottom + 26 + scrollY}px`;
 		selMenu.style.display = 'block';
