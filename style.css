@@ -431,7 +431,7 @@ p-h { /* the dictionary's name and buttons */
 	align-items: center;
 	gap: 2px;
 	margin: 0;
-	padding: 1px 8px 1px 2px;
+	padding: 3px 11px;
 	border-radius: 999px;
 	background: var(--tab-bg);
 	font-size: 13px;
@@ -693,7 +693,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .pv { padding: .35em 0; border-bottom: 3px solid var(--line); }
 .pv:last-child { border-bottom: 0; }
 .pv-t + .pv-t { margin: .15em 0 0 1.8em; } /* the others, offset */
-.pv-d { margin-right: .3em; padding: 0 .55em; border-radius: 999px; background: var(--color1); color: #fff; font-size: .75em; font-weight: 700; vertical-align: .1em; }
+.pv-d { display: inline-block; margin: .1em .4em .1em 0; padding: .2em .8em; line-height: 1.3; border-radius: 999px; background: var(--color1); color: #fff; font-size: .75em; font-weight: 700; vertical-align: .1em; }
 .vs-n {
 	padding: 0 .2em 0 .1em;
 	color: var(--color1);
