@@ -121,7 +121,6 @@ if(!isDictPage){
 	let mark = true;
 	let loader = null;
 	let st = 3;
-	let nload = 0;
 	const timingDiv  = $('timing');
 
 	// Only when a worker has no current cached copy ('needwasm'): fetched
@@ -167,9 +166,7 @@ if(!isDictPage){
 					downloaded.add(d);
 					renderListsSoon();
 					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
-					--nload;
-					updateStatus();
-					if(nload == 0)
+					if(!loading.size)
 						saveState();
 					if(isOn(d))
 						searchAgain();
@@ -1361,8 +1358,6 @@ if(!isDictPage){
 		loading.add(d);
 		showLoad();
 		renderListsSoon();
-		++nload;
-		updateStatus();
 		// The worker reads it from the offline cache itself (off this
 		// thread), or asks for it with 'needbytes' if there's no
 		// current copy there.
@@ -1405,11 +1400,8 @@ if(!isDictPage){
 		history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
 	}
 
-	// The line above the results: how many were found, loading, and Share
-	function updateStatus(text){
-		if (text !== undefined) statusText.textContent = text;
-		statusDiv.querySelector('.st-loading').classList.toggle('hide', nload <= 0);
-	}
+	// The line above the results: how many were found, and Share
+	function updateStatus(text){ statusText.textContent = text; }
 	statusDiv.querySelector('.st-share').addEventListener('click', e => share(e.currentTarget));
 
 	async function share(btn){
@@ -1853,7 +1845,6 @@ if(!isDictPage){
 		settings.style.display = 'none'; // (a translation doesn't clear it)
 		showLibrary = false;
 		statusDiv.classList.remove('hide');
-		updateStatus();
 		historyTimer();
 		if(chapterOf(readHl) !== query)
 			readHl = '';

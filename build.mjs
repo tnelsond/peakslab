@@ -65,7 +65,9 @@ async function build() {
 	}
 	// (A name the minifier won't have used: its are a few characters long)
 	const workerUrlVar = '__pw_';
-	appJs = `const ${workerUrlVar}=URL.createObjectURL(new Blob([${JSON.stringify(workerJs)}],{type:"text/javascript"}));` +
+	// (A template literal: fewer escapes than a JSON string's)
+	const workerStr = '`' + workerJs.replace(/[\\`]|\$\{/g, '\\$&') + '`';
+	appJs = `const ${workerUrlVar}=URL.createObjectURL(new Blob([${workerStr}],{type:"text/javascript"}));` +
 		appJs.replace(new RegExp(workerCallRe, 'g'), `new Worker(${workerUrlVar})`);
 
 	// Inline the stylesheet <link> and the app.js <script src>.

@@ -134,7 +134,7 @@ peakterm : peakterm.c peak.h peak.c zstddeclib.c utils/termbox2/termbox2.h
 	du -b peakterm
 peak : peak_cli.c peak.h peak.c zstddeclib.c
 	gcc -Wall -DDEBUG peak_cli.c -o peak
-404.html : peakworker.js peak.html app.js style.css
+404.html : peakworker.js peak.html app.js style.css build.mjs
 	node build.mjs --minify
 	./createmeta.sh 404.html
 	cp 404.html index.html

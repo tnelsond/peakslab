@@ -105,7 +105,6 @@ mark {
 .hide { display: none !important; }
 .no-scroll { overflow: hidden; }
 #install-button, input[type="checkbox"] { display: none; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Buttons with no box of their own */
 .st-share, .text-btn, .bm-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
@@ -354,15 +353,6 @@ body.fullscreen #content { margin-top: 8px; }
 }
 body.dark-mode #status { color: var(--card-text); }
 .st-text { flex: 1; }
-.st-loading {
-	box-sizing: border-box;
-	width: 14px;
-	height: 14px;
-	border: 2px solid var(--control-btn-bg);
-	border-top-color: transparent;
-	border-radius: 50%;
-	animation: spin .8s linear infinite;
-}
 .st-share, .text-btn {
 	padding: 4px 6px;
 	font-size: 14px;
