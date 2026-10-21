@@ -168,7 +168,7 @@ if(!isDictPage){
 					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
 					if(!loading.size)
 						saveState();
-					if(isOn(d))
+					if(searched(d))
 						searchAgain();
 				}
 				else if(e.data.type == "nomore"){
@@ -359,8 +359,8 @@ if(!isDictPage){
 		vs.className = 'vs';
 		vs.dataset.v = v;
 		vs.innerHTML = `${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
-			'<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button> ';
-		if(par){ // In the verse's group, by verse, each text as the dictionaries go, with its name
+			(par ? '' : '<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button> '); // (a parallel one's line has its Gloss)
+		if(par){ // In the verse's group, by verse, each text as the dictionaries go: like an entry, with its name and Gloss
 			const pe = card.querySelector('p-e');
 			let group = pe.querySelector(`:scope > .pv[data-v="${v}"]`);
 			if(!group){
@@ -372,7 +372,8 @@ if(!isDictPage){
 			const line = document.createElement('div');
 			line.className = 'pv-t';
 			line.dataset.id = sortId(d);
-			line.innerHTML = `<span class="pv-d">${escapeHTML(dicts[d].name)}</span> `;
+			line.dataset.d = d;
+			line.innerHTML = entryHeadHTML(d) + translateBtnHTML;
 			line.append(vs);
 			group.insertBefore(line, [...group.children].find(t => +t.dataset.id > sortId(d)) || null);
 		}else
@@ -405,11 +406,10 @@ if(!isDictPage){
 	function noteLinks(vs){
 		const v = +vs.dataset.v, group = vs.closest('.pv');
 		if (notesGen !== searchGen || !notes.has(v) || (group && group.querySelector('.vs-note') && !vs.querySelector('.vs-note'))) return;
-		const tr = vs.querySelector(':scope > .vs-tr');
 		notes.get(v).forEach(({d, data}) => {
 			if (vs.querySelector(`.vs-note[data-d="${d}"]`)) return;
 			const label = refOf(data.body);
-			tr.insertAdjacentHTML('beforebegin', `<button class="vs-note" data-d="${d}" data-v="${v}" onclick="showNote(this)" title="${escapeHTML(dicts[d].name + (label ? ': ' + label : ''))}" aria-label="Note on this verse (${escapeHTML(dicts[d].name)})">note</button>`);
+			vs.insertAdjacentHTML('beforeend', `<button class="vs-note" data-d="${d}" data-v="${v}" onclick="showNote(this)" title="${escapeHTML(dicts[d].name + (label ? ': ' + label : ''))}" aria-label="Note on this verse (${escapeHTML(dicts[d].name)})">note</button>`);
 		});
 	}
 	window.showNote = b => {
@@ -580,8 +580,11 @@ if(!isDictPage){
 		if (!libOn[d]) asked.add(d);
 		loadDict(d);
 	}
-	const searchMask = () => dicts.map((_, d) => isOn(d));
-	let searching = searchMask(); // What the search showing uses
+	// What a search uses: the ones on that the filter has; reading a chapter,
+	// every Bible text that's on too (the filter doesn't change them)
+	const searched = d => isOn(d) || (libOn[d] && isBibleText(d) && isChapter(query));
+	const searchMask = () => dicts.map((_, d) => searched(d));
+	let searching = []; // What the search showing uses (startSearch)
 
 
 	function cleanup(container){
@@ -731,8 +734,10 @@ if(!isDictPage){
 	const parKey = `peakslab-parallel-${appname}`;
 	let parallel = stored(parKey) ?? true;
 	function textsHTML(){
+		const texts = dictIds.filter(d => isBibleText(d) && downloaded.has(d)); // (downloaded: the library has the rest)
 		return `<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel</span><span class="row-t">Verse by verse in each translation ticked</span></button></li></ul>` +
-			`<h3 class="drawer-h">Translations</h3><ul class="rows">${dictIds.filter(isBibleText).map(d =>
+			`<h3 class="drawer-h">Translations</h3>` + (texts.length ? '' : '<p class="empty">None downloaded.</p>') +
+			`<p class="empty">More? <button class="text-btn" data-library="1">Go to the library</button></p><ul class="rows">${texts.map(d =>
 				`<li class="row"><button class="row-main ${parallel ? 'check' : 'radio'}" data-text="${d}" aria-pressed="${libOn[d]}"><span class="row-w">${escapeHTML(dicts[d].name)}</span><span class="row-t">${escapeHTML(typeLabel(dicts[d]))}</span></button></li>`).join('')}</ul>`;
 	}
 	function pickText(t){
@@ -1282,7 +1287,7 @@ if(!isDictPage){
 	// and searches again if what's searched changed (one still loading
 	// searches again once it's loaded)
 	function setOn(ds, on){
-		const was = dicts.map((_, d) => isOn(d));
+		const was = searchMask();
 		ds.forEach(d => {
 			libOn[d] = typeof on === 'function' ? on(d) : on;
 			if (!libOn[d]) asked.delete(d); // (not kept loaded)
@@ -1292,7 +1297,7 @@ if(!isDictPage){
 		if (drawerView === 'texts') renderDrawer();
 		renderLists();
 		renderBibleBar();
-		if (ds.some(d => was[d] !== isOn(d) && (!isOn(d) || loaded.has(d)))) searchAgain();
+		if (ds.some(d => was[d] !== searched(d) && (!searched(d) || loaded.has(d)))) searchAgain();
 	}
 
 	// Changes what's picked: their dictionaries, and the search again
@@ -1517,7 +1522,7 @@ if(!isDictPage){
 	function translate(){
 		if (globreg.test(query)) return;
 		const q = query;
-		const ids = trOrder([...new Set([...dictIds.filter(d => libOn[d]), phonTranslator()])].filter(d => d !== undefined));
+		const ids = lastTrWith();
 		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q, ids));
 	}
 
@@ -1525,7 +1530,7 @@ if(!isDictPage){
 		if (q !== query || num || !pieces.some(p => p.entry)) return;
 		const div = document.createElement('p-d');
 		div.className = 'translation';
-		div.innerHTML = `<h2>${names([...new Set(pieces.map(p => p.d).filter(d => d !== undefined))])}</h2>` + translationHTML(pieces);
+		div.innerHTML = `<h2>${names([...new Set(pieces.map(p => p.d).filter(d => d !== undefined))])}<button class="translate-btn" onclick="glossWith(this)" title="Which dictionaries to gloss with">⇄ Gloss with…</button></h2>` + translationHTML(pieces);
 		translationDiv.replaceChildren(div);
 		addMedia(div, pieces, ids);
 		updateStatus('No entry for all of it, glossed word by word.');
@@ -1726,10 +1731,20 @@ if(!isDictPage){
 		return trOrder([...new Set([...glossDefault().filter(d => !dropped.includes(d)), ...byPaths(add).filter(d => dictIds.includes(d))])]);
 	}
 	window.translateEntry = btn => {
-		const pe = btn.closest('p-e, .vs');
+		const pe = btn.closest('p-e, .vs, .pv-t'); // (the nearest: a parallel verse's line is its entry)
 		const open = pe.querySelectorAll('.tr-entry, .tr-pick');
 		if (open.length) return open.forEach(x => x.remove());
 		const text = entryText(pe);
+		glossPicker(btn, ids => glossInto(pe, text, ids));
+	};
+	// The search's gloss (nothing has all of it): again with the ones picked
+	window.glossWith = btn => {
+		const open = btn.closest('p-d').querySelector('.tr-pick');
+		if (open) return open.remove();
+		glossPicker(btn.parentNode, translate);
+	};
+	// Which to gloss with, after the element at: then done(ids), remembered
+	function glossPicker(at, done){
 		const chosen = new Set(lastTrWith());
 		const phons = dictIds.filter(isPhon), on = dictIds.filter(d => libOn[d] && !isPhon(d));
 		const off = dictIds.filter(d => !on.includes(d) && !isPhon(d));
@@ -1740,7 +1755,7 @@ if(!isDictPage){
 			(on.length ? `<div class="tr-sub">On</div>${opts(on)}` : '') +
 			(phons.length ? `<div class="tr-sub">Pronunciation</div>${opts(phons)}` : '') +
 			(off.length ? `<details${off.some(d => chosen.has(d)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${opts(off)}</details>` : '');
-		btn.insertAdjacentElement('afterend', pick);
+		at.insertAdjacentElement('afterend', pick);
 		pick.scrollIntoView({block: 'nearest'});
 		const goBtn = pick.querySelector('.tr-go');
 		const picked = () => [...pick.querySelectorAll('.check[aria-pressed="true"]')].map(x => +x.dataset.idx);
@@ -1760,9 +1775,9 @@ if(!isDictPage){
 			const def = glossDefault(), paths = ds => ds.map(d => dicts[d].path);
 			store(trWithKey, {add: paths(ids.filter(d => !def.includes(d))), drop: paths(def.filter(d => !ids.includes(d)))});
 			pick.remove();
-			glossInto(pe, text, ids);
+			done(ids);
 		};
-	};
+	}
 	// The gloss of an entry's (or verse's) text, or some of it: above the
 	// text (after the entry's name and buttons), so a long one doesn't push
 	// it out of view

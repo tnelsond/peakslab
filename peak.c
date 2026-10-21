@@ -664,18 +664,11 @@ int translate_next(){
 static int32_t m_match = -1;
 static int m_index = INDEX1;
 
-// Where a word in the second index (the @ places inside entries) can end:
-// not inside a word
-static int m_wordend(const uint8_t *e){
-	uint32_t c = p_utf8(e);
-	return (c < 0x80 && !p_isletter(c)) || (c >= 0xA0 && c < 0xC0) || (c >= 0x2000 && c < 0x2070) || (c >= 0x3000 && c < 0x3040); // ASCII, Latin-1, general and CJK punctuation
-}
-
 // The longest match in index st at text+pos (text[len] is '\0' here), no
 // longer than maxk bytes (0: any), or 0.
-// A headword ends where its line's first column does (exact); a second
-// index word just has to end at a word end.
-static int m_longest(enum searchtype st, int n, uint8_t *text, uint32_t len, uint32_t pos, uint32_t maxk, int exact){
+// Exactly a headword or second index word, as the exact searches (EXACT1,
+// EXACT2) compare: so a word's gloss is what a search for it finds.
+static int m_longest(enum searchtype st, int n, uint8_t *text, uint32_t len, uint32_t pos, uint32_t maxk){
 	uint8_t *s = text + pos;
 	uint32_t rest = len - pos;
 	// Every headword that starts s sorts between itself and s, so the
@@ -697,22 +690,7 @@ static int m_longest(enum searchtype st, int n, uint8_t *text, uint32_t len, uin
 		uint8_t c = s[k];
 		s[k] = '\0';
 		int m = p_lowerbound(st, n, s);
-		int found = -1;
-		if(exact){
-			if(m < n && !ps_cmpe(p_linetostr(m, st), s))
-				found = m;
-		}else{
-			// Of the ones starting with it, the ones ending there sort first
-			// (where a word can end: m_wordend)
-			for(int t = 0; t < 16 && m < n; ++t, ++m){
-				uint8_t *e = p_linetostr(m, st);
-				if(memcmp(e, s, k)) break;
-				if(m_wordend(e + k)){
-					found = m;
-					break;
-				}
-			}
-		}
+		int found = m < n && !ps_cmpe(p_linetostr(m, st), s) ? m : -1;
 		s[k] = c;
 		if(found >= 0){
 			m_match = found;
@@ -742,9 +720,8 @@ int match_at(uint8_t *text, uint32_t len, uint32_t pos, uint32_t maxk, int secon
 	if(second && (nosort || !ps_h->idx2_len)) return 0;
 	uint8_t end = text[len];
 	text[len] = '\0';
-	int k = nosort ? m_longest(INDEX2, ps_h->idx2_len, text, len, pos, maxk, 1)
-		: second ? m_longest(INDEX2, ps_h->idx2_len, text, len, pos, maxk, 0)
-		: m_longest(INDEX1, ps_h->line_idx_len - 1, text, len, pos, maxk, 1); // line_idx has an extra end entry
+	int k = nosort || second ? m_longest(INDEX2, ps_h->idx2_len, text, len, pos, maxk)
+		: m_longest(INDEX1, ps_h->line_idx_len - 1, text, len, pos, maxk); // line_idx has an extra end entry
 	text[len] = end;
 	return k;
 }
