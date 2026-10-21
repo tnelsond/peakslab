@@ -51,11 +51,20 @@ navigator.storage?.persisted?.().then(p => p || navigator.storage.persist());
 if ('serviceWorker' in navigator) {
 	navigator.serviceWorker.register('/sw.js').catch(err => console.error('Service worker registration failed:', err));
 
+	let touched = false, reloading = false;
+	['pointerdown', 'keydown'].forEach(t => addEventListener(t, () => { touched = true; }, {once: true, capture: true}));
 	navigator.serviceWorker.addEventListener('message', ({data}) => {
 		// A new files.json applied: the downloaded/version indicators again
 		// (new or removed dictionaries show up on the next load)
 		if (data?.type === 'filesupdated') requestCacheVersion();
 		else if (data?.type === 'status') {
+			// This page is the old app (it changed since this started
+			// loading): the new one now if it's not been touched yet, else
+			// the next time it's left (not while it's being used)
+			if (data.appUpdated > performance.timeOrigin && !reloading) {
+				reloading = true;
+				touched ? document.addEventListener('visibilitychange', () => document.hidden && location.reload()) : location.reload();
+			}
 			$('version').textContent = data.version;
 			Object.keys(data.files).forEach(url => ack?.(url.replace(/^\//, '')));
 		}

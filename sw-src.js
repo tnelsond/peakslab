@@ -84,9 +84,13 @@ async function sendStatus(client) {
   const cache = await caches.open(await currentCache());
   const cached = {};
   await Promise.all([...files].map(async ([p, ts]) => { if (await cache.match(p)) cached[p] = ts; }));
-  const fj = await cache.match('/files.json');
-  client.postMessage({type: 'status', version: fj?.headers.get('x-peak-version') || await currentCache(), files: cached});
+  const fj = await cache.match('/files.json'), app = await cache.match('/__app_updated__');
+  client.postMessage({type: 'status', version: fj?.headers.get('x-peak-version') || await currentCache(), files: cached, appUpdated: app ? +(await app.text()) : 0});
 }
+// When the app's files last changed in the cache: a page that started
+// loading before then is the old app (the status says; the page reloads).
+// Not a message right then: a page still loading isn't listening yet.
+const appUpdated = cache => cache.put('/__app_updated__', new Response(String(Date.now())));
 
 // files.json from the network ('no-cache': revalidated, so the copy the page
 // just downloaded is reused), else from any cache
@@ -159,6 +163,7 @@ async function install() {
       }
     } catch (e) { console.warn('Carrying files forward failed:', e); }
   }
+  if (old.length) await appUpdated(cache); // (a first install: the page came from the network)
   await cache.put('/__install_complete__', new Response('1'));
   const shell = await cache.match('/404.html');
   if (shell) await cache.put('/', shell);
@@ -217,8 +222,10 @@ async function checkFilesNow() {
   // effect; if any can't be had, nothing changes (the next check retries)
   const stale = async p => { const r = await cache.match(p); return r && tsOf(r) < map.get(p); };
   const core = coreOf(data);
-  const ok = await Promise.all(core.map(async p => !await stale(p) || fetchInto(p, map.get(p), cache)));
+  const fresh = (await Promise.all(core.map(async p => await stale(p) && p))).filter(Boolean);
+  const ok = await Promise.all(fresh.map(p => fetchInto(p, map.get(p), cache)));
   if (ok.includes(false)) throw new Error('core files could not be downloaded');
+  if (fresh.length) await appUpdated(cache);
   const shell = await cache.match('/404.html');
   if (shell) await cache.put('/', shell);
   // 2. The new list; files no longer on it go

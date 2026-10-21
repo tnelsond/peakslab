@@ -120,6 +120,7 @@ peak.wasm : peak.c zstddeclib.c peak.h utils/walloc-master/walloc.c $(wildcard u
 	$(if $(WASM_OPT),$(WASM_OPT) -Oz --converge --low-memory-unused --strip-debug --strip-producers --strip-target-features peak.wasm -o peak.wasm)
 	du -b peak.wasm
 	./createmeta.sh peak.wasm
+	$(MAKE) files.json # (its timestamp there is what makes installed copies update)
 peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
 	gcc -DTB_IMPL -lreadline -ltinfo peak_cli2.c -o peak_tui
 # The terminal interface: peak.c is #included unchanged, termbox2 is header only.
@@ -137,11 +138,13 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 404.html : peakworker.js peak.html app.js style.css build.mjs
 	node build.mjs --minify
 	./createmeta.sh 404.html
+	$(MAKE) files.json # (its timestamp there is what makes installed copies update)
 	cp 404.html index.html
 # The media decoders' code, loaded with their wasm when first used
 media.js : media-src.js
 	node_modules/.bin/terser media-src.js --module --compress --mangle -o media.js
 	./createmeta.sh media.js
+	$(MAKE) files.json # (its timestamp there is what makes installed copies update)
 sw.js : sw-src.js
 	node_modules/.bin/terser sw-src.js --compress passes=2 --mangle --toplevel -o sw.js
 

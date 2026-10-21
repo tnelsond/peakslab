@@ -1,12 +1,12 @@
 {
   "core": [
-    ["404.html", 1792568159],
+    ["404.html", 1792575769],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
     ["media.js", 1792420795],
     ["peakslab.svg", 1789218198],
-    ["peak.wasm", 1792420795]
+    ["peak.wasm", 1792573535]
   ],
   "dicts": [
     ["chitonga/bible/text/toibible.peak.zst", 1788875079, "TOI Chitonga Bible", 693, 1, "mono", 0, 1566426],
