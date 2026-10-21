@@ -817,6 +817,28 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .dict-row .star-btn { font-size: 1.4em; padding: 0 10px; }
 .dict-row > .text-btn { white-space: nowrap; padding: 0 12px; }
 .cat-subh { margin: .8em 0 .1em; font-size: .85em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+/* The first time: how many (a slider), then download the ones picked */
+.first-level { margin: .6em 0 .4em; }
+.first-level input { display: block; width: 75%; margin: 0 auto; /* (from the first mark's middle to the last's) */ accent-color: var(--color1); }
+.first-marks { display: grid; grid-template-columns: repeat(4, 1fr); }
+.first-marks button { padding: 6px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .8em; cursor: pointer; }
+.first-marks button[aria-pressed="true"] { color: var(--color1); font-weight: 700; }
+/* Dictionaries loading: a thin bar at the top, gone once they have */
+#loadBar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 100;
+	width: 100%;
+	height: 3px;
+	background: var(--color1);
+	opacity: .7;
+	transform: scaleX(0);
+	transform-origin: left;
+	transition: transform .3s, opacity .4s .3s;
+	pointer-events: none;
+}
+#loadBar.done { opacity: 0; }
 /* The first time: download the ones picked */
 .first-default {
 	display: block;

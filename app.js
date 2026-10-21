@@ -158,7 +158,8 @@ if(!isDictPage){
 				else if(e.data.type == "loaded"){
 					const d = dictOf(e.data);
 					loaded.add(d);
-					loading.delete(d);
+					if (loading.delete(d)) loadDone += dicts[d].size || 1;
+					showLoad();
 					if(!libOn[d] && !asked.has(d)) // Turned off while it loaded
 						unloadDict(d);
 					(pendingLoad.get(d) || []).forEach(f => f());
@@ -434,7 +435,11 @@ if(!isDictPage){
 	// its folders after the language's (a Khmer and an English Bible text
 	// are both "bible/text"). It's on the page if its path has every one of
 	// the page's segments ("primary"), or it's another language's with
-	// priority <= 0 in a category that's on the page.
+	// priority <= 0 in a category that's on the page. Priority: 1, the
+	// language's main ones; 0, the best of the other languages' (on, like
+	// 1's); 2, 3, ... the language's others, and -1, -2, ... the other
+	// languages' (the slider in the download prompt: Extra has 2 and -1,
+	// Max 3 and -2).
 	const allDicts = filesJson.dicts.map(([path, timestamp, desc, buflen, priority, type, collapsed, size]) => {
 		const [lang, ...folders] = path.split('/').slice(0, -1);
 		return {path, timestamp, desc, buflen, priority, collapsed, lang,
@@ -444,7 +449,7 @@ if(!isDictPage){
 			cat: folders.join('/'),
 			primary: pParts.every(p => path.includes(p)),
 			media: path.includes('.slab'),
-			on: [undefined, 1, -1].includes(priority)}; // On by default: priority 1 (or -1, "always first")
+			on: [undefined, 1, 0].includes(priority)}; // On by default: priority 1 and 0
 	});
 	const primaryCats = new Set(allDicts.filter(x => x.primary).map(x => x.cat));
 	// Other languages' dictionaries added in the library (their paths)
@@ -456,10 +461,10 @@ if(!isDictPage){
 	const isOn = d => libOn[d] && (solo >= 0 || inFilter(d));
 
 	// Order: categories with the most priority-1 dictionaries first, then within
-	// a category this page's language first, then by priority (-1 "always
-	// first", 1, 2, 3, ..., then cross-language extras <= 0), then name.
+	// a category this page's language first, then by priority (0, 1, 2, 3,
+	// ..., then -1, -2, ...), then name.
 	// Search results list each word's entries in this same order.
-	const rank = p => p === -1 ? 0 : p == null ? 1 : p > 0 ? p : 100;
+	const rank = p => p == null ? 1 : p >= 0 ? p : 100 - p;
 	const mainCount = {};
 	dicts.forEach(x => { if (x.primary && rank(x.priority) <= 1) mainCount[x.cat] = (mainCount[x.cat] || 0) + 1; });
 	dicts.sort((a, b) =>
@@ -1010,20 +1015,34 @@ if(!isDictPage){
 			(byLang.size ? `<ul class="rows cats">${groupHTML('library:langs', groupHead('library:langs', 'Other languages', `${byLang.size} languages: add their dictionaries`),
 				() => `<ul class="rows cats">${[...byLang].sort(([a], [b]) => a.localeCompare(b)).map(lang).join('')}</ul>`)}</ul>` : '');
 	}
-	// The first time (nothing saved): which to download, the priority 1 and 0
-	// dictionaries, ticked, by category (the media folder's each under its
-	// own: Audio, Images); or choose in the library (all off). Not
+	// The first time (nothing saved): which to download. A slider picks how
+	// many: Bare (priority 1), Recommended (and 0), Extra (and 2, -1), Max
+	// (and 3, -2); its dictionaries are listed, ticked, by category (the
+	// media folder's each under its own: Audio, Images), to untick any, and
+	// the next level's, unticked, to tick. Or choose in the library (all off). Not
 	// answered, it asks again next time. The library opens it again too,
 	// with just the ones not downloaded: Download turns the ticked ones on,
 	// the rest stay as they are.
-	const firstIds = dictIds.filter(d => [0, 1].includes(dicts[d].priority)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
-	const firstPick = new Set(firstIds.filter(d => dicts[d].priority === 1 || dicts[d].lang === 'english')); // (another language's priority 0, not ticked)
-	const notGot = () => firstIds.filter(d => !downloaded.has(d));
+	const LEVELS = ['Bare', 'Recommended', 'Extra', 'Max'];
+	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
+	const firstIds = dictIds.filter(d => levelOf(dicts[d]) < LEVELS.length).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+	let firstLevel = 1, firstPick;
+	const notGot = (more = 1) => firstIds.filter(d => !downloaded.has(d) && levelOf(dicts[d]) <= firstLevel + more); // (and the next level's)
+	const setLevel = n => { firstLevel = n; firstPick = new Set(notGot(0)); };
+	setLevel(1);
 	const sizeOf = ds => ds.reduce((n, d) => n + dicts[d].size, 0);
 	function firstHTML(){
+		if (!firstIds.some(d => !downloaded.has(d))) return '<p class="empty">The suggested dictionaries are all downloaded.</p>';
+		return '<p class="empty">Which dictionaries? They download once, then work offline.</p>' +
+			`<div class="first-level"><input type="range" min="0" max="${LEVELS.length - 1}" value="${firstLevel}" aria-label="How many dictionaries" aria-valuetext="${LEVELS[firstLevel]}">` +
+			`<div class="first-marks">${LEVELS.map((l, i) => `<button data-level="${i}" aria-pressed="${i === firstLevel}">${l}</button>`).join('')}</div></div>` +
+			`<div class="first-list">${firstListHTML()}</div>` +
+			'<p class="empty">Or <button class="text-btn" data-first="custom">choose my own in the library</button></p>';
+	}
+	// The level's dictionaries and Download: redrawn as the slider moves
+	function firstListHTML(){
 		let prev = null, html = '';
 		const ids = notGot();
-		if (!ids.length) return '<p class="empty">The suggested dictionaries are all downloaded.</p>';
 		ids.forEach(d => {
 			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
@@ -1031,10 +1050,18 @@ if(!isDictPage){
 			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x)}</button></li>`;
 		});
 		if (prev !== null) html += '</ul>';
-		return '<p class="empty">Which dictionaries? They download once, then work offline.</p>' + html +
-			`<button class="first-default" data-first="go"${ids.some(d => firstPick.has(d)) ? `>Download (${sizeText(sizeOf(ids.filter(d => firstPick.has(d))))})` : ' disabled>Download'}</button>` +
-			'<p class="empty">Or <button class="text-btn" data-first="custom">choose my own in the library</button></p>';
+		if (!ids.length) html = '<p class="empty">These are all downloaded: slide for more.</p>';
+		return html + `<button class="first-default" data-first="go"${ids.some(d => firstPick.has(d)) ? `>Download (${sizeText(sizeOf(ids.filter(d => firstPick.has(d))))})` : ' disabled>Download'}</button>`;
 	}
+	function showLevel(n){
+		setLevel(n);
+		const range = drawerBody.querySelector('.first-level input');
+		range.value = n;
+		range.setAttribute('aria-valuetext', LEVELS[n]);
+		drawerBody.querySelectorAll('[data-level]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.level === n));
+		drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
+	}
+	drawerBody.addEventListener('input', e => { if (e.target.matches('.first-level input')) showLevel(+e.target.value); });
 	function firstAnswer(v){
 		asking = false;
 		closeDrawer();
@@ -1162,11 +1189,15 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, mv, library, pick, first} = b.dataset;
+		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, mv, library, pick, level, first} = b.dataset;
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
-			renderDrawer();
-		} else if (first) first === 'again' ? openDrawer('first') : firstAnswer(first);
+			drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
+		} else if (level) showLevel(+level);
+		else if (first === 'again') {
+			setLevel(firstLevel); // (what's downloaded now)
+			openDrawer('first');
+		} else if (first) firstAnswer(first);
 		else if (exp) { // A group opened or closed
 			if (!expandedCats.delete(exp)) expandedCats.add(exp);
 			renderLists();
@@ -1287,9 +1318,22 @@ if(!isDictPage){
 	// fetch() goes through the service worker differs between browsers. When
 	// it doesn't, every dictionary skips the SW cache and goes to the network
 	// / HTTP cache: slow when online, while offline things looked fine.
+	// A thin bar at the top while dictionaries load: how much of what's
+	// loading (by size) has, since none were; gone once they all have
+	const loadBar = document.body.appendChild(document.createElement('div'));
+	loadBar.id = 'loadBar';
+	let loadAll = 0, loadDone = 0;
+	function showLoad(){
+		if (!loading.size) loadAll = loadDone = 0;
+		loadBar.classList.toggle('done', !loading.size);
+		loadBar.style.transform = `scaleX(${loading.size ? (loadDone + .03 * loadAll) / (1.03 * loadAll || 1) : 1})`;
+	}
 	function loadDict(d) {
 		if (loaded.has(d) || loading.has(d)) return;
+		if (!loading.size) loadAll = loadDone = 0;
+		loadAll += dicts[d].size || 1;
 		loading.add(d);
+		showLoad();
 		renderListsSoon();
 		++nload;
 		updateStatus();
