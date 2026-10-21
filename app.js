@@ -1199,7 +1199,6 @@ if(!isDictPage){
 	listDiv.addEventListener('click', rowClick);
 
 	renderHome();
-	const filterBtn = $('filterBtn');
 	updateFilterUI();
 
 	ack = url => { // In the offline cache
@@ -1251,10 +1250,6 @@ if(!isDictPage){
 		searchAgain();
 	}
 	function updateFilterUI(){
-		const on = filtered();
-		filterBtn.classList.toggle('on', on);
-		menuBtn.classList.toggle('on', on);
-		filterBtn.title = filterBtn.ariaLabel = `Filter: ${filterLabel()[1]}`;
 		renderLists();
 		renderQuick();
 		updateURL();

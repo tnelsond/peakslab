@@ -92,7 +92,7 @@ a:hover, p-a:hover {
 	text-decoration: none;
 }
 a:visited { color: var(--link-old); }
-button { cursor: pointer; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button:disabled { cursor: default; }
 button:focus-visible, a:focus-visible, summary:focus-visible {
 	outline: 2px solid var(--star);
@@ -226,25 +226,13 @@ img { margin: 0; } /* (not the 3px of <img align>) */
 	border-radius: 10px;
 	color: var(--header-fg);
 }
-.head-btn:hover, .head-btn[aria-expanded="true"], .head-btn.on { background: rgba(255,255,255,.14); }
+.head-btn:hover, .head-btn[aria-expanded="true"] { background: rgba(255,255,255,.14); }
 /* The icons: lines in the text's color */
 button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #langBtn svg { stroke-width: 3; }
 .head-btn svg { width: 22px; height: 22px; }
 #menuBtn svg { width: 24px; height: 24px; }
 .head-btn[aria-expanded="true"] svg { fill: currentColor; fill-opacity: .25; }
-.head-btn.on { color: #fff; }
-.head-btn.on::after { /* a filter is on */
-	content: "";
-	position: absolute;
-	top: 7px;
-	right: 7px;
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: var(--star);
-	box-shadow: 0 0 0 2px var(--header-bg);
-}
 /* On small screens the header's buttons are in a menu (☰) */
 .head-menu { display: flex; gap: 4px; }
 .head-btn .lbl, #menuBtn { display: none; }
@@ -274,7 +262,6 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 		font-size: 16px;
 	}
 	.head-menu .head-btn .lbl { display: inline; }
-	.head-menu .head-btn.on::after { top: 50%; right: 14px; transform: translateY(-50%); }
 }
 
 /* The header's second line: language, and quick switches for the filter.
