@@ -509,8 +509,13 @@ if(!isDictPage){
 		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation', 'phonetics/dict': 'Pronunciation dictionaries', 'phonetics/ref': 'Pronunciation guides',
 		media: 'Audio & images', ref: 'Reference'};
 	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
-	// (Again when a dictionary's added or taken off.) Choosing is worth it
-	// only with two or more: one category is everything.
+	// Every dictionary, in the order their entries come
+	const orderKey = `peakslab-order-${appname}`;
+	const order = [...new Set([...byPaths(readList(orderKey)), ...dictIds])];
+	// The categories, in the order their entries come (their first
+	// dictionary's). Again when a dictionary's added or taken off, or one's
+	// moved. Choosing is worth it only with two or more: one category is
+	// everything.
 	const cats = []; // {id, label, sub, members: [d, ...]}
 	let choice;
 	function buildCats(){
@@ -521,8 +526,8 @@ if(!isDictPage){
 			if (members.length && members.length < dictIds.length && !cats.some(c => c.members.join() === members.join()))
 				cats.push({id, label, sub, members});
 		};
-		const xs = dictIds.map(d => dicts[d]), top = x => x.cat.split('/')[0] || 'other', two = x => x.cat.split('/').slice(0, 2).join('/');
-		[...new Set(xs.map(top))].sort((a, b) => (b === 'bible') - (a === 'bible')).forEach(c => {
+		const xs = order.filter(d => dictIds.includes(d)).map(d => dicts[d]), top = x => x.cat.split('/')[0] || 'other', two = x => x.cat.split('/').slice(0, 2).join('/');
+		[...new Set(xs.map(top))].forEach(c => {
 			addCat(c, catLabel(c), x => top(x) === c);
 			const subs = new Set(xs.filter(x => top(x) === c && x.cat.includes('/')).map(two));
 			if (subs.size > 1) subs.forEach(s => addCat(s, catLabel(s), x => two(x) === s, true));
@@ -555,8 +560,6 @@ if(!isDictPage){
 	const starKey = `peakslab-stars-${appname}`;
 	let stars = byPaths(readList(starKey));
 	const isStar = d => stars.includes(d);
-	const orderKey = `peakslab-order-${appname}`;
-	const order = [...new Set([...byPaths(readList(orderKey)), ...dictIds])]; // Every dictionary, in the order their entries come
 	const sortId = d => isStar(d) ? stars.indexOf(d) - 1000 : order.indexOf(d) + 1;
 	const starBtnHTML = d => `<button class="star-btn" data-d="${d}" onclick="toggleStar(${d})" aria-pressed="${isStar(d)}" title="${isStar(d) ? 'Unstar' : 'Star: show it first'}" aria-label="Star ${escapeHTML(dicts[d].name)}">${isStar(d) ? '★' : '☆'}</button>`;
 	const focusEnd = document.createElement('span'); // The starred dictionaries' sections go above this
@@ -951,16 +954,18 @@ if(!isDictPage){
 	// A dictionary's name, kind, size (with its state, if any) and description
 	const infoHTML = (x, size = x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') =>
 		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
+	// ↑ ↓: moves it (a dictionary, data-d, or a category, data-cat) past the
+	// one before or after it in its list
+	const mvHTML = (data, name, list, it) => '<span class="mv">' + [[-1, 'Up', 'M12 19V5M5 12l7-7 7 7'], [1, 'Down', 'M12 5v14M5 12l7 7 7-7']].map(([dir, title, path]) =>
+		`<button data-mv="${dir}" ${data} title="${title}" aria-label="${title}: ${escapeHTML(name)}"${list[list.indexOf(it) + dir] === undefined ? ' disabled' : ''}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="${path}"/></svg></button>`).join('') + '</span>';
 	// A dictionary: on or off, what kind it is, downloaded (✓) or not (⬇)
 	// and its size, what it is; to delete its download (🗑) or take an added
 	// one off the page (✕), its star, and in the filter, to move it (↑ ↓)
 	function dictRowHTML(d, view, id, ds){
 		const x = dicts[d], state = loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
-		const k = ds.indexOf(d);
-		const mv = (dir, label, title) => `<button data-mv="${dir}" data-d="${d}" data-list="${id}" title="${title}" aria-label="${title}: ${escapeHTML(x.name)}"${ds[k + dir] === undefined ? ' disabled' : ''}>${label}</button>`;
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${libOn[d]}">` +
 			infoHTML(x, `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${x.size ? sizeText(x.size) : ''}</span>`) + '</button>' +
-			(view === 'filter' ? `<span class="dict-mv">${mv(-1, '↑', 'Up')}${mv(1, '↓', 'Down')}</span>` : '') +
+			(view === 'filter' ? mvHTML(`data-d="${d}" data-list="${id}"`, x.name, ds, d) : '') +
 			(x.added ? `<button class="dict-del" data-del="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` :
 				state === 'got' ? `<button class="dict-del" data-del="${d}" title="Delete its download (it's turned off)" aria-label="Delete ${escapeHTML(x.name)}'s download">🗑</button>` : '') +
 			`${starBtnHTML(d)}</li>`;
@@ -975,10 +980,12 @@ if(!isDictPage){
 	// All off / Defaults.
 	function catsHTML(view){
 		if (!choice) return rowsHTML('', view);
+		const tops = cats.filter(c => isTop(c) && shown(c, view));
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => groupHTML(`${view}:${c.id}`,
 			view === 'filter' ? btn(c, 'sel', `class="cat-chk check" aria-pressed="${!filtered() || selected.includes(c.id)}" aria-label="Search ${escapeHTML(c.label)}"`, '') +
-				btn(c, 'only', 'class="cat-sel" title="Just this"', `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) :
+				btn(c, 'only', 'class="cat-sel" title="Just this"', `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) +
+				mvHTML(`data-cat="${c.id}"`, c.label, tops, c) :
 				groupHead(`${view}:${c.id}`, c.label, catCount(c, view)),
 			() => {
 				const subs = subsOf(c).filter(s => shown(s, view));
@@ -986,7 +993,6 @@ if(!isDictPage){
 					subs.map(s => `<h4 class="cat-subh">${escapeHTML(s.label)}</h4>${rowsHTML(s.id, view)}`).join('') +
 					(view === 'library' ? `<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All on')}${btn(c, 'none', 'class="text-btn"', 'All off')}${btn(c, 'reset', 'class="text-btn"', 'Defaults')}</div>` : '');
 			});
-		const tops = cats.filter(c => isTop(c) && shown(c, view));
 		const other = listOf('', view);
 		return `<ul class="rows cats">${tops.map(cat).join('')}` +
 			(other.length ? groupHTML(`${view}:`, groupHead(`${view}:`, 'Other', catCount({members: other}, view)), () => rowsHTML('', view)) : '') + '</ul>';
@@ -1010,6 +1016,7 @@ if(!isDictPage){
 				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
 		const here = sizeOf(dictIds.filter(d => downloaded.has(d) && dicts[d].lang === curLang)); // (not other languages')
 		return '<h2>Library</h2><p class="lib-help">Turn dictionaries on or off: ⬇ ones download when they\'re on, and 🗑 deletes a download. Star the ones you use most: their entries come first.</p>' +
+			'<p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
 			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''}</p>` +
 			catsHTML('library') +
 			(byLang.size ? `<ul class="rows cats">${groupHTML('library:langs', groupHead('library:langs', 'Other languages', `${byLang.size} languages: add their dictionaries`),
@@ -1018,7 +1025,8 @@ if(!isDictPage){
 	// The first time (nothing saved): which to download, the priority 1 and 0
 	// dictionaries, ticked, by category (the media folder's each under its
 	// own: Audio, Images); or choose in the library (all off). Not
-	// answered, it asks again next time.
+	// answered, it asks again next time. The library opens it again too:
+	// Download turns the ticked ones on, the rest stay as they are.
 	const firstIds = dictIds.filter(d => [0, 1].includes(dicts[d].priority)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
 	const firstPick = new Set(firstIds.filter(d => dicts[d].priority === 1 || dicts[d].lang === 'english')); // (another language's priority 0, not ticked)
 	const sizeOf = ds => ds.reduce((n, d) => n + dicts[d].size, 0);
@@ -1038,7 +1046,7 @@ if(!isDictPage){
 	function firstAnswer(v){
 		asking = false;
 		closeDrawer();
-		if (v === 'go') setOn(dictIds, d => firstPick.has(d));
+		if (v === 'go') setOn([...firstPick], true);
 		else {
 			saveState();
 			openLibrary();
@@ -1105,13 +1113,27 @@ if(!isDictPage){
 		}
 		renderLists();
 	}
-	// Moves a dictionary up (-1) or down (1) past the next one in its list
-	function moveDict(d, id, dir){
-		const ds = listOf(id, 'filter'), o = ds[ds.indexOf(d) + dir];
-		if (o === undefined) return;
-		const i = order.indexOf(d), j = order.indexOf(o);
-		[order[i], order[j]] = [order[j], order[i]];
+	// Moves a dictionary up (-1) or down (1) past the next one in its list,
+	// or a category (its dictionaries, together) past the next one
+	function move(b, dir){
+		const {d, list, cat} = b.dataset, byOrder = ds => [...ds].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+		let ds;
+		if (cat) {
+			const tops = cats.filter(c => isTop(c) && shown(c, 'filter')), k = tops.indexOf(catById(cat));
+			if (!tops[k + dir]) return;
+			[tops[k], tops[k + dir]] = [tops[k + dir], tops[k]];
+			ds = tops.flatMap(c => byOrder(c.members));
+		} else {
+			ds = listOf(list, 'filter');
+			const k = ds.indexOf(+d);
+			if (ds[k + dir] === undefined) return;
+			[ds[k], ds[k + dir]] = [ds[k + dir], ds[k]];
+		}
+		// Their places in the order, now theirs in this order
+		const at = byOrder(ds).map(x => order.indexOf(x));
+		ds.forEach((x, i) => { order[at[i]] = x; });
 		if (solo < 0) store(orderKey, order.map(d => dicts[d].path));
+		buildCats();
 		renderLists();
 		searchAgain();
 	}
@@ -1153,13 +1175,13 @@ if(!isDictPage){
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
 			renderDrawer();
-		} else if (first) firstAnswer(first);
+		} else if (first) first === 'again' ? openDrawer('first') : firstAnswer(first);
 		else if (exp) { // A group opened or closed
 			if (!expandedCats.delete(exp)) expandedCats.add(exp);
 			renderLists();
 		} else if (del) deleteDict(+del);
 		else if (add) addDict(add);
-		else if (mv) moveDict(+b.dataset.d, b.dataset.list, +mv);
+		else if (mv) move(b, +mv);
 		else if (library) openLibrary();
 		else if (par) {
 			parallel = !parallel;
@@ -1453,33 +1475,34 @@ if(!isDictPage){
 
 	const globreg = /[!+*^]/;
 
-	// Glosses use the dictionaries in a dict folder (dict/, bible/dict/,
-	// phonetics/dict/, ...): of words, and phonetics/dict/'s pronunciations
+	// Glosses: pronunciation dictionaries (phonetics/dict/) say how words
+	// sound; the ones in a dict folder (dict/, bible/dict/, ...) come first
 	const isPhon = d => dicts[d].cat === 'phonetics/dict';
-	const isWords = d => dicts[d].path.includes('/dict/') && !isPhon(d);
-	// Starred first, then the filter's order; pronunciation ones last
-	const trOrder = ids => [...ids].sort((a, b) => isPhon(a) - isPhon(b) || sortId(a) - sortId(b));
+	const inDict = d => dicts[d].path.includes('/dict/');
+	// A dict folder's first, then starred, then the filter's order;
+	// pronunciation ones last
+	const trOrder = ids => [...ids].sort((a, b) => isPhon(a) - isPhon(b) || inDict(b) - inDict(a) || sortId(a) - sortId(b));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
 	// The pronunciation one: the first (by priority)
 	const phonTranslator = () => dictIds.find(isPhon);
 
 	// The query word by word, when the search found nothing: with every
-	// dictionary of words that's on, Bible texts (their headwords are verses,
-	// so "rom 8.1 gal 1.1" links to each) and a pronunciation one.
+	// dictionary that's on (a Bible text's headwords are its verses, so
+	// "rom 8.1 gal 1.1" links to each) and a pronunciation one.
 	function translate(){
 		if (globreg.test(query)) return;
 		const on = trOn(), q = query;
-		const ids = trOrder([...dictIds.filter(d => on(d) && (isWords(d) || isBibleText(d))), phonTranslator()].filter(d => d !== undefined));
-		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q));
+		const ids = trOrder([...new Set([...dictIds.filter(on), phonTranslator()])].filter(d => d !== undefined));
+		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q, ids));
 	}
 
-	function showTranslation(pieces, q){
+	function showTranslation(pieces, q, ids){
 		if (q !== query || num || !pieces.some(p => p.entry)) return;
 		const div = document.createElement('p-d');
 		div.className = 'translation';
 		div.innerHTML = `<h2>${names([...new Set(pieces.map(p => p.d).filter(d => d !== undefined))])}</h2>` + translationHTML(pieces);
 		translationDiv.replaceChildren(div);
-		addAudio(div, pieces);
+		addMedia(div, pieces, ids);
 		updateStatus('No entry for all of it, glossed word by word.');
 		queryInput.classList.remove('error');
 	}
@@ -1527,6 +1550,8 @@ if(!isDictPage){
 
 	// done gets the pieces: {text, d (the dictionary), entry ({d, header,
 	// body, sec}), pron (pronunciations)}; text no dictionary has has no d
+	// (A media dictionary's headwords are words too; its files are added to
+	// the words found, addMedia)
 	function translateText(ids, text, done){
 		text = text.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
 		const all = [];
@@ -1540,7 +1565,7 @@ if(!isDictPage){
 	}
 
 	// Bible dictionaries (not texts: their headwords are verse references)
-	const isBibleDict = d => dicts[d].cat === 'bible/dict';
+	const isBibleDict = d => /^bible\//.test(dicts[d].cat) && !isBibleText(d);
 
 	// The best way to split text[a, b) into matches: the fewest characters
 	// none of them has (letters and digits: spaces and punctuation don't
@@ -1632,16 +1657,20 @@ if(!isDictPage){
 		}).join('');
 	}
 
-	// A word's recording, if an audio dictionary trOn has one (loading it): a 🔊 in its box plays it (no player)
+	// The media dictionaries' files for the words (loading them): a
+	// recording, a 🔊 in the word's box that plays it (no player); a picture,
+	// under it
 	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2/i;
-	function addAudio(box, pieces){
+	function addMedia(box, pieces, ids){
 		const words = [...new Set(pieces.filter(p => p.d !== undefined).map(p => p.text.trim()))];
 		if (!words.length) return;
-		const on = trOn();
-		dictIds.filter(d => dicts[d].media && dicts[d].type === 'aux' && on(d)).forEach(d =>
+		ids.filter(d => dicts[d].media).forEach(d =>
 			ensureLoaded(d, () => askDict(d, {type: 'media', words}, r => r.files.forEach((f, k) => {
-				if (!f || !f[1] || !AUDIO.test(f[0])) return;
-				box.querySelectorAll(`.tr-w[data-w="${CSS.escape(words[k])}"]:not(.has-audio)`).forEach(w => {
+				if (!f || !f[1]) return;
+				const ws = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(words[k])}"]`);
+				if (!AUDIO.test(f[0])) return ws.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(f[0], f[1], words[k])).classList.add('tr-img'); });
+				ws.forEach(w => {
+					if (w.classList.contains('has-audio')) return;
 					w.classList.add('has-audio');
 					const b = w.appendChild(document.createElement('button'));
 					b.className = 'tr-play';
@@ -1668,22 +1697,20 @@ if(!isDictPage){
 			if (!box.isConnected || box.dataset.ids !== key) return;
 			box.innerHTML = `<div class="tr-head">${names(ids)}</div>` +
 				(pieces.some(p => p.d !== undefined) ? translationHTML(pieces) : 'No words found.');
-			addAudio(box, pieces);
+			addMedia(box, pieces, ids);
 		});
 	}
 
 	// The ⇄ button on an entry (or verse) asks which dictionaries to gloss
-	// its text with, every time, any number at once: the dictionaries of
-	// words that are on, pronunciation ones, and (loaded when used) the
-	// rest. It starts with the first and a pronunciation one, with the changes
-	// made here before (added, dropped) kept. Tap ⇄ again to hide it.
-	// Not media or Bible texts (verse references aren't words)
-	const glossable = () => dictIds.filter(d => !dicts[d].media && !isBibleText(d));
-	const glossDefault = () => [...new Set([...dictIds.filter(d => libOn[d] && isWords(d)), phonTranslator()])].filter(d => d !== undefined);
+	// its text with, every time, any number at once: the ones that are on,
+	// pronunciation ones, and (loaded when used) the ones that are off. It
+	// starts with the ones that are on and a pronunciation one, with the
+	// changes made here before (added, dropped) kept. Tap ⇄ again to hide it.
+	const glossDefault = () => [...new Set([...dictIds.filter(d => libOn[d] && !isPhon(d)), phonTranslator()])].filter(d => d !== undefined);
 	const trWithKey = `peakslab-gloss-${appname}`;
 	function lastTrWith(){
 		const {add = [], drop = []} = stored(trWithKey) || {}, dropped = byPaths(drop);
-		return trOrder([...new Set([...glossDefault().filter(d => !dropped.includes(d)), ...byPaths(add).filter(d => glossable().includes(d))])]);
+		return trOrder([...new Set([...glossDefault().filter(d => !dropped.includes(d)), ...byPaths(add).filter(d => dictIds.includes(d))])]);
 	}
 	window.translateEntry = btn => {
 		const pe = btn.closest('p-e, .vs');
@@ -1691,16 +1718,15 @@ if(!isDictPage){
 		if (open.length) return open.forEach(x => x.remove());
 		const text = entryText(pe);
 		const chosen = new Set(lastTrWith());
-		const usable = glossable();
-		const on = usable.filter(d => libOn[d] && isWords(d)), phons = usable.filter(isPhon);
-		const off = usable.filter(d => !on.includes(d) && !phons.includes(d));
+		const phons = dictIds.filter(isPhon), on = dictIds.filter(d => libOn[d] && !isPhon(d));
+		const off = dictIds.filter(d => !on.includes(d) && !isPhon(d));
 		const opts = ids => ids.map(d => `<button class="check" data-idx="${d}" aria-pressed="${chosen.has(d)}">${isStar(d) ? '★ ' : ''}${escapeHTML(dicts[d].name)}</button>`).join('');
 		const pick = document.createElement('div');
 		pick.className = 'tr-pick';
 		pick.innerHTML = '<div class="tr-q">Gloss with <button class="tr-go">Gloss</button></div>' +
 			(on.length ? `<div class="tr-sub">On</div>${opts(on)}` : '') +
 			(phons.length ? `<div class="tr-sub">Pronunciation</div>${opts(phons)}` : '') +
-			(off.length ? `<details${off.some(d => chosen.has(d)) ? ' open' : ''}><summary class="tr-sub">More (loads when used)</summary>${opts(off)}</details>` : '');
+			(off.length ? `<details${off.some(d => chosen.has(d)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${opts(off)}</details>` : '');
 		btn.insertAdjacentElement('afterend', pick);
 		pick.scrollIntoView({block: 'nearest'});
 		const goBtn = pick.querySelector('.tr-go');

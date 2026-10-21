@@ -147,8 +147,9 @@ self.onmessage = async ({data}) => {
 		reply(data, {entries: (data.lines || []).map(([m, index]) => {
 			const n = loaded(d) ? d.x.render_match(m, index) : -1;
 			if (n <= 0) return null;
-			const entry = d.str(d.rptr, n), tab = entry.indexOf('\t');
-			return {header: entry.slice(0, tab).trim(), body: entry.slice(tab + 1)};
+			// (A media file's: just its name, the headword's first part; the page adds the file)
+			const entry = d.str(d.rptr, n), tab = entry.indexOf(d.slab ? '\0' : '\t');
+			return d.slab ? {header: entry.slice(0, tab).split('\t')[0], body: ''} : {header: entry.slice(0, tab).trim(), body: entry.slice(tab + 1)};
 		})});
 		break;
 	case 'getresults': // The next result, from the dictionaries in order

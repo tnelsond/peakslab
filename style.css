@@ -571,6 +571,7 @@ p-e.starred + p-e:not(.starred) { border-top-width: 2px; }
 	background: none;
 	opacity: .75;
 }
+.tr-w .tr-img { display: block; max-width: 96px !important; max-height: 72px; margin-top: 2px; }
 .tr-play {
 	position: absolute;
 	top: 2px;
@@ -831,11 +832,13 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .lib-space { margin: 0 0 .5em; font-size: .9em; font-weight: 600; }
 .lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
-.dict-del, .dict-mv button { border: 0; background: none; cursor: pointer; color: var(--muted); }
+.dict-del, .mv button { border: 0; background: none; cursor: pointer; color: var(--muted); }
 .dict-del { align-self: center; padding: 4px 6px; font-size: .85em; }
-.dict-mv { display: flex; flex-direction: column; justify-content: center; }
-.dict-mv button { padding: 2px 6px; line-height: 1.2; }
-.dict-mv button:disabled { opacity: .3; }
+/* ↑ ↓: bold, in the text's color */
+.mv { flex: none; display: flex; flex-direction: column; justify-content: center; }
+.mv button { display: flex; padding: 1px 8px; color: var(--card-text); }
+.mv svg { width: 20px; height: 20px; stroke-width: 3; }
+.mv button:disabled { opacity: .2; }
 /* A note on a verse: a little link; it shows in the popup */
 .vs-note {
 	font-size: .7em;
