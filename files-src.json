@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1792497506],
+    ["404.html", 1792549172],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -88,7 +88,7 @@
     ["lao/bible/text/lo_ulb.peak.zst", 1788875414, "Lao Unlocked Literal Bible from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 1477, 3, "mono", 0, 1805036],
     ["lao/dict/agrilao.peak.zst", 1788854618, "Lao Agricultural Words", 163, 2, "rbi", 0, 42758],
     ["lao/dict/csea.peak.zst", 1788854619, "Lao words count from sealang", 72, 3, "aux", 0, 90501],
-    ["lao/dict/kerr.peak.zst", 1788854623, "Lao-English Dictionary, Allen Kerr via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1887, 1, "bi", 0, 1201282],
+    ["lao/dict/kerr.peak.zst", 1792547556, "Lao-English Dictionary, Allen Kerr via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1887, 1, "bi", 0, 1201427],
     ["lao/dict/laolao.peak.zst", 1788859293, "Lao to Lao dictionary from Sealang", 2552, 1, "mono", 0, 343037],
     ["lao/dict/laotech.peak.zst", 1788854624, "Lao Technical Words", 1706, 2, "rbi", 0, 139689],
     ["lao/dict/lowiktionary.peak.zst", 1788857375, "<a href=\"https://lo.wiktionary.org/\">Lao Wiktionary</a>", 2276, 2, "mono", 0, 834098],

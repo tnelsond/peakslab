@@ -1393,30 +1393,37 @@ if(!isDictPage){
 		const all = [];
 		let left = ids.length;
 		ids.forEach((d, k) => ensureLoaded(d, () => askDict(d, {type: 'matchall', query: text}, r => {
-			all[k] = r.matches.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k}));
+			all[k] = r.matches
+				.filter(([a]) => !/\s/.test(text[a])) // A word doesn't start with the space before it (a second index word can)
+				.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, bib: isBibleDict(d), d, rank: k}));
 			if (--left === 0) pickPieces(all.flat(), text, done);
 		})));
 	}
 
+	// Bible dictionaries (not texts: their headwords are verse references)
+	const isBibleDict = d => /^bible\//.test(dicts[d].cat) && !isBibleText(d);
+
 	// The best way to split text[a, b) into matches: the fewest characters
-	// none of them has, then the fewest second index words (headwords come
-	// first), then the fewest pieces, then the first dictionaries'. So a
-	// long match that leaves a piece no dictionary has loses to shorter ones
-	// that cover it all. Returns [{a, b, w (the match, none for unmatched)}].
-	function splitText(matches, a, b){
+	// none of them has (letters and digits: spaces and punctuation don't count), then the fewest second index
+	// words (headwords come first), then the fewest Bible dictionary words
+	// (the dictionaries come first), then the fewest pieces, then the first
+	// dictionaries'. So a long match that leaves a piece no dictionary has
+	// loses to shorter ones that cover it all. Returns [{a, b, w (the match,
+	// none for unmatched)}].
+	function splitText(matches, text, a, b){
 		const at = new Map();
 		matches.forEach(x => { if (!at.has(x.a)) at.set(x.a, []); at.get(x.a).push(x); });
 		const n = b - a;
 		const cost = new Array(n + 1), pick = new Array(n + 1).fill(null);
-		cost[n] = [0, 0, 0, 0];
-		const less = (x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || x[3] - y[3];
+		cost[n] = [0, 0, 0, 0, 0];
+		const less = (x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || x[3] - y[3] || x[4] - y[4];
 		for (let i = n - 1; i >= 0; --i) {
 			const c = cost[i + 1];
-			cost[i] = [c[0] + 1, c[1], c[2] + (pick[i + 1] ? 1 : 0), c[3]]; // Unmatched, joined to unmatched text after it
+			cost[i] = [c[0] + (/[\p{L}\p{M}\p{N}]/u.test(text[a + i]) ? 1 : 0), c[1], c[2], c[3] + (pick[i + 1] ? 1 : 0), c[4]]; // Unmatched, joined to unmatched text after it
 			for (const x of at.get(a + i) || []) {
 				if (i + x.len > n) continue;
 				const e = cost[i + x.len];
-				const t = [e[0], e[1] + x.sec, e[2] + 1, e[3] + x.rank];
+				const t = [e[0], e[1] + x.sec, e[2] + x.bib, e[3] + 1, e[4] + x.rank];
 				if (less(t, cost[i]) < 0) { cost[i] = t; pick[i] = x; }
 			}
 		}
@@ -1436,15 +1443,15 @@ if(!isDictPage){
 	// dictionary's for exactly it, or else its parts', if they make it up
 	function pickPieces(matches, text, done){
 		const words = matches.filter(x => !isPhon(x.d)), phons = matches.filter(x => isPhon(x.d));
-		const best = (xs, p) => xs.filter(x => x.a === p.a && x.len === p.b - p.a).sort((x, y) => x.sec - y.sec || x.rank - y.rank)[0];
-		const pieces = splitText(matches, 0, text.length);
+		const best = (xs, p) => xs.filter(x => x.a === p.a && x.len === p.b - p.a).sort((x, y) => x.sec - y.sec || x.bib - y.bib || x.rank - y.rank)[0];
+		const pieces = splitText(matches, text, 0, text.length);
 		const byDict = new Map(); // The matches each dictionary renders
 		pieces.forEach(p => {
 			p.prons = [];
 			if (!p.w) return;
 			p.entry = best(words, p);
 			const pr = best(phons, p);
-			const parts = pr ? [] : splitText(phons.filter(x => x.a >= p.a && x.a + x.len <= p.b), p.a, p.b);
+			const parts = pr ? [] : splitText(phons.filter(x => x.a >= p.a && x.a + x.len <= p.b), text, p.a, p.b);
 			p.prons = pr ? [pr] : parts.every(q => q.w) ? parts.map(q => q.w) : [];
 			[p.entry, ...p.prons].forEach(x => { if (x) { if (!byDict.has(x.d)) byDict.set(x.d, []); byDict.get(x.d).push(x); } });
 		});
