@@ -690,9 +690,9 @@ p-d.chapter p-e { line-height: 1.9; }
 p-d.chapter p-e :is(h3, h4) { display: block; margin: .8em 0 .3em; }
 p-d.chapter .vs-start { white-space: nowrap; }
 /* Parallel: verse by verse, each text's on its own line under its name */
-.pv { padding: .35em 0; border-bottom: 1px solid var(--line); }
+.pv { padding: .35em 0; border-bottom: 3px solid var(--line); }
 .pv:last-child { border-bottom: 0; }
-.pv-t + .pv-t { margin: .15em 0 0 1.2em; padding-left: .6em; border-left: 2px solid var(--color1); } /* the others, offset */
+.pv-t + .pv-t { margin: .15em 0 0 1.8em; } /* the others, offset */
 .pv-d { margin-right: .3em; padding: 0 .55em; border-radius: 999px; background: var(--color1); color: #fff; font-size: .75em; font-weight: 700; vertical-align: .1em; }
 .vs-n {
 	padding: 0 .2em 0 .1em;
