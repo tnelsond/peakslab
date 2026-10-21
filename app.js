@@ -503,17 +503,16 @@ if(!isDictPage){
 	// (the folders: Bible, Dictionaries, Bible texts, Music, Pronunciation,
 	// ...), Bible first. Pick any number of them and searches use just their
 	// dictionaries; none picked is All. Each dictionary is on or off, the
-	// same in every category (onIn).
+	// same in every category.
 	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
 		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
 		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation', 'phonetics/dict': 'Pronunciation dictionaries', 'phonetics/ref': 'Pronunciation guides',
 		media: 'Audio & images', ref: 'Reference'};
 	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
 	// (Again when a dictionary's added or taken off.) Choosing is worth it
-	// only with two or more: one category is everything. The bar has the
-	// top-level ones, so it needs two of those.
+	// only with two or more: one category is everything.
 	const cats = []; // {id, label, sub, members: [d, ...]}
-	let choice, barChoice;
+	let choice;
 	function buildCats(){
 		cats.length = 0;
 		const addCat = (id, label, test, sub) => {
@@ -529,17 +528,17 @@ if(!isDictPage){
 			if (subs.size > 1) subs.forEach(s => addCat(s, catLabel(s), x => two(x) === s, true));
 		});
 		choice = cats.length > 1;
-		barChoice = cats.filter(c => !c.sub).length > 1;
 	}
 	buildCats();
 	const catById = id => cats.find(c => c.id === id);
+	// A top category (a subcategory with no category too: Greek's Bible is everything)
+	const isTop = c => !c.sub || !catById(c.id.split('/')[0]);
 	const urlParams = new URLSearchParams(window.location.search);
 	const filterKey = `peakslab-filter-${appname}`;
 	let selected = (urlParams.has('mode') ? urlParams.get('mode').split(',') : readList(filterKey)).filter(id => choice && catById(id));
 	const filtered = () => selected.length > 0;
 	const selCats = () => selected.map(catById);
 	const inFilter = d => !filtered() || selCats().some(c => c.members.includes(d));
-	const onIn = c => c.members.filter(d => libOn[d]); // A category's dictionaries that are on
 
 	// Stars: a starred dictionary's entries come first and stand out, in the
 	// order they were starred, and its words are the ones searched first.
@@ -806,24 +805,25 @@ if(!isDictPage){
 			(secs.length > 1 ? secs.map(c => row(`/${curLang}/${c}${qs}`, langSym(c), `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c)).join('') : '') + '</ul>' +
 			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
-	const allCount = () => libOn.filter(Boolean).length; // How many All uses
-	// All, the top-level categories (and any picked sub-category),
-	// then the whole filter
-	function renderQuick(){
-		const btn = (attrs, label, on, n) => `<button class="qk" ${attrs} aria-pressed="${on}">${escapeHTML(label)}${n !== undefined ? ` <span class="n">${n}</span>` : ''}</button>`;
-		renderBibleBar();
-		const html = (barChoice || filtered() ? btn('data-qall="1"', 'All', !filtered(), allCount()) : '') +
-			cats.filter(c => (barChoice && !c.sub) || selected.includes(c.id)).map(c => btn(`data-qsel="${c.id}"`, c.label, selected.includes(c.id), selected.includes(c.id) ? onIn(c).length : undefined)).join('') +
-			'<button class="qk qk-more" data-qmore="1">Filter…</button>';
-		if (quick._html !== html) { quick._html = html; quick.innerHTML = html; } // Only when changed: keeps it tappable
+	// What the filter searches, as HTML and as text: All; All but the
+	// categories left out (struck through), when most are picked; or the
+	// ones picked
+	function filterLabel(){
+		if (!filtered()) return ['All', 'All'];
+		const left = cats.filter(c => isTop(c) && !selected.includes(c.id)), names = cs => cs.map(c => c.label);
+		if (selCats().every(isTop) && left.length < selected.length)
+			return [`All ${names(left).map(l => `<s>${escapeHTML(l)}</s>`).join(' ')}`, `All but ${names(left).join(', ')}`];
+		const t = names(cats.filter(c => selected.includes(c.id))).join(' + '); // (in the filter's order)
+		return [escapeHTML(t), t];
 	}
-	quick.addEventListener('click', e => {
-		const b = e.target.closest('button');
-		if (!b) return;
-		if (b.dataset.qall) setFilter([]);
-		else if (b.dataset.qsel) toggleCat(b.dataset.qsel);
-		else openDrawer('modes');
-	});
+	// The bar: the filter's button, with what it searches
+	function renderQuick(){
+		renderBibleBar();
+		const [html, text] = filterLabel();
+		const b = `<button class="qk" aria-pressed="${filtered()}" aria-label="Filter: ${escapeHTML(text)}"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>${html}</button>`;
+		if (quick._html !== b) { quick._html = b; quick.innerHTML = b; } // Only when changed: keeps it tappable
+	}
+	quick.addEventListener('click', e => { if (e.target.closest('button')) openDrawer('modes'); });
 	let lastY = 0;
 	window.addEventListener('scroll', () => {
 		const y = window.scrollY;
@@ -936,10 +936,8 @@ if(!isDictPage){
 		const ds = c.members.filter(inView(view));
 		return `${ds.filter(d => libOn[d]).length} of ${ds.length} on`;
 	}
-	// A category's subcategories (Bible's Bible texts, ...), and the top
-	// ones (a subcategory with no category too: Greek's Bible is everything)
+	// A category's subcategories (Bible's Bible texts, ...)
 	const subsOf = c => c.sub ? [] : cats.filter(s => s.sub && s.id.split('/')[0] === c.id);
-	const isTop = c => !c.sub || !catById(c.id.split('/')[0]);
 	// A list's dictionaries, in their order: a category's own (its id; not
 	// the ones in its subcategories), or the ones in none (''). The filter
 	// has just the downloaded ones.
@@ -979,7 +977,8 @@ if(!isDictPage){
 		if (!choice) return rowsHTML('', view);
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => groupHTML(`${view}:${c.id}`,
-			view === 'filter' ? btn(c, 'sel', `class="cat-sel check" aria-pressed="${!filtered() || selected.includes(c.id)}"`, `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) :
+			view === 'filter' ? btn(c, 'sel', `class="cat-chk check" aria-pressed="${!filtered() || selected.includes(c.id)}" aria-label="Search ${escapeHTML(c.label)}"`, '') +
+				btn(c, 'only', 'class="cat-sel" title="Just this"', `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) :
 				groupHead(`${view}:${c.id}`, c.label, catCount(c, view)),
 			() => {
 				const subs = subsOf(c).filter(s => shown(s, view));
@@ -993,11 +992,12 @@ if(!isDictPage){
 			(other.length ? groupHTML(`${view}:`, groupHead(`${view}:`, 'Other', catCount({members: other}, view)), () => rowsHTML('', view)) : '') + '</ul>';
 	}
 	// The filter: All (every category ticked), then the categories, with
-	// their downloaded dictionaries; untick any to search just the rest
+	// their downloaded dictionaries; untick any to search just the rest, or
+	// tap one's name to search just it
 	function filterHTML(){
 		return (choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${catCount({members: dictIds}, 'filter')}</span></button></li></ul>` : '') +
 			catsHTML('filter') +
-			'<p class="empty">Pick as many as you like: searches use just their dictionaries that are on. ↑ ↓ change the order their entries come in; starred ones come first.</p>' +
+			'<p class="empty">Tick as many as you like, or tap a name for just it: searches use their dictionaries that are on. ↑ ↓ change the order their entries come in; starred ones come first.</p>' +
 			'<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
 	}
 	// The library: every dictionary on the page, by category; then other
@@ -1008,7 +1008,7 @@ if(!isDictPage){
 		const lang = ([l, xs]) => groupHTML(`lang:${l}`, groupHead(`lang:${l}`, cap(l), `${xs.length} ${xs.length === 1 ? 'dictionary' : 'dictionaries'}`),
 			() => `<ul class="rows dict-rows">${xs.map(x => `<li class="row dict-row"><div class="row-main">${infoHTML(x)}</div>` +
 				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
-		const here = sizeOf(dictIds.filter(d => downloaded.has(d)));
+		const here = sizeOf(dictIds.filter(d => downloaded.has(d) && dicts[d].lang === curLang)); // (not other languages')
 		return '<h2>Library</h2><p class="lib-help">Turn dictionaries on or off: ⬇ ones download when they\'re on, and 🗑 deletes a download. Star the ones you use most: their entries come first.</p>' +
 			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''}</p>` +
 			catsHTML('library') +
@@ -1143,7 +1143,7 @@ if(!isDictPage){
 			`<section><h2>Bookmarks</h2>${listHTML('bookmarks', 5)}${more(lists.bookmarks.items.length, 'bookmarks')}</section>`;
 		if (drawerView) renderDrawer();
 	}
-	// A category picked or not (the filter's and the quick bar's buttons)
+	// A category picked or not (its checkbox in the filter)
 	const toggleCat = id => setFilter(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
 	// The buttons in the drawer and on the home page
 	function rowClick(e){
@@ -1180,6 +1180,7 @@ if(!isDictPage){
 		} else if (act) { // A category's
 			const c = catById(b.dataset.cat);
 			if (act === 'sel') return filtered() ? toggleCat(c.id) : setFilter(cats.filter(x => isTop(x) && x !== c).map(x => x.id)); // (All: all but it)
+			if (act === 'only') return setFilter([c.id]);
 			setOn(c.members, act === 'all' ? true : act === 'none' ? false : d => dicts[d].on); // All on, all off, the defaults
 		} else if (q !== undefined) {
 			closeDrawer();
@@ -1251,10 +1252,9 @@ if(!isDictPage){
 	}
 	function updateFilterUI(){
 		const on = filtered();
-		const label = on ? selCats().map(c => c.label).join(' + ') : 'All';
 		filterBtn.classList.toggle('on', on);
 		menuBtn.classList.toggle('on', on);
-		filterBtn.title = filterBtn.ariaLabel = `Filter: ${label}`;
+		filterBtn.title = filterBtn.ariaLabel = `Filter: ${filterLabel()[1]}`;
 		renderLists();
 		renderQuick();
 		updateURL();

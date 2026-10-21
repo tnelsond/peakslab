@@ -108,7 +108,7 @@ mark {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Buttons with no box of their own */
-.st-share, .text-btn, .bm-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-exp, .cat-dict,
+.st-share, .text-btn, .bm-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp, .cat-dict,
 .tr-play, .close-btn, .head-btn, .selection-menu button, .tr-pick button {
 	border: 0;
 	background: none;
@@ -331,15 +331,19 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 }
 #quick::-webkit-scrollbar, .selection-menu::-webkit-scrollbar { display: none; }
 .qk {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	height: 30px;
-	padding: 0 12px;
+	padding: 0 12px 0 9px;
 	border: 1px solid rgba(243,230,200,.35);
 	background: transparent;
 	white-space: nowrap;
 }
+.qk svg { flex: none; width: 16px; height: 16px; }
+.qk s { opacity: .75; }
 .qk[aria-pressed="true"] { border-color: transparent; background: var(--tab-bg); color: var(--color1); font-weight: 600; }
-.qk .n { font-weight: 500; opacity: .8; }
-.qk-more { border-style: dashed; }
+.cat-chk { flex: none; }
 
 /* Content */
 #content {
