@@ -1004,7 +1004,8 @@ if(!isDictPage){
 	// their downloaded dictionaries; untick any to search just the rest, or
 	// tap one's name to search just it
 	function filterHTML(){
-		return (choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${catCount({members: dictIds}, 'filter')}</span></button></li></ul>` : '') +
+		return '<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel()) +
+			(choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${catCount({members: dictIds}, 'filter')}</span></button></li></ul>` : '') +
 			catsHTML('filter') +
 			'<p class="empty">Tick as many as you like, or tap a name for just it: searches use their dictionaries that are on. ↑ ↓ change the order their entries come in; starred ones come first.</p>' +
 			'<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
@@ -1047,8 +1048,7 @@ if(!isDictPage){
 	function firstHTML(){
 		if (!firstIds.some(d => !have(d))) return '<p class="empty">The suggested dictionaries are all downloaded.</p>';
 		return '<p class="empty">Which dictionaries? They download once, then work offline.</p>' +
-			`<div class="first-level"><input type="range" min="0" max="${LEVELS.length - 1}" value="${firstLevel}" aria-label="How many dictionaries" aria-valuetext="${LEVELS[firstLevel]}">` +
-			`<div class="first-marks">${LEVELS.map((l, i) => `<button data-level="${i}" aria-pressed="${i === firstLevel}">${l}</button>`).join('')}</div></div>` +
+			levelHTML(firstLevel) +
 			`<div class="first-list">${firstListHTML()}</div>` +
 			'<p class="empty">Or <button class="text-btn" data-first="custom">choose my own in the library</button></p>';
 	}
@@ -1067,15 +1067,37 @@ if(!isDictPage){
 		const size = sizeOf(ids.filter(d => firstPick.has(d) && !downloaded.has(d))); // (one downloaded already is just turned on)
 		return html + `<button class="first-default" data-first="go"${ids.some(d => firstPick.has(d)) ? '' : ' disabled'}>Download${size ? ` (${sizeText(size)})` : ''}</button>`;
 	}
-	function showLevel(n){
-		setLevel(n);
+	// The level slider, in the download prompt and the filter: at level n
+	// (-1: none, the ones on are someone's own pick)
+	const levelHTML = n => `<div class="first-level"><input type="range" min="0" max="${LEVELS.length - 1}" value="${Math.max(n, 0)}" aria-label="How many dictionaries" aria-valuetext="${LEVELS[n] || 'Custom'}">` +
+		`<div class="first-marks">${LEVELS.map((l, i) => `<button data-level="${i}" aria-pressed="${i === n}">${l}</button>`).join('')}</div></div>`;
+	function markLevel(n){
 		const range = drawerBody.querySelector('.first-level input');
 		range.value = n;
 		range.setAttribute('aria-valuetext', LEVELS[n]);
 		drawerBody.querySelectorAll('[data-level]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.level === n));
+	}
+	// The prompt: the level's dictionaries, as it moves
+	function showLevel(n){
+		setLevel(n);
+		markLevel(n);
 		drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
 	}
-	drawerBody.addEventListener('input', e => { if (e.target.matches('.first-level input')) showLevel(+e.target.value); });
+	// The filter: of the downloaded dictionaries (it downloads none), the
+	// level's on, the rest off, once it's let go; its level now (the one
+	// picked, if it still is: two can be, with none of one's own
+	// downloaded), or -1
+	const got = () => dictIds.filter(d => downloaded.has(d));
+	let picked = -1;
+	const isLevel = n => got().every(d => libOn[d] === levelOf(dicts[d]) <= n);
+	const onLevel = () => isLevel(picked) ? picked : LEVELS.findIndex((_, n) => isLevel(n));
+	function pickLevel(n){
+		if (drawerView === 'first') return showLevel(n);
+		picked = n;
+		setOn(got(), d => levelOf(dicts[d]) <= n);
+	}
+	drawerBody.addEventListener('input', e => { if (e.target.matches('.first-level input')) drawerView === 'first' ? showLevel(+e.target.value) : markLevel(+e.target.value); });
+	drawerBody.addEventListener('change', e => { if (e.target.matches('.first-level input') && drawerView === 'modes') pickLevel(+e.target.value); });
 	function firstAnswer(v){
 		asking = false;
 		closeDrawer();
@@ -1207,7 +1229,7 @@ if(!isDictPage){
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
 			drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
-		} else if (level) showLevel(+level);
+		} else if (level) pickLevel(+level);
 		else if (first === 'again') {
 			setLevel(firstLevel); // (what's downloaded now)
 			openDrawer('first');
