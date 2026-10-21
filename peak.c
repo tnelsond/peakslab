@@ -516,8 +516,8 @@ static uint32_t p_utf8(const uint8_t *s){
 // Vowel signs and other marks that belong to the character before them
 static int p_ismark(uint32_t c){
 	return (c >= 0x17B4 && c <= 0x17D3) || c == 0x17DD // Khmer
-		|| c == 0x0EB1 || (c >= 0x0EB4 && c <= 0x0EBC) || (c >= 0x0EC8 && c <= 0x0ECD) // Lao
-		|| c == 0x0E31 || (c >= 0x0E34 && c <= 0x0E3A) || (c >= 0x0E47 && c <= 0x0E4E) // Thai
+		|| (c >= 0x0EB0 && c <= 0x0EBC) || (c >= 0x0EC8 && c <= 0x0ECE) // Lao (with the spacing vowels ະ າ ຳ)
+		|| (c >= 0x0E30 && c <= 0x0E3A) || (c >= 0x0E47 && c <= 0x0E4E) // Thai (with ะ า ำ)
 		|| (c >= 0x0900 && c <= 0x0903) || (c >= 0x093A && c <= 0x094F) || (c >= 0x0951 && c <= 0x0957) || c == 0x0962 || c == 0x0963 // Devanagari
 		|| (c >= 0x0300 && c <= 0x036F) || c == 0x200C || c == 0x200D;
 }
@@ -536,7 +536,8 @@ static int p_boundary(const uint8_t *q, uint32_t p, uint32_t len){
 	uint32_t b = p - 1;
 	while(b > 0 && (q[b] & 0xC0) == 0x80) --b;
 	uint32_t prev = p_utf8(q + b);
-	if(prev == 0x17D2) return 0; // Khmer coeng, joins the next consonant
+	if(prev == 0x17D2 || prev == 0x0EBA || prev == 0x0E3A) return 0; // Khmer coeng, Lao/Thai virama: join the next consonant
+	if((prev >= 0x0EC0 && prev <= 0x0EC4) || (prev >= 0x0E40 && prev <= 0x0E44)) return 0; // Lao/Thai vowels written before their consonant
 	return !(p_isletter(prev) && p_isletter(c));
 }
 
