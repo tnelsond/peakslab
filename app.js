@@ -156,8 +156,9 @@ if(!isDictPage){
 				}
 				else if(e.data.type == "needbytes"){
 					const d = dictOf(e.data);
-					fetched.add(d);
-					fetchDict('/' + dicts[d].path, d)
+					(self.caches ? caches.match('/' + dicts[d].path).catch(() => null) : Promise.resolve(null))
+						.then(hit => { if (!hit) fetched.add(d); }) // (the service worker has it: not a download)
+						.then(() => fetchDict('/' + dicts[d].path, d))
 						.then(buf => w.postMessage({type: 'bytes', did: e.data.did, buf}, [buf]))
 						.catch(err => {
 							console.warn(`Fetching ${dicts[d].path} failed:`, err);
@@ -597,9 +598,11 @@ if(!isDictPage){
 	// A dictionary the search uses has loaded. One just downloaded (fetched)
 	// doesn't change the results showing: once they've all loaded, a prompt
 	// asks to search again (askRefresh). One from the offline cache, or
-	// nothing showing yet: the search again now.
+	// nothing showing yet: the search again now. So does a download that
+	// was over quickly (they all loaded within a second or so).
 	const fetched = new Set(); // Downloading (not in the offline cache)
 	let stale = false; // The results showing are missing ones just downloaded
+	let loadStart = 0; // When the dictionaries loading started loading
 	function moreResults(d){
 		if (fetched.delete(d) && query && (num || translationDiv.childElementCount)) stale = true;
 		else searchAgain();
@@ -610,7 +613,9 @@ if(!isDictPage){
 	refreshBar.setAttribute('role', 'status');
 	refreshBar.innerHTML = '<span>New dictionaries downloaded: there may be more results.</span><button class="rb-go">Refresh</button><button class="close-btn" aria-label="Dismiss">×</button>';
 	function askRefresh(){
-		if (stale) refreshBar.classList.remove('hide');
+		if (!stale) return;
+		if (performance.now() - loadStart < 1500) searchAgain(); // (it hides it)
+		else refreshBar.classList.remove('hide');
 	}
 	function hideRefresh(){
 		stale = false;
@@ -1389,8 +1394,8 @@ if(!isDictPage){
 	// / HTTP cache: slow when online, while offline things looked fine.
 	function loadDict(d) {
 		if (loaded.has(d) || loading.has(d)) return;
-		if (!loading.size) loadAll = loadDone = 0;
-		loadAll += dicts[d].size || 1;
+		if (!loading.size) { loadAll = loadDone = 0; loadStart = performance.now(); }
+		loadAll +=dicts[d].size || 1;
 		loading.add(d);
 		showLoad();
 		renderListsSoon();
