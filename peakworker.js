@@ -145,8 +145,12 @@ self.onmessage = async ({data}) => {
 	}
 	case 'renderlines':
 		reply(data, {entries: (data.lines || []).map(([m, index]) => {
-			const n = loaded(d) && !d.slab ? d.x.render_match(m, index) : -1; // (a media file has no text: the page adds the file)
+			const n = loaded(d) ? d.x.render_match(m, index) : -1;
 			if (n <= 0) return null;
+			if (d.slab) { // A media file: its name, no text (the page adds the file)
+				const b = new Uint8Array(d.x.memory.buffer, d.rptr, n), end = b.indexOf(0);
+				return {header: d.str(d.rptr, end < 0 ? n : end).split('\t')[0].trim(), body: ''};
+			}
 			const entry = d.str(d.rptr, n), tab = entry.indexOf('\t');
 			return {header: entry.slice(0, tab).trim(), body: entry.slice(tab + 1)};
 		})});
