@@ -100,10 +100,10 @@ self.onmessage = async ({data}) => {
 		break;
 	case 'matchall': {
 		// For translating with several dictionaries at once: this one's
-		// headwords at each place in the text, every length (second index
-		// words where no headword starts), as [start, length, match, index,
-		// second] in UTF-16 offsets, like the page's strings. The page picks
-		// between the dictionaries, then asks for the entries (renderlines).
+		// headwords and second index words at each place in the text, every
+		// length, as [start, length, match, index, second] in UTF-16 offsets,
+		// like the page's strings. The page picks between the dictionaries,
+		// then asks for the entries (renderlines).
 		const matches = [];
 		const bytes = new TextEncoder().encode(data.query);
 		if (loaded(d) && bytes.length) {
@@ -123,12 +123,9 @@ self.onmessage = async ({data}) => {
 			u16[bytes.length] = u;
 			for (let p = 0; p < bytes.length; ++p) {
 				if ((bytes[p] & 0xC0) === 0x80) continue; // Inside a character
-				for (const second of [0, 1]) {
-					const n = matches.length;
+				for (const second of [0, 1])
 					for (let k = x.match_at(t, bytes.length, p, 0, second); k > 0; k = k > 1 ? x.match_at(t, bytes.length, p, k - 1, second) : 0)
 						matches.push([u16[p], u16[p + k] - u16[p], x.last_match(), x.last_index(), second]);
-					if (matches.length > n) break;
-				}
 			}
 			x.free(t);
 		}

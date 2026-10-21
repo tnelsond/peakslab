@@ -1357,9 +1357,14 @@ if(!isDictPage){
 		return t.content.textContent.split('\n').map(x => x.trim());
 	}
 	// An entry as one line, without lines that are only [pronunciations] or
-	// [[see also]]s (h97's second column)
+	// [[see also]]s (h97's second column), or the headword's other spellings
+	// first (one word each in its script: "ພະເຈົ້າ<tab>@ພຣະເຈົ້າ<tab>...")
 	const isText = x => x && !/^(\[[^\]]*\]+\s*)+$/.test(x);
-	const summary = html => textLines(html).filter(isText).join(' ');
+	function summary(html, header){
+		const lines = textLines(html).filter(isText);
+		while (lines.length > 1 && !/\s/.test(lines[0]) && script(lines[0]) === script(header)) lines.shift();
+		return lines.join(' ');
+	}
 	// An entry's text, without its labels (p-n: parts of speech, a verse's
 	// reference, ...)
 	function entryText(pe){
@@ -1404,12 +1409,14 @@ if(!isDictPage){
 	const isBibleDict = d => /^bible\//.test(dicts[d].cat) && !isBibleText(d);
 
 	// The best way to split text[a, b) into matches: the fewest characters
-	// none of them has (letters and digits: spaces and punctuation don't count), then the fewest second index
-	// words (headwords come first), then the fewest Bible dictionary words
-	// (the dictionaries come first), then the fewest pieces, then the first
-	// dictionaries'. So a long match that leaves a piece no dictionary has
-	// loses to shorter ones that cover it all. Returns [{a, b, w (the match,
-	// none for unmatched)}].
+	// none of them has (letters and digits: spaces and punctuation don't
+	// count), then the fewest Bible dictionary words (the dictionaries come
+	// first), then the fewest pieces, then the fewest second index words
+	// (headwords come first), then the first dictionaries'. So a long match
+	// that leaves a piece no dictionary has loses to shorter ones that cover
+	// it all, and a second index word ("@ພຣະເຈົ້າ", an old spelling) wins
+	// over headwords that split it (ພຣະ + ເຈົ້າ). Returns [{a, b, w (the
+	// match, none for unmatched)}].
 	function splitText(matches, text, a, b){
 		const at = new Map();
 		matches.forEach(x => { if (!at.has(x.a)) at.set(x.a, []); at.get(x.a).push(x); });
@@ -1419,11 +1426,11 @@ if(!isDictPage){
 		const less = (x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || x[3] - y[3] || x[4] - y[4];
 		for (let i = n - 1; i >= 0; --i) {
 			const c = cost[i + 1];
-			cost[i] = [c[0] + (/[\p{L}\p{M}\p{N}]/u.test(text[a + i]) ? 1 : 0), c[1], c[2], c[3] + (pick[i + 1] ? 1 : 0), c[4]]; // Unmatched, joined to unmatched text after it
+			cost[i] = [c[0] + (/[\p{L}\p{M}\p{N}]/u.test(text[a + i]) ? 1 : 0), c[1], c[2] + (pick[i + 1] ? 1 : 0), c[3], c[4]]; // Unmatched, joined to unmatched text after it
 			for (const x of at.get(a + i) || []) {
 				if (i + x.len > n) continue;
 				const e = cost[i + x.len];
-				const t = [e[0], e[1] + x.sec, e[2] + x.bib, e[3] + 1, e[4] + x.rank];
+				const t = [e[0], e[1] + x.bib, e[2] + 1, e[3] + x.sec, e[4] + x.rank];
 				if (less(t, cost[i]) < 0) { cost[i] = t; pick[i] = x; }
 			}
 		}
@@ -1471,9 +1478,12 @@ if(!isDictPage){
 
 	// Each word in a box, with its pronunciation and its entry in a line
 	// (a second index match is a word in an entry, so the entry's headword
-	// says what it means); tapping the word shows the entry, and what the
-	// popup search finds. Plain Latin text gets no pronunciation.
+	// says what it means, unless it's in the same script: then the word is
+	// the entry's other spelling); tapping the word shows the entry, and what
+	// the popup search finds. Plain Latin text gets no pronunciation.
 	const latin = t => !/[^\u0000-ɏ]/.test(t);
+	const script = t => (t.match(/\p{L}/u)?.[0] ?? ' ').codePointAt(0) >> 7; // (its Unicode block, roughly)
+	const glossOf = (entry, word) => entry.sec && script(entry.header) !== script(word) ? entry.header : summary(entry.body, entry.header);
 	const popupEntries = []; // The entries words came from, for p-a's data-e
 	function translationHTML(pieces){
 		return pieces.map(p => {
@@ -1481,7 +1491,7 @@ if(!isDictPage){
 				return p.text.split(/(\s+)/).map(t => /\p{L}/u.test(t) ? `<span class="tr-w tr-x">${escapeHTML(t)}</span>` : escapeHTML(t).replace(/\n/g, '<br>')).join('');
 			const w = escapeHTML(p.text.trim());
 			const pron = !latin(p.text) && p.pron.length ? `<span class="tr-p">${escapeHTML(p.pron.join(' '))}</span>` : '';
-			const gloss = p.entry ? escapeHTML(p.entry.sec ? p.entry.header : summary(p.entry.body)) : '';
+			const gloss = p.entry ? escapeHTML(glossOf(p.entry, p.text)) : '';
 			return `<span class="tr-w${p.entry ? '' : ' tr-u'}" data-w="${w}" title="${names([p.entry ? p.entry.d : p.d])}">` +
 				`<p-a${p.entry ? ` data-e="${popupEntries.push(p.entry) - 1}"` : ''}>${w}</p-a>${pron}` +
 				(gloss ? `<span class="tr-g" title="${gloss}">${gloss}</span>` : '') + '</span>';
