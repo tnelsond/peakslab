@@ -922,12 +922,18 @@ if(!isDictPage){
 	}
 	const groupHead = (key, label, text) => `<button class="cat-sel" data-exp="${escapeHTML(key)}"><span class="row-w">${escapeHTML(label)}</span><span class="row-t">${text}</span></button>`;
 	const catCount = c => `${onIn(c).length} of ${c.members.length} on`;
-	// A list's dictionaries, in their order: a category's (its id), or the
-	// ones in none (''). The filter has just the downloaded ones.
+	// A category's subcategories (Bible's Bible texts, ...)
+	const subsOf = c => c.sub ? [] : cats.filter(s => s.sub && s.id.split('/')[0] === c.id);
+	// A list's dictionaries, in their order: a category's own (its id; not
+	// the ones in its subcategories), or the ones in none (''). The filter
+	// has just the downloaded ones.
 	function listOf(id, view){
-		const ds = id ? catById(id).members : dictIds.filter(d => !cats.some(c => c.members.includes(d)));
+		const c = id && catById(id);
+		const ds = c ? c.members.filter(d => !subsOf(c).some(s => s.members.includes(d))) : dictIds.filter(d => !cats.some(c => c.members.includes(d)));
 		return ds.filter(d => view === 'library' || downloaded.has(d)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
 	}
+	// In the filter, a category with nothing downloaded isn't there
+	const shown = (c, view) => c.members.length && (view === 'library' || c.members.some(d => downloaded.has(d)));
 	// A dictionary: on or off, what kind it is, downloaded (✓) or not (⬇)
 	// and its size, what it is; to delete its download (🗑) or take an added
 	// one off the page (✕), its star, and in the filter, to move it (↑ ↓)
@@ -948,20 +954,26 @@ if(!isDictPage){
 		const ds = listOf(id, view);
 		return ds.length ? `<ul class="rows dict-rows">${ds.map(d => dictRowHTML(d, view, id, ds)).join('')}</ul>` : '<p class="empty">None downloaded.</p>';
 	}
-	// The categories (opened, their dictionaries), then the ones in none.
-	// In the filter a category's name picks it; in the library it opens it,
-	// with All on / All off / Defaults.
+	// The categories; opened, their own dictionaries, then their
+	// subcategories. Then Other: the ones in none. In the filter a
+	// category's name picks it; in the library it opens it, with All on /
+	// All off / Defaults.
 	function catsHTML(view){
 		if (!choice) return rowsHTML('', view);
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => groupHTML(`${view}:${c.id}`,
 			view === 'filter' ? btn(c, 'sel', `class="cat-sel check" aria-pressed="${selected.includes(c.id)}"`, `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c)}</span>`) :
 				groupHead(`${view}:${c.id}`, c.label, catCount(c)),
-			() => rowsHTML(c.id, view) + (view === 'library' ? `<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All on')}${btn(c, 'none', 'class="text-btn"', 'All off')}${btn(c, 'reset', 'class="text-btn"', 'Defaults')}</div>` : ''),
-			c.sub);
+			() => {
+				const subs = subsOf(c).filter(s => shown(s, view));
+				return (listOf(c.id, view).length || !subs.length ? rowsHTML(c.id, view) : '') +
+					(subs.length ? `<ul class="rows cats">${subs.map(cat).join('')}</ul>` : '') +
+					(view === 'library' ? `<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All on')}${btn(c, 'none', 'class="text-btn"', 'All off')}${btn(c, 'reset', 'class="text-btn"', 'Defaults')}</div>` : '');
+			});
+		const tops = cats.filter(c => shown(c, view) && (!c.sub || !catById(c.id.split('/')[0]))); // (a subcategory with no category: Greek's Bible is everything)
 		const other = listOf('', view);
-		return `<ul class="rows cats">${cats.filter(c => c.members.length).map(cat).join('')}</ul>` +
-			(other.length ? `<h3 class="drawer-h">Other</h3>${rowsHTML('', view)}` : '');
+		return `<ul class="rows cats">${tops.map(cat).join('')}` +
+			(other.length ? groupHTML(`${view}:`, groupHead(`${view}:`, 'Other', catCount({members: other})), () => rowsHTML('', view)) : '') + '</ul>';
 	}
 	// The filter: All, then the categories, with their downloaded
 	// dictionaries; pick any number to search just them
@@ -982,7 +994,8 @@ if(!isDictPage){
 				`<span class="lib-desc">${x.desc}</span></div><button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
 		return '<h2>Library</h2><p class="lib-help">Turn dictionaries on or off: ⬇ ones download when they\'re on, and 🗑 deletes a download. Star the ones you use most: their entries come first.</p>' +
 			catsHTML('library') +
-			(byLang.size ? `<h3 class="drawer-h">Other dictionaries</h3><ul class="rows cats">${[...byLang].sort(([a], [b]) => a.localeCompare(b)).map(lang).join('')}</ul>` : '');
+			(byLang.size ? `<ul class="rows cats">${groupHTML('library:langs', groupHead('library:langs', 'Other languages', `${byLang.size} languages: add their dictionaries`),
+				() => `<ul class="rows cats">${[...byLang].sort(([a], [b]) => a.localeCompare(b)).map(lang).join('')}</ul>`)}</ul>` : '');
 	}
 	// The filter and the library, where they're showing
 	function renderLists(){
