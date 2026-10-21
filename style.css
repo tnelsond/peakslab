@@ -823,6 +823,22 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .lib-size.got { color: var(--color1); }
 .dict-row .star-btn { font-size: 1.4em; padding: 0 10px; }
 .dict-row > .text-btn { white-space: nowrap; padding: 0 12px; }
+.cat-subh { margin: .8em 0 .1em; font-size: .85em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+/* The first time: download the ones picked */
+.first-default {
+	display: block;
+	width: 100%;
+	margin: 1em 0 .6em;
+	padding: 12px;
+	border: 0;
+	border-radius: 10px;
+	background: var(--control-btn-bg);
+	color: #fff;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+.lib-space { margin: 0 0 .5em; font-size: .9em; font-weight: 600; }
 .lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
 .dict-del, .dict-mv button { border: 0; background: none; cursor: pointer; color: var(--muted); }
 .dict-del { align-self: center; padding: 4px 6px; font-size: .85em; }
