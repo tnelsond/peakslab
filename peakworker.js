@@ -145,11 +145,10 @@ self.onmessage = async ({data}) => {
 	}
 	case 'renderlines':
 		reply(data, {entries: (data.lines || []).map(([m, index]) => {
-			const n = loaded(d) ? d.x.render_match(m, index) : -1;
+			const n = loaded(d) && !d.slab ? d.x.render_match(m, index) : -1; // (a media file has no text: the page adds the file)
 			if (n <= 0) return null;
-			// (A media file's: just its name, the headword's first part; the page adds the file)
-			const entry = d.str(d.rptr, n), tab = entry.indexOf(d.slab ? '\0' : '\t');
-			return d.slab ? {header: entry.slice(0, tab).split('\t')[0], body: ''} : {header: entry.slice(0, tab).trim(), body: entry.slice(tab + 1)};
+			const entry = d.str(d.rptr, n), tab = entry.indexOf('\t');
+			return {header: entry.slice(0, tab).trim(), body: entry.slice(tab + 1)};
 		})});
 		break;
 	case 'getresults': // The next result, from the dictionaries in order
@@ -185,11 +184,8 @@ class Dic{
 		if (r && tsOf(r) >= this.timestamp) return r.arrayBuffer();
 		// Not cached yet or outdated: the page fetches it through the service worker.
 		const sent = await askPage('bytes' + this.did, {type: 'needbytes', id, did: this.did});
-		if (sent) return sent;
-		// Last resort (page fetch failed): try directly.
-		const resp = await fetch(new URL(this.filename, origin));
-		if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-		return resp.arrayBuffer();
+		if (!sent) throw new Error(`${this.filename}: couldn't be fetched`);
+		return sent;
 	}
 	async init() {
 		try {

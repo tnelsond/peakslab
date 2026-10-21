@@ -108,12 +108,12 @@ mark {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Buttons with no box of their own */
-.st-share, .text-btn, .bm-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp, .cat-dict,
+.st-share, .text-btn, .bm-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
 .tr-play, .close-btn, .head-btn, .selection-menu button, .tr-pick button {
 	border: 0;
 	background: none;
 }
-.st-share, .text-btn, .row-main, .cat-sel, .cat-dict, .tr-pick button,
+.st-share, .text-btn, .row-main, .cat-sel, .tr-pick button,
 .setting, .tr-entry button, .qk, #langBtn, .ctx-btn, .vs-tr, .bk-grid button, #chNav button {
 	font: inherit;
 }
@@ -686,7 +686,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .pv { padding: .35em 0; border-bottom: 1px solid var(--line); }
 .pv:last-child { border-bottom: 0; }
 .pv-t + .pv-t { margin-top: .15em; }
-.pv-d { margin-right: .3em; color: var(--muted); font-size: .72em; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.pv-d { margin-right: .3em; color: var(--color1); font-size: .85em; font-weight: 700; } /* like the headings */
 .vs-n {
 	padding: 0 .2em 0 .1em;
 	color: var(--color1);
@@ -722,7 +722,8 @@ p-d.chapter .vs-start { white-space: nowrap; }
 #chNav button { border: 0; border-radius: 999px; }
 #chNav .ch-go { flex: none; width: 40px; font-size: 1.5em; line-height: 1; color: var(--color1); }
 #chNav .ch-go:disabled { opacity: .35; }
-#chNav .ch-book { min-width: 0; padding: 0 18px; font-size: 1.15em; font-weight: 600; }
+#chNav .ch-book, #chNav .ch-text { min-width: 0; padding: 0 14px; font-size: 1.15em; font-weight: 600; }
+#chNav .ch-text { font-size: .95em; color: var(--color1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
 .bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
 .bk-grid button {
@@ -772,13 +773,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	text-align: left;
 }
 .row-main { gap: 1px; }
-/* The Books drawer's Parallel Bibles: a drop-down with the texts */
-.par-dd { margin-bottom: 8px; border-bottom: 1px solid var(--line); }
-.par-dd > summary { display: flex; flex-direction: column; gap: 1px; padding: 8px 4px 8px 24px; position: relative; cursor: pointer; list-style: none; color: var(--card-text); }
-.par-dd > summary::-webkit-details-marker { display: none; }
-.par-dd > summary::before { content: "▸"; position: absolute; left: 6px; top: 9px; color: var(--muted); transition: transform .15s; }
-.par-dd[open] > summary::before { transform: rotate(90deg); }
-.par-dd > :not(summary) { margin-left: 12px; }
 .row-main:hover .row-w { text-decoration: underline; }
 .row-w, .row-g, .row-t { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-w { font-size: 1.05em; font-weight: 600; }
@@ -922,19 +916,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .cat-exp[aria-expanded="true"] { transform: rotate(90deg); }
 .cat-body { margin: 0 0 8px 34px; padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
-.cat-dicts { list-style: none; margin: 0; padding: 0; }
-.cat-dict {
-	width: 100%;
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 2px 8px;
-	min-height: 36px;
-	font-size: .95em;
-	color: var(--card-text);
-	text-align: left;
-}
-.cat-dict[aria-pressed="false"] .cd-name { color: var(--muted); }
 .cat-acts { display: flex; gap: 4px; }
 
 /* A word's entries over the page */

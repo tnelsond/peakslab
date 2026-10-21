@@ -1,31 +1,19 @@
 "use strict";
 
-// Speech-synthesis language list for the selection-menu "speak" buttons.
-// Starts as an English-only fallback for the root page (which has no
-// per-page language context); repopulated below, once we know the current
-// page's language(s), from files.json's abbr table.
-let lang = [
-	{name: "English", val: 'en_US'}
-];
-let appname = '?';
-// Set inside the non-root branch below, once `dicts` exists. Declared here
-// (module scope) because the service-worker 'message' listener below is
-// registered before that branch runs, and needs to be able to call it -
-// a `function ack(){...}` declared inside the later `else` block would be
-// block-scoped and invisible from here, silently throwing a ReferenceError
-// on every 'status' message instead of clearing the "not downloaded" state.
+// A file the service worker has (its 'status'): set on a dictionary page,
+// once its dictionaries are known
 let ack = null;
 // Reused for every bookmark button (one per result) — defined once so we're
 // not rebuilding this markup on every streamed result. CSS fills it in when
 // it's bookmarked (aria-pressed).
 const bookmarkSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
-// Chords (<p-m chord="...">) are hidden by default (CSS). The button toggles
-// one class on <body>, remembered; CSS shows them and switches every
-// button's label (see .chords-btn).
 // Remembered things (null if there's nothing, or no storage)
 const stored = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* not remembered */ } };
 const readList = k => { const l = stored(k); return Array.isArray(l) ? l : []; };
+// Chords (<p-m chord="...">) are hidden by default (CSS). The button toggles
+// one class on <body>, remembered; CSS shows them and switches every
+// button's label (see .chords-btn).
 const chordsBtnHTML = '<button class="chords-btn" onclick="toggleChords()" title="Show or hide chords"></button>';
 window.toggleChords = () => store('showChords', document.body.classList.toggle('show-chords'));
 document.body.classList.toggle('show-chords', stored('showChords') === true);
@@ -175,9 +163,9 @@ if(!isDictPage){
 				}
 				else if(e.data.type == "loaded"){
 					const d = dictOf(e.data);
-					dict_master_code[d] = false;
+					loaded.add(d);
 					loading.delete(d);
-					if(!isOn(d) && !extraLoaded.has(d)) // Turned off (or the filter changed) while it loaded
+					if(!libOn[d] && !asked.has(d)) // Turned off while it loaded
 						unloadDict(d);
 					(pendingLoad.get(d) || []).forEach(f => f());
 					pendingLoad.delete(d);
@@ -188,7 +176,7 @@ if(!isDictPage){
 					updateStatus();
 					if(nload == 0)
 						saveState();
-					if(!extraLoaded.has(d)) // Ones just to gloss with aren't searched
+					if(isOn(d))
 						searchAgain();
 				}
 				else if(e.data.type == "nomore"){
@@ -232,13 +220,15 @@ if(!isDictPage){
 		const nheader = updateQuery(data.header);
 		if(!popup && !data.filetype && chapterOf(nheader) === query)
 			return addVerse(data, nheader);
+		if(!popup && isChapter(query)) // Reading a chapter: just it
+			return;
 		let div = $(`${idpre}-${nheader}`);
 		const first = div === null;
 		if(first){
 			div = document.createElement('p-d');
 			div.id = `${idpre}-${nheader}`;
 			if(idpre == "mid" || data.st == 2){ // The other dictionaries' entries for it
-				const mask = popup ? trMask() : searchMask();
+				const mask = popup ? [...libOn] : searchMask();
 				mask[dicts.findIndex(x => x.name === data.dict)] = false;
 				forWorkers(mask, (w, code) => w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: data.dest, dicts: code, gen: searchGen}));
 			}
@@ -246,7 +236,7 @@ if(!isDictPage){
 		const d = dictOf(data);
 		if(isBibleText(d))
 			div.classList.add('verse');
-		const seen = div.seen ??= new Set(); // An entry found twice (e.g. a translated word's, then by the popup search) shows once
+		const seen = div.seen ??= new Set(); // An entry found twice (by two of the searches) shows once
 		if (typeof data.body === 'string' && seen.has(d + '\t' + data.body)) return;
 		seen.add(d + '\t' + data.body);
 		let el = document.createElement('p-e');
@@ -299,37 +289,21 @@ if(!isDictPage){
 		loadmore();
 	}
 
-	// A media entry: an image, or a player (codec2 is decoded when played)
+	// A media entry: a player for a recording (audioSrc), else a picture
+	// (jbig2 decoded)
 	function mediaElement(type, bytes, name){
-		const t = type.toLowerCase();
-		const blob = (data, mime) => URL.createObjectURL(new Blob([data], {type: mime}));
-		if (t.includes('webp') || t.includes('jbig2')) {
-			const img = document.createElement('img');
-			img.alt = name;
-			img.style.maxWidth = '100%';
-			if (t.includes('webp')) img.src = blob(bytes, 'image/webp');
-			else media().then(m => m.jbig2toPng(bytes)).then(b => { img.src = URL.createObjectURL(b); });
-			return img;
+		if (AUDIO.test(type)) {
+			const audio = document.createElement('audio');
+			audio.controls = true;
+			audioSrc(type, bytes).then(u => { audio.src = u; });
+			return audio;
 		}
-		const audio = document.createElement('audio');
-		audio.controls = true;
-		if (t.includes('webm')) audio.src = blob(bytes, audioType(t));
-		else if (/codec2|c2/.test(t)) {
-			const btn = document.createElement('button');
-			btn.textContent = '▶ Play';
-			btn.addEventListener('click', () => {
-				btn.disabled = true;
-				btn.textContent = 'Decoding…';
-				media().then(m => m.codec2toWav(bytes)).then(b => {
-					audio.src = URL.createObjectURL(b);
-					btn.replaceWith(audio);
-					audio.play();
-				});
-			}, {once: true});
-			return btn;
-		}
-		else return document.createTextNode(`${type}: filetype not supported`);
-		return audio;
+		const img = document.createElement('img');
+		img.alt = name;
+		img.style.maxWidth = '100%';
+		(/jbig2/i.test(type) ? media().then(m => m.jbig2toPng(bytes)) : Promise.resolve(new Blob([bytes], {type: 'image/' + type.toLowerCase()})))
+			.then(b => { img.src = URL.createObjectURL(b); });
+		return img;
 	}
 
 	// A verse of the chapter searched ("rom 8."): each dictionary's verses
@@ -337,11 +311,13 @@ if(!isDictPage){
 	// ("យ៉ូហាន ៣:១៦"); the ⇄ after a verse glosses it word by word.
 	// Parallel: the Bible texts share one card, verse by verse. Bible notes,
 	// with a Bible text showing, are little links on its verses (addNote).
+	// A verse's reference as the dictionary has it (its p-n: "យ៉ូហាន ៣:១៦")
+	const refOf = body => /<p-n>@?([^<]*)<\/p-n>/.exec(body)?.[1];
 	function addVerse(data, h){
-		const d = dictOf(data);
+		const d = dictOf(data), v = +h.split('.').pop();
 		if (dicts[d].cat === 'bible/commentary' && dictIds.some(t => isBibleText(t) && isOn(t)))
-			return addNote(d, data, +h.split('.').pop());
-		const label = /<p-n>@?([^<]*)<\/p-n>/.exec(data.body);
+			return addNote(d, data, v);
+		const label = refOf(data.body);
 		const par = parallel && isBibleText(d);
 		const cardId = par ? 'ch-par' : `ch-${d}`, cardSort = par ? -1e6 : sortId(d);
 		let card = $(cardId);
@@ -354,7 +330,7 @@ if(!isDictPage){
 			const after = [...resultsDiv.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > cardSort);
 			resultsDiv.insertBefore(card, after || (loader && loader.parentNode === resultsDiv ? loader : null));
 		}
-		const n = ((label && /\p{Nd}+\s*[:.]\s*(\p{Nd}+)/u.exec(label[1])) || [, h.split('.').pop()])[1];
+		const n = ((label && /\p{Nd}+\s*[:.]\s*(\p{Nd}+)/u.exec(label)) || [, String(v)])[1];
 		let body = data.body.replace(/<p-n>[\s\S]*?<\/p-n>/, '');
 		const text = isBibleText(d);
 		if(text) // Verses run on
@@ -366,11 +342,11 @@ if(!isDictPage){
 		const word = /^[^\s\u200B<]*/.exec(rest)[0];
 		const vs = document.createElement(text ? 'span' : 'div');
 		vs.className = 'vs';
-		vs.dataset.v = +h.split('.').pop();
+		vs.dataset.v = v;
 		vs.innerHTML = `${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
 			'<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button> ';
 		if(par){ // In the verse's group, by verse, each text as the dictionaries go, with its name
-			const pe = card.querySelector('p-e'), v = +h.split('.').pop();
+			const pe = card.querySelector('p-e');
 			let group = pe.querySelector(`:scope > .pv[data-v="${v}"]`);
 			if(!group){
 				group = document.createElement('div');
@@ -417,8 +393,8 @@ if(!isDictPage){
 		const tr = vs.querySelector(':scope > .vs-tr');
 		notes.get(v).forEach(({d, data}) => {
 			if (vs.querySelector(`.vs-note[data-d="${d}"]`)) return;
-			const label = /<p-n>@?([^<]*)<\/p-n>/.exec(data.body);
-			tr.insertAdjacentHTML('beforebegin', `<button class="vs-note" data-d="${d}" data-v="${v}" onclick="showNote(this)" title="${escapeHTML(dicts[d].name + (label ? ': ' + label[1] : ''))}" aria-label="Note on this verse (${escapeHTML(dicts[d].name)})">note</button>`);
+			const label = refOf(data.body);
+			tr.insertAdjacentHTML('beforebegin', `<button class="vs-note" data-d="${d}" data-v="${v}" onclick="showNote(this)" title="${escapeHTML(dicts[d].name + (label ? ': ' + label : ''))}" aria-label="Note on this verse (${escapeHTML(dicts[d].name)})">note</button>`);
 		});
 	}
 	window.showNote = b => {
@@ -476,13 +452,14 @@ if(!isDictPage){
 		(mainCount[b.cat] || 0) - (mainCount[a.cat] || 0) || a.cat.localeCompare(b.cat) || b.primary - a.primary ||
 		rank(a.priority) - rank(b.priority) || a.lang.localeCompare(b.lang) || a.path.localeCompare(b.path));
 
-	// Speech synthesis: the page's languages, with their locale codes
+	// Speech synthesis (the selection menu's 🔊): the page's languages, with
+	// their locale codes, or English
 	const derivedLang = [...new Set([...pLangParts, ...dicts.map(x => x.lang)])]
 		.filter(l => abbr[l]?.[2]).map(l => ({name: cap(l), val: abbr[l][2]}));
-	if (derivedLang.length) lang = derivedLang;
+	const lang = derivedLang.length ? derivedLang : [{name: 'English', val: 'en_US'}];
 
 	// The app's name: the path's symbols (khmer → ខ, khmer/music → ខ𝄞)
-	appname = (pParts.length ? pParts : ['?']).map(p => abbr[p]?.[1] || abbr[p]?.[0] || p).join('');
+	const appname = (pParts.length ? pParts : ['?']).map(p => abbr[p]?.[1] || abbr[p]?.[0] || p).join('');
 	const appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
 	if (appTitle) appTitle.content += appname;
 	document.title += appname;
@@ -569,25 +546,20 @@ if(!isDictPage){
 	for (let i = 1; i <= workers_num; ++i) createPeakWorker(i);
 	earlyWorkers.slice(workers_num).forEach(w => w.terminate()); // started early but not needed
 	let worker_code = new Array(workers.length).fill(false);
-	let dict_master_code = new Array(dicts.length).fill(true);
-	let dict_code = [...dict_master_code];
-	const loading = new Set(); // Dictionaries asked for and not loaded yet (loadDict)
-	// Loaded just to gloss with (pronunciation), or All's ones while
-	// filtering, not to search: they stay loaded, but out of the results
-	const extraLoaded = new Set();
+	// The dictionaries that are on are loaded, and any used while off (asked:
+	// glossing with one); searches use the ones on that the filter has
+	// (isOn), glosses and the popup every one that's on
+	const loaded = new Set(), loading = new Set(), asked = new Set();
 	const pendingLoad = new Map(); // dictionary -> what to do once it's loaded
 	function ensureLoaded(d, then){
-		if (!dict_master_code[d]) return then();
+		if (loaded.has(d)) return then();
 		if (!pendingLoad.has(d)) pendingLoad.set(d, []);
 		pendingLoad.get(d).push(then);
-		if (!isOn(d)) extraLoaded.add(d);
+		if (!libOn[d]) asked.add(d);
 		loadDict(d);
 	}
-	const searchMask = () => dicts.map((_, d) => !extraLoaded.has(d) || isOn(d));
-	// What translating and the popup use: the ones on, picked by the
-	// filter or not, so a filter like Bible still has them
-	const trOn = () => d => libOn[d];
-	const trMask = () => { const on = trOn(); return dicts.map((_, d) => on(d)); };
+	const searchMask = () => dicts.map((_, d) => isOn(d));
+	let searching = searchMask(); // What the search showing uses
 
 
 	function cleanup(container){
@@ -731,26 +703,26 @@ if(!isDictPage){
 	}
 
 	// Parallel reading (unless it's turned off): a chapter verse by verse,
-	// each verse in every Bible text that's on, one after the other (else
-	// each text's chapter in its own card). In the Books drawer, a
-	// drop-down: it, and the texts to read.
+	// each verse in every Bible text that's on, one after the other. Off,
+	// one translation. The translations drawer (from the Bible bar) has
+	// both: Parallel, and the translations (off: pick one; on: any).
 	const parKey = `peakslab-parallel-${appname}`;
 	let parallel = stored(parKey) ?? true;
-	const bibleTexts = () => dictIds.filter(isBibleText);
-	let parOpen = false; // The drop-down open (it stays so as the drawer's redrawn)
-	function parHTML(){
-		const texts = bibleTexts();
-		if (texts.length < 2) return '';
-		return `<details class="par-dd"${parOpen ? ' open' : ''}><summary><span class="row-w">Parallel Bibles</span><span class="row-t">${parallel ? 'On' : 'Off'} · ${texts.filter(d => libOn[d]).length} of ${texts.length} texts</span></summary>` +
-			`<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel reading</span><span class="row-t">Verse by verse in each text</span></button></li></ul>` +
-			`<h3 class="drawer-h">Texts</h3><ul class="cat-dicts">${texts.map(d =>
-				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${libOn[d]}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeOf(dicts[d])}</button></li>`).join('')}</ul></details>`;
+	function textsHTML(){
+		return `<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel</span><span class="row-t">Verse by verse in each translation ticked</span></button></li></ul>` +
+			`<h3 class="drawer-h">Translations</h3><ul class="rows">${dictIds.filter(isBibleText).map(d =>
+				`<li class="row"><button class="row-main ${parallel ? 'check' : 'radio'}" data-text="${d}" aria-pressed="${libOn[d]}"><span class="row-w">${escapeHTML(dicts[d].name)}</span><span class="row-t">${escapeHTML(typeLabel(dicts[d]))}</span></button></li>`).join('')}</ul>`;
+	}
+	function pickText(t){
+		setOn(dictIds.filter(isBibleText), parallel ? d => d === t ? !libOn[d] : libOn[d] : d => d === t);
+		if (!parallel) closeDrawer();
 	}
 
 	// Bible mode (a Bible category picked, or a Bible page), and reading a
 	// chapter, have the Bible bar at the top of the results: ‹ book and
-	// chapter ▾ ›. Its ▾ opens the Books drawer: Parallel Bibles, the
-	// books, a book's chapters. The search bar's there to type in too.
+	// chapter ▾, translation ▾ ›. The book opens the Books drawer (the books,
+	// a book's chapters), the translation the translations drawer. The
+	// search bar's there to type in too.
 	const bibleMode = () => hasBible && (pParts.includes('bible') || selected.some(id => id.startsWith('bible')));
 	let lastRead = ''; // The chapter read last ("joh 3.")
 	let booksPick = null; // The book whose chapters the drawer shows
@@ -763,11 +735,14 @@ if(!isDictPage){
 		if (!books) return loadBooks(renderBibleBar);
 		const {b, ch} = chapterAt(lastRead);
 		const go = (dir, label) => `<button class="ch-go" data-go="${dir}" aria-label="${label} chapter"${nextChapter(lastRead, dir) ? '' : ' disabled'}>${dir < 0 ? '‹' : '›'}</button>`;
-		bibleBar.innerHTML = go(-1, 'Previous') + `<button class="ch-book">${b ? `${escapeHTML(b.name)} ${bookNum(b, ch)}` : 'Books'} ▾</button>` + go(1, 'Next');
+		const texts = dictIds.filter(d => isBibleText(d) && libOn[d]);
+		bibleBar.innerHTML = go(-1, 'Previous') + `<button class="ch-book">${b ? `${escapeHTML(b.name)} ${bookNum(b, ch)}` : 'Books'} ▾</button>` +
+			`<button class="ch-text" data-texts="1">${parallel && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation'} ▾</button>` + go(1, 'Next');
 	}
 	bibleBar.addEventListener('click', e => {
 		const b = e.target.closest('button');
 		if (b?.dataset.go) search(nextChapter(lastRead, +b.dataset.go));
+		else if (b?.dataset.texts) openDrawer('texts');
 		else if (b) openBooks();
 	});
 	// The Books drawer, at the chapters of the book read
@@ -781,7 +756,7 @@ if(!isDictPage){
 			return '<p class="empty">Loading…</p>';
 		}
 		const b = books.find(x => x.code === booksPick), cur = on => on ? ' aria-current="true"' : '';
-		return parHTML() + (b ? `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
+		return (b ? `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
 				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-read="${ref}"${cur(ref === lastRead)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
 			`<div class="bk-grid">${books.map(x => `<button data-book="${escapeHTML(x.code)}"${cur(lastRead.startsWith(x.code + ' '))}>${bookName(x)}</button>`).join('')}</div>`);
 	}
@@ -909,15 +884,14 @@ if(!isDictPage){
 	// The side panel for the whole history or all the bookmarks
 	const drawer = $('drawer');
 	const drawerBody = drawer.querySelector('.drawer-body');
-	drawerBody.addEventListener('toggle', e => { if (e.target.matches('.par-dd')) parOpen = e.target.open; }, true);
 	let drawerView = null;
 	let showLibrary = false; // The menu's Library and settings, until something is searched
-	const drawerTitles = {history: 'History', bookmarks: 'Bookmarks', books: 'Books', lang: 'Language', modes: 'Filter', first: 'Download dictionaries'};
+	const drawerTitles = {history: 'History', bookmarks: 'Bookmarks', books: 'Books', texts: 'Bible translations', lang: 'Language', modes: 'Filter', first: 'Download dictionaries'};
 	function renderDrawer(){
 		const v = drawerView, scroll = drawerBody.scrollTop;
 		drawer.querySelector('.drawer-title').textContent = drawerTitles[v];
 		drawerBody.innerHTML = lists[v] ? listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '') :
-			v === 'books' ? booksHTML() : v === 'lang' ? langHTML() : v === 'first' ? firstHTML() : filterHTML();
+			v === 'books' ? booksHTML() : v === 'texts' ? textsHTML() : v === 'lang' ? langHTML() : v === 'first' ? firstHTML() : filterHTML();
 		drawerBody.scrollTop = scroll;
 	}
 	// The groups opened (▸): a category in the filter or the library
@@ -1084,7 +1058,6 @@ if(!isDictPage){
 		if (d < 0) {
 			d = dicts.push(x) - 1;
 			libOn.push(false);
-			dict_master_code.push(true);
 		}
 		dictIds.push(d);
 		order.push(d);
@@ -1097,7 +1070,7 @@ if(!isDictPage){
 	async function deleteDict(d){
 		const x = dicts[d];
 		if (libOn[d]) setOn([d], false);
-		else if (!dict_master_code[d]) unloadDict(d);
+		else if (loaded.has(d)) unloadDict(d);
 		try {
 			const url = new URL('/' + x.path, location.origin);
 			for (const k of await caches.keys()) await (await caches.open(k)).delete(url);
@@ -1171,7 +1144,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, ptext, on, del, add, exp, mv, library, pick, first} = b.dataset;
+		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, mv, library, pick, first} = b.dataset;
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
 			renderDrawer();
@@ -1186,11 +1159,15 @@ if(!isDictPage){
 		else if (par) {
 			parallel = !parallel;
 			store(parKey, parallel);
+			const on = dictIds.filter(d => isBibleText(d) && libOn[d]).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+			if (!parallel && on.length > 1) setOn(on, d => d === on[0]); // Off: one translation (the first)
 			renderDrawer();
+			renderBibleBar();
 			if (isChapter(query)) searchAgain(); // The chapter showing, again
-		} else if (ptext || on) {
-			const d = +(ptext || on);
-			setOn([d], !libOn[d]);
+		} else if (text) {
+			pickText(+text);
+		} else if (on) {
+			setOn([+on], !libOn[+on]);
 		} else if (book || booksBack) {
 			booksPick = book || null;
 			renderDrawer();
@@ -1228,18 +1205,9 @@ if(!isDictPage){
 		if (d >= 0 && !downloaded.has(d)) { downloaded.add(d); renderListsSoon(); }
 	};
 
-	// Loads the dictionaries searched (isOn), and the rest that are on too,
-	// unsearched, for glossing and the popup (not media); the others go
+	// Loads the dictionaries that are on (and any asked for); the others go
 	function applyOn(){
-		dicts.forEach((x, d) => {
-			if (isOn(d)) {
-				extraLoaded.delete(d);
-				loadDict(d);
-			} else if (libOn[d] && !x.media) {
-				extraLoaded.add(d);
-				loadDict(d);
-			} else if (!dict_master_code[d] && !extraLoaded.has(d)) unloadDict(d);
-		});
+		dicts.forEach((_, d) => libOn[d] || asked.has(d) ? loadDict(d) : loaded.has(d) && unloadDict(d));
 		renderQuick();
 	}
 
@@ -1250,13 +1218,14 @@ if(!isDictPage){
 		const was = dicts.map((_, d) => isOn(d));
 		ds.forEach(d => {
 			libOn[d] = typeof on === 'function' ? on(d) : on;
-			if (!libOn[d]) extraLoaded.delete(d); // (not kept loaded)
+			if (!libOn[d]) asked.delete(d); // (not kept loaded)
 		});
 		saveState();
 		applyOn();
-		if (drawerView === 'books') renderDrawer();
+		if (drawerView === 'texts') renderDrawer();
 		renderLists();
-		if (ds.some(d => was[d] !== isOn(d) && (!isOn(d) || !dict_master_code[d]))) searchAgain();
+		renderBibleBar();
+		if (ds.some(d => was[d] !== isOn(d) && (!isOn(d) || loaded.has(d)))) searchAgain();
 	}
 
 	// Changes what's picked: their dictionaries, and the search again
@@ -1264,10 +1233,6 @@ if(!isDictPage){
 		selected = ids.filter(catById);
 		if (cats.filter(isTop).every(c => selected.includes(c.id))) selected = []; // Every one: All
 		store(filterKey, selected);
-		refilter();
-	}
-	function refilter(){
-		applyOn();
 		updateFilterUI();
 		searchAgain();
 	}
@@ -1305,7 +1270,7 @@ if(!isDictPage){
 	// it doesn't, every dictionary skips the SW cache and goes to the network
 	// / HTTP cache: slow when online, while offline things looked fine.
 	function loadDict(d) {
-		if (!dict_master_code[d] || loading.has(d)) return;
+		if (loaded.has(d) || loading.has(d)) return;
 		loading.add(d);
 		renderListsSoon();
 		++nload;
@@ -1326,9 +1291,9 @@ if(!isDictPage){
 	}
 
 	function unloadDict(d){
-		extraLoaded.delete(d);
+		asked.delete(d);
 		workerOf(d).postMessage({type: 'destroy', did: didOf(d)});
-		dict_master_code[d] = true;
+		loaded.delete(d);
 	}
 
 	// The star on a dictionary (in the filter or on one of its entries):
@@ -1379,17 +1344,14 @@ if(!isDictPage){
 		document.querySelectorAll('.star-btn').forEach(b => {
 			b.outerHTML = starBtnHTML(+b.dataset.d);
 		});
-		document.querySelectorAll('.dict-row').forEach(li => li.classList.toggle('starred', isStar(+li.querySelector('[data-on]').dataset.on)));
+		renderLists();
 	}
 
 
-	function openPopupSearch(text, entry){
+	function openPopupSearch(text){
 		cleanup(popupResults);
 		const q = updateQuery(text);
-		if (entry) // The entry a translated word came from
-			addResult({id: entry.d % workers.length + 1, did: didOf(entry.d), dict: dicts[entry.d].name,
-				query: q, st: 1, header: entry.header, body: entry.body, dest: "popup"});
-		forWorkers(trMask(), (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
+		forWorkers(libOn, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
 	}
 	function popupOpen(){
 		popupOverlay.style.display = 'block';
@@ -1448,14 +1410,14 @@ if(!isDictPage){
 	function initSearch(){
 		num = 0;
 		++searchGen;
-		forWorkers(dict_code, (w, code, i) => {
+		forWorkers(searching, (w, code, i) => {
 			if (code.includes(true)) w.postMessage({type: "setquery", query});
 			w.postMessage({type: "initsearch", st, dicts: code, focus: starDids(i), gen: searchGen});
 			worker_code[i] = !code.includes(true);
 		});
 	}
 	function continueSearch(){
-		forWorkers(dict_code, (w, code, i) => {
+		forWorkers(searching, (w, code, i) => {
 			if (code.includes(true)) w.postMessage({type: "continuesearch", st, focus: starDids(i)});
 			worker_code[i] = !code.includes(true);
 		});
@@ -1491,8 +1453,8 @@ if(!isDictPage){
 	// "rom 8.1 gal 1.1" links to each) and a pronunciation one.
 	function translate(){
 		if (globreg.test(query)) return;
-		const on = trOn(), q = query;
-		const ids = trOrder([...new Set([...dictIds.filter(on), phonTranslator()])].filter(d => d !== undefined));
+		const q = query;
+		const ids = trOrder([...new Set([...dictIds.filter(d => libOn[d]), phonTranslator()])].filter(d => d !== undefined));
 		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q, ids));
 	}
 
@@ -1638,12 +1600,11 @@ if(!isDictPage){
 	// Each word in a box, with its pronunciation and its entry in a line
 	// (a second index match is a word in an entry, so the entry's headword
 	// says what it means, unless it's in the same script: then the word is
-	// the entry's other spelling); tapping the word shows the entry, and what
-	// the popup search finds. Plain Latin text gets no pronunciation.
+	// the entry's other spelling); tapping the word shows what the popup
+	// search finds for it. Plain Latin text gets no pronunciation.
 	const latin = t => !/[^\u0000-ɏ]/.test(t);
 	const script = t => (t.match(/\p{L}/u)?.[0] ?? ' ').codePointAt(0) >> 7; // (its Unicode block, roughly)
 	const glossOf = (entry, word) => entry.sec && script(entry.header) !== script(word) ? entry.header : summary(entry.body, entry.header);
-	const popupEntries = []; // The entries words came from, for p-a's data-e
 	function translationHTML(pieces){
 		return pieces.map(p => {
 			if (p.d === undefined) // Text no dictionary has: its words dashed, the rest as is
@@ -1652,7 +1613,7 @@ if(!isDictPage){
 			const pron = !latin(p.text) && p.pron.length ? `<span class="tr-p">${escapeHTML(p.pron.join(' '))}</span>` : '';
 			const gloss = p.entry ? escapeHTML(glossOf(p.entry, p.text)) : '';
 			return `<span class="tr-w${p.entry ? '' : ' tr-u'}" data-w="${w}" title="${names([p.entry ? p.entry.d : p.d])}">` +
-				`<p-a${p.entry ? ` data-e="${popupEntries.push(p.entry) - 1}"` : ''}>${w}</p-a>${pron}` +
+				`<p-a>${w}</p-a>${pron}` +
 				(gloss ? `<span class="tr-g" title="${gloss}">${gloss}</span>` : '') + '</span>';
 		}).join('');
 	}
@@ -1689,17 +1650,6 @@ if(!isDictPage){
 	// right in the tap, not after something else finishes (like decoding)
 	const audioSrc = async (type, bytes) => URL.createObjectURL(/codec2|c2/i.test(type) ? await media().then(m => m.codec2toWav(bytes)) : new Blob([bytes], {type: audioType(type)}));
 	const audioType = t => /webm/i.test(t) ? 'audio/webm; codecs=opus' : 'audio/' + t.toLowerCase();
-
-	function translateEntryWith(box, text, ids){
-		const key = box.dataset.ids = ids.join();
-		box.textContent = `Glossing with ${ids.map(d => dicts[d].name).join(' + ')}…`;
-		translateText(ids, updateQuery(text), pieces => {
-			if (!box.isConnected || box.dataset.ids !== key) return;
-			box.innerHTML = `<div class="tr-head">${names(ids)}</div>` +
-				(pieces.some(p => p.d !== undefined) ? translationHTML(pieces) : 'No words found.');
-			addMedia(box, pieces, ids);
-		});
-	}
 
 	// The ⇄ button on an entry (or verse) asks which dictionaries to gloss
 	// its text with, every time, any number at once: the ones that are on,
@@ -1760,7 +1710,13 @@ if(!isDictPage){
 		const text1 = [...pe.childNodes].find(n => n.nodeType === 1 ? !n.matches('p-h, button, .tr-pick') : n.textContent.trim());
 		pe.insertBefore(box, text1 || null);
 		box.scrollIntoView({block: 'nearest'});
-		translateEntryWith(box, text, ids);
+		box.textContent = `Glossing with ${ids.map(d => dicts[d].name).join(' + ')}…`;
+		translateText(ids, updateQuery(text), pieces => {
+			if (!box.isConnected) return;
+			box.innerHTML = `<div class="tr-head">${names(ids)}</div>` +
+				(pieces.some(p => p.d !== undefined) ? translationHTML(pieces) : 'No words found.');
+			addMedia(box, pieces, ids);
+		});
 	}
 
 
@@ -1822,7 +1778,7 @@ if(!isDictPage){
 		window.scrollTo(0, 0);
 		worker_code.fill(false);
 		st = globreg.test(query) ? 0 : 3;
-		dict_code = searchMask(); // worker-side null checks skip dicts that aren't loaded
+		searching = searchMask(); // (the workers skip the ones not loaded)
 
 		updateStatus("Searching...");
 
@@ -1997,7 +1953,7 @@ if(!isDictPage){
 	});
 	customElements.define('p-a', class extends HTMLElement {
 		connectedCallback() {
-			this.addEventListener('click', () => openPopupSearch(this.textContent, popupEntries[this.dataset.e]));
+			this.addEventListener('click', () => openPopupSearch(this.textContent));
 		}
 	});
 	// <p-w s="G976">word</p-w>: a word with its Strong's number, tap for its entry
