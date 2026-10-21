@@ -467,7 +467,7 @@ if(!isDictPage){
 			cat: folders.join('/'),
 			primary: pParts.every(p => path.includes(p)),
 			media: path.includes('.slab'),
-			on: [undefined, 1, 0].includes(priority)}; // On by default: priority 1 and 0
+			on: [undefined, 1, 0].includes(priority)}; // On by default: priority 1 and 0 (and see ownLevel)
 	});
 	const primaryCats = new Set(allDicts.filter(x => x.primary).map(x => x.cat));
 	// Other languages' dictionaries added in the library (their paths)
@@ -475,6 +475,14 @@ if(!isDictPage){
 	allDicts.forEach(x => { x.added = !x.primary && addedPaths.has(x.path); });
 	const dicts = allDicts.filter(x => x.primary || x.added || (x.priority <= 0 && primaryCats.has(x.cat)));
 	const dictIds = dicts.map((_, d) => d);
+	// The download prompt's levels (firstHTML): which dictionaries each has
+	// (9: none, never suggested). On by default: Recommended's, and if none
+	// of the page's own is, its own of the first level that has any (a page
+	// of one Bible text, like /khmer/bible/text/gkb, has that one)
+	const LEVELS = ['Bare', 'Recommended', 'Extra', 'Max'];
+	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
+	const ownLevel = Math.min(9, ...dicts.filter(x => x.primary).map(levelOf));
+	dicts.forEach(x => { x.on = levelOf(x) <= 1 || (x.primary && levelOf(x) <= ownLevel); });
 	// Searched: on, and in what the filter has picked (all of it: none picked)
 	const isOn = d => libOn[d] && (solo >= 0 || inFilter(d));
 
@@ -1077,14 +1085,15 @@ if(!isDictPage){
 	// answered, it asks again next time. The library opens it again too,
 	// with just the ones not downloaded: Download turns the ticked ones on,
 	// the rest stay as they are.
-	const LEVELS = ['Bare', 'Recommended', 'Extra', 'Max'];
-	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
-	const firstIds = dictIds.filter(d => levelOf(dicts[d]) < LEVELS.length);
+	// (LEVELS and levelOf are with the dictionaries.) A level has the ones
+	// on by default too, whatever theirs.
+	const suggested = (d, n) => levelOf(dicts[d]) <= n || dicts[d].on;
+	const firstIds = dictIds.filter(d => suggested(d, LEVELS.length - 1));
 	let firstLevel = 1, firstPick;
 	// Had already: downloaded and on (one downloaded but off, like a Bible
 	// page's text loaded for its books' names, is still to turn on)
 	const have = d => downloaded.has(d) && libOn[d];
-	const notGot = (more = 1) => firstIds.filter(d => !have(d) && levelOf(dicts[d]) <= firstLevel + more); // (and the next level's)
+	const notGot = (more = 1) => firstIds.filter(d => !have(d) && suggested(d, firstLevel + more)); // (and the next level's)
 	const setLevel = n => { firstLevel = n; firstPick = new Set(notGot(0)); };
 	setLevel(1);
 	const sizeOf = ds => ds.reduce((n, d) => n + dicts[d].size, 0);
@@ -1379,7 +1388,7 @@ if(!isDictPage){
 	else markCached().catch(() => !asking).then(any => {
 		if (asking && any && !notGot(0).some(d => !downloaded.has(d))) {
 			asking = false;
-			firstIds.filter(d => downloaded.has(d) && levelOf(dicts[d]) <= firstLevel).forEach(d => { libOn[d] = true; });
+			firstIds.filter(d => downloaded.has(d) && suggested(d, firstLevel)).forEach(d => { libOn[d] = true; });
 			saveState();
 		} else if (asking || !any) {
 			asking = true;
