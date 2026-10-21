@@ -1013,14 +1013,18 @@ if(!isDictPage){
 	// The first time (nothing saved): which to download, the priority 1 and 0
 	// dictionaries, ticked, by category (the media folder's each under its
 	// own: Audio, Images); or choose in the library (all off). Not
-	// answered, it asks again next time. The library opens it again too:
-	// Download turns the ticked ones on, the rest stay as they are.
+	// answered, it asks again next time. The library opens it again too,
+	// with just the ones not downloaded: Download turns the ticked ones on,
+	// the rest stay as they are.
 	const firstIds = dictIds.filter(d => [0, 1].includes(dicts[d].priority)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
 	const firstPick = new Set(firstIds.filter(d => dicts[d].priority === 1 || dicts[d].lang === 'english')); // (another language's priority 0, not ticked)
+	const notGot = () => firstIds.filter(d => !downloaded.has(d));
 	const sizeOf = ds => ds.reduce((n, d) => n + dicts[d].size, 0);
 	function firstHTML(){
 		let prev = null, html = '';
-		firstIds.forEach(d => {
+		const ids = notGot();
+		if (!ids.length) return '<p class="empty">The suggested dictionaries are all downloaded.</p>';
+		ids.forEach(d => {
 			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
@@ -1028,13 +1032,13 @@ if(!isDictPage){
 		});
 		if (prev !== null) html += '</ul>';
 		return '<p class="empty">Which dictionaries? They download once, then work offline.</p>' + html +
-			`<button class="first-default" data-first="go">Download (${sizeText(sizeOf([...firstPick]))})</button>` +
+			`<button class="first-default" data-first="go"${ids.some(d => firstPick.has(d)) ? `>Download (${sizeText(sizeOf(ids.filter(d => firstPick.has(d))))})` : ' disabled>Download'}</button>` +
 			'<p class="empty">Or <button class="text-btn" data-first="custom">choose my own in the library</button></p>';
 	}
 	function firstAnswer(v){
 		asking = false;
 		closeDrawer();
-		if (v === 'go') setOn([...firstPick], true);
+		if (v === 'go') setOn(notGot().filter(d => firstPick.has(d)), true);
 		else {
 			saveState();
 			openLibrary();
