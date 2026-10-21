@@ -506,27 +506,32 @@ if(!isDictPage){
 	// same in every category (onIn).
 	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
 		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
-		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation',
+		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation', 'phonetics/dict': 'Pronunciation dictionaries', 'phonetics/ref': 'Pronunciation guides',
 		media: 'Audio & images', ref: 'Reference'};
 	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
+	// (Again when a dictionary's added or taken off.) Choosing is worth it
+	// only with two or more: one category is everything. The bar has the
+	// top-level ones, so it needs two of those.
 	const cats = []; // {id, label, sub, members: [d, ...]}
-	{
+	let choice, barChoice;
+	function buildCats(){
+		cats.length = 0;
 		const addCat = (id, label, test, sub) => {
 			const members = dictIds.filter(d => test(dicts[d]));
 			// Not if it's empty, everything (Greek's Bible) or the same as another
 			if (members.length && members.length < dictIds.length && !cats.some(c => c.members.join() === members.join()))
 				cats.push({id, label, sub, members});
 		};
-		const top = x => x.cat.split('/')[0] || 'other', two = x => x.cat.split('/').slice(0, 2).join('/');
-		[...new Set(dicts.map(top))].sort((a, b) => (b === 'bible') - (a === 'bible')).forEach(c => {
+		const xs = dictIds.map(d => dicts[d]), top = x => x.cat.split('/')[0] || 'other', two = x => x.cat.split('/').slice(0, 2).join('/');
+		[...new Set(xs.map(top))].sort((a, b) => (b === 'bible') - (a === 'bible')).forEach(c => {
 			addCat(c, catLabel(c), x => top(x) === c);
-			const subs = new Set(dicts.filter(x => top(x) === c && x.cat.includes('/')).map(two));
+			const subs = new Set(xs.filter(x => top(x) === c && x.cat.includes('/')).map(two));
 			if (subs.size > 1) subs.forEach(s => addCat(s, catLabel(s), x => two(x) === s, true));
 		});
+		choice = cats.length > 1;
+		barChoice = cats.filter(c => !c.sub).length > 1;
 	}
-	// Choosing is worth it only with two or more: one category is everything.
-	// The bar has the top-level ones, so it needs two of those.
-	const choice = cats.length > 1, barChoice = cats.filter(c => !c.sub).length > 1;
+	buildCats();
 	const catById = id => cats.find(c => c.id === id);
 	const urlParams = new URLSearchParams(window.location.search);
 	const filterKey = `peakslab-filter-${appname}`;
@@ -729,13 +734,14 @@ if(!isDictPage){
 	// drop-down: it, and the texts to read.
 	const parKey = `peakslab-parallel-${appname}`;
 	let parallel = stored(parKey) ?? true;
-	const bibleTexts = dictIds.filter(isBibleText);
+	const bibleTexts = () => dictIds.filter(isBibleText);
 	let parOpen = false; // The drop-down open (it stays so as the drawer's redrawn)
 	function parHTML(){
-		if (bibleTexts.length < 2) return '';
-		return `<details class="par-dd"${parOpen ? ' open' : ''}><summary><span class="row-w">Parallel Bibles</span><span class="row-t">${parallel ? 'On' : 'Off'} · ${bibleTexts.filter(d => libOn[d]).length} of ${bibleTexts.length} texts</span></summary>` +
+		const texts = bibleTexts();
+		if (texts.length < 2) return '';
+		return `<details class="par-dd"${parOpen ? ' open' : ''}><summary><span class="row-w">Parallel Bibles</span><span class="row-t">${parallel ? 'On' : 'Off'} · ${texts.filter(d => libOn[d]).length} of ${texts.length} texts</span></summary>` +
 			`<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel reading</span><span class="row-t">Verse by verse in each text</span></button></li></ul>` +
-			`<h3 class="drawer-h">Texts</h3><ul class="cat-dicts">${bibleTexts.map(d =>
+			`<h3 class="drawer-h">Texts</h3><ul class="cat-dicts">${texts.map(d =>
 				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${libOn[d]}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeOf(dicts[d])}</button></li>`).join('')}</ul></details>`;
 	}
 
@@ -1060,7 +1066,7 @@ if(!isDictPage){
 		}).catch(() => {});
 	}
 	// Another language's dictionary onto the page (or back on it), on: at
-	// the end, so every other one keeps its number; into its categories
+	// the end, so every other one keeps its number; its categories opened
 	function addDict(path){
 		const x = allDicts.find(x => x.path === path);
 		if (!x) return;
@@ -1074,14 +1080,8 @@ if(!isDictPage){
 		}
 		dictIds.push(d);
 		order.push(d);
-		if (isBibleText(d)) bibleTexts.push(d);
-		const top = x.cat.split('/')[0] || 'other', two = x.cat.split('/').slice(0, 2).join('/');
-		const into = cats.filter(c => c.id === top || c.id === two);
-		if (!into.length && choice) into.push(cats[cats.push({id: top, label: catLabel(top), members: []}) - 1]);
-		into.forEach(c => {
-			c.members.push(d);
-			expandedCats.add(`library:${c.id}`);
-		});
+		buildCats();
+		cats.filter(c => c.members.includes(d)).forEach(c => expandedCats.add(`library:${c.id}`));
 		setOn([d], true);
 	}
 	// A download deleted (it's turned off: it downloads again when it's
@@ -1099,8 +1099,9 @@ if(!isDictPage){
 		if (x.added) {
 			x.added = false;
 			store(addKey, readList(addKey).filter(p => p !== x.path));
-			[dictIds, order, bibleTexts, stars, ...cats.map(c => c.members)].forEach(l => { const i = l.indexOf(d); if (i >= 0) l.splice(i, 1); });
-			renderQuick();
+			[dictIds, order, stars].forEach(l => { const i = l.indexOf(d); if (i >= 0) l.splice(i, 1); });
+			buildCats();
+			setFilter(selected); // (a category gone)
 		}
 		renderLists();
 	}
@@ -1457,9 +1458,10 @@ if(!isDictPage){
 
 	const globreg = /[!+*^]/;
 
-	// Dictionaries of words (not media, not pronunciation) and pronunciation ones
-	const isPhon = d => dicts[d].type === 'phon' && !dicts[d].media;
-	const isWords = d => !dicts[d].media && !isPhon(d);
+	// Glosses use the dictionaries in a dict folder (dict/, bible/dict/,
+	// phonetics/dict/, ...): of words, and phonetics/dict/'s pronunciations
+	const isPhon = d => dicts[d].cat === 'phonetics/dict';
+	const isWords = d => dicts[d].path.includes('/dict/') && !isPhon(d);
 	// Starred first, then the filter's order; pronunciation ones last
 	const trOrder = ids => [...ids].sort((a, b) => isPhon(a) - isPhon(b) || sortId(a) - sortId(b));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
@@ -1467,13 +1469,12 @@ if(!isDictPage){
 	const phonTranslator = () => dictIds.find(isPhon);
 
 	// The query word by word, when the search found nothing: with every
-	// dictionary trOn (not media) and a pronunciation one, loading any that
-	// aren't. A Bible text's headwords are its verses, so "rom 8.1 gal 1.1"
-	// links to each.
+	// dictionary of words that's on, Bible texts (their headwords are verses,
+	// so "rom 8.1 gal 1.1" links to each) and a pronunciation one.
 	function translate(){
 		if (globreg.test(query)) return;
 		const on = trOn(), q = query;
-		const ids = trOrder([...dictIds.filter(d => on(d) && isWords(d)), phonTranslator()].filter(d => d !== undefined));
+		const ids = trOrder([...dictIds.filter(d => on(d) && (isWords(d) || isBibleText(d))), phonTranslator()].filter(d => d !== undefined));
 		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q));
 	}
 
@@ -1544,7 +1545,7 @@ if(!isDictPage){
 	}
 
 	// Bible dictionaries (not texts: their headwords are verse references)
-	const isBibleDict = d => /^bible\//.test(dicts[d].cat) && !isBibleText(d);
+	const isBibleDict = d => dicts[d].cat === 'bible/dict';
 
 	// The best way to split text[a, b) into matches: the fewest characters
 	// none of them has (letters and digits: spaces and punctuation don't
@@ -1677,13 +1678,13 @@ if(!isDictPage){
 	}
 
 	// The ⇄ button on an entry (or verse) asks which dictionaries to gloss
-	// its text with, every time, any number at once: the ones that are on,
-	// pronunciation ones, and (loaded when used) the ones that are off. It
-	// starts with the ones that are on and a pronunciation one, with the
-	// changes made here before (added, dropped) kept. Tap ⇄ again to hide it.
+	// its text with, every time, any number at once: the dictionaries of
+	// words that are on, pronunciation ones, and (loaded when used) the
+	// rest. It starts with the first and a pronunciation one, with the changes
+	// made here before (added, dropped) kept. Tap ⇄ again to hide it.
 	// Not media or Bible texts (verse references aren't words)
 	const glossable = () => dictIds.filter(d => !dicts[d].media && !isBibleText(d));
-	const glossDefault = () => [...new Set([...glossable().filter(d => libOn[d]), phonTranslator()])].filter(d => d !== undefined);
+	const glossDefault = () => [...new Set([...dictIds.filter(d => libOn[d] && isWords(d)), phonTranslator()])].filter(d => d !== undefined);
 	const trWithKey = `peakslab-gloss-${appname}`;
 	function lastTrWith(){
 		const {add = [], drop = []} = stored(trWithKey) || {}, dropped = byPaths(drop);
@@ -1704,7 +1705,7 @@ if(!isDictPage){
 		pick.innerHTML = '<div class="tr-q">Gloss with <button class="tr-go">Gloss</button></div>' +
 			(on.length ? `<div class="tr-sub">On</div>${opts(on)}` : '') +
 			(phons.length ? `<div class="tr-sub">Pronunciation</div>${opts(phons)}` : '') +
-			(off.length ? `<details${off.some(d => chosen.has(d)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${opts(off)}</details>` : '');
+			(off.length ? `<details${off.some(d => chosen.has(d)) ? ' open' : ''}><summary class="tr-sub">More (loads when used)</summary>${opts(off)}</details>` : '');
 		btn.insertAdjacentElement('afterend', pick);
 		pick.scrollIntoView({block: 'nearest'});
 		const goBtn = pick.querySelector('.tr-go');

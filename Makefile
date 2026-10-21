@@ -53,15 +53,15 @@ $(SLAB_META_FILES): peakgen FORCE
 	fi
 
 # g2k.tsv is made: ipa.tsv in G2K's phonetics, then the words only nath2022 has
-dict_src/khmer/phonetics/g2k.tsv: dict_src/khmer/phonetics/ipa.tsv dict_src/khmer/dict/nath2022.tsv utils/ipatog2k.py utils/nathtog2k.pl
+dict_src/khmer/phonetics/dict/g2k.tsv: dict_src/khmer/phonetics/dict/ipa.tsv dict_src/khmer/dict/nath2022.tsv utils/ipatog2k.py utils/nathtog2k.pl
 	perl utils/nathtog2k.pl dict_src/khmer/dict/nath2022.tsv > $@.nath
-	python3 utils/ipatog2k.py dict_src/khmer/phonetics/ipa.tsv $@ $@.nath
+	python3 utils/ipatog2k.py dict_src/khmer/phonetics/dict/ipa.tsv $@ $@.nath
 	rm $@.nath
 
 # The Lao pronunciation dictionaries are made from pat's and kerr's
-dict_src/lao/phonetics/laoipa.tsv dict_src/lao/phonetics/laosouth.tsv &: dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv utils/laophonetics.py
-	mkdir -p dict_src/lao/phonetics
-	python3 utils/laophonetics.py dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv dict_src/lao/phonetics
+dict_src/lao/phonetics/dict/laoipa.tsv dict_src/lao/phonetics/dict/laosouth.tsv &: dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv utils/laophonetics.py
+	mkdir -p dict_src/lao/phonetics/dict
+	python3 utils/laophonetics.py dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv dict_src/lao/phonetics/dict
 
 # The Greek and Hebrew interlinear Bibles and their lexicons are made from
 # STEPBible's data (https://github.com/STEPBible/STEPBible-Data: the TAGNT,
