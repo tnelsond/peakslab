@@ -1005,37 +1005,32 @@ if(!isDictPage){
 			(byLang.size ? `<ul class="rows cats">${groupHTML('library:langs', groupHead('library:langs', 'Other languages', `${byLang.size} languages: add their dictionaries`),
 				() => `<ul class="rows cats">${[...byLang].sort(([a], [b]) => a.localeCompare(b)).map(lang).join('')}</ul>`)}</ul>` : '');
 	}
-	// The first time (nothing saved): which to download, the defaults
-	// ticked, by category, and audio and images (big) as one more, ticked
-	// too; or choose in the library (all off). Not answered, it asks again
-	// next time.
-	const firstPick = new Set(dictIds.filter(d => dicts[d].on && !dicts[d].media));
-	let firstMedia = true;
-	const mediaIds = dictIds.filter(d => dicts[d].media);
+	// The first time (nothing saved): which to download, the priority 1 and 0
+	// dictionaries, ticked, by category (the media folder's each under its
+	// own: Audio, Images); or choose in the library (all off). Not
+	// answered, it asks again next time.
+	const firstIds = dictIds.filter(d => [0, 1].includes(dicts[d].priority)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+	const firstPick = new Set(firstIds);
 	const sizeOf = ds => ds.reduce((n, d) => n + dicts[d].size, 0);
 	function firstHTML(){
-		const picked = [...firstPick, ...(firstMedia ? mediaIds : [])];
-		const row = (attrs, on, name, extra, desc) => `<li class="row dict-row"><button class="row-main check" ${attrs} aria-pressed="${on}">` +
-			`<span class="lib-name"><span class="row-w">${name}</span>${extra}</span><span class="lib-desc">${desc}</span></button></li>`;
 		let prev = null, html = '';
-		dictIds.filter(d => dicts[d].on && !dicts[d].media).sort((a, b) => order.indexOf(a) - order.indexOf(b)).forEach(d => {
-			const x = dicts[d], label = catLabel(x.cat);
+		firstIds.forEach(d => {
+			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
-			html += row(`data-pick="${d}"`, firstPick.has(d), escapeHTML(x.name), `${typeHTML(d)}<span class="lib-size">${sizeText(x.size)}</span>`, x.desc);
+			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">` +
+				`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeHTML(d)}<span class="lib-size">${sizeText(x.size)}</span></span>` +
+				`<span class="lib-desc">${x.desc}</span></button></li>`;
 		});
 		if (prev !== null) html += '</ul>';
-		if (mediaIds.length)
-			html += `<h4 class="cat-subh">${escapeHTML(catLabel('media'))}</h4><ul class="rows dict-rows">` +
-				row('data-pick-media="1"', firstMedia, 'Audio and images', `<span class="lib-size">${sizeText(sizeOf(mediaIds))}</span>`, escapeHTML(mediaIds.map(d => dicts[d].name).join(', '))) + '</ul>';
 		return '<p class="empty">Which dictionaries? They download once, then work offline.</p>' + html +
-			`<button class="first-default" data-first="go">Download (${sizeText(sizeOf(picked))})</button>` +
+			`<button class="first-default" data-first="go">Download (${sizeText(sizeOf([...firstPick]))})</button>` +
 			'<p class="empty">Or <button class="text-btn" data-first="custom">choose my own in the library</button></p>';
 	}
 	function firstAnswer(v){
 		asking = false;
 		closeDrawer();
-		if (v === 'go') setOn(dictIds, d => firstPick.has(d) || (firstMedia && mediaIds.includes(d)));
+		if (v === 'go') setOn(dictIds, d => firstPick.has(d));
 		else {
 			saveState();
 			openLibrary();
@@ -1151,10 +1146,9 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, ptext, on, del, add, exp, mv, library, pick, pickMedia, first} = b.dataset;
-		if (pick || pickMedia) { // The first time's choices
-			if (pickMedia) firstMedia = !firstMedia;
-			else if (!firstPick.delete(+pick)) firstPick.add(+pick);
+		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, ptext, on, del, add, exp, mv, library, pick, first} = b.dataset;
+		if (pick) { // The first time's choices
+			if (!firstPick.delete(+pick)) firstPick.add(+pick);
 			renderDrawer();
 		} else if (first) firstAnswer(first);
 		else if (exp) { // A group opened or closed
