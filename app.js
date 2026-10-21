@@ -502,13 +502,9 @@ if(!isDictPage){
 		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation', 'phonetics/dict': 'Pronunciation dictionaries', 'phonetics/ref': 'Pronunciation guides',
 		media: 'Audio & images', ref: 'Reference'};
 	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
-	// Every dictionary, in the order their entries come
-	const orderKey = `peakslab-order-${appname}`;
-	const order = [...new Set([...byPaths(readList(orderKey)), ...dictIds])];
 	// The categories, in the order their entries come (their first
-	// dictionary's). Again when a dictionary's added or taken off, or one's
-	// moved. Choosing is worth it only with two or more: one category is
-	// everything.
+	// dictionary's). Again when a dictionary's added or taken off. Choosing
+	// is worth it only with two or more: one category is everything.
 	const cats = []; // {id, label, sub, members: [d, ...]}
 	let choice;
 	function buildCats(){
@@ -519,7 +515,7 @@ if(!isDictPage){
 			if (members.length && members.length < dictIds.length && !cats.some(c => c.members.join() === members.join()))
 				cats.push({id, label, sub, members});
 		};
-		const xs = order.filter(d => dictIds.includes(d)).map(d => dicts[d]), top = x => x.cat.split('/')[0] || 'other', two = x => x.cat.split('/').slice(0, 2).join('/');
+		const xs = dictIds.map(d => dicts[d]), top = x => x.cat.split('/')[0] || 'other', two = x => x.cat.split('/').slice(0, 2).join('/');
 		[...new Set(xs.map(top))].forEach(c => {
 			addCat(c, catLabel(c), x => top(x) === c);
 			const subs = new Set(xs.filter(x => top(x) === c && x.cat.includes('/')).map(two));
@@ -553,7 +549,7 @@ if(!isDictPage){
 	const starKey = `peakslab-stars-${appname}`;
 	let stars = byPaths(readList(starKey));
 	const isStar = d => stars.includes(d);
-	const sortId = d => isStar(d) ? stars.indexOf(d) - 1000 : order.indexOf(d) + 1;
+	const sortId = d => isStar(d) ? stars.indexOf(d) - 1000 : d + 1; // (starred first, then the dictionaries' order)
 	const starBtnHTML = d => `<button class="star-btn" data-d="${d}" onclick="toggleStar(${d})" aria-pressed="${isStar(d)}" title="${isStar(d) ? 'Unstar' : 'Star: show it first'}" aria-label="Star ${escapeHTML(dicts[d].name)}">${isStar(d) ? '★' : '☆'}</button>`;
 	const focusEnd = document.createElement('span'); // The starred dictionaries' sections go above this
 
@@ -947,32 +943,27 @@ if(!isDictPage){
 	function listOf(id, view){
 		const c = id && catById(id);
 		const ds = c ? c.members.filter(d => !subsOf(c).some(s => s.members.includes(d))) : dictIds.filter(d => !cats.some(c => c.members.includes(d)));
-		return ds.filter(inView(view)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+		return ds.filter(inView(view));
 	}
 	// A category the view has any of (the filter: any downloaded)
 	const shown = (c, view) => c.members.some(inView(view));
 	// A dictionary's name, kind, size (with its state, if any) and description
 	const infoHTML = (x, size = x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') =>
 		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
-	// ↑ ↓: moves it (a dictionary, data-d, or a category, data-cat) past the
-	// one before or after it in its list
-	const mvHTML = (data, name, list, it) => '<span class="mv">' + [[-1, 'Up', 'M12 19V5M5 12l7-7 7 7'], [1, 'Down', 'M12 5v14M5 12l7 7 7-7']].map(([dir, title, path]) =>
-		`<button data-mv="${dir}" ${data} title="${title}" aria-label="${title}: ${escapeHTML(name)}"${list[list.indexOf(it) + dir] === undefined ? ' disabled' : ''}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="${path}"/></svg></button>`).join('') + '</span>';
 	// A dictionary: on or off, what kind it is, downloaded (✓) or not (⬇)
 	// and its size, what it is; to delete its download (🗑) or take an added
-	// one off the page (✕), its star, and in the filter, to move it (↑ ↓)
-	function dictRowHTML(d, view, id, ds){
+	// one off the page (✕), and its star
+	function dictRowHTML(d){
 		const x = dicts[d], state = loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${libOn[d]}">` +
 			infoHTML(x, `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${x.size ? sizeText(x.size) : ''}</span>`) + '</button>' +
-			(view === 'filter' ? mvHTML(`data-d="${d}" data-list="${id}"`, x.name, ds, d) : '') +
 			(x.added ? `<button class="dict-del" data-del="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` :
 				state === 'got' ? `<button class="dict-del" data-del="${d}" title="Delete its download (it's turned off)" aria-label="Delete ${escapeHTML(x.name)}'s download">🗑</button>` : '') +
 			`${starBtnHTML(d)}</li>`;
 	}
 	function rowsHTML(id, view){
 		const ds = listOf(id, view);
-		return ds.length ? `<ul class="rows dict-rows">${ds.map(d => dictRowHTML(d, view, id, ds)).join('')}</ul>` : '<p class="empty">None downloaded.</p>';
+		return ds.length ? `<ul class="rows dict-rows">${ds.map(dictRowHTML).join('')}</ul>` : '<p class="empty">None downloaded.</p>';
 	}
 	// The categories; opened, their own dictionaries, then each
 	// subcategory's under its heading. Then Other: the ones in none. In the filter a
@@ -984,8 +975,7 @@ if(!isDictPage){
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => groupHTML(`${view}:${c.id}`,
 			view === 'filter' ? btn(c, 'sel', `class="cat-chk check" aria-pressed="${!filtered() || selected.includes(c.id)}" aria-label="Search ${escapeHTML(c.label)}"`, '') +
-				btn(c, 'only', 'class="cat-sel" title="Just this"', `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) +
-				mvHTML(`data-cat="${c.id}"`, c.label, tops, c) :
+				btn(c, 'only', 'class="cat-sel" title="Just this"', `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) :
 				groupHead(`${view}:${c.id}`, c.label, catCount(c, view)),
 			() => {
 				const subs = subsOf(c).filter(s => shown(s, view));
@@ -1004,7 +994,7 @@ if(!isDictPage){
 		return '<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel()) +
 			(choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${catCount({members: dictIds}, 'filter')}</span></button></li></ul>` : '') +
 			catsHTML('filter') +
-			'<p class="empty">Tick as many as you like, or tap a name for just it: searches use their dictionaries that are on. ↑ ↓ change the order their entries come in; starred ones come first.</p>' +
+			'<p class="empty">Tick as many as you like, or tap a name for just it: searches use their dictionaries that are on. Star a dictionary (☆) for its entries to come first.</p>' +
 			'<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
 	}
 	// The library: every dictionary on the page, by category; then other
@@ -1033,7 +1023,7 @@ if(!isDictPage){
 	// the rest stay as they are.
 	const LEVELS = ['Bare', 'Recommended', 'Extra', 'Max'];
 	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
-	const firstIds = dictIds.filter(d => levelOf(dicts[d]) < LEVELS.length).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+	const firstIds = dictIds.filter(d => levelOf(dicts[d]) < LEVELS.length);
 	let firstLevel = 1, firstPick;
 	// Had already: downloaded and on (one downloaded but off, like a Bible
 	// page's text loaded for its books' names, is still to turn on)
@@ -1138,7 +1128,6 @@ if(!isDictPage){
 			libOn.push(false);
 		}
 		dictIds.push(d);
-		order.push(d);
 		buildCats();
 		cats.filter(c => c.members.includes(d)).forEach(c => expandedCats.add(`library:${c.id}`));
 		setOn([d], true);
@@ -1158,7 +1147,7 @@ if(!isDictPage){
 		if (x.added) {
 			x.added = false;
 			store(addKey, readList(addKey).filter(p => p !== x.path));
-			[dictIds, order, stars].forEach(l => { const i = l.indexOf(d); if (i >= 0) l.splice(i, 1); });
+			[dictIds, stars].forEach(l => { const i = l.indexOf(d); if (i >= 0) l.splice(i, 1); });
 			buildCats();
 			setFilter(selected); // (a category gone)
 		}
@@ -1183,30 +1172,6 @@ if(!isDictPage){
 		downloaded.clear();
 		refreshUsage();
 		renderLists();
-	}
-	// Moves a dictionary up (-1) or down (1) past the next one in its list,
-	// or a category (its dictionaries, together) past the next one
-	function move(b, dir){
-		const {d, list, cat} = b.dataset, byOrder = ds => [...ds].sort((a, b) => order.indexOf(a) - order.indexOf(b));
-		let ds;
-		if (cat) {
-			const tops = cats.filter(c => isTop(c) && shown(c, 'filter')), k = tops.indexOf(catById(cat));
-			if (!tops[k + dir]) return;
-			[tops[k], tops[k + dir]] = [tops[k + dir], tops[k]];
-			ds = tops.flatMap(c => byOrder(c.members));
-		} else {
-			ds = listOf(list, 'filter');
-			const k = ds.indexOf(+d);
-			if (ds[k + dir] === undefined) return;
-			[ds[k], ds[k + dir]] = [ds[k + dir], ds[k]];
-		}
-		// Their places in the order, now theirs in this order
-		const at = byOrder(ds).map(x => order.indexOf(x));
-		ds.forEach((x, i) => { order[at[i]] = x; });
-		if (solo < 0) store(orderKey, order.map(d => dicts[d].path));
-		buildCats();
-		renderLists();
-		searchAgain();
 	}
 	function openDrawer(view){
 		if (drawerView === view) return closeDrawer();
@@ -1242,7 +1207,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, mv, library, pick, level, first} = b.dataset;
+		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, library, pick, level, first} = b.dataset;
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
 			drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
@@ -1257,12 +1222,11 @@ if(!isDictPage){
 			renderLists();
 		} else if (del) deleteDict(+del);
 		else if (add) addDict(add);
-		else if (mv) move(b, +mv);
 		else if (library) openLibrary();
 		else if (par) {
 			parallel = !parallel;
 			store(parKey, parallel);
-			const on = dictIds.filter(d => isBibleText(d) && libOn[d]).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+			const on = dictIds.filter(d => isBibleText(d) && libOn[d]);
 			if (!parallel && on.length > 1) setOn(on, d => d === on[0]); // Off: one translation (the first)
 			renderDrawer();
 			renderBibleBar();
@@ -1540,7 +1504,7 @@ if(!isDictPage){
 	// sound; the ones in a dict folder (dict/, bible/dict/, ...) come first
 	const isPhon = d => dicts[d].cat === 'phonetics/dict';
 	const inDict = d => dicts[d].path.includes('/dict/');
-	// A dict folder's first, then starred, then the filter's order;
+	// A dict folder's first, then starred, then the dictionaries' order;
 	// pronunciation ones last
 	const trOrder = ids => [...ids].sort((a, b) => isPhon(a) - isPhon(b) || inDict(b) - inDict(a) || sortId(a) - sortId(b));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
