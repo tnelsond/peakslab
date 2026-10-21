@@ -56,19 +56,25 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
   const path = decodeURIComponent(url.pathname);
+  if (path.endsWith('/manifest.json')) return e.respondWith(manifest(path, e.request.referrer)); // (never the network: there's none there)
   e.respondWith(LOCAL ? networkFirst(e.request, path) : handleFetch(e.request, path));
   if (e.request.mode === 'navigate') e.waitUntil(checkFiles()); // (throttled)
 });
 
 // Served from this computer or the local network (development, e.g.
 // utils/server-no-cache.py): the network first, so a rebuilt app shows on a
-// plain reload; the cache only when that fails. (A page's own address is a
-// 404 there with the app in it: still the page.)
+// plain reload; the cache only when that fails. A page is the app's page
+// (404.html) from there, not its address: that's a 404 (/khmer/ also a
+// redirect first), though it's the app either way.
 const LOCAL = /^(localhost|127\.|10\.|192\.168\.|\[::1\]$)/.test(self.location.hostname);
 async function networkFirst(request, path) {
+  if (request.mode === 'navigate') {
+    path = await pageOf(path);
+    request = new Request(path);
+  }
   try {
     const res = await fetch(request, {cache: 'no-store'});
-    if (res.ok || request.mode === 'navigate') {
+    if (res.ok) {
       const name = await currentCache();
       if (res.ok && name && request.method === 'GET') await (await caches.open(name)).put(path, await tagged(res.clone(), files.get(path) || Date.now())).catch(() => {});
       return res;
@@ -259,14 +265,17 @@ async function activate() {
 }
 
 async function handleFetch(request, path) {
-  if (path.endsWith('/manifest.json')) return manifest(path, request.referrer);
   if (request.mode === 'navigate' || path.endsWith('.html') || path.endsWith('/')) {
-    await ensureFiles();
-    let p = path.endsWith('/') ? path + '404.html' : path;
-    if (!files.has(p)) p = '/404.html'; // The app's page
+    const p = await pageOf(path);
     return (await (await caches.open(await currentCache())).match(p)) || cacheFirst(new Request('/404.html'), '/404.html');
   }
   return cacheFirst(request, path);
+}
+// The file a page's address is: one files.json lists, else the app's page
+async function pageOf(path) {
+  await ensureFiles();
+  const p = path.endsWith('/') ? path + '404.html' : path;
+  return files.has(p) ? p : '/404.html';
 }
 
 // The manifest for the page's directory: the referrer's (a relative
