@@ -482,7 +482,7 @@ if(!isDictPage){
 
 	const byPaths = paths => paths.map(p => dicts.findIndex(x => x.path === p)).filter(d => d >= 0);
 
-	const sizeText = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
+	const sizeText = n => n < 1e6 ? `${n && Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
 	startHidden = new Set(dicts.filter(x => x.collapsed).map(x => x.name));
 	applyHidden();
 
@@ -1018,7 +1018,7 @@ if(!isDictPage){
 		const here = sizeOf(dictIds.filter(d => downloaded.has(d) && dicts[d].lang === curLang)); // (not other languages')
 		return '<h2>Library</h2><p class="lib-help">Turn dictionaries on or off: ⬇ ones download when they\'re on, and 🗑 deletes a download. Star the ones you use most: their entries come first.</p>' +
 			'<p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
-			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''}</p>` +
+			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''} <button class="text-btn" data-first="delete">Delete everything…</button></p>` +
 			catsHTML('library') +
 			(byLang.size ? `<ul class="rows cats">${groupHTML('library:langs', groupHead('library:langs', 'Other languages', `${byLang.size} languages: add their dictionaries`),
 				() => `<ul class="rows cats">${[...byLang].sort(([a], [b]) => a.localeCompare(b)).map(lang).join('')}</ul>`)}</ul>` : '');
@@ -1164,6 +1164,26 @@ if(!isDictPage){
 		}
 		renderLists();
 	}
+	// Every language's downloaded dictionaries deleted (asked first, with
+	// their size), all turned off; the app and the settings stay. Each page
+	// asks which to download again.
+	async function deleteAll(){
+		const files = [];
+		try {
+			for (const k of await caches.keys()) {
+				const c = await caches.open(k);
+				for (const r of await c.keys()) if (/\.(peak|slab)/.test(r.url)) files.push([c, r]);
+			}
+		} catch (e) { /* no Cache API */ }
+		const paths = new Set(files.map(([, r]) => new URL(r.url).pathname.slice(1)));
+		const size = allDicts.filter(x => paths.has(x.path)).reduce((n, x) => n + x.size, 0);
+		if (!confirm(`Delete every downloaded dictionary, in every language${size ? ` (${sizeText(size)})` : ''}? You can download them again.`)) return;
+		setOn(dictIds, false);
+		for (const [c, r] of files) await c.delete(r);
+		downloaded.clear();
+		refreshUsage();
+		renderLists();
+	}
 	// Moves a dictionary up (-1) or down (1) past the next one in its list,
 	// or a category (its dictionaries, together) past the next one
 	function move(b, dir){
@@ -1230,7 +1250,8 @@ if(!isDictPage){
 		else if (first === 'again') {
 			setLevel(firstLevel); // (what's downloaded now)
 			openDrawer('first');
-		} else if (first) firstAnswer(first);
+		} else if (first === 'delete') deleteAll();
+		else if (first) firstAnswer(first);
 		else if (exp) { // A group opened or closed
 			if (!expandedCats.delete(exp)) expandedCats.add(exp);
 			renderLists();
