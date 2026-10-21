@@ -506,21 +506,22 @@ p-d.translation h2 .translate-btn { font-size: 13px; } /* (not the heading's siz
 }
 /* A dictionary's menu (tap its name); a word's hidden entries */
 p-h { cursor: pointer; }
-:has(> .dict-menu) { position: relative; }
-.dict-menu {
+/* The little menus (a dictionary's, Gloss with): over the page at the
+   right of the entry (or verse, or the search's gloss), under what opened
+   them, so they don't push anything down */
+:is(p-e, p-d, .pv-t):has(.menu) { position: relative; }
+.menu {
 	position: absolute;
-	top: 2em;
 	right: 0;
-	z-index: 5;
+	z-index: 6;
 	display: flex;
 	flex-direction: column;
 	border: 1px solid var(--line);
 	border-radius: 10px;
 	background: var(--card-bg);
 	box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
-	overflow: hidden;
-	font-size: 14px;
 }
+.dict-menu { top: 2em; overflow: hidden; font-size: 14px; }
 .dict-menu button { padding: 9px 14px; border: 0; background: none; color: var(--card-text); text-align: left; }
 .dict-menu button + button { border-top: 1px solid var(--line); }
 .see-more { display: none; margin: .5em 0 0; }
@@ -629,29 +630,17 @@ p-w:hover { text-decoration: underline dotted; }
 	font-size: .85em;
 }
 /* Which dictionaries to translate with */
-/* Over the page, at the right of its entry (or verse, or the search's
-   gloss), under the button: it doesn't push anything down */
-:is(p-e, p-d, .pv-t):has(.tr-pick) { position: relative; }
 .tr-pick {
-	position: absolute;
-	right: 0;
-	z-index: 6;
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
 	min-width: 12em;
 	max-width: 80%;
 	max-height: 60vh;
 	overflow-y: auto;
 	margin: 4px 6px 4px 0;
 	padding: 6px;
-	border: 1px solid var(--control-btn-bg);
-	border-radius: 8px;
-	background: var(--card-bg);
-	box-shadow: 0 2px 6px rgba(0,0,0,.25);
 	font-size: .85em;
 	line-height: 1.4;
 }
+.translate-btn + .tr-pick { margin-top: 2.6em; } /* (after a floated Gloss: below it, not over it) */
 .tr-pick .tr-q { display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 2px 4px 4px; }
 .tr-pick .tr-sub { padding: 6px 4px 2px; color: var(--muted); font-size: .9em; }
 .tr-pick button {

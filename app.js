@@ -273,29 +273,37 @@ if(!isDictPage){
 	}
 	// A dictionary's name above its entry (★ if starred): tap it for its menu
 	const entryHeadHTML = d => `<p-h role="button" tabindex="0" title="${escapeHTML(typeLabel(dicts[d]))}" onclick="dictMenu(this)">${isStar(d) ? '★ ' : ''}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
-	// The menu: turn it off, hide (or show) its entries, star (or unstar) it
-	window.dictMenu = h => {
-		const open = h.parentNode.querySelector(':scope > .dict-menu');
-		document.querySelectorAll('.dict-menu').forEach(m => m.remove());
-		if (open) return;
-		const d = +h.parentNode.dataset.d, name = dicts[d].name;
+	// The little menus (a dictionary's, Gloss with): one at a time, right
+	// after what opened it; tapping that again, or anywhere else, closes it.
+	// (A click in one isn't a click outside it, or outside the popup.)
+	const closeMenus = () => document.querySelectorAll('.menu').forEach(m => m.remove());
+	function popMenu(at, cls, html){
+		const open = at.nextElementSibling?.classList.contains('menu');
+		closeMenus();
+		if (open) return null;
 		const m = document.createElement('div');
-		m.className = 'dict-menu';
-		m.innerHTML = `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
+		m.className = 'menu ' + cls;
+		m.innerHTML = html;
+		m.addEventListener('click', e => e.stopPropagation());
+		at.after(m);
+		return m;
+	}
+	document.addEventListener('click', e => { if (!document.querySelector('.menu')?.previousElementSibling.contains(e.target)) closeMenus(); });
+	// A dictionary's: turn it off, hide (or show) its entries, star (or unstar) it
+	window.dictMenu = h => {
+		const d = +h.parentNode.dataset.d, name = dicts[d].name;
+		const m = popMenu(h, 'dict-menu', `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
 			`<button data-a="hide">${isHidden(name) ? 'Show' : 'Hide'} its entries</button>` +
-			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>`;
-		m.onclick = e => {
+			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>`);
+		if (m) m.onclick = e => {
 			const a = e.target.closest('button')?.dataset.a;
 			if (!a) return;
-			e.stopPropagation(); // (not a click outside the popup)
 			m.remove();
 			if (a === 'off') setOn([d], false);
 			else if (a === 'hide') toggleHidden(name);
 			else toggleStar(d);
 		};
-		h.after(m);
 	};
-	document.addEventListener('click', e => { if (!e.target.closest('.dict-menu, p-h')) document.querySelectorAll('.dict-menu').forEach(m => m.remove()); });
 	// One more result: the count, and maybe more of them
 	function found(){
 		++num;
@@ -330,7 +338,7 @@ if(!isDictPage){
 	const refOf = body => /<p-n>@?([^<]*)<\/p-n>/.exec(body)?.[1];
 	function addVerse(data, h){
 		const d = dictOf(data), v = +h.split('.').pop();
-		if (dicts[d].cat === 'bible/commentary' && dictIds.some(t => isBibleText(t) && isOn(t)))
+		if (dicts[d].cat === 'bible/commentary' && dictIds.some(t => isBibleText(t) && searched(t)))
 			return addNote(d, data, v);
 		const label = refOf(data.body);
 		const par = parallel && isBibleText(d);
@@ -731,13 +739,14 @@ if(!isDictPage){
 	// each verse in every Bible text that's on, one after the other. Off,
 	// one translation. The translations drawer (from the Bible bar) has
 	// both: Parallel, and the translations (off: pick one; on: any).
+	const moreHTML = '<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
 	const parKey = `peakslab-parallel-${appname}`;
 	let parallel = stored(parKey) ?? true;
 	function textsHTML(){
 		const texts = dictIds.filter(d => isBibleText(d) && downloaded.has(d)); // (downloaded: the library has the rest)
 		return `<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel</span><span class="row-t">Verse by verse in each translation ticked</span></button></li></ul>` +
 			`<h3 class="drawer-h">Translations</h3>` + (texts.length ? '' : '<p class="empty">None downloaded.</p>') +
-			`<p class="empty">More? <button class="text-btn" data-library="1">Go to the library</button></p><ul class="rows">${texts.map(d =>
+			moreHTML + `<ul class="rows">${texts.map(d =>
 				`<li class="row"><button class="row-main ${parallel ? 'check' : 'radio'}" data-text="${d}" aria-pressed="${libOn[d]}"><span class="row-w">${escapeHTML(dicts[d].name)}</span><span class="row-t">${escapeHTML(typeLabel(dicts[d]))}</span></button></li>`).join('')}</ul>`;
 	}
 	function pickText(t){
@@ -999,8 +1008,7 @@ if(!isDictPage){
 		return '<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel()) +
 			(choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${catCount({members: dictIds}, 'filter')}</span></button></li></ul>` : '') +
 			catsHTML('filter') +
-			'<p class="empty">Tick as many as you like, or tap a name for just it: searches use their dictionaries that are on. Star a dictionary (☆) for its entries to come first.</p>' +
-			'<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
+			'<p class="empty">Tick as many as you like, or tap a name for just it: searches use their dictionaries that are on. Star a dictionary (☆) for its entries to come first.</p>' + moreHTML;
 	}
 	// The library: every dictionary on the page, by category; then other
 	// languages' to add
@@ -1100,9 +1108,9 @@ if(!isDictPage){
 		}
 	}
 
-	// The filter and the library, where they're showing
+	// The filter, the translations and the library, where they're showing
 	function renderLists(){
-		if (drawerView === 'modes') renderDrawer();
+		if (drawerView === 'modes' || drawerView === 'texts') renderDrawer();
 		if (showLibrary) listDiv.innerHTML = libraryHTML();
 	}
 	// Again, once (the service worker says which files it has all at once)
@@ -1137,16 +1145,24 @@ if(!isDictPage){
 		cats.filter(c => c.members.includes(d)).forEach(c => expandedCats.add(`library:${c.id}`));
 		setOn([d], true);
 	}
+	// Every language's dictionary files in the offline cache: [cache, request, path]
+	async function cachedDicts(){
+		const files = [];
+		try {
+			for (const k of await caches.keys()) {
+				const c = await caches.open(k);
+				for (const r of await c.keys()) if (/\.(peak|slab)/.test(r.url)) files.push([c, r, new URL(r.url).pathname.slice(1)]);
+			}
+		} catch (e) { /* no Cache API */ }
+		return files;
+	}
 	// A download deleted (it's turned off: it downloads again when it's
 	// on); an added one is taken off the page too (its number stays, unused)
 	async function deleteDict(d){
 		const x = dicts[d];
 		if (libOn[d]) setOn([d], false);
 		else if (loaded.has(d)) unloadDict(d);
-		try {
-			const url = new URL('/' + x.path, location.origin);
-			for (const k of await caches.keys()) await (await caches.open(k)).delete(url);
-		} catch (e) { /* no Cache API */ }
+		for (const [c, r, path] of await cachedDicts()) if (path === x.path) await c.delete(r);
 		downloaded.delete(d);
 		refreshUsage();
 		if (x.added) {
@@ -1162,14 +1178,7 @@ if(!isDictPage){
 	// their size), all turned off; the app and the settings stay. Each page
 	// asks which to download again.
 	async function deleteAll(){
-		const files = [];
-		try {
-			for (const k of await caches.keys()) {
-				const c = await caches.open(k);
-				for (const r of await c.keys()) if (/\.(peak|slab)/.test(r.url)) files.push([c, r]);
-			}
-		} catch (e) { /* no Cache API */ }
-		const paths = new Set(files.map(([, r]) => new URL(r.url).pathname.slice(1)));
+		const files = await cachedDicts(), paths = new Set(files.map(f => f[2]));
 		const size = allDicts.filter(x => paths.has(x.path)).reduce((n, x) => n + x.size, 0);
 		if (!confirm(`Delete every downloaded dictionary, in every language${size ? ` (${sizeText(size)})` : ''}? You can download them again.`)) return;
 		setOn(dictIds, false);
@@ -1294,7 +1303,6 @@ if(!isDictPage){
 		});
 		saveState();
 		applyOn();
-		if (drawerView === 'texts') renderDrawer();
 		renderLists();
 		renderBibleBar();
 		if (ds.some(d => was[d] !== searched(d) && (!searched(d) || loaded.has(d)))) searchAgain();
@@ -1411,7 +1419,7 @@ if(!isDictPage){
 	}
 
 	function updateStarUI(){
-		document.querySelectorAll('p-e[data-d] > p-h').forEach(h => { h.outerHTML = entryHeadHTML(+h.parentNode.dataset.d); });
+		document.querySelectorAll('[data-d] > p-h').forEach(h => { h.outerHTML = entryHeadHTML(+h.parentNode.dataset.d); });
 		renderLists();
 	}
 
@@ -1530,7 +1538,7 @@ if(!isDictPage){
 		if (q !== query || num || !pieces.some(p => p.entry)) return;
 		const div = document.createElement('p-d');
 		div.className = 'translation';
-		div.innerHTML = `<h2>${names([...new Set(pieces.map(p => p.d).filter(d => d !== undefined))])}<button class="translate-btn" onclick="glossWith(this)" title="Which dictionaries to gloss with">⇄ Gloss with…</button></h2>` + translationHTML(pieces);
+		div.innerHTML = `<h2>${names([...new Set(pieces.map(p => p.d).filter(d => d !== undefined))])}<button class="translate-btn" onclick="translateEntry(this)" title="Which dictionaries to gloss with">⇄ Gloss with…</button></h2>` + translationHTML(pieces);
 		translationDiv.replaceChildren(div);
 		addMedia(div, pieces, ids);
 		updateStatus('No entry for all of it, glossed word by word.');
@@ -1556,7 +1564,7 @@ if(!isDictPage){
 	// reference, ...)
 	function entryText(pe){
 		const c = pe.cloneNode(true);
-		c.querySelectorAll('p-h, p-n, button, .vs-n, .tr-entry, .tr-pick').forEach(x => x.remove());
+		c.querySelectorAll('p-h, p-n, button, .vs-n, .tr-entry, .menu').forEach(x => x.remove());
 		return textLines(c.innerHTML).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 	}
 
@@ -1730,18 +1738,13 @@ if(!isDictPage){
 		const {add = [], drop = []} = stored(trWithKey) || {}, dropped = byPaths(drop);
 		return trOrder([...new Set([...glossDefault().filter(d => !dropped.includes(d)), ...byPaths(add).filter(d => dictIds.includes(d))])]);
 	}
+	// (Its entry: the nearest; a parallel verse's line is one. The search's
+	// gloss, nothing having all of it: glossed again with the ones picked.)
 	window.translateEntry = btn => {
-		const pe = btn.closest('p-e, .vs, .pv-t'); // (the nearest: a parallel verse's line is its entry)
-		const open = pe.querySelectorAll('.tr-entry, .tr-pick');
-		if (open.length) return open.forEach(x => x.remove());
-		const text = entryText(pe);
-		glossPicker(btn, ids => glossInto(pe, text, ids));
-	};
-	// The search's gloss (nothing has all of it): again with the ones picked
-	window.glossWith = btn => {
-		const open = btn.closest('p-d').querySelector('.tr-pick');
-		if (open) return open.remove();
-		glossPicker(btn.parentNode, translate);
+		const pe = btn.closest('p-e, .vs, .pv-t, .translation'), shown = pe.querySelector(':scope > .tr-entry');
+		if (shown) return shown.remove();
+		const search = pe.matches('.translation');
+		glossPicker(search ? btn.parentNode : btn, search ? translate : ids => glossInto(pe, entryText(pe), ids));
 	};
 	// Which to gloss with, after the element at: then done(ids), remembered
 	function glossPicker(at, done){
@@ -1749,13 +1752,11 @@ if(!isDictPage){
 		const phons = dictIds.filter(isPhon), on = dictIds.filter(d => libOn[d] && !isPhon(d));
 		const off = dictIds.filter(d => !on.includes(d) && !isPhon(d));
 		const opts = ids => ids.map(d => `<button class="check" data-idx="${d}" aria-pressed="${chosen.has(d)}">${isStar(d) ? '★ ' : ''}${escapeHTML(dicts[d].name)}</button>`).join('');
-		const pick = document.createElement('div');
-		pick.className = 'tr-pick';
-		pick.innerHTML = '<div class="tr-q">Gloss with <button class="tr-go">Gloss</button></div>' +
+		const pick = popMenu(at, 'tr-pick', '<div class="tr-q">Gloss with <button class="tr-go">Gloss</button></div>' +
 			(on.length ? `<div class="tr-sub">On</div>${opts(on)}` : '') +
 			(phons.length ? `<div class="tr-sub">Pronunciation</div>${opts(phons)}` : '') +
-			(off.length ? `<details${off.some(d => chosen.has(d)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${opts(off)}</details>` : '');
-		at.insertAdjacentElement('afterend', pick);
+			(off.length ? `<details${off.some(d => chosen.has(d)) ? ' open' : ''}><summary class="tr-sub">Off (loads when used)</summary>${opts(off)}</details>` : ''));
+		if (!pick) return;
 		pick.scrollIntoView({block: 'nearest'});
 		const goBtn = pick.querySelector('.tr-go');
 		const picked = () => [...pick.querySelectorAll('.check[aria-pressed="true"]')].map(x => +x.dataset.idx);
@@ -1765,7 +1766,6 @@ if(!isDictPage){
 		pick.onclick = e => {
 			const b = e.target.closest('button');
 			if (!b) return;
-			e.stopPropagation(); // A button going away would look like a click outside the popup
 			if (b.dataset.idx) {
 				b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
 				return update();
@@ -1782,10 +1782,10 @@ if(!isDictPage){
 	// text (after the entry's name and buttons), so a long one doesn't push
 	// it out of view
 	function glossInto(pe, text, ids){
-		pe.querySelectorAll(':scope > .tr-entry, :scope > .tr-pick').forEach(x => x.remove());
+		pe.querySelector(':scope > .tr-entry')?.remove();
 		const box = document.createElement('div');
 		box.className = 'tr-entry';
-		const text1 = [...pe.childNodes].find(n => n.nodeType === 1 ? !n.matches('p-h, button, .tr-pick') : n.textContent.trim());
+		const text1 = [...pe.childNodes].find(n => n.nodeType === 1 ? !n.matches('p-h, button, .menu') : n.textContent.trim());
 		pe.insertBefore(box, text1 || null);
 		box.scrollIntoView({block: 'nearest'});
 		box.textContent = `Glossing with ${ids.map(d => dicts[d].name).join(' + ')}…`;
@@ -1993,7 +1993,7 @@ if(!isDictPage){
 		if (!selText || !sel.rangeCount || sel.isCollapsed) return hideSelMenu();
 		const at = sel.getRangeAt(0).commonAncestorContainer;
 		selEntry = (at.nodeType === 1 ? at : at.parentElement)?.closest('.vs, p-e');
-		if (selEntry?.closest('.tr-entry, .tr-pick')) selEntry = null; // Not a gloss's own words
+		if (selEntry?.closest('.tr-entry, .menu')) selEntry = null; // Not a gloss's own words
 		selMenu.querySelector('.sel-gloss').hidden = !selEntry;
 		if (ios) document.body.classList.add('selmenu-docked'); // (hides the round buttons it would cover)
 		else selMenu.style.top = `${sel.getRangeAt(0).getBoundingClientRect().bottom + 26 + scrollY}px`;
