@@ -6,7 +6,10 @@
 // does it ask the page, which fetches through the service worker (which
 // downloads and caches it).
 const origin = self.location.origin + '/';
-const cached = async path => { try { return await caches.match(new URL(path, origin)); } catch (e) { return null; } }; // (no Cache API here)
+// Served locally (development): not from the cache, so a rebuilt file is
+// used (the page fetches it through the service worker, network first)
+const local = /^(localhost|127\.|10\.|192\.168\.|\[::1\]$)/.test(new URL(origin).hostname);
+const cached = async path => { if (local) return null; try { return await caches.match(new URL(path, origin)); } catch (e) { return null; } }; // (no Cache API here)
 const tsOf = r => +(r.headers.get('x-peak-timestamp') || 0);
 // Bytes the page sends when asked ('needwasm' / 'needbytes')
 const fromPage = {};

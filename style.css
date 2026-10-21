@@ -919,7 +919,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .radio[aria-pressed="true"]::before { box-shadow: inset 0 0 0 3px var(--card-bg); }
 .check[aria-pressed="true"] .row-w, .radio[aria-pressed="true"] .row-w { color: var(--color1); }
-.cat.sub .cat-sel { margin-left: 18px; }
 .cat-exp {
 	flex: none;
 	width: 44px;
@@ -929,7 +928,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .cat-exp[aria-expanded="true"] { transform: rotate(90deg); }
 .cat-body { margin: 0 0 8px 34px; padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
-.cat.sub .cat-body { margin-left: 52px; }
 .cat-dicts { list-style: none; margin: 0; padding: 0; }
 .cat-dict {
 	width: 100%;

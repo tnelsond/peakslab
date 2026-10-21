@@ -55,9 +55,27 @@ self.addEventListener('message', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
-  e.respondWith(handleFetch(e.request, decodeURIComponent(url.pathname)));
+  const path = decodeURIComponent(url.pathname);
+  e.respondWith(LOCAL ? networkFirst(e.request, path) : handleFetch(e.request, path));
   if (e.request.mode === 'navigate') e.waitUntil(checkFiles()); // (throttled)
 });
+
+// Served from this computer or the local network (development, e.g.
+// utils/server-no-cache.py): the network first, so a rebuilt app shows on a
+// plain reload; the cache only when that fails. (A page's own address is a
+// 404 there with the app in it: still the page.)
+const LOCAL = /^(localhost|127\.|10\.|192\.168\.|\[::1\]$)/.test(self.location.hostname);
+async function networkFirst(request, path) {
+  try {
+    const res = await fetch(request, {cache: 'no-store'});
+    if (res.ok || request.mode === 'navigate') {
+      const name = await currentCache();
+      if (res.ok && name && request.method === 'GET') await (await caches.open(name)).put(path, await tagged(res.clone(), files.get(path) || Date.now())).catch(() => {});
+      return res;
+    }
+  } catch (e) { /* offline */ }
+  return handleFetch(request, path);
+}
 
 // The version, and which files are cached (match per file, as the Cache API
 // percent-encodes its keys)

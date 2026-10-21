@@ -290,7 +290,7 @@ if(!isDictPage){
 		if(!popup) found();
 	}
 	// A dictionary's name above its entry, with its star
-	const entryHeadHTML = d => `<p-h title="${escapeHTML(typeLabel(d))}">${starBtnHTML(d)}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
+	const entryHeadHTML = d => `<p-h title="${escapeHTML(typeLabel(dicts[d]))}">${starBtnHTML(d)}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
 	// One more result: the count, and maybe more of them
 	function found(){
 		++num;
@@ -493,10 +493,9 @@ if(!isDictPage){
 	startCollapsed = new Set(dicts.filter(x => x.collapsed).map(x => x.name));
 	applyCollapsed();
 
-	const typeHTML = d => typeOf(dicts[d]);
 	const typeOf = x => x.type ? `<span class="lib-type type-${x.type}">${escapeHTML(typeLabel(x))}</span>` : '';
-	const typeLabel = x => {
-		const {type, lang} = typeof x === 'number' ? dicts[x] : x, l = cap(lang);
+	const typeLabel = ({type, lang}) => {
+		const l = cap(lang);
 		return {mono: l, bi: `${l} → English`, rbi: `English → ${l}`, phon: 'Pronunciation', aux: 'Auxiliary'}[type] || '';
 	};
 
@@ -737,7 +736,7 @@ if(!isDictPage){
 		return `<details class="par-dd"${parOpen ? ' open' : ''}><summary><span class="row-w">Parallel Bibles</span><span class="row-t">${parallel ? 'On' : 'Off'} · ${bibleTexts.filter(d => libOn[d]).length} of ${bibleTexts.length} texts</span></summary>` +
 			`<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel reading</span><span class="row-t">Verse by verse in each text</span></button></li></ul>` +
 			`<h3 class="drawer-h">Texts</h3><ul class="cat-dicts">${bibleTexts.map(d =>
-				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${libOn[d]}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul></details>`;
+				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${libOn[d]}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeOf(dicts[d])}</button></li>`).join('')}</ul></details>`;
 	}
 
 	// Bible mode (a Bible category picked, or a Bible page), and reading a
@@ -916,41 +915,47 @@ if(!isDictPage){
 	// ("filter:bible", "library:dict"), another language ("lang:greek")
 	const expandedCats = new Set();
 	// A group that opens: its header (a button), ▸, and, open, its body
-	function groupHTML(key, head, body, sub){
+	function groupHTML(key, head, body){
 		const open = expandedCats.has(key);
-		return `<li class="cat${sub ? ' sub' : ''}"><div class="cat-row">${head}` +
+		return `<li class="cat"><div class="cat-row">${head}` +
 			`<button class="cat-exp" data-exp="${escapeHTML(key)}" aria-expanded="${open}" aria-label="Show or hide what's in it">▸</button></div>` +
 			(open ? `<div class="cat-body">${body()}</div>` : '') + '</li>';
 	}
 	const groupHead = (key, label, text) => `<button class="cat-sel" data-exp="${escapeHTML(key)}"><span class="row-w">${escapeHTML(label)}</span><span class="row-t">${text}</span></button>`;
-	// How many are on: in the filter, of the downloaded ones
+	// What a view has: the library, every dictionary; the filter, the
+	// downloaded ones
+	const inView = view => d => view === 'library' || downloaded.has(d);
+	// How many are on, of the ones the view has
 	function catCount(c, view){
-		const ds = c.members.filter(d => view === 'library' || downloaded.has(d));
+		const ds = c.members.filter(inView(view));
 		return `${ds.filter(d => libOn[d]).length} of ${ds.length} on`;
 	}
-	// A category's subcategories (Bible's Bible texts, ...)
+	// A category's subcategories (Bible's Bible texts, ...), and the top
+	// ones (a subcategory with no category too: Greek's Bible is everything)
 	const subsOf = c => c.sub ? [] : cats.filter(s => s.sub && s.id.split('/')[0] === c.id);
+	const isTop = c => !c.sub || !catById(c.id.split('/')[0]);
 	// A list's dictionaries, in their order: a category's own (its id; not
 	// the ones in its subcategories), or the ones in none (''). The filter
 	// has just the downloaded ones.
 	function listOf(id, view){
 		const c = id && catById(id);
 		const ds = c ? c.members.filter(d => !subsOf(c).some(s => s.members.includes(d))) : dictIds.filter(d => !cats.some(c => c.members.includes(d)));
-		return ds.filter(d => view === 'library' || downloaded.has(d)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+		return ds.filter(inView(view)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
 	}
-	// In the filter, a category with nothing downloaded isn't there
-	const shown = (c, view) => c.members.length && (view === 'library' || c.members.some(d => downloaded.has(d)));
+	// A category the view has any of (the filter: any downloaded)
+	const shown = (c, view) => c.members.some(inView(view));
+	// A dictionary's name, kind, size (with its state, if any) and description
+	const infoHTML = (x, size = x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') =>
+		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
 	// A dictionary: on or off, what kind it is, downloaded (✓) or not (⬇)
 	// and its size, what it is; to delete its download (🗑) or take an added
 	// one off the page (✕), its star, and in the filter, to move it (↑ ↓)
 	function dictRowHTML(d, view, id, ds){
 		const x = dicts[d], state = loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
-		const size = x.size ? sizeText(x.size) : '', k = ds.indexOf(d);
+		const k = ds.indexOf(d);
 		const mv = (dir, label, title) => `<button data-mv="${dir}" data-d="${d}" data-list="${id}" title="${title}" aria-label="${title}: ${escapeHTML(x.name)}"${ds[k + dir] === undefined ? ' disabled' : ''}>${label}</button>`;
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${libOn[d]}">` +
-			`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeHTML(d)}` +
-			`<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${size}</span></span>` +
-			`<span class="lib-desc">${x.desc}</span></button>` +
+			infoHTML(x, `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${x.size ? sizeText(x.size) : ''}</span>`) + '</button>' +
 			(view === 'filter' ? `<span class="dict-mv">${mv(-1, '↑', 'Up')}${mv(1, '↓', 'Down')}</span>` : '') +
 			(x.added ? `<button class="dict-del" data-del="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` :
 				state === 'got' ? `<button class="dict-del" data-del="${d}" title="Delete its download (it's turned off)" aria-label="Delete ${escapeHTML(x.name)}'s download">🗑</button>` : '') +
@@ -968,7 +973,7 @@ if(!isDictPage){
 		if (!choice) return rowsHTML('', view);
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => groupHTML(`${view}:${c.id}`,
-			view === 'filter' ? btn(c, 'sel', `class="cat-sel check" aria-pressed="${selected.includes(c.id)}"`, `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) :
+			view === 'filter' ? btn(c, 'sel', `class="cat-sel check" aria-pressed="${!filtered() || selected.includes(c.id)}"`, `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) :
 				groupHead(`${view}:${c.id}`, c.label, catCount(c, view)),
 			() => {
 				const subs = subsOf(c).filter(s => shown(s, view));
@@ -976,13 +981,13 @@ if(!isDictPage){
 					subs.map(s => `<h4 class="cat-subh">${escapeHTML(s.label)}</h4>${rowsHTML(s.id, view)}`).join('') +
 					(view === 'library' ? `<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All on')}${btn(c, 'none', 'class="text-btn"', 'All off')}${btn(c, 'reset', 'class="text-btn"', 'Defaults')}</div>` : '');
 			});
-		const tops = cats.filter(c => shown(c, view) && (!c.sub || !catById(c.id.split('/')[0]))); // (a subcategory with no category: Greek's Bible is everything)
+		const tops = cats.filter(c => isTop(c) && shown(c, view));
 		const other = listOf('', view);
 		return `<ul class="rows cats">${tops.map(cat).join('')}` +
 			(other.length ? groupHTML(`${view}:`, groupHead(`${view}:`, 'Other', catCount({members: other}, view)), () => rowsHTML('', view)) : '') + '</ul>';
 	}
-	// The filter: All, then the categories, with their downloaded
-	// dictionaries; pick any number to search just them
+	// The filter: All (every category ticked), then the categories, with
+	// their downloaded dictionaries; untick any to search just the rest
 	function filterHTML(){
 		return (choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${catCount({members: dictIds}, 'filter')}</span></button></li></ul>` : '') +
 			catsHTML('filter') +
@@ -995,9 +1000,8 @@ if(!isDictPage){
 		const byLang = new Map();
 		allDicts.filter(x => !dictIds.some(d => dicts[d] === x)).forEach(x => byLang.set(x.lang, [...(byLang.get(x.lang) || []), x]));
 		const lang = ([l, xs]) => groupHTML(`lang:${l}`, groupHead(`lang:${l}`, cap(l), `${xs.length} ${xs.length === 1 ? 'dictionary' : 'dictionaries'}`),
-			() => `<ul class="rows dict-rows">${xs.map(x => `<li class="row dict-row"><div class="row-main">` +
-				`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : ''}</span>` +
-				`<span class="lib-desc">${x.desc}</span></div><button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
+			() => `<ul class="rows dict-rows">${xs.map(x => `<li class="row dict-row"><div class="row-main">${infoHTML(x)}</div>` +
+				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
 		const here = sizeOf(dictIds.filter(d => downloaded.has(d)));
 		return '<h2>Library</h2><p class="lib-help">Turn dictionaries on or off: ⬇ ones download when they\'re on, and 🗑 deletes a download. Star the ones you use most: their entries come first.</p>' +
 			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''}</p>` +
@@ -1018,9 +1022,7 @@ if(!isDictPage){
 			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
-			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">` +
-				`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeHTML(d)}<span class="lib-size">${sizeText(x.size)}</span></span>` +
-				`<span class="lib-desc">${x.desc}</span></button></li>`;
+			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x)}</button></li>`;
 		});
 		if (prev !== null) html += '</ul>';
 		return '<p class="empty">Which dictionaries? They download once, then work offline.</p>' + html +
@@ -1176,7 +1178,7 @@ if(!isDictPage){
 			setFilter([]);
 		} else if (act) { // A category's
 			const c = catById(b.dataset.cat);
-			if (act === 'sel') return toggleCat(c.id);
+			if (act === 'sel') return filtered() ? toggleCat(c.id) : setFilter(cats.filter(x => isTop(x) && x !== c).map(x => x.id)); // (All: all but it)
 			setOn(c.members, act === 'all' ? true : act === 'none' ? false : d => dicts[d].on); // All on, all off, the defaults
 		} else if (q !== undefined) {
 			closeDrawer();
@@ -1237,6 +1239,7 @@ if(!isDictPage){
 	// Changes what's picked: their dictionaries, and the search again
 	function setFilter(ids){
 		selected = ids.filter(catById);
+		if (cats.filter(isTop).every(c => selected.includes(c.id))) selected = []; // Every one: All
 		store(filterKey, selected);
 		refilter();
 	}
@@ -1368,17 +1371,7 @@ if(!isDictPage){
 		if (entry) // The entry a translated word came from
 			addResult({id: entry.d % workers.length + 1, did: didOf(entry.d), dict: dicts[entry.d].name,
 				query: q, st: 1, header: entry.header, body: entry.body, dest: "popup"});
-		// A Strong's number ("g976"): its language's lexicons too, on or not
-		const lex = /^([gh])\d+$/.exec(q) ? dictIds.filter(d => dicts[d].cat === 'bible/dict' && dicts[d].lang === (q[0] === 'g' ? 'greek' : 'hebrew')) : [];
-		let left = lex.length + 1;
-		const go = () => {
-			if (--left) return;
-			const on = trMask();
-			lex.forEach(d => { on[d] = true; });
-			forWorkers(on, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
-		};
-		lex.forEach(d => ensureLoaded(d, go));
-		go();
+		forWorkers(trMask(), (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
 	}
 	function popupOpen(){
 		popupOverlay.style.display = 'block';
