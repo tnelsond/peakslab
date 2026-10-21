@@ -423,7 +423,7 @@ if(!isDictPage){
 	};
 
 	// Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
-	const pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
+	const pagePath = window.location.pathname.replace(/^\/|\/$/g, '').replace(/^khmermusic$/, 'khmer/music'); // strip leading/trailing slashes; /khmermusic is the old address of /khmer/music
 	const pParts = pagePath.split('/').filter(Boolean);
 	// The path's language segment(s) (usually one, e.g. ["khmer"]): the ones
 	// abbr has a locale code for
@@ -569,6 +569,16 @@ if(!isDictPage){
 	// glossing with one); searches use the ones on that the filter has
 	// (isOn), glosses and the popup every one that's on
 	const loaded = new Set(), loading = new Set(), asked = new Set();
+	// A thin bar at the top while dictionaries load: how much of what's
+	// loading (by size) has, since none were; gone once they all have
+	const loadBar = document.body.appendChild(document.createElement('div'));
+	loadBar.id = 'loadBar';
+	let loadAll = 0, loadDone = 0;
+	function showLoad(){
+		if (!loading.size) loadAll = loadDone = 0;
+		loadBar.classList.toggle('done', !loading.size);
+		loadBar.style.transform = `scaleX(${loading.size ? (loadDone + .03 * loadAll) / (1.03 * loadAll || 1) : 1})`;
+	}
 	const pendingLoad = new Map(); // dictionary -> what to do once it's loaded
 	function ensureLoaded(d, then){
 		if (loaded.has(d)) return then();
@@ -1027,12 +1037,15 @@ if(!isDictPage){
 	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
 	const firstIds = dictIds.filter(d => levelOf(dicts[d]) < LEVELS.length).sort((a, b) => order.indexOf(a) - order.indexOf(b));
 	let firstLevel = 1, firstPick;
-	const notGot = (more = 1) => firstIds.filter(d => !downloaded.has(d) && levelOf(dicts[d]) <= firstLevel + more); // (and the next level's)
+	// Had already: downloaded and on (one downloaded but off, like a Bible
+	// page's text loaded for its books' names, is still to turn on)
+	const have = d => downloaded.has(d) && libOn[d];
+	const notGot = (more = 1) => firstIds.filter(d => !have(d) && levelOf(dicts[d]) <= firstLevel + more); // (and the next level's)
 	const setLevel = n => { firstLevel = n; firstPick = new Set(notGot(0)); };
 	setLevel(1);
 	const sizeOf = ds => ds.reduce((n, d) => n + dicts[d].size, 0);
 	function firstHTML(){
-		if (!firstIds.some(d => !downloaded.has(d))) return '<p class="empty">The suggested dictionaries are all downloaded.</p>';
+		if (!firstIds.some(d => !have(d))) return '<p class="empty">The suggested dictionaries are all downloaded.</p>';
 		return '<p class="empty">Which dictionaries? They download once, then work offline.</p>' +
 			`<div class="first-level"><input type="range" min="0" max="${LEVELS.length - 1}" value="${firstLevel}" aria-label="How many dictionaries" aria-valuetext="${LEVELS[firstLevel]}">` +
 			`<div class="first-marks">${LEVELS.map((l, i) => `<button data-level="${i}" aria-pressed="${i === firstLevel}">${l}</button>`).join('')}</div></div>` +
@@ -1051,7 +1064,8 @@ if(!isDictPage){
 		});
 		if (prev !== null) html += '</ul>';
 		if (!ids.length) html = '<p class="empty">These are all downloaded: slide for more.</p>';
-		return html + `<button class="first-default" data-first="go"${ids.some(d => firstPick.has(d)) ? `>Download (${sizeText(sizeOf(ids.filter(d => firstPick.has(d))))})` : ' disabled>Download'}</button>`;
+		const size = sizeOf(ids.filter(d => firstPick.has(d) && !downloaded.has(d))); // (one downloaded already is just turned on)
+		return html + `<button class="first-default" data-first="go"${ids.some(d => firstPick.has(d)) ? '' : ' disabled'}>Download${size ? ` (${sizeText(size)})` : ''}</button>`;
 	}
 	function showLevel(n){
 		setLevel(n);
@@ -1318,16 +1332,6 @@ if(!isDictPage){
 	// fetch() goes through the service worker differs between browsers. When
 	// it doesn't, every dictionary skips the SW cache and goes to the network
 	// / HTTP cache: slow when online, while offline things looked fine.
-	// A thin bar at the top while dictionaries load: how much of what's
-	// loading (by size) has, since none were; gone once they all have
-	const loadBar = document.body.appendChild(document.createElement('div'));
-	loadBar.id = 'loadBar';
-	let loadAll = 0, loadDone = 0;
-	function showLoad(){
-		if (!loading.size) loadAll = loadDone = 0;
-		loadBar.classList.toggle('done', !loading.size);
-		loadBar.style.transform = `scaleX(${loading.size ? (loadDone + .03 * loadAll) / (1.03 * loadAll || 1) : 1})`;
-	}
 	function loadDict(d) {
 		if (loaded.has(d) || loading.has(d)) return;
 		if (!loading.size) loadAll = loadDone = 0;
