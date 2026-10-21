@@ -156,7 +156,8 @@ if(!isDictPage){
 				}
 				else if(e.data.type == "needbytes"){
 					const d = dictOf(e.data);
-					fetchDict('/' + dicts[d].path)
+					fetched.add(d);
+					fetchDict('/' + dicts[d].path, d)
 						.then(buf => w.postMessage({type: 'bytes', did: e.data.did, buf}, [buf]))
 						.catch(err => {
 							console.warn(`Fetching ${dicts[d].path} failed:`, err);
@@ -175,10 +176,12 @@ if(!isDictPage){
 					downloaded.add(d);
 					renderListsSoon();
 					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
-					if(!loading.size)
-						saveState();
 					if(searched(d))
-						searchAgain();
+						moreResults(d);
+					if(!loading.size){
+						saveState();
+						askRefresh();
+					}
 				}
 				else if(e.data.type == "nomore"){
 					if(e.data.st == st && e.data.gen === searchGen){
@@ -397,9 +400,9 @@ if(!isDictPage){
 			card.querySelector('p-e').append(vs);
 		if(text)
 			noteLinks(vs);
-		if(h === readHl){ // Read in context: the verse in each card, the top one's in view
-			vs.classList.add('hl');
-			resultsDiv.querySelector('.vs.hl').scrollIntoView({block: 'center'});
+		if(h === readHl){ // Read in context: the verse in each card (not marked), the top one's in view
+			vs.classList.add('ctx');
+			resultsDiv.querySelector('.vs.ctx').scrollIntoView({block: 'center'});
 		}
 		found();
 	}
@@ -579,16 +582,42 @@ if(!isDictPage){
 	// glossing with one); searches use the ones on that the filter has
 	// (isOn), glosses and the popup every one that's on
 	const loaded = new Set(), loading = new Set(), asked = new Set();
-	// A thin bar at the top while dictionaries load: how much of what's
-	// loading (by size) has, since none were; gone once they all have
-	const loadBar = document.body.appendChild(document.createElement('div'));
-	loadBar.id = 'loadBar';
+	// Behind the search bar while dictionaries load: how much of what's
+	// loading (by size, and the bytes of the ones downloading) has, since
+	// none were; gone once they all have
 	let loadAll = 0, loadDone = 0;
+	const loadPart = new Map(); // dictionary -> bytes of it downloaded so far
 	function showLoad(){
-		if (!loading.size) loadAll = loadDone = 0;
-		loadBar.classList.toggle('done', !loading.size);
-		loadBar.style.transform = `scaleX(${loading.size ? (loadDone + .03 * loadAll) / (1.03 * loadAll || 1) : 1})`;
+		if (!loading.size) { loadAll = loadDone = 0; loadPart.clear(); }
+		const part = [...loadPart].reduce((n, [d, b]) => n + (loading.has(d) ? b : 0), 0);
+		const bar = $('queryInput');
+		bar.classList.toggle('loading', !!loading.size);
+		bar.style.setProperty('--load', loading.size ? `${100 * (loadDone + part + .03 * loadAll) / (1.03 * loadAll || 1)}%` : '');
 	}
+	// A dictionary the search uses has loaded. One just downloaded (fetched)
+	// doesn't change the results showing: once they've all loaded, a prompt
+	// asks to search again (askRefresh). One from the offline cache, or
+	// nothing showing yet: the search again now.
+	const fetched = new Set(); // Downloading (not in the offline cache)
+	let stale = false; // The results showing are missing ones just downloaded
+	function moreResults(d){
+		if (fetched.delete(d) && query && (num || translationDiv.childElementCount)) stale = true;
+		else searchAgain();
+	}
+	const refreshBar = document.body.appendChild(document.createElement('div'));
+	refreshBar.id = 'refreshBar';
+	refreshBar.className = 'hide';
+	refreshBar.setAttribute('role', 'status');
+	refreshBar.innerHTML = '<span>New dictionaries downloaded: there may be more results.</span><button class="rb-go">Refresh</button><button class="close-btn" aria-label="Dismiss">×</button>';
+	function askRefresh(){
+		if (stale) refreshBar.classList.remove('hide');
+	}
+	function hideRefresh(){
+		stale = false;
+		refreshBar.classList.add('hide');
+	}
+	refreshBar.querySelector('.rb-go').addEventListener('click', searchAgain); // (startSearch hides it)
+	refreshBar.querySelector('.close-btn').addEventListener('click', hideRefresh);
 	const pendingLoad = new Map(); // dictionary -> what to do once it's loaded
 	function ensureLoaded(d, then){
 		if (loaded.has(d)) return then();
@@ -1374,10 +1403,23 @@ if(!isDictPage){
 
 	// For a worker whose cache has no current copy ('needbytes'): fetch()
 	// goes through the service worker, which downloads and caches it.
-	async function fetchDict(path) {
+	// Its bytes as they come show in the search bar (showLoad).
+	async function fetchDict(path, d) {
 		const r = await fetch(path);
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
-		return r.arrayBuffer();
+		if (!r.body) return r.arrayBuffer();
+		const reader = r.body.getReader(), chunks = [];
+		let n = 0;
+		for (let c; !(c = await reader.read()).done; ) {
+			chunks.push(c.value);
+			n += c.value.length;
+			loadPart.set(d, Math.min(n, dicts[d].size || n));
+			showLoad();
+		}
+		const buf = new Uint8Array(n);
+		n = 0;
+		for (const c of chunks) { buf.set(c, n); n += c.length; }
+		return buf.buffer;
 	}
 
 	function unloadDict(d){
@@ -1848,6 +1890,7 @@ if(!isDictPage){
 		query = updateQuery();
 		renderQuick();
 		if(!query){
+			hideRefresh();
 			showSettings();
 			return;
 		}
@@ -1860,6 +1903,7 @@ if(!isDictPage){
 		if(query == prevquery){
 			return;
 		}
+		hideRefresh(); // (this search has every dictionary that's loaded)
 		translationDiv.replaceChildren();
 		window.scrollTo(0, 0);
 		worker_code.fill(false);

@@ -19,6 +19,7 @@
 	--alttext: #900;
 	--search-bg: #eee;
 	--search-bg2: #ffe;
+	--load-fill: #cde8b0;
 	--header-text: #000;
 	--header-placeholder: rgba(0,0,0,.6);
 	--result-entry-bg: #fdf8f0;
@@ -51,6 +52,7 @@ body.dark-mode {
 	--card-text: #e0e0ff;
 	--search-bg: #000;
 	--search-bg2: #210;
+	--load-fill: #2c3a10;
 	--header-text: #fff;
 	--header-placeholder: rgba(255,255,255,.65);
 	--result-entry-bg: #110;
@@ -695,7 +697,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	vertical-align: middle;
 }
 .vs .tr-entry { margin: .3em 0 .5em; }
-.vs.hl { background: var(--mark-bg); color: var(--mark-fg); border-radius: 3px; box-shadow: 0 0 0 3px var(--mark-bg); }
 .ctx-btn {
 	margin-left: .5em;
 	padding: 2px 10px;
@@ -807,22 +808,30 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .first-marks { display: grid; grid-template-columns: repeat(4, 1fr); }
 .first-marks button { padding: 6px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .8em; cursor: pointer; }
 .first-marks button[aria-pressed="true"] { color: var(--color1); font-weight: 700; }
-/* Dictionaries loading: a thin bar at the top, gone once they have */
-#loadBar {
+/* Dictionaries loading: how much has, behind the search bar (--load) */
+#queryInput.loading { background-image: linear-gradient(to right, var(--load-fill) var(--load, 0%), transparent var(--load, 0%)) !important; } /* (over .error too) */
+/* Just downloaded ones may have more results: search again? */
+#refreshBar {
 	position: fixed;
-	top: 0;
-	left: 0;
-	z-index: 100;
-	width: 100%;
-	height: 3px;
-	background: var(--color1);
-	opacity: .7;
-	transform: scaleX(0);
-	transform-origin: left;
-	transition: transform .3s, opacity .4s .3s;
-	pointer-events: none;
+	left: 10px;
+	right: 10px;
+	bottom: 56px;
+	z-index: 900;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	max-width: 480px;
+	margin: 0 auto;
+	padding: 6px 6px 6px 14px;
+	border-radius: 12px;
+	background: var(--card-bg);
+	color: var(--card-text);
+	box-shadow: 0 2px 10px rgba(0,0,0,.3);
+	font-size: 14px;
 }
-#loadBar.done { opacity: 0; }
+#refreshBar span { flex: 1; }
+#refreshBar .rb-go { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--control-btn-bg); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+#refreshBar .close-btn { font-size: 24px; padding: 0 6px; }
 /* The first time: download the ones picked */
 .first-default {
 	display: block;
