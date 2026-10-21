@@ -333,9 +333,12 @@ if(!isDictPage){
 	// A verse of the chapter searched ("rom 8."): each dictionary's verses
 	// run together in one card, numbered as its references have them
 	// ("យ៉ូហាន ៣:១៦"); the ⇄ after a verse glosses it word by word.
-	// Parallel: the Bible texts share one card, verse by verse.
+	// Parallel: the Bible texts share one card, verse by verse. Bible notes,
+	// with a Bible text showing, are little links on its verses (addNote).
 	function addVerse(data, h){
 		const d = dictOf(data);
+		if (dicts[d].cat === 'bible/commentary' && dictIds.some(t => isBibleText(t) && isOn(t)))
+			return addNote(d, data, +h.split('.').pop());
 		const label = /<p-n>@?([^<]*)<\/p-n>/.exec(data.body);
 		const par = parallel && isBibleText(d);
 		const cardId = par ? 'ch-par' : `ch-${d}`, cardSort = par ? -1e6 : sortId(d);
@@ -361,6 +364,7 @@ if(!isDictPage){
 		const word = /^[^\s\u200B<]*/.exec(rest)[0];
 		const vs = document.createElement(text ? 'span' : 'div');
 		vs.className = 'vs';
+		vs.dataset.v = +h.split('.').pop();
 		vs.innerHTML = `${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
 			'<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button> ';
 		if(par){ // In the verse's group, by verse, each text as the dictionaries go, with its name
@@ -380,12 +384,47 @@ if(!isDictPage){
 			group.insertBefore(line, [...group.children].find(t => +t.dataset.id > sortId(d)) || null);
 		}else
 			card.querySelector('p-e').append(vs);
+		if(text)
+			noteLinks(vs);
 		if(h === readHl){ // Read in context: the verse in each card, the top one's in view
 			vs.classList.add('hl');
 			resultsDiv.querySelector('.vs.hl').scrollIntoView({block: 'center'});
 		}
 		found();
 	}
+
+	// The chapter's notes, by verse (the first of the ones each is on):
+	// [{d, data}, ...]; a link on the verse (one for each, on one of a
+	// parallel verse's texts) shows it in the popup
+	let notes = new Map(), notesGen = -1;
+	function addNote(d, data, v){
+		if (notesGen !== searchGen) {
+			notes = new Map();
+			notesGen = searchGen;
+		}
+		const list = notes.get(v) || [];
+		if (list.some(n => n.d === d)) return;
+		list.push({d, data});
+		notes.set(v, list);
+		resultsDiv.querySelectorAll(`.vs[data-v="${v}"]`).forEach(noteLinks);
+		found();
+	}
+	function noteLinks(vs){
+		const v = +vs.dataset.v, group = vs.closest('.pv');
+		if (notesGen !== searchGen || !notes.has(v) || (group && group.querySelector('.vs-note') && !vs.querySelector('.vs-note'))) return;
+		const tr = vs.querySelector(':scope > .vs-tr');
+		notes.get(v).forEach(({d, data}) => {
+			if (vs.querySelector(`.vs-note[data-d="${d}"]`)) return;
+			const label = /<p-n>@?([^<]*)<\/p-n>/.exec(data.body);
+			tr.insertAdjacentHTML('beforebegin', `<button class="vs-note" data-d="${d}" data-v="${v}" onclick="showNote(this)" title="${escapeHTML(dicts[d].name + (label ? ': ' + label[1] : ''))}" aria-label="Note on this verse (${escapeHTML(dicts[d].name)})">note</button>`);
+		});
+	}
+	window.showNote = b => {
+		const n = notes.get(+b.dataset.v)?.find(n => n.d === +b.dataset.d);
+		if (!n) return;
+		cleanup(popupResults);
+		addResult({...n.data, dest: 'popup'});
+	};
 
 	// Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
 	let pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
@@ -416,7 +455,16 @@ if(!isDictPage){
 			on: [undefined, 1, -1].includes(priority)}; // On by default: priority 1 (or -1, "always first")
 	});
 	const primaryCats = new Set(allDicts.filter(x => x.primary).map(x => x.cat));
-	const dicts = allDicts.filter(x => x.primary || (x.priority <= 0 && primaryCats.has(x.cat)));
+	// Added to this page in the filter: other languages' dictionaries (their
+	// paths), and uploaded ones ({path, name, file, size}: the file is in the
+	// "user-dicts" cache, which the service worker leaves alone)
+	const addKey = `peakslab-added-${pagePath}`, added = readList(addKey);
+	const addedPaths = new Set(added.filter(a => typeof a === 'string'));
+	allDicts.forEach(x => { x.added = !x.primary && addedPaths.has(x.path); });
+	const uploads = added.filter(a => a?.path).map(a => ({path: a.path, timestamp: 0, desc: `Uploaded (${escapeHTML(a.file)})`,
+		buflen: 1 << 21, // (not known: 2 MB for an entry)
+		priority: 1, lang: curLang, type: '', size: a.size, name: a.name, cat: 'user', primary: true, media: a.path.includes('.slab'), on: true, user: true}));
+	const dicts = [...allDicts.filter(x => x.primary || x.added || (x.priority <= 0 && primaryCats.has(x.cat))), ...uploads];
 	const dictIds = dicts.map((_, d) => d);
 	// Searched: on, and in what the filter has picked (all of it: none picked)
 	const isOn = d => libOn[d] && (solo >= 0 || inFilter(d));
@@ -449,9 +497,10 @@ if(!isDictPage){
 	startCollapsed = new Set(dicts.filter(x => x.collapsed).map(x => x.name));
 	applyCollapsed();
 
-	const typeHTML = d => dicts[d].type ? `<span class="lib-type type-${dicts[d].type}">${escapeHTML(typeLabel(d))}</span>` : '';
-	const typeLabel = d => {
-		const {type, lang} = dicts[d], l = cap(lang);
+	const typeHTML = d => typeOf(dicts[d]);
+	const typeOf = x => x.type ? `<span class="lib-type type-${x.type}">${escapeHTML(typeLabel(x))}</span>` : '';
+	const typeLabel = x => {
+		const {type, lang} = typeof x === 'number' ? dicts[x] : x, l = cap(lang);
 		return {mono: l, bi: `${l} → English`, rbi: `English → ${l}`, phon: 'Pronunciation', aux: 'Auxiliary'}[type] || '';
 	};
 
@@ -463,7 +512,7 @@ if(!isDictPage){
 	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
 		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
 		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation',
-		media: 'Audio & images', ref: 'Reference'};
+		media: 'Audio & images', ref: 'Reference', user: 'Your dictionaries'};
 	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
 	const cats = []; // {id, label, sub, members: [d, ...]}
 	{
@@ -871,7 +920,71 @@ if(!isDictPage){
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${libOn[d]}">` +
 			`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeHTML(d)}` +
 			`<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${size}</span></span>` +
-			`<span class="lib-desc">${x.desc}</span></button>${starBtnHTML(d)}</li>`;
+			`<span class="lib-desc">${x.desc}</span></button>` +
+			(x.user || x.added ? `<button class="dict-del" data-del="${d}" title="Remove it from this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` :
+				state === 'got' ? `<button class="dict-del" data-del="${d}" title="Delete its download (it's turned off)" aria-label="Delete ${escapeHTML(x.name)}'s download">🗑</button>` : '') +
+			`${starBtnHTML(d)}</li>`;
+	}
+	// Other languages' dictionaries to add, by language, and uploading one
+	function moreHTML(){
+		const byLang = new Map();
+		allDicts.filter(x => !dicts.includes(x)).forEach(x => byLang.set(x.lang, [...(byLang.get(x.lang) || []), x]));
+		const lang = ([l, xs]) => {
+			const open = expandedCats.has('lang:' + l);
+			return `<li class="cat"><div class="cat-row"><button class="cat-sel" data-more="${escapeHTML(l)}"><span class="row-w">${escapeHTML(cap(l))}</span><span class="row-t">${xs.length} ${xs.length === 1 ? 'dictionary' : 'dictionaries'}</span></button>` +
+				`<button class="cat-exp" data-more="${escapeHTML(l)}" aria-expanded="${open}" aria-label="${escapeHTML(cap(l))}'s dictionaries">▸</button></div>` +
+				(open ? `<div class="cat-body"><ul class="rows dict-rows">${xs.map(x => `<li class="row dict-row"><div class="row-main">` +
+					`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : ''}</span>` +
+					`<span class="lib-desc">${x.desc}</span></div><button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul></div>` : '') + '</li>';
+		};
+		return '<h3 class="drawer-h">More dictionaries</h3>' +
+			`<ul class="rows cats">${[...byLang].sort(([a], [b]) => a.localeCompare(b)).map(lang).join('')}</ul>` +
+			'<button class="text-btn" data-upload="1">Upload a dictionary (.peak, .peak.zst)…</button>';
+	}
+	// Changes the dictionaries the page has: they're read once, at the start,
+	// so it starts again, with the filter open
+	function reloadToFilter(){
+		try { sessionStorage.setItem('peakslab-reopen', 'modes'); } catch (e) { /* (just closed) */ }
+		location.reload();
+	}
+	function addDict(path){
+		store(addKey, [...readList(addKey), path]);
+		store(libKey, [...readList(libKey).filter(e => e.file !== path), {file: path, enabled: true}]); // On
+		reloadToFilter();
+	}
+	// An uploaded dictionary: into the "user-dicts" cache (the worker reads it
+	// from there), under a name no other dictionary has
+	async function uploadDict(file){
+		const m = /^(.*?)(\.(peak|slab)(\.zst)?)$/i.exec(file.name);
+		if (!m) return alert('That isn\'t a PeakSlab dictionary: a .peak or .peak.zst file (peakgen makes one from a .tsv).');
+		const base = m[1].replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'dictionary';
+		let name = base;
+		for (let i = 2; allDicts.some(x => x.name === name) || uploads.some(x => x.name === name); i++) name = `${base}-${i}`;
+		const path = `user/${pagePath || 'all'}/${name}${m[2].toLowerCase()}`;
+		try {
+			await (await caches.open('user-dicts')).put(new URL('/' + path, location.origin),
+				new Response(file, {headers: {'Content-Type': 'application/octet-stream', 'x-peak-timestamp': '0'}}));
+		} catch (e) { return alert(`It couldn't be saved: ${e.message}`); }
+		store(addKey, [...readList(addKey), {path, name, file: file.name, size: file.size}]);
+		reloadToFilter();
+	}
+	// A download deleted (it's turned off: it downloads again when it's on),
+	// or an added dictionary taken off the page (an uploaded one is gone)
+	async function deleteDict(d){
+		const x = dicts[d];
+		if (x.user && !confirm(`Remove ${x.name}? Its file is only saved here.`)) return;
+		if (libOn[d]) setOn([d], false);
+		else if (!dict_master_code[d]) unloadDict(d);
+		try {
+			const url = new URL('/' + x.path, location.origin);
+			for (const k of await caches.keys()) await (await caches.open(k)).delete(url);
+		} catch (e) { /* no Cache API */ }
+		downloaded.delete(d);
+		if (x.user || x.added) {
+			store(addKey, readList(addKey).filter(a => (a?.path || a) !== x.path));
+			return reloadToFilter();
+		}
+		renderDrawer();
 	}
 	// The filter: All, then the categories (All only with two or more);
 	// pick any number to search just them, and open one (▸) to turn its
@@ -889,11 +1002,12 @@ if(!isDictPage){
 				'</li>';
 		};
 		const other = dictIds.filter(d => !cats.some(c => c.members.includes(d)));
-		if (!choice) return rows(dictIds) + '<p class="empty">Turn dictionaries on or off; ⬇ ones download when they\'re on. Star the ones you use most: their entries come first.</p>';
+		if (!choice) return rows(dictIds) + '<p class="empty">Turn dictionaries on or off; ⬇ ones download when they\'re on, and 🗑 deletes a download. Star the ones you use most: their entries come first.</p>' + moreHTML();
 		return `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${allCount()} of ${dicts.length} on</span></button></li></ul>` +
 			`<ul class="rows cats">${cats.map(cat).join('')}</ul>` +
 			(other.length ? `<h3 class="drawer-h">Other</h3>${rows(other)}` : '') +
-			'<p class="empty">Pick as many as you like: searches use just their dictionaries that are on. Open one (▸) to turn its dictionaries on or off; ⬇ ones download when they\'re on. Star the ones you use most: their entries come first.</p>';
+			'<p class="empty">Pick as many as you like: searches use just their dictionaries that are on. Open one (▸) to turn its dictionaries on or off; ⬇ ones download when they\'re on, and 🗑 deletes a download. Star the ones you use most: their entries come first.</p>' +
+			moreHTML();
 	}
 	// The filter again, once (the service worker says which files it has all at once)
 	const renderFilterSoon = debounce(() => { if (drawerView === 'modes') renderDrawer(); }, 50);
@@ -931,8 +1045,19 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, ptext, on} = b.dataset;
-		if (par) {
+		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, ptext, on, del, add, upload} = b.dataset;
+		if (b.dataset.more) { // Another language's dictionaries, shown or not
+			if (!expandedCats.delete('lang:' + b.dataset.more)) expandedCats.add('lang:' + b.dataset.more);
+			renderDrawer();
+		} else if (del) deleteDict(+del);
+		else if (add) addDict(add);
+		else if (upload) {
+			const input = document.createElement('input');
+			input.type = 'file';
+			input.accept = '.peak,.zst,.slab';
+			input.addEventListener('change', () => input.files[0] && uploadDict(input.files[0]));
+			input.click();
+		} else if (par) {
 			parallel = !parallel;
 			store(parKey, parallel);
 			renderDrawer();
@@ -1031,7 +1156,14 @@ if(!isDictPage){
 		updateURL();
 	}
 
+	dicts.forEach((x, d) => { if (x.user) downloaded.add(d); });
 	applyOn();
+	try {
+		if (sessionStorage.getItem('peakslab-reopen')) {
+			sessionStorage.removeItem('peakslab-reopen');
+			openDrawer('modes');
+		}
+	} catch (e) { /* no sessionStorage */ }
 
 	function saveState() {
 		if (solo < 0) store(libKey, dicts.map((x, d) => ({file: x.path, enabled: libOn[d]}))); // (solo leaves them alone)

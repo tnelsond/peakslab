@@ -822,6 +822,22 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .lib-size { font-size: .8em; color: var(--muted); white-space: nowrap; }
 .lib-size.got { color: var(--color1); }
 .dict-row .star-btn { font-size: 1.4em; padding: 0 10px; }
+.dict-del { padding: 0 8px; color: var(--muted); font-size: 1.05em; }
+.dict-row > .text-btn { white-space: nowrap; padding: 0 12px; }
+/* A note on a verse: a little link; it shows in the popup */
+.vs-note {
+	font-size: .7em;
+	vertical-align: super;
+	line-height: 1;
+	padding: 0 2px;
+	margin: 0 1px;
+	border: 0;
+	background: none;
+	color: var(--color1);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	cursor: pointer;
+}
 .dict-row .lib-desc { white-space: normal; }
 /* Loading (downloading): its box spins */
 .dict-on:has(.loading)::before {
