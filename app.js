@@ -17,31 +17,25 @@ const readList = k => { const l = stored(k); return Array.isArray(l) ? l : []; }
 const chordsBtnHTML = '<button class="chords-btn" onclick="toggleChords()" title="Show or hide chords"></button>';
 window.toggleChords = () => store('showChords', document.body.classList.toggle('show-chords'));
 document.body.classList.toggle('show-chords', stored('showChords') === true);
-// Collapse a dictionary: every one of its entries (data-dict) shrinks to its
-// first line, everywhere in the results, and stays collapsed (remembered).
-// Some start collapsed (files.json's 7th field, #collapsed in the source:
-// Bible notes, ...); what's remembered is the ones flipped from that.
-// Done with one generated CSS rule per collapsed dictionary.
-const collapseBtnHTML = '<button class="collapse-btn" onclick="toggleDict(this)" title="Collapse or expand this dictionary"></button>';
+// Hide a dictionary (its name's menu): its entries (data-dict) are hidden
+// everywhere in the results, and a word's card with any has See more at
+// the bottom, to show them there. Some start hidden (files.json's 7th
+// field, #collapsed in the source: Bible notes, ...); what's remembered is
+// the ones flipped from that. Done with generated CSS rules.
 // Glosses an entry word by word, see translateEntry
 const translateBtnHTML = '<button class="translate-btn" onclick="translateEntry(this)" title="Gloss word by word">⇄ Gloss</button>';
-const collapseStyle = document.head.appendChild(document.createElement('style'));
-let collapsedDicts = readList('collapsedDicts'); // Flipped from their default
-let startCollapsed = new Set(); // (set once files.json is read)
-const applyCollapsed = () => {
-	const flipped = new Set(collapsedDicts);
-	const sel = [...startCollapsed].filter(d => !flipped.has(d)).concat(collapsedDicts.filter(d => !startCollapsed.has(d)))
-		.map(d => `p-e[data-dict="${CSS.escape(d)}"]`);
-	collapseStyle.textContent = sel.length ? `${sel.join(',')}{max-height:1.8em;overflow:hidden;opacity:.6;font-size:.8em;margin-top:.4em;padding-top:.2em}` +
-		`${sel.map(s => s + ' .collapse-btn::after').join(',')}{content:"+"}` +
-		`${sel.map(s => s + ' p-h').join(',')}{padding:0 3px}` : '';
+const hideStyle = document.head.appendChild(document.createElement('style'));
+let hiddenFlipped = readList('hiddenDicts'); // Flipped from their default
+let startHidden = new Set(); // (set once files.json is read)
+const isHidden = name => startHidden.has(name) !== hiddenFlipped.includes(name);
+const applyHidden = () => {
+	const names = [...new Set([...startHidden, ...hiddenFlipped])].filter(isHidden).map(n => `p-e[data-dict="${CSS.escape(n)}"]`).join(',');
+	hideStyle.textContent = names ? `p-d:not(.show-hidden,.chapter)>:is(${names}){display:none}p-d:not(.show-hidden,.chapter):has(>:is(${names}))>.see-more{display:block}` : '';
 };
-applyCollapsed();
-window.toggleDict = btn => {
-	const d = btn.closest('p-e').dataset.dict;
-	collapsedDicts = collapsedDicts.includes(d) ? collapsedDicts.filter(x => x !== d) : [...collapsedDicts, d];
-	store('collapsedDicts', collapsedDicts);
-	applyCollapsed();
+const toggleHidden = name => {
+	hiddenFlipped = hiddenFlipped.includes(name) ? hiddenFlipped.filter(x => x !== name) : [...hiddenFlipped, name];
+	store('hiddenDicts', hiddenFlipped);
+	applyHidden();
 };
 // On dictionary pages, start the workers right away, in parallel with
 // files.json instead of after it: starting a worker takes ~50 ms, and each
@@ -249,6 +243,7 @@ if(!isDictPage){
 		if(first){
 			const ctx = isBibleText(d) && chapterOf(nheader) && chapterOf(nheader) !== query ? '<button class="ctx-btn" onclick="readInContext(this)">Read in context</button>' : '';
 			div.innerHTML += `<h2><span class="hw">${data.header}</span>${ctx}<button class="bm-btn" onclick="toggleBookmark(this)" title="Bookmark" aria-pressed="false">${bookmarkSVG}</button></h2>`;
+			div.insertAdjacentHTML('beforeend', '<button class="text-btn see-more" data-id="1e9" onclick="this.parentNode.classList.add(\'show-hidden\')">See more</button>'); // (entries go above it)
 			markBookmark(div);
 		}
 		const h = el.querySelector('p-h');
@@ -262,7 +257,6 @@ if(!isDictPage){
 				h.insertAdjacentHTML('afterend', chordsBtnHTML);
 			h.insertAdjacentHTML('afterend', translateBtnHTML);
 		}
-		h.insertAdjacentHTML('afterend', collapseBtnHTML);
 		div.insertBefore(el, [...div.children].find(c => +c.dataset.id > sortid) || null);
 
 		if(!popup && isStar(d)){ // Its sections go above the other dictionaries'
@@ -279,8 +273,31 @@ if(!isDictPage){
 		}
 		if(!popup) found();
 	}
-	// A dictionary's name above its entry, with its star
-	const entryHeadHTML = d => `<p-h title="${escapeHTML(typeLabel(dicts[d]))}">${starBtnHTML(d)}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
+	// A dictionary's name above its entry (★ if starred): tap it for its menu
+	const entryHeadHTML = d => `<p-h role="button" tabindex="0" title="${escapeHTML(typeLabel(dicts[d]))}" onclick="dictMenu(this)">${isStar(d) ? '★ ' : ''}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
+	// The menu: turn it off, hide (or show) its entries, star (or unstar) it
+	window.dictMenu = h => {
+		const open = h.parentNode.querySelector(':scope > .dict-menu');
+		document.querySelectorAll('.dict-menu').forEach(m => m.remove());
+		if (open) return;
+		const d = +h.parentNode.dataset.d, name = dicts[d].name;
+		const m = document.createElement('div');
+		m.className = 'dict-menu';
+		m.innerHTML = `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
+			`<button data-a="hide">${isHidden(name) ? 'Show' : 'Hide'} its entries</button>` +
+			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>`;
+		m.onclick = e => {
+			const a = e.target.closest('button')?.dataset.a;
+			if (!a) return;
+			e.stopPropagation(); // (not a click outside the popup)
+			m.remove();
+			if (a === 'off') setOn([d], false);
+			else if (a === 'hide') toggleHidden(name);
+			else toggleStar(d);
+		};
+		h.after(m);
+	};
+	document.addEventListener('click', e => { if (!e.target.closest('.dict-menu, p-h')) document.querySelectorAll('.dict-menu').forEach(m => m.remove()); });
 	// One more result: the count, and maybe more of them
 	function found(){
 		++num;
@@ -326,7 +343,7 @@ if(!isDictPage){
 			card.id = cardId;
 			card.className = par ? 'chapter parallel' : 'chapter';
 			card.dataset.id = cardSort;
-			card.innerHTML = par ? '<p-e></p-e>' : `<p-e data-dict="${escapeHTML(data.dict)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${collapseBtnHTML}</p-e>`;
+			card.innerHTML = par ? '<p-e></p-e>' : `<p-e data-dict="${escapeHTML(data.dict)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}</p-e>`;
 			const after = [...resultsDiv.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > cardSort);
 			resultsDiv.insertBefore(card, after || (loader && loader.parentNode === resultsDiv ? loader : null));
 		}
@@ -405,10 +422,7 @@ if(!isDictPage){
 	};
 
 	// Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
-	let pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
-	if(pagePath.match("khmermusic")){
-		pagePath = "khmer/music";
-	}
+	const pagePath = window.location.pathname.replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
 	const pParts = pagePath.split('/').filter(Boolean);
 	// The path's language segment(s) (usually one, e.g. ["khmer"]): the ones
 	// abbr has a locale code for
@@ -467,8 +481,8 @@ if(!isDictPage){
 	const byPaths = paths => paths.map(p => dicts.findIndex(x => x.path === p)).filter(d => d >= 0);
 
 	const sizeText = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
-	startCollapsed = new Set(dicts.filter(x => x.collapsed).map(x => x.name));
-	applyCollapsed();
+	startHidden = new Set(dicts.filter(x => x.collapsed).map(x => x.name));
+	applyHidden();
 
 	const typeOf = x => x.type ? `<span class="lib-type type-${x.type}">${escapeHTML(typeLabel(x))}</span>` : '';
 	const typeLabel = ({type, lang}) => {
@@ -1341,9 +1355,7 @@ if(!isDictPage){
 	}
 
 	function updateStarUI(){
-		document.querySelectorAll('.star-btn').forEach(b => {
-			b.outerHTML = starBtnHTML(+b.dataset.d);
-		});
+		document.querySelectorAll('p-e[data-d] > p-h').forEach(h => { h.outerHTML = entryHeadHTML(+h.parentNode.dataset.d); });
 		renderLists();
 	}
 

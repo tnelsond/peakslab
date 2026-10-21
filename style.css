@@ -140,7 +140,7 @@ mark {
 	font-weight: 600;
 }
 /* Next to an entry's dictionary name */
-.chords-btn, .collapse-btn, .translate-btn {
+.chords-btn, .translate-btn {
 	float: right;
 	margin: 0 6px 0 0;
 	-webkit-user-select: none;
@@ -507,25 +507,32 @@ body.show-chords p-e:has(p-m) { line-height: 2.5; } /* (just the entries with ch
 }
 .chords-btn::after { content: "Show chords"; }
 body.show-chords .chords-btn::after { content: "Hide chords"; }
-/* Collapse and gloss an entry (em: they shrink along with a collapsed entry) */
-.collapse-btn {
-	width: 1.6em;
-	height: 1.6em;
-	padding: 0;
-	border: 1px solid var(--control-btn-bg);
-	border-radius: 50%;
-	background: transparent;
-	color: var(--control-btn-bg);
-	font-size: inherit;
-	line-height: 1.6em;
-}
 .translate-btn { /* with its name: it's the main thing to do with an entry */
 	height: 1.9em; /* (1.6em of the entry's) */
 	padding: 0 .6em;
 	font-size: .85em;
 	line-height: 1.9em;
 }
-.collapse-btn::after { content: "−"; }
+/* A dictionary's menu (tap its name); a word's hidden entries */
+p-h { cursor: pointer; }
+p-e:has(> .dict-menu) { position: relative; }
+.dict-menu {
+	position: absolute;
+	top: 2em;
+	right: 0;
+	z-index: 5;
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--card-bg);
+	box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+	overflow: hidden;
+	font-size: 14px;
+}
+.dict-menu button { padding: 9px 14px; border: 0; background: none; color: var(--card-text); text-align: left; }
+.dict-menu button + button { border-top: 1px solid var(--line); }
+.see-more { display: none; margin: .5em 0 0; }
 
 /* Stars: starred dictionaries' entries stand out */
 .star-btn {
@@ -685,8 +692,8 @@ p-d.chapter .vs-start { white-space: nowrap; }
 /* Parallel: verse by verse, each text's on its own line under its name */
 .pv { padding: .35em 0; border-bottom: 1px solid var(--line); }
 .pv:last-child { border-bottom: 0; }
-.pv-t + .pv-t { margin-top: .15em; }
-.pv-d { margin-right: .3em; color: var(--color1); font-size: .85em; font-weight: 700; } /* like the headings */
+.pv-t + .pv-t { margin: .15em 0 0 1.2em; padding-left: .6em; border-left: 2px solid var(--color1); } /* the others, offset */
+.pv-d { margin-right: .3em; padding: 0 .55em; border-radius: 999px; background: var(--color1); color: #fff; font-size: .75em; font-weight: 700; vertical-align: .1em; }
 .vs-n {
 	padding: 0 .2em 0 .1em;
 	color: var(--color1);
