@@ -1103,12 +1103,13 @@ if(!isDictPage){
 			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
-			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x)}</button></li>`;
+			const got = downloaded.has(d) ? '<span class="lib-size got" title="Downloaded: it\'s just turned on">✓ Downloaded</span>' : undefined; // (no size: nothing to download)
+			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x, got)}</button></li>`;
 		});
 		if (prev !== null) html += '</ul>';
 		if (!ids.length) html = '<p class="empty">These are all downloaded: slide for more.</p>';
-		const size = sizeOf(ids.filter(d => firstPick.has(d) && !downloaded.has(d))); // (one downloaded already is just turned on)
-		return html + `<button class="first-default" data-first="go"${ids.some(d => firstPick.has(d)) ? '' : ' disabled'}>Download${size ? ` (${sizeText(size)})` : ''}</button>`;
+		const picks = ids.filter(d => firstPick.has(d)), size = sizeOf(picks.filter(d => !downloaded.has(d))); // (one downloaded already is just turned on)
+		return html + `<button class="first-default" data-first="go"${picks.length ? '' : ' disabled'}>${picks.some(d => !downloaded.has(d)) ? `Download${size ? ` (${sizeText(size)})` : ''}` : 'Turn on'}</button>`;
 	}
 	// The level slider, in the download prompt and the filter: at level n
 	// (-1: none, the ones on are someone's own pick)
@@ -1365,16 +1366,25 @@ if(!isDictPage){
 		updateURL();
 	}
 
-	// Asked too if none of the page's dictionaries is downloaded (in the
-	// offline cache); can't tell (no Cache API): not asked
-	const anyDownloaded = async () => (await Promise.all(dicts.map(x => caches.match('/' + x.path)))).some(Boolean);
-	if (asking || solo >= 0) {
-		applyOn();
-		if (asking) openDrawer('first');
-	} else anyDownloaded().catch(() => true).then(any => {
-		if (!any) {
+	// Which of the page's dictionaries are in the offline cache, before
+	// asking: nothing saved (a new page, like /khmer/h97) but the suggested
+	// ones all downloaded already, those are just turned on; saved but none
+	// downloaded, asked too. Can't tell (no Cache API): as saved, or asked.
+	const markCached = async () => {
+		const hits = await Promise.all(dicts.map(x => caches.match('/' + x.path)));
+		hits.forEach((hit, d) => hit && downloaded.add(d));
+		return hits.some(Boolean);
+	};
+	if (solo >= 0) applyOn();
+	else markCached().catch(() => !asking).then(any => {
+		if (asking && any && !notGot(0).some(d => !downloaded.has(d))) {
+			asking = false;
+			firstIds.filter(d => downloaded.has(d) && levelOf(dicts[d]) <= firstLevel).forEach(d => { libOn[d] = true; });
+			saveState();
+		} else if (asking || !any) {
 			asking = true;
 			libOn.fill(false);
+			setLevel(firstLevel); // (with what's downloaded)
 			openDrawer('first');
 		}
 		applyOn();
