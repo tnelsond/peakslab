@@ -181,7 +181,8 @@ if(!isDictPage){
 						unloadDict(d);
 					(pendingLoad.get(d) || []).forEach(f => f());
 					pendingLoad.delete(d);
-					$(`${d}`)?.classList.remove('down');
+					downloaded.add(d);
+					renderFilterSoon();
 					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
 					--nload;
 					updateStatus();
@@ -417,7 +418,8 @@ if(!isDictPage){
 	const primaryCats = new Set(allDicts.filter(x => x.primary).map(x => x.cat));
 	const dicts = allDicts.filter(x => x.primary || (x.priority <= 0 && primaryCats.has(x.cat)));
 	const dictIds = dicts.map((_, d) => d);
-	const isOn = d => !!$(d)?.checked; // (its checkbox in the library)
+	// Searched: on, and in what the filter has picked (all of it: none picked)
+	const isOn = d => libOn[d] && (solo >= 0 || inFilter(d));
 
 	// Order: categories with the most priority-1 dictionaries first, then within
 	// a category this page's language first, then by priority (-1 "always
@@ -456,8 +458,8 @@ if(!isDictPage){
 	// The filter: categories made from the dictionaries on the page, by kind
 	// (the folders: Bible, Dictionaries, Bible texts, Music, Pronunciation,
 	// ...), Bible first. Pick any number of them and searches use just their
-	// dictionaries; none picked is All (the library's choices). Each
-	// category keeps its own choice of which of its dictionaries it uses.
+	// dictionaries; none picked is All. Each dictionary is on or off, the
+	// same in every category (onIn).
 	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
 		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
 		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation',
@@ -488,21 +490,18 @@ if(!isDictPage){
 	const filtered = () => selected.length > 0;
 	const selCats = () => selected.map(catById);
 	const inFilter = d => !filtered() || selCats().some(c => c.members.includes(d));
-	// A category's choice of dictionaries: saved, or the ones on by default
-	// in it, or all of it if none are
-	const catStoreKey = id => `peakslab-cat-${appname}-${id}`;
-	function catChosen(c){
-		const saved = stored(catStoreKey(c.id));
-		if (Array.isArray(saved)) return new Set(c.members.filter(d => saved.includes(dicts[d].path)));
-		const on = c.members.filter(d => dicts[d].on);
-		return new Set(on.length ? on : c.members);
-	}
-	const setCatChosen = (c, set) => store(catStoreKey(c.id), c.members.filter(d => set.has(d)).map(d => dicts[d].path));
+	const onIn = c => c.members.filter(d => libOn[d]); // A category's dictionaries that are on
 
 	// Stars: a starred dictionary's entries come first and stand out, in the
 	// order they were starred, and its words are the ones searched first.
 	// ?dict=h97 is a page with only that dictionary loaded ("solo").
 	let solo = dicts.findIndex(x => x.name === urlParams.get('dict'));
+	// Each dictionary on or off: saved ([{file, enabled}]), or the defaults.
+	// If storage doesn't work (some privacy modes, in-app webviews) the
+	// defaults load and the page works normally; it just won't remember.
+	const libKey = `peakslab-dicts-${appname}`;
+	const libOn = solo >= 0 ? dicts.map((_, d) => d === solo) : (saved => dicts.map(x => saved.get(x.path) ?? x.on))(new Map(readList(libKey).map(x => [x.file, !!x.enabled])));
+	const downloaded = new Set(); // In the offline cache (the service worker says), or loaded
 	const starKey = `peakslab-stars-${appname}`;
 	let stars = byPaths(readList(starKey));
 	const isStar = d => stars.includes(d);
@@ -530,13 +529,9 @@ if(!isDictPage){
 		loadDict(d);
 	}
 	const searchMask = () => dicts.map((_, d) => !extraLoaded.has(d) || isOn(d));
-	// What translating and the popup use: the ones on (searched), and the
-	// ones All has on (priority 1, or as the library has them), so a
-	// filter like Bible still has them
-	function trOn(){
-		const lib = libraryOn();
-		return d => isOn(d) || lib[d];
-	}
+	// What translating and the popup use: the ones on, picked by the
+	// filter or not, so a filter like Bible still has them
+	const trOn = () => d => libOn[d];
 	const trMask = () => { const on = trOn(); return dicts.map((_, d) => on(d)); };
 
 
@@ -690,10 +685,10 @@ if(!isDictPage){
 	let parOpen = false; // The drop-down open (it stays so as the drawer's redrawn)
 	function parHTML(){
 		if (bibleTexts.length < 2) return '';
-		return `<details class="par-dd"${parOpen ? ' open' : ''}><summary><span class="row-w">Parallel Bibles</span><span class="row-t">${parallel ? 'On' : 'Off'} · ${bibleTexts.filter(isOn).length} of ${bibleTexts.length} texts</span></summary>` +
+		return `<details class="par-dd"${parOpen ? ' open' : ''}><summary><span class="row-w">Parallel Bibles</span><span class="row-t">${parallel ? 'On' : 'Off'} · ${bibleTexts.filter(d => libOn[d]).length} of ${bibleTexts.length} texts</span></summary>` +
 			`<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel reading</span><span class="row-t">Verse by verse in each text</span></button></li></ul>` +
 			`<h3 class="drawer-h">Texts</h3><ul class="cat-dicts">${bibleTexts.map(d =>
-				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${isOn(d)}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul></details>`;
+				`<li><button class="cat-dict check" data-ptext="${d}" aria-pressed="${libOn[d]}"><span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}</button></li>`).join('')}</ul></details>`;
 	}
 
 	// Bible mode (a Bible category picked, or a Bible page), and reading a
@@ -757,27 +752,14 @@ if(!isDictPage){
 			(secs.length > 1 ? secs.map(c => row(`/${curLang}/${c}${qs}`, langSym(c), `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c)).join('') : '') + '</ul>' +
 			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
-	// How many dictionaries All uses: what's on now, or (while
-	// filtering) the library's saved choices
-	function allCount(){
-		return (filtered() ? libraryOn() : dictIds.map(isOn)).filter(Boolean).length;
-	}
-	// The library's choices (All), whatever is picked: saved
-	// ([{file, enabled}]), or the defaults. If storage doesn't work (some
-	// privacy modes, in-app webviews) the defaults load and the page works
-	// normally; it just won't remember.
-	const libKey = `peakslab-dicts-${appname}`;
-	function libraryOn(){
-		const saved = new Map(readList(libKey).map(x => [x.file, !!x.enabled]));
-		return dicts.map(x => saved.get(x.path) ?? x.on);
-	}
+	const allCount = () => libOn.filter(Boolean).length; // How many All uses
 	// All, the top-level categories (and any picked sub-category),
 	// then the whole filter
 	function renderQuick(){
 		const btn = (attrs, label, on, n) => `<button class="qk" ${attrs} aria-pressed="${on}">${escapeHTML(label)}${n !== undefined ? ` <span class="n">${n}</span>` : ''}</button>`;
 		renderBibleBar();
 		const html = (barChoice || filtered() ? btn('data-qall="1"', 'All', !filtered(), allCount()) : '') +
-			cats.filter(c => (barChoice && !c.sub) || selected.includes(c.id)).map(c => btn(`data-qsel="${c.id}"`, c.label, selected.includes(c.id), selected.includes(c.id) ? catChosen(c).size : undefined)).join('') +
+			cats.filter(c => (barChoice && !c.sub) || selected.includes(c.id)).map(c => btn(`data-qsel="${c.id}"`, c.label, selected.includes(c.id), selected.includes(c.id) ? onIn(c).length : undefined)).join('') +
 			'<button class="qk qk-more" data-qmore="1">Filter…</button>';
 		if (quick._html !== html) { quick._html = html; quick.innerHTML = html; } // Only when changed: keeps it tappable
 	}
@@ -881,24 +863,40 @@ if(!isDictPage){
 			v === 'books' ? booksHTML() : v === 'lang' ? langHTML() : filterHTML();
 		drawerBody.scrollTop = scroll;
 	}
-	// The filter: All, then the categories (All only with two
-	// or more); each opens (▸) to choose its dictionaries
+	// A dictionary: on or off, what kind it is, downloaded (✓) or not (⬇)
+	// and its size, what it is, and its star
+	function dictRowHTML(d){
+		const x = dicts[d], state = loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
+		const size = x.size ? sizeText(x.size) : '';
+		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${libOn[d]}">` +
+			`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeHTML(d)}` +
+			`<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${size}</span></span>` +
+			`<span class="lib-desc">${x.desc}</span></button>${starBtnHTML(d)}</li>`;
+	}
+	// The filter: All, then the categories (All only with two or more);
+	// pick any number to search just them, and open one (▸) to turn its
+	// dictionaries on or off. Dictionaries in no category are under Other.
 	function filterHTML(){
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
+		const rows = ds => `<ul class="rows dict-rows">${ds.map(dictRowHTML).join('')}</ul>`;
 		const cat = c => {
-			const chosen = catChosen(c), open = expandedCats.has(c.id);
+			const open = expandedCats.has(c.id);
 			return `<li class="cat${c.sub ? ' sub' : ''}"><div class="cat-row">` +
-				btn(c, 'sel', `class="cat-sel check" aria-pressed="${selected.includes(c.id)}"`, `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${chosen.size} of ${c.members.length} on</span>`) +
-				btn(c, 'exp', `class="cat-exp" aria-expanded="${open}" title="Choose its dictionaries" aria-label="Choose the dictionaries in ${escapeHTML(c.label)}"`, '▸') + '</div>' +
-				(open ? `<div class="cat-body"><ul class="cat-dicts">${c.members.map(d =>
-					`<li>${btn(c, 'dict', `data-d="${d}" class="cat-dict check" aria-pressed="${chosen.has(d)}"`, `<span class="cd-name">${escapeHTML(dicts[d].name)}</span>${typeHTML(d)}`)}</li>`).join('')}</ul>` +
-					`<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All')}${btn(c, 'none', 'class="text-btn"', 'None')}${btn(c, 'reset', 'class="text-btn"', 'Reset')}</div></div>` : '') +
+				btn(c, 'sel', `class="cat-sel check" aria-pressed="${selected.includes(c.id)}"`, `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${onIn(c).length} of ${c.members.length} on</span>`) +
+				btn(c, 'exp', `class="cat-exp" aria-expanded="${open}" title="Its dictionaries" aria-label="The dictionaries in ${escapeHTML(c.label)}"`, '▸') + '</div>' +
+				(open ? `<div class="cat-body">${rows(c.members)}` +
+					`<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All on')}${btn(c, 'none', 'class="text-btn"', 'All off')}${btn(c, 'reset', 'class="text-btn"', 'Defaults')}</div></div>` : '') +
 				'</li>';
 		};
-		return (choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${allCount()} of ${dicts.length} on in the library</span></button></li></ul>` : '') +
+		const other = dictIds.filter(d => !cats.some(c => c.members.includes(d)));
+		if (!choice) return rows(dictIds) + '<p class="empty">Turn dictionaries on or off; ⬇ ones download when they\'re on. Star the ones you use most: their entries come first.</p>';
+		return `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered()}"><span class="row-w">All</span><span class="row-t">${allCount()} of ${dicts.length} on</span></button></li></ul>` +
 			`<ul class="rows cats">${cats.map(cat).join('')}</ul>` +
-			'<p class="empty">Pick as many as you like. Open one (▸) to choose which of its dictionaries it uses.</p>';
+			(other.length ? `<h3 class="drawer-h">Other</h3>${rows(other)}` : '') +
+			'<p class="empty">Pick as many as you like: searches use just their dictionaries that are on. Open one (▸) to turn its dictionaries on or off; ⬇ ones download when they\'re on. Star the ones you use most: their entries come first.</p>';
 	}
+	// The filter again, once (the service worker says which files it has all at once)
+	const renderFilterSoon = debounce(() => { if (drawerView === 'modes') renderDrawer(); }, 50);
 	function openDrawer(view){
 		if (drawerView === view) return closeDrawer();
 		drawerView = view;
@@ -933,18 +931,15 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, ptext} = b.dataset;
+		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, ptext, on} = b.dataset;
 		if (par) {
 			parallel = !parallel;
 			store(parKey, parallel);
 			renderDrawer();
 			if (isChapter(query)) searchAgain(); // The chapter showing, again
-		} else if (ptext) {
-			const cb = $(ptext);
-			if (!cb) return;
-			cb.checked = !cb.checked;
-			updateDictList(cb);
-			renderDrawer();
+		} else if (ptext || on) {
+			const d = +(ptext || on);
+			setOn([d], !libOn[d]);
 		} else if (book || booksBack) {
 			booksPick = book || null;
 			renderDrawer();
@@ -960,14 +955,7 @@ if(!isDictPage){
 				if (!expandedCats.delete(c.id)) expandedCats.add(c.id);
 				return renderDrawer();
 			}
-			if (act === 'reset') store(catStoreKey(c.id), null); // (back to its defaults)
-			else {
-				const set = act === 'all' ? new Set(c.members) : act === 'none' ? new Set() : catChosen(c);
-				if (act === 'dict' && !set.delete(+b.dataset.d)) set.add(+b.dataset.d);
-				setCatChosen(c, set);
-			}
-			if (selected.includes(c.id)) refilter();
-			else renderDrawer();
+			setOn(c.members, act === 'all' ? true : act === 'none' ? false : d => dicts[d].on); // All on, all off, the defaults
 		} else if (q !== undefined) {
 			closeDrawer();
 			search(q);
@@ -982,126 +970,71 @@ if(!isDictPage){
 	drawerBody.addEventListener('click', rowClick);
 	homeDiv.addEventListener('click', rowClick);
 
-	// ---------------------------------------------------------------
-	// Library: every dictionary on this page, under its category ("Bible
-	// words", "Bible words in English" for another language's), like the
-	// filter's rows: on or off, what kind it is, its size, and its star.
-	// ---------------------------------------------------------------
-	let temp = `<h2>Library<span id="libMode"></span></h2><p class="lib-help">Turn dictionaries on or off. Star the ones you use most: their entries come first.</p><ol class="rows dictlist">`;
-
-	let prevGroup = null;
-	dicts.forEach((x, d) => {
-		const group = catLabel(x.cat) + (x.primary ? '' : ` in ${cap(x.lang)}`);
-		if (group !== prevGroup)
-			temp += `<li class="lib-h drawer-h">${escapeHTML(group)}</li>`;
-		prevGroup = group;
-		temp += `<li class="row dictlist-file" data-idx="${d}">` +
-			`<input type="checkbox" class="down" id="${d}"${x.on ? " checked" : ""} onchange="updateDictList(this)">` +
-			`<label for="${d}" class="row-main check lib-check"><span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>` +
-			typeHTML(d) + (x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') +
-			`</span><span class="lib-desc">${x.desc}</span></label>` +
-			starBtnHTML(d) + '</li>';
-	});
-	temp += `</ol>`;
-	let listDiv = $('listDiv');
-	listDiv.innerHTML += temp;
 	renderHome();
 	const filterBtn = $('filterBtn');
-	const libMode = $('libMode');
 	updateFilterUI();
 
-	ack = url => { // Downloaded
-		const cb = $(dicts.findIndex(x => x.path === url));
-		cb?.classList.remove('down');
-		if (cb) cb.disabled = false;
+	ack = url => { // In the offline cache
+		const d = dicts.findIndex(x => x.path === url);
+		if (d >= 0 && !downloaded.has(d)) { downloaded.add(d); renderFilterSoon(); }
 	};
 
-	// The library's choices (libraryOn), or the filter's (its categories',
-	// catChosen), or the solo dictionary
-	function applyState() {
-		if (solo >= 0) { // Leaves the saved choices alone for the normal page
-			dicts.forEach((_, index) => setCheckbox(index, index === solo));
-			loadDict(solo);
-			return;
-		}
-		applyFilter();
-	}
-
-	// Turns these dictionaries on (loads them) and the rest off
-	function enableSet(want){
-		want.forEach((on, d) => {
-			setCheckbox(d, on);
-			if (on) {
-				extraLoaded.delete(d); // Searched now
+	// Loads the dictionaries searched (isOn), and the rest that are on too,
+	// unsearched, for glossing and the popup (not media); the others go
+	function applyOn(){
+		dicts.forEach((x, d) => {
+			if (isOn(d)) {
+				extraLoaded.delete(d);
 				loadDict(d);
-			}
-			else if (!dict_master_code[d] && !extraLoaded.has(d)) unloadDict(d);
+			} else if (libOn[d] && !x.media) {
+				extraLoaded.add(d);
+				loadDict(d);
+			} else if (!dict_master_code[d] && !extraLoaded.has(d)) unloadDict(d);
 		});
 		renderQuick();
 	}
 
-	// The picked categories' dictionaries, or the library's choices. While
-	// filtering, All's ones (not media) load too, unsearched, for
-	// glossing and the popup.
-	function applyFilter(){
-		if (!filtered()) return enableSet(libraryOn());
-		const on = new Set(selCats().flatMap(c => [...catChosen(c)])), lib = libraryOn();
-		dicts.forEach((x, d) => { if (lib[d] && !on.has(d) && !x.media) extraLoaded.add(d); });
-		enableSet(dicts.map((_, d) => on.has(d)));
-		extraLoaded.forEach(loadDict);
-	}
-
-	// A dictionary turned on or off (in the library, or by starring it)
-	// while filtering: it's in or out of each picked category it belongs to
-	function setInFilter(d, on){
-		selCats().filter(c => c.members.includes(d)).forEach(c => {
-			const set = catChosen(c);
-			if (on) set.add(d); else set.delete(d);
-			setCatChosen(c, set);
+	// Turns these dictionaries on or off (on: true, false, or one for each),
+	// and searches again if what's searched changed (one still loading
+	// searches again once it's loaded)
+	function setOn(ds, on){
+		const was = dicts.map((_, d) => isOn(d));
+		ds.forEach(d => {
+			libOn[d] = typeof on === 'function' ? on(d) : on;
+			if (!libOn[d]) extraLoaded.delete(d); // (not kept loaded)
 		});
+		saveState();
+		applyOn();
+		if (drawerView === 'modes' || drawerView === 'books') renderDrawer();
+		if (ds.some(d => was[d] !== isOn(d) && (!isOn(d) || !dict_master_code[d]))) searchAgain();
 	}
 
-	// Changes what's picked: their dictionaries, the library showing just
-	// them, and the search again
+	// Changes what's picked: their dictionaries, and the search again
 	function setFilter(ids){
 		selected = ids.filter(catById);
 		store(filterKey, selected);
 		refilter();
 	}
 	function refilter(){
-		if (solo < 0) applyFilter();
+		applyOn();
 		updateFilterUI();
 		searchAgain();
 	}
 	function updateFilterUI(){
-		document.querySelectorAll('.dictlist-file').forEach(li => li.classList.toggle('out', !inFilter(+li.dataset.idx)));
-		document.querySelectorAll('.lib-h').forEach(h => {
-			let n = h.nextElementSibling, any = false;
-			while (n && n.classList.contains('dictlist-file')) { any ||= !n.classList.contains('out'); n = n.nextElementSibling; }
-			h.classList.toggle('out', !any);
-		});
 		const on = filtered();
 		const label = on ? selCats().map(c => c.label).join(' + ') : 'All';
 		filterBtn.classList.toggle('on', on);
 		menuBtn.classList.toggle('on', on);
 		filterBtn.title = filterBtn.ariaLabel = `Filter: ${label}`;
-		libMode.textContent = on ? ` · ${label}` : '';
 		if (drawerView === 'modes') renderDrawer();
 		renderQuick();
 		updateURL();
 	}
 
-	applyState();
+	applyOn();
 
 	function saveState() {
-		if (solo >= 0 || filtered()) return; // A filter's choices are its categories'
-
-		store(libKey, dicts.map((x, d) => ({file: x.path, enabled: isOn(d)})));
-	}
-
-	function setCheckbox(d, checked){
-		const cb = $(d);
-		if (cb) cb.checked = checked;
+		if (solo < 0) store(libKey, dicts.map((x, d) => ({file: x.path, enabled: libOn[d]}))); // (solo leaves them alone)
 	}
 
 
@@ -1115,6 +1048,7 @@ if(!isDictPage){
 	function loadDict(d) {
 		if (!dict_master_code[d] || loading.has(d)) return;
 		loading.add(d);
+		renderFilterSoon();
 		++nload;
 		updateStatus();
 		// The worker reads it from the offline cache itself (off this
@@ -1138,35 +1072,12 @@ if(!isDictPage){
 		dict_master_code[d] = true;
 	}
 
-	function updateDictList(checkbox){
-		const d = +checkbox.id;
-		if (filtered()) setInFilter(d, checkbox.checked);
-		if(checkbox.checked){
-			if (extraLoaded.delete(d)) searchAgain(); // Already loaded (to gloss with): searched now
-			loadDict(d);
-		}else if (filtered() && libraryOn()[d] && !dicts[d].media){ // Still one of All's: kept, unsearched
-			extraLoaded.add(d);
-			searchAgain();
-		}else{
-			unloadDict(d);
-		}
-		saveState();
-		if (drawerView === 'modes') renderDrawer();
-		renderQuick();
-	}
-	window.updateDictList = updateDictList;
-
-	// The star on a dictionary (in the library or on one of its entries):
+	// The star on a dictionary (in the filter or on one of its entries):
 	// starred ones come first. Starring one turns it on.
 	function toggleStar(i){
 		stars = isStar(i) ? stars.filter(x => x !== i) : [...stars, i];
-		if (isStar(i)) {
-			if (filtered()) setInFilter(i, true);
-			setCheckbox(i, true);
-			loadDict(i); // Does nothing if it's loaded
-			saveState();
-		}
 		if (solo < 0) store(starKey, stars.map(d => dicts[d].path));
+		if (isStar(i) && !libOn[i]) setOn([i], true);
 		updateStarUI();
 		searchAgain();
 	}
@@ -1209,7 +1120,7 @@ if(!isDictPage){
 		document.querySelectorAll('.star-btn').forEach(b => {
 			b.outerHTML = starBtnHTML(+b.dataset.d);
 		});
-		document.querySelectorAll('.dictlist-file').forEach(li => li.classList.toggle('starred', isStar(+li.dataset.idx)));
+		document.querySelectorAll('.dict-row').forEach(li => li.classList.toggle('starred', isStar(+li.querySelector('[data-on]').dataset.on)));
 	}
 
 
@@ -1261,14 +1172,14 @@ if(!isDictPage){
 	// What's searched for: lower case, no zero width spaces, \t a tab
 	const updateQuery = (text = queryText) => text ? text.toLowerCase().replaceAll("​", "").replaceAll("\\t", "\t") : null;
 
-	let showLibrary = false; // The menu's Library, until something is searched
+	let showPrefs = false; // The menu's Settings, until something is searched
 	function showSettings(){
 		loader = null;
 		updateStatus('');
 		statusDiv.classList.add('hide');
 		renderHome();
 		settings.style.display = 'block';
-		settings.classList.toggle('library', showLibrary);
+		settings.classList.toggle('prefs-on', showPrefs);
 		resultsDiv.replaceChildren();
 		translationDiv.replaceChildren();
 	}
@@ -1316,7 +1227,7 @@ if(!isDictPage){
 	const isPhon = d => dicts[d].type === 'phon' && !dicts[d].media;
 	const isWords = d => !dicts[d].media && !isPhon(d);
 	const loaded = d => !dict_master_code[d];
-	// Starred first, then the library's order; pronunciation ones last
+	// Starred first, then the filter's order; pronunciation ones last
 	const trOrder = ids => [...ids].sort((a, b) => isPhon(a) - isPhon(b) || sortId(a) - sortId(b));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
 	// The default dictionary to translate with: the first starred one that's
@@ -1646,7 +1557,7 @@ if(!isDictPage){
 			return;
 		}
 		settings.style.display = 'none'; // (a translation doesn't clear it)
-		showLibrary = false;
+		showPrefs = false;
 		statusDiv.classList.remove('hide');
 		updateStatus();
 		historyTimer();
@@ -1740,11 +1651,11 @@ if(!isDictPage){
 	mark = stored('mark') !== false;
 	$('markT').addEventListener('click', () => store('mark', mark = !mark));
 
-	// Library button: the library and settings, instead of the home page
-	// (what was searched is in the history)
+	// Settings button: the settings, instead of the home page (what was
+	// searched is in the history)
 	$('settingsBtn').addEventListener('click', () => {
 		closeDrawer();
-		showLibrary = true;
+		showPrefs = true;
 		setQueryText('');
 		query = null; // (shows it even if nothing was searched)
 		startSearch();

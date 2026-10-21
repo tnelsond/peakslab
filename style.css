@@ -94,7 +94,7 @@ a:hover, p-a:hover {
 a:visited { color: var(--link-old); }
 button { cursor: pointer; }
 button:disabled { cursor: default; }
-button:focus-visible, a:focus-visible, input:focus-visible + .lib-check, summary:focus-visible {
+button:focus-visible, a:focus-visible, summary:focus-visible {
 	outline: 2px solid var(--star);
 	outline-offset: 2px;
 }
@@ -746,22 +746,22 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .bk-grid button[aria-current="true"] small { color: inherit; opacity: .85; }
 .bk-name small { margin-left: .5em; font-size: .8em; font-weight: normal; color: var(--muted); }
 
-/* Nothing searched: the home page (recent, bookmarks); the menu's Library
-   shows the library and settings instead */
-#settings:not(.library) > #listDiv, #settings:not(.library) > .prefs, #settings.library > #home { display: none; }
+/* Nothing searched: the home page (recent, bookmarks); the menu's
+   Settings shows the settings instead */
+#settings:not(.prefs-on) > .prefs, #settings.prefs-on > #home { display: none; }
 #home {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 	gap: 0 16px;
 }
-#home section, .prefs, #listDiv {
+#home section, .prefs {
 	background: var(--result-entry-bg);
 	border-radius: 12px;
 	padding: 14px 18px;
 	margin: 16px 0 0;
 	border-left: 0;
 }
-#home h2, .prefs h2, #listDiv h2 { margin: 0 0 .3em; font-size: 1.2em; color: var(--color1); }
+#home h2, .prefs h2 { margin: 0 0 .3em; font-size: 1.2em; color: var(--color1); }
 .prefs .pref-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: .5em 0; }
 .prefs details { margin-top: .6em; font-size: .85em; color: var(--muted); }
 /* Rows: recent searches, bookmarks, the filter's categories, languages */
@@ -804,12 +804,8 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .lang-row .row-t { margin-left: auto; }
 .lang-row[aria-current="page"] .row-w { color: var(--color1); }
 
-/* The library */
-.lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
-.dictlist .out { display: none; }
-.dictlist-file input { display: block; position: absolute; opacity: 0; pointer-events: none; }
-.lib-check { gap: 2px; cursor: pointer; }
-.lib-h + .row { border-top: 0; }
+/* A dictionary in the filter: on or off, its kind, size, description, star */
+.dict-rows .row-main { gap: 2px; }
 .lib-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .lib-desc { font-size: .85em; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
 .lib-type {
@@ -824,22 +820,17 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .type-rbi { background: var(--type-rbi); }
 .type-aux { background: var(--type-aux); }
 .lib-size { font-size: .8em; color: var(--muted); white-space: nowrap; }
-.dictlist-file .star-btn { font-size: 1.4em; padding: 0 10px; }
-/* On, and while it's downloading */
-input:checked + .lib-check::before {
-	border-color: var(--control-btn-bg);
-	background: var(--control-btn-bg) var(--tick) center / 14px no-repeat;
-}
-input:checked + .lib-check .row-w { color: var(--color1); }
-input.down:checked + .lib-check::before {
-	background: none;
+.lib-size.got { color: var(--color1); }
+.dict-row .star-btn { font-size: 1.4em; padding: 0 10px; }
+.dict-row .lib-desc { white-space: normal; }
+/* Loading (downloading): its box spins */
+.dict-on:has(.loading)::before {
+	background: none !important;
 	border-top-color: transparent;
 	border-radius: 50%;
 	animation: spin-box .8s linear infinite;
 }
 @keyframes spin-box { from { transform: translateY(-50%) rotate(0); } to { transform: translateY(-50%) rotate(360deg); } }
-/* Not downloaded yet */
-input.down:not(:checked) + .lib-check .row-w::after { content: " ⬇"; color: var(--muted); font-size: .8em; }
 /* Side panel: history, bookmarks, the filter, languages, books */
 #drawer { position: fixed; inset: 0; z-index: 2500; }
 .drawer-bg { position: absolute; inset: 0; background: rgba(30,20,10,.45); }
