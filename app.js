@@ -1010,7 +1010,7 @@ if(!isDictPage){
 	// own: Audio, Images); or choose in the library (all off). Not
 	// answered, it asks again next time.
 	const firstIds = dictIds.filter(d => [0, 1].includes(dicts[d].priority)).sort((a, b) => order.indexOf(a) - order.indexOf(b));
-	const firstPick = new Set(firstIds);
+	const firstPick = new Set(firstIds.filter(d => dicts[d].priority === 1 || dicts[d].lang === 'english')); // (another language's priority 0, not ticked)
 	const sizeOf = ds => ds.reduce((n, d) => n + dicts[d].size, 0);
 	function firstHTML(){
 		let prev = null, html = '';
