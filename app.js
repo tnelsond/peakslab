@@ -1460,16 +1460,9 @@ if(!isDictPage){
 	// Dictionaries of words (not media, not pronunciation) and pronunciation ones
 	const isPhon = d => dicts[d].type === 'phon' && !dicts[d].media;
 	const isWords = d => !dicts[d].media && !isPhon(d);
-	const loaded = d => !dict_master_code[d];
 	// Starred first, then the filter's order; pronunciation ones last
 	const trOrder = ids => [...ids].sort((a, b) => isPhon(a) - isPhon(b) || sortId(a) - sortId(b));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
-	// The default dictionary to translate with: the first starred one that's
-	// loaded, else the first loaded one to English, else any loaded one
-	function mainTranslator(){
-		const ok = dictIds.filter(d => loaded(d) && isWords(d));
-		return stars.find(d => ok.includes(d)) ?? ok.find(d => dicts[d].type === 'bi') ?? ok[0];
-	}
 	// The pronunciation one: the first (by priority)
 	const phonTranslator = () => dictIds.find(isPhon);
 
@@ -1686,12 +1679,15 @@ if(!isDictPage){
 	// The ⇄ button on an entry (or verse) asks which dictionaries to gloss
 	// its text with, every time, any number at once: the ones that are on,
 	// pronunciation ones, and (loaded when used) the ones that are off. It
-	// starts with the last choice, or a dictionary and a pronunciation one.
-	// Tap ⇄ again to hide it.
-	const trWithKey = `peakslab-translate-${appname}`;
+	// starts with the ones that are on and a pronunciation one, with the
+	// changes made here before (added, dropped) kept. Tap ⇄ again to hide it.
+	// Not media or Bible texts (verse references aren't words)
+	const glossable = () => dictIds.filter(d => !dicts[d].media && !isBibleText(d));
+	const glossDefault = () => [...new Set([...glossable().filter(d => libOn[d]), phonTranslator()])].filter(d => d !== undefined);
+	const trWithKey = `peakslab-gloss-${appname}`;
 	function lastTrWith(){
-		const ids = byPaths(readList(trWithKey)).filter(d => !dicts[d].media);
-		return ids.length ? ids : [mainTranslator(), phonTranslator()].filter(d => d !== undefined);
+		const {add = [], drop = []} = stored(trWithKey) || {}, dropped = byPaths(drop);
+		return trOrder([...new Set([...glossDefault().filter(d => !dropped.includes(d)), ...byPaths(add).filter(d => glossable().includes(d))])]);
 	}
 	window.translateEntry = btn => {
 		const pe = btn.closest('p-e, .vs');
@@ -1699,9 +1695,8 @@ if(!isDictPage){
 		if (open.length) return open.forEach(x => x.remove());
 		const text = entryText(pe);
 		const chosen = new Set(lastTrWith());
-		// Not media or Bible texts (verse references aren't words)
-		const usable = dictIds.filter(d => !dicts[d].media && !isBibleText(d));
-		const on = usable.filter(d => loaded(d) && isWords(d)), phons = usable.filter(isPhon);
+		const usable = glossable();
+		const on = usable.filter(d => libOn[d] && isWords(d)), phons = usable.filter(isPhon);
 		const off = usable.filter(d => !on.includes(d) && !phons.includes(d));
 		const opts = ids => ids.map(d => `<button class="check" data-idx="${d}" aria-pressed="${chosen.has(d)}">${isStar(d) ? '★ ' : ''}${escapeHTML(dicts[d].name)}</button>`).join('');
 		const pick = document.createElement('div');
@@ -1727,7 +1722,8 @@ if(!isDictPage){
 			}
 			const ids = trOrder(picked());
 			if (!ids.length) return;
-			store(trWithKey, ids.map(d => dicts[d].path));
+			const def = glossDefault(), paths = ds => ds.map(d => dicts[d].path);
+			store(trWithKey, {add: paths(ids.filter(d => !def.includes(d))), drop: paths(def.filter(d => !ids.includes(d)))});
 			pick.remove();
 			glossInto(pe, text, ids);
 		};
