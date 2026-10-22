@@ -43,7 +43,7 @@ AMBIGUOUS = {
 	'ɨɨ': ({'ឺ'}, lambda sign, ser: 'ə' if ser == 1 else 'ɯ', 'ɯ'),  # កឺ kə, គឺ kɯ, យឺត jɯt
 	'oo': ({'ូ', 'ោ'}, lambda sign, ser: 'oᶷ' if sign == 'ូ' else 'ọ', 'oᶷ'),
 	'ee': ({'េ', 'ិ', 'ី'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'e', 'e'),
-	'e': ({'េ', 'ិ'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'e', 'e'),
+	'e': ({'េ', 'ិ', 'ឥ'}, lambda sign, ser: 'ɛᵉ' if sign == 'េ' and ser == 2 else 'i' if sign == 'ិ' and ser == 2 else 'e', 'e'),  # Google's កិរិយា keʔ.reʔ.jaa is keʔ.riʔ.ja
 	'ə': ({'ិ', 'ី', 'ឹ', 'េ', 'ឥ', 'ឦ'}, lambda sign, ser: 'e' if sign == 'េ' else 'ə', 'ə'),
 	'ɨ': ({'ិ', 'ឹ', 'េ', 'ឥ', 'ឫ', 'ឬ', 'ឭ', 'ឮ'},
 		lambda sign, ser: 'ə' if sign in 'ិឥ' or ser == 1 else 'ɛ' if sign == 'េ' else 'ɯ', 'ɯ'),  # គឹ ɯʔ

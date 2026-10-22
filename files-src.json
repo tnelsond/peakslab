@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1792670071],
+    ["404.html", 1792670194],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -71,7 +71,7 @@
     ["khmer/music/sheet/kora-pb1.slab", 1792670087, "The first half of the purple book via <a href=\"https/www.korapraise.com\">Kora Praise</a>", 24924, 2, "mono", 0, 4673978],
     ["khmer/music/sheet/kora-pb2.slab", 1792239167, "The second half of the purple book via <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 26494, 1, "mono", 0, 5690944],
     ["khmer/music/sheet/kora-snl.slab", 1789364966, "The SnL songbook from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 32462, 2, "mono", 0, 9404902],
-    ["khmer/phonetics/dict/g2k.peak.zst", 1792415990, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>. Rewritten in G2K's phonetics.", 193, 1, "phon", 0, 765697],
+    ["khmer/phonetics/dict/g2k.peak.zst", 1792577699, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>. Rewritten in G2K's phonetics.", 193, 1, "phon", 0, 765640],
     ["khmer/phonetics/dict/ipa.peak.zst", 1792403327, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>.", 149, 2, "phon", 0, 593732],
     ["khmer/phonetics/dict/phnom.peak.zst", 1792401695, "Khmer pronouncing dictionary: standard Khmer and Phnom Penh dialect by <a href=\"https://unesdoc.unesco.org/ark:/48223/pf0000246360\">Unesco</a>", 131, 2, "phon", 0, 72157],
     ["khmer/phonetics/g2k.peak.zst", 1792670076, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>. Rewritten in G2K's phonetics.", 193, 1, "phon", 0, 765640],

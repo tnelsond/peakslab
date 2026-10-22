@@ -156,7 +156,9 @@ if(!isDictPage){
 				}
 				else if(e.data.type == "needbytes"){
 					const d = dictOf(e.data);
-					fetchDict('/' + dicts[d].path)
+					(self.caches ? caches.match('/' + dicts[d].path).catch(() => null) : Promise.resolve(null))
+						.then(hit => { if (!hit) fetched.add(d); }) // (the service worker has it: not a download)
+						.then(() => fetchDict('/' + dicts[d].path, d))
 						.then(buf => w.postMessage({type: 'bytes', did: e.data.did, buf}, [buf]))
 						.catch(err => {
 							console.warn(`Fetching ${dicts[d].path} failed:`, err);
@@ -175,10 +177,12 @@ if(!isDictPage){
 					downloaded.add(d);
 					renderListsSoon();
 					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
-					if(!loading.size)
-						saveState();
 					if(searched(d))
-						searchAgain();
+						moreResults(d);
+					if(!loading.size){
+						saveState();
+						askRefresh();
+					}
 				}
 				else if(e.data.type == "nomore"){
 					if(e.data.st == st && e.data.gen === searchGen){
@@ -397,9 +401,9 @@ if(!isDictPage){
 			card.querySelector('p-e').append(vs);
 		if(text)
 			noteLinks(vs);
-		if(h === readHl){ // Read in context: the verse in each card, the top one's in view
-			vs.classList.add('hl');
-			resultsDiv.querySelector('.vs.hl').scrollIntoView({block: 'center'});
+		if(h === readHl){ // Read in context: the verse in each card (not marked), the top one's in view
+			vs.classList.add('ctx');
+			resultsDiv.querySelector('.vs.ctx').scrollIntoView({block: 'center'});
 		}
 		found();
 	}
@@ -463,7 +467,7 @@ if(!isDictPage){
 			cat: folders.join('/'),
 			primary: pParts.every(p => path.includes(p)),
 			media: path.includes('.slab'),
-			on: [undefined, 1, 0].includes(priority)}; // On by default: priority 1 and 0
+			on: [undefined, 1, 0].includes(priority)}; // On by default: priority 1 and 0 (and see ownLevel)
 	});
 	const primaryCats = new Set(allDicts.filter(x => x.primary).map(x => x.cat));
 	// Other languages' dictionaries added in the library (their paths)
@@ -471,6 +475,14 @@ if(!isDictPage){
 	allDicts.forEach(x => { x.added = !x.primary && addedPaths.has(x.path); });
 	const dicts = allDicts.filter(x => x.primary || x.added || (x.priority <= 0 && primaryCats.has(x.cat)));
 	const dictIds = dicts.map((_, d) => d);
+	// The download prompt's levels (firstHTML): which dictionaries each has
+	// (9: none, never suggested). On by default: Recommended's, and if none
+	// of the page's own is, its own of the first level that has any (a page
+	// of one Bible text, like /khmer/bible/text/gkb, has that one)
+	const LEVELS = ['Bare', 'Recommended', 'Extra', 'Max'];
+	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
+	const ownLevel = Math.min(9, ...dicts.filter(x => x.primary).map(levelOf));
+	dicts.forEach(x => { x.on = levelOf(x) <= 1 || (x.primary && levelOf(x) <= ownLevel); });
 	// Searched: on, and in what the filter has picked (all of it: none picked)
 	const isOn = d => libOn[d] && (solo >= 0 || inFilter(d));
 
@@ -579,16 +591,46 @@ if(!isDictPage){
 	// glossing with one); searches use the ones on that the filter has
 	// (isOn), glosses and the popup every one that's on
 	const loaded = new Set(), loading = new Set(), asked = new Set();
-	// A thin bar at the top while dictionaries load: how much of what's
-	// loading (by size) has, since none were; gone once they all have
-	const loadBar = document.body.appendChild(document.createElement('div'));
-	loadBar.id = 'loadBar';
+	// Behind the search bar while dictionaries load: how much of what's
+	// loading (by size, and the bytes of the ones downloading) has, since
+	// none were; gone once they all have
 	let loadAll = 0, loadDone = 0;
+	const loadPart = new Map(); // dictionary -> bytes of it downloaded so far
 	function showLoad(){
-		if (!loading.size) loadAll = loadDone = 0;
-		loadBar.classList.toggle('done', !loading.size);
-		loadBar.style.transform = `scaleX(${loading.size ? (loadDone + .03 * loadAll) / (1.03 * loadAll || 1) : 1})`;
+		if (!loading.size) { loadAll = loadDone = 0; loadPart.clear(); }
+		const part = [...loadPart].reduce((n, [d, b]) => n + (loading.has(d) ? b : 0), 0);
+		const bar = $('queryInput');
+		bar.classList.toggle('loading', !!loading.size);
+		bar.style.setProperty('--load', loading.size ? `${100 * (loadDone + part + .03 * loadAll) / (1.03 * loadAll || 1)}%` : '');
 	}
+	// A dictionary the search uses has loaded. One just downloaded (fetched)
+	// doesn't change the results showing: once they've all loaded, a prompt
+	// asks to search again (askRefresh). One from the offline cache, or
+	// nothing showing yet: the search again now. So does a download that
+	// was over quickly (they all loaded within a second or so).
+	const fetched = new Set(); // Downloading (not in the offline cache)
+	let stale = false; // The results showing are missing ones just downloaded
+	let loadStart = 0; // When the dictionaries loading started loading
+	function moreResults(d){
+		if (fetched.delete(d) && query && (num || translationDiv.childElementCount)) stale = true;
+		else searchAgain();
+	}
+	const refreshBar = document.body.appendChild(document.createElement('div'));
+	refreshBar.id = 'refreshBar';
+	refreshBar.className = 'hide';
+	refreshBar.setAttribute('role', 'status');
+	refreshBar.innerHTML = '<span>New dictionaries downloaded: there may be more results.</span><button class="rb-go">Refresh</button><button class="close-btn" aria-label="Dismiss">×</button>';
+	function askRefresh(){
+		if (!stale) return;
+		if (performance.now() - loadStart < 1500) searchAgain(); // (it hides it)
+		else refreshBar.classList.remove('hide');
+	}
+	function hideRefresh(){
+		stale = false;
+		refreshBar.classList.add('hide');
+	}
+	refreshBar.querySelector('.rb-go').addEventListener('click', searchAgain); // (startSearch hides it)
+	refreshBar.querySelector('.close-btn').addEventListener('click', hideRefresh);
 	const pendingLoad = new Map(); // dictionary -> what to do once it's loaded
 	function ensureLoaded(d, then){
 		if (loaded.has(d)) return then();
@@ -1043,14 +1085,15 @@ if(!isDictPage){
 	// answered, it asks again next time. The library opens it again too,
 	// with just the ones not downloaded: Download turns the ticked ones on,
 	// the rest stay as they are.
-	const LEVELS = ['Bare', 'Recommended', 'Extra', 'Max'];
-	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
-	const firstIds = dictIds.filter(d => levelOf(dicts[d]) < LEVELS.length);
+	// (LEVELS and levelOf are with the dictionaries.) A level has the ones
+	// on by default too, whatever theirs.
+	const suggested = (d, n) => levelOf(dicts[d]) <= n || dicts[d].on;
+	const firstIds = dictIds.filter(d => suggested(d, LEVELS.length - 1));
 	let firstLevel = 1, firstPick;
 	// Had already: downloaded and on (one downloaded but off, like a Bible
 	// page's text loaded for its books' names, is still to turn on)
 	const have = d => downloaded.has(d) && libOn[d];
-	const notGot = (more = 1) => firstIds.filter(d => !have(d) && levelOf(dicts[d]) <= firstLevel + more); // (and the next level's)
+	const notGot = (more = 1) => firstIds.filter(d => !have(d) && suggested(d, firstLevel + more)); // (and the next level's)
 	const setLevel = n => { firstLevel = n; firstPick = new Set(notGot(0)); };
 	setLevel(1);
 	const sizeOf = ds => ds.reduce((n, d) => n + dicts[d].size, 0);
@@ -1069,12 +1112,13 @@ if(!isDictPage){
 			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
-			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x)}</button></li>`;
+			const got = downloaded.has(d) ? '<span class="lib-size got" title="Downloaded: it\'s just turned on">✓ Downloaded</span>' : undefined; // (no size: nothing to download)
+			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x, got)}</button></li>`;
 		});
 		if (prev !== null) html += '</ul>';
 		if (!ids.length) html = '<p class="empty">These are all downloaded: slide for more.</p>';
-		const size = sizeOf(ids.filter(d => firstPick.has(d) && !downloaded.has(d))); // (one downloaded already is just turned on)
-		return html + `<button class="first-default" data-first="go"${ids.some(d => firstPick.has(d)) ? '' : ' disabled'}>Download${size ? ` (${sizeText(size)})` : ''}</button>`;
+		const picks = ids.filter(d => firstPick.has(d)), size = sizeOf(picks.filter(d => !downloaded.has(d))); // (one downloaded already is just turned on)
+		return html + `<button class="first-default" data-first="go"${picks.length ? '' : ' disabled'}>${picks.some(d => !downloaded.has(d)) ? `Download${size ? ` (${sizeText(size)})` : ''}` : 'Turn on'}</button>`;
 	}
 	// The level slider, in the download prompt and the filter: at level n
 	// (-1: none, the ones on are someone's own pick)
@@ -1331,16 +1375,25 @@ if(!isDictPage){
 		updateURL();
 	}
 
-	// Asked too if none of the page's dictionaries is downloaded (in the
-	// offline cache); can't tell (no Cache API): not asked
-	const anyDownloaded = async () => (await Promise.all(dicts.map(x => caches.match('/' + x.path)))).some(Boolean);
-	if (asking || solo >= 0) {
-		applyOn();
-		if (asking) openDrawer('first');
-	} else anyDownloaded().catch(() => true).then(any => {
-		if (!any) {
+	// Which of the page's dictionaries are in the offline cache, before
+	// asking: nothing saved (a new page, like /khmer/h97) but the suggested
+	// ones all downloaded already, those are just turned on; saved but none
+	// downloaded, asked too. Can't tell (no Cache API): as saved, or asked.
+	const markCached = async () => {
+		const hits = await Promise.all(dicts.map(x => caches.match('/' + x.path)));
+		hits.forEach((hit, d) => hit && downloaded.add(d));
+		return hits.some(Boolean);
+	};
+	if (solo >= 0) applyOn();
+	else markCached().catch(() => !asking).then(any => {
+		if (asking && any && !notGot(0).some(d => !downloaded.has(d))) {
+			asking = false;
+			firstIds.filter(d => downloaded.has(d) && suggested(d, firstLevel)).forEach(d => { libOn[d] = true; });
+			saveState();
+		} else if (asking || !any) {
 			asking = true;
 			libOn.fill(false);
+			setLevel(firstLevel); // (with what's downloaded)
 			openDrawer('first');
 		}
 		applyOn();
@@ -1360,8 +1413,8 @@ if(!isDictPage){
 	// / HTTP cache: slow when online, while offline things looked fine.
 	function loadDict(d) {
 		if (loaded.has(d) || loading.has(d)) return;
-		if (!loading.size) loadAll = loadDone = 0;
-		loadAll += dicts[d].size || 1;
+		if (!loading.size) { loadAll = loadDone = 0; loadStart = performance.now(); }
+		loadAll +=dicts[d].size || 1;
 		loading.add(d);
 		showLoad();
 		renderListsSoon();
@@ -1374,10 +1427,23 @@ if(!isDictPage){
 
 	// For a worker whose cache has no current copy ('needbytes'): fetch()
 	// goes through the service worker, which downloads and caches it.
-	async function fetchDict(path) {
+	// Its bytes as they come show in the search bar (showLoad).
+	async function fetchDict(path, d) {
 		const r = await fetch(path);
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
-		return r.arrayBuffer();
+		if (!r.body) return r.arrayBuffer();
+		const reader = r.body.getReader(), chunks = [];
+		let n = 0;
+		for (let c; !(c = await reader.read()).done; ) {
+			chunks.push(c.value);
+			n += c.value.length;
+			loadPart.set(d, Math.min(n, dicts[d].size || n));
+			showLoad();
+		}
+		const buf = new Uint8Array(n);
+		n = 0;
+		for (const c of chunks) { buf.set(c, n); n += c.length; }
+		return buf.buffer;
 	}
 
 	function unloadDict(d){
@@ -1848,6 +1914,7 @@ if(!isDictPage){
 		query = updateQuery();
 		renderQuick();
 		if(!query){
+			hideRefresh();
 			showSettings();
 			return;
 		}
@@ -1860,6 +1927,7 @@ if(!isDictPage){
 		if(query == prevquery){
 			return;
 		}
+		hideRefresh(); // (this search has every dictionary that's loaded)
 		translationDiv.replaceChildren();
 		window.scrollTo(0, 0);
 		worker_code.fill(false);
