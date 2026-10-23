@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1792670194],
+    ["404.html", 1792724798],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -79,7 +79,7 @@
     ["khmer/phonetics/khmervowels.peak.zst", 1792670080, "Khmer vowel charts and recordings, from the <a href=\"https://archive.org/details/aakanee_archive\">aakanee.com archive</a>", 6270, 1, "phon", 0, 17797],
     ["khmer/phonetics/phnom.peak.zst", 1792670080, "Khmer pronouncing dictionary: standard Khmer and Phnom Penh dialect by <a href=\"https://unesdoc.unesco.org/ark:/48223/pf0000246360\">Unesco</a>", 131, 2, "phon", 0, 72157],
     ["khmer/phonetics/ref/khmervowels.peak.zst", 1792401693, "Khmer vowel charts and recordings, from the <a href=\"https://archive.org/details/aakanee_archive\">aakanee.com archive</a>", 6270, 1, "phon", 0, 17797],
-    ["khmer/ref/cambogeo.peak.zst", 1792670451, "Cambodian village names.", 3528, 1, "rbi", 0, 310039],
+    ["khmer/ref/cambogeo.peak.zst", 1792749898, "Cambodian village names.", 312483, 1, "rbi", 0, 581032],
     ["khmer/ref/choukprov.peak.zst", 1792403323, "Proverbs from <a href=\"https://choukhmer.wordpress.com/literature/descriptive-proverbs-kar/\">Chouk Khmer</a>", 12861, 2, "mono", 0, 212580],
     ["khmer/ref/countries.peak.zst", 1792403315, "countries in French, Khmer, and English", 321, 3, "bi", 0, 9449],
     ["khmer/ref/kmwiki.peak.zst", 1792403368, "<a href=\"https://km.wikipedia.org/wiki/\">Khmer Wikipedia</a>", 1678, 3, "mono", 0, 2032842],
