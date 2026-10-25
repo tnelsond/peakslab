@@ -12,6 +12,8 @@ const shareBtnHTML = '<button class="share-btn" onclick="shareCard(this)" title=
 // Remembered things (null if there's nothing, or no storage)
 const stored = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* not remembered */ } };
+// x onto map's list for key
+const push = (map, key, x) => (map.get(key) || map.set(key, []).get(key)).push(x);
 const readList = k => { const l = stored(k); return Array.isArray(l) ? l : []; };
 // Chords (<p-m chord="...">) are hidden by default (CSS). The button toggles
 // one class on <body>, remembered; CSS shows them and switches every
@@ -25,7 +27,7 @@ document.body.classList.toggle('show-chords', stored('showChords') === true);
 // field, #collapsed in the source: Bible notes, ...); what's remembered is
 // the ones flipped from that. Done with generated CSS rules.
 // Glosses an entry word by word, see translateEntry
-const translateBtnHTML = '<button class="translate-btn" onclick="translateEntry(this)" title="Gloss word by word">⇄ Gloss</button>';
+const translateBtnHTML = '<button class="translate-btn" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss">⇄</button>';
 const hideStyle = document.head.appendChild(document.createElement('style'));
 let hiddenFlipped = readList('hiddenDicts'); // Flipped from their default
 let startHidden = new Set(); // (set once files.json is read)
@@ -97,6 +99,10 @@ const abbr = filesJson.abbr || {};
 const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 const langSym = l => abbr[l]?.[1] || cap(l).slice(0, 2);
 const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
+// A list's row: its button (class and attributes), its words and what's
+// under them
+const wordsHTML = (w, t) => `<span class="row-w">${w}</span><span class="row-t">${t}</span>`;
+const rowHTML = (cls, attrs, w, t, after = '') => `<li class="row"><button class="row-main ${cls}" ${attrs}>${wordsHTML(w, t)}</button>${after}</li>`;
 // The language panel's rows: the languages, biggest first
 const langCounts = {};
 filesJson.dicts.forEach(f => { const l = f[0].split('/')[0]; langCounts[l] = (langCounts[l] || 0) + 1; });
@@ -104,29 +110,38 @@ const langRow = (href, sym, name, n, cur) => `<li class="row"><a class="row-main
 const langRows = (skip, qs) => '<ul class="rows">' + Object.keys(langCounts).filter(l => l !== skip).sort((a, b) => langCounts[b] - langCounts[a])
 	.map(l => langRow(`/${l}${qs}`, langSym(l), cap(l), langCounts[l], false)).join('') + '</ul>';
 
+const langBtn = $('langBtn');
+const queryInput = $('queryInput');
+// The side panel: what it shows (drawerView, null when it's closed), closed
+// by ×, a tap beside it or Escape
+const drawer = $('drawer');
+const drawerBody = drawer.querySelector('.drawer-body');
+let drawerView = null;
+function closeDrawer(){
+	drawerView = null;
+	drawer.classList.add('hide');
+	document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', false));
+}
+drawer.querySelector('.drawer-close').addEventListener('click', closeDrawer);
+drawer.querySelector('.drawer-bg').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerView) closeDrawer(); });
+
 if(!isDictPage){
 	// The root page: the app with nothing but the language button (typing
 	// opens it too, and the text goes along), and what Peak Slab is
-	const drawer = $('drawer');
-	const langBtn = $('langBtn');
-	const queryInput = $('queryInput');
 	['menuBtn', 'headMenu', 'quick', 'settings', 'controls'].forEach(id => $(id).classList.add('hide'));
 	document.querySelector('.sub-div').classList.add('hide');
 	$('about').classList.remove('hide');
 	langBtn.innerHTML = `<span class="lang-sym">?</span><span class="lang-name">Choose a language</span>${chevron}`;
 	const openLangs = () => {
-		const qs = queryInput.value ? '?text=' + encodeURIComponent(queryInput.value) : '';
+		drawerView = 'lang';
 		drawer.querySelector('.drawer-title').textContent = 'Language';
-		drawer.querySelector('.drawer-body').innerHTML = langRows('', qs);
+		drawerBody.innerHTML = langRows('', queryInput.value ? '?text=' + encodeURIComponent(queryInput.value) : '');
 		drawer.classList.remove('hide');
 	};
-	const closeLangs = () => drawer.classList.add('hide');
 	langBtn.addEventListener('click', openLangs);
 	$('pickLang').addEventListener('click', openLangs);
 	queryInput.addEventListener('input', openLangs);
-	drawer.querySelector('.drawer-close').addEventListener('click', closeLangs);
-	drawer.querySelector('.drawer-bg').addEventListener('click', closeLangs);
-	document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLangs(); });
 }else{
 	let num = 0;
 	let mark = true;
@@ -149,67 +164,64 @@ if(!isDictPage){
 	const forWorkers = (mask, f) => workers.forEach((w, i) => f(w, mask.filter((_, d) => d % workers.length === i), i));
 
 	function createPeakWorker(id){
-			const w = earlyWorkers[id - 1] || new Worker('/peakworker.js');
-			workers.push(w);
-			w.postMessage({ type: "init", id, wasmTimestamp });
-			w.onmessage = function(e){
-				if(e.data.type == "needwasm"){
-					sharedWasm().then(wasm => w.postMessage({type: 'wasm', wasm}));
+		const w = earlyWorkers[id - 1] || new Worker('/peakworker.js');
+		workers.push(w);
+		w.postMessage({ type: "init", id, wasmTimestamp });
+		w.onmessage = ({data: m}) => {
+			const d = dictOf(m);
+			switch (m.type) {
+			case 'needwasm':
+				sharedWasm().then(wasm => w.postMessage({type: 'wasm', wasm}));
+				break;
+			case 'needbytes':
+				(self.caches ? caches.match('/' + dicts[d].path).catch(() => null) : Promise.resolve(null))
+					.then(hit => { if (!hit) fetched.add(d); }) // (the service worker has it: not a download)
+					.then(() => fetchDict('/' + dicts[d].path, d))
+					.then(buf => w.postMessage({type: 'bytes', did: m.did, buf}, [buf]))
+					.catch(err => {
+						console.warn(`Fetching ${dicts[d].path} failed:`, err);
+						w.postMessage({type: 'bytes', did: m.did, buf: null});
+					});
+				break;
+			case 'loaded':
+				loaded.add(d);
+				if (loading.delete(d)) loadDone += dicts[d].size || 1;
+				showLoad();
+				if(!libOn[d] && !asked.has(d)) // Turned off while it loaded
+					unloadDict(d);
+				(pendingLoad.get(d) || []).forEach(f => f());
+				pendingLoad.delete(d);
+				downloaded.add(d);
+				renderListsSoon();
+				timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${m.msg}<br>`);
+				if(searched(d))
+					moreResults(d);
+				if(!loading.size){
+					saveState();
+					askRefresh();
 				}
-				else if(e.data.type == "needbytes"){
-					const d = dictOf(e.data);
-					(self.caches ? caches.match('/' + dicts[d].path).catch(() => null) : Promise.resolve(null))
-						.then(hit => { if (!hit) fetched.add(d); }) // (the service worker has it: not a download)
-						.then(() => fetchDict('/' + dicts[d].path, d))
-						.then(buf => w.postMessage({type: 'bytes', did: e.data.did, buf}, [buf]))
-						.catch(err => {
-							console.warn(`Fetching ${dicts[d].path} failed:`, err);
-							w.postMessage({type: 'bytes', did: e.data.did, buf: null});
-						});
-				}
-				else if(e.data.type == "loaded"){
-					const d = dictOf(e.data);
-					loaded.add(d);
-					if (loading.delete(d)) loadDone += dicts[d].size || 1;
-					showLoad();
-					if(!libOn[d] && !asked.has(d)) // Turned off while it loaded
-						unloadDict(d);
-					(pendingLoad.get(d) || []).forEach(f => f());
-					pendingLoad.delete(d);
-					downloaded.add(d);
-					renderListsSoon();
-					timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${e.data.msg}<br>`);
-					if(searched(d))
-						moreResults(d);
-					if(!loading.size){
-						saveState();
-						askRefresh();
+				break;
+			case 'nomore':
+				if (m.st != st || m.gen !== searchGen) break;
+				worker_code[m.id - 1] = true;
+				if (worker_code.includes(false)) break;
+				if (nextst()) searchStage();
+				else { // The search is done
+					loader?.remove();
+					loader = null;
+					if (num == 0) { // Nothing has all of it: none of the last search's, and word by word
+						if (query) cleanup(resultsDiv);
+						translate();
 					}
 				}
-				else if(e.data.type == "nomore"){
-					if(e.data.st == st && e.data.gen === searchGen){
-						worker_code[e.data.id-1] = true;
-						if(!worker_code.includes(false)){
-							if(nextst()){
-								continueSearch();
-							}else{ // The search is done
-								if (loader) {
-									loader.remove();
-									loader = null;
-								}
-								if (num == 0) { // Nothing has all of it: none of the last search's, and word by word
-									if (query) cleanup(resultsDiv);
-									translate();
-								}
-							}
-						}
-					}
-				}else if(e.data.type == "rendered"){ // A reply (askDict)
-					gotReply(e.data);
-				}else if(e.data.type == "result"){
-					addResult(e.data);
-				}
+				break;
+			case 'rendered': // A reply (askDict)
+				gotReply(m);
+				break;
+			case 'result':
+				addResult(m);
 			}
+		};
 	}
 
 	// A result from a worker (or an entry a translated word came from), into
@@ -246,31 +258,21 @@ if(!isDictPage){
 		const seen = div.seen ??= new Set(); // An entry found twice (by two of the searches) shows once
 		if (typeof data.body === 'string' && seen.has(d + '\t' + data.body)) return;
 		seen.add(d + '\t' + data.body);
-		let el = document.createElement('p-e');
-		const sortid = sortId(d); // Starred dictionaries first
-		el.dataset.id = sortid;
-		el.dataset.dict = data.dict;
-		el.dataset.d = d;
-		el.classList.toggle('starred', isStar(d));
-		el.innerHTML = entryHeadHTML(d);
 		if(first){
 			const ctx = isBibleText(d) && chapterOf(nheader) && chapterOf(nheader) !== query ? '<button class="ctx-btn" onclick="readInContext(this)">Read in context</button>' : '';
-			div.innerHTML += `<h2><span class="hw">${data.header}</span>${ctx}<button class="bm-btn" onclick="toggleBookmark(this)" title="Bookmark" aria-pressed="false">${bookmarkSVG}</button>${shareBtnHTML}</h2>`;
-			div.insertAdjacentHTML('beforeend', '<button class="text-btn see-more" data-id="1e9" onclick="this.parentNode.classList.add(\'show-hidden\')">See more</button>'); // (entries go above it)
+			div.innerHTML = `<h2><span class="hw">${data.header}</span>${ctx}<button class="bm-btn" onclick="toggleBookmark(this)" title="Bookmark" aria-pressed="false">${bookmarkSVG}</button>${shareBtnHTML}</h2>` +
+				'<button class="text-btn see-more" data-id="1e9" onclick="this.parentNode.classList.add(\'show-hidden\')">See more</button>'; // (entries go above it)
 			markBookmark(div);
 		}
-		const h = el.querySelector('p-h');
-		if(data.filetype){
-			if(data.subheader)
-				el.insertAdjacentHTML('beforeend', `<p-n>${data.subheader.join(",<br>")}<br></p-n>`);
+		// A media file's: its details and the file; text: Gloss, the chords'
+		// show/hide button if it has any, and the text
+		const t = document.createElement('template');
+		t.innerHTML = entryHTML(d, data.filetype ? (data.subheader ? `<p-n>${data.subheader.join(",<br>")}<br></p-n>` : '') :
+			translateBtnHTML + (data.body?.includes('<p-m') ? chordsBtnHTML : '') + (mark ? highlightText(data.body, data.query) : data.body));
+		const el = t.content.firstChild;
+		if(data.filetype)
 			el.append(mediaElement(data.filetype, data.body, data.header));
-		}else{
-			el.insertAdjacentHTML('beforeend', mark ? highlightText(data.body, data.query) : data.body);
-			if (data.body?.includes('<p-m')) // Chords: a show/hide button
-				h.insertAdjacentHTML('afterend', chordsBtnHTML);
-			h.insertAdjacentHTML('afterend', translateBtnHTML);
-		}
-		div.insertBefore(el, [...div.children].find(c => +c.dataset.id > sortid) || null);
+		insertSorted(div, el, sortId(d));
 
 		if(!popup && isStar(d)){ // Its sections go above the other dictionaries'
 			if(!focusEnd.isConnected)
@@ -286,38 +288,47 @@ if(!isDictPage){
 		}
 		if(!popup) found();
 	}
+	// el into parent before the first child with a bigger data-id (or data-[key])
+	const insertSorted = (parent, el, n, key = 'id') => parent.insertBefore(el, [...parent.children].find(c => +c.dataset[key] > n) || null);
+	// An entry of dictionary d (starred: they come first, and stand out),
+	// its name first, then html
+	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
 	// A dictionary's name above its entry (★ if starred): tap it for its menu
 	const entryHeadHTML = d => `<p-h role="button" tabindex="0" title="${escapeHTML(typeLabel(dicts[d]))}" onclick="dictMenu(this)">${isStar(d) ? '★ ' : ''}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
-	// The little menus (a dictionary's, Gloss with): one at a time, right
-	// after what opened it; tapping that again, or anywhere else, closes it.
-	// (A click in one isn't a click outside it, or outside the popup.)
+	// The little menus (a dictionary's, Share's): one at a time, right
+	// after what opened it, under it and lined up with its nearer side;
+	// tapping that again, or anywhere else, closes it. Its buttons' data-a
+	// go to act. (A click in one isn't a click outside it, or outside the
+	// popup.)
 	const closeMenus = () => document.querySelectorAll('.menu').forEach(m => m.remove());
-	function popMenu(at, cls, html){
+	function popMenu(at, html, act){
 		const open = at.nextElementSibling?.classList.contains('menu');
 		closeMenus();
-		if (open) return null;
+		if (open) return;
 		const m = document.createElement('div');
-		m.className = 'menu ' + cls;
+		m.className = 'menu';
 		m.innerHTML = html;
-		m.addEventListener('click', e => e.stopPropagation());
+		m.addEventListener('click', e => {
+			e.stopPropagation();
+			const a = e.target.closest('button')?.dataset.a;
+			if (!a) return;
+			m.remove();
+			act(a);
+		});
 		at.after(m);
-		return m;
+		const p = m.offsetParent.getBoundingClientRect(), a = at.getBoundingClientRect();
+		m.style.top = `${a.bottom - p.top}px`;
+		if (a.left - p.left < p.width / 2) m.style.left = `${a.left - p.left}px`;
+		else m.style.right = `${p.right - a.right}px`;
 	}
 	document.addEventListener('click', e => { if (!document.querySelector('.menu')?.previousElementSibling.contains(e.target)) closeMenus(); });
 	// A dictionary's: turn it off, hide (or show) its entries, star (or unstar) it
 	window.dictMenu = h => {
 		const d = +h.parentNode.dataset.d, name = dicts[d].name;
-		const m = popMenu(h, 'dict-menu', `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
+		popMenu(h, `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
 			`<button data-a="hide">${isHidden(name) ? 'Show' : 'Hide'} its entries</button>` +
-			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>`);
-		if (m) m.onclick = e => {
-			const a = e.target.closest('button')?.dataset.a;
-			if (!a) return;
-			m.remove();
-			if (a === 'off') setOn([d], false);
-			else if (a === 'hide') toggleHidden(name);
-			else toggleStar(d);
-		};
+			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>`,
+			a => a === 'off' ? setOn([d], false) : a === 'hide' ? toggleHidden(name) : toggleStar(d));
 	};
 	// One more result: the count, and maybe more of them
 	function found(){
@@ -330,18 +341,15 @@ if(!isDictPage){
 	// A media entry: a player for a recording (audioSrc), else a picture
 	// (jbig2 decoded)
 	function mediaElement(type, bytes, name){
-		if (AUDIO.test(type)) {
-			const audio = document.createElement('audio');
-			audio.controls = true;
-			audioSrc(type, bytes).then(u => { audio.src = u; });
-			return audio;
+		const audio = AUDIO.test(type), el = document.createElement(audio ? 'audio' : 'img');
+		if (audio) el.controls = true;
+		else {
+			el.alt = name;
+			el.style.maxWidth = '100%';
 		}
-		const img = document.createElement('img');
-		img.alt = name;
-		img.style.maxWidth = '100%';
-		(/jbig2/i.test(type) ? media().then(m => m.jbig2toPng(bytes)) : Promise.resolve(new Blob([bytes], {type: 'image/' + type.toLowerCase()})))
-			.then(b => { img.src = URL.createObjectURL(b); });
-		return img;
+		(audio ? audioSrc(type, bytes) : (/jbig2/i.test(type) ? media().then(m => m.jbig2toPng(bytes)) : Promise.resolve(new Blob([bytes], {type: 'image/' + type.toLowerCase()})))
+			.then(b => URL.createObjectURL(b))).then(u => { el.src = u; });
+		return el;
 	}
 
 	// A verse of the chapter searched ("rom 8."): each dictionary's verses
@@ -364,7 +372,7 @@ if(!isDictPage){
 			card.id = cardId;
 			card.className = par ? 'chapter parallel' : 'chapter';
 			card.dataset.id = cardSort;
-			card.innerHTML = shareBtnHTML + (par ? '<p-e></p-e>' : `<p-e data-dict="${escapeHTML(data.dict)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}</p-e>`);
+			card.innerHTML = shareBtnHTML + (par ? '<p-e></p-e>' : entryHTML(d));
 			const after = [...resultsDiv.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > cardSort);
 			resultsDiv.insertBefore(card, after || (loader && loader.parentNode === resultsDiv ? loader : null));
 		}
@@ -378,29 +386,24 @@ if(!isDictPage){
 		const heads = (/^\s*(?:<h\d[^>]*>[\s\S]*?<\/h\d>\s*)+/i.exec(body) || [''])[0];
 		const rest = body.slice(heads.length).trimStart();
 		const word = /^[^\s\u200B<]*/.exec(rest)[0];
-		const vs = document.createElement(text ? 'span' : 'div');
-		vs.className = 'vs';
-		vs.dataset.v = v;
-		vs.innerHTML = `${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
-			(par ? '' : '<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button> '); // (a parallel one's line has its Gloss)
-		if(par){ // In the verse's group, by verse, each text as the dictionaries go: like an entry, with its name and Gloss
-			const pe = card.querySelector('p-e');
+		const tag = text ? 'span' : 'div', t = document.createElement('template');
+		// In parallel, in the verse's group, by verse, each text as the
+		// dictionaries go: like an entry, with its name and Gloss
+		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}${translateBtnHTML}` : '') +
+			`<${tag} class="vs" data-v="${v}">${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
+			(par ? `</${tag}></div>` : `<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button> </${tag}>`);
+		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
+		if(par){
 			let group = pe.querySelector(`:scope > .pv[data-v="${v}"]`);
 			if(!group){
 				group = document.createElement('div');
 				group.className = 'pv';
 				group.dataset.v = v;
-				pe.insertBefore(group, [...pe.children].find(g => +g.dataset.v > v) || null);
+				insertSorted(pe, group, v, 'v');
 			}
-			const line = document.createElement('div');
-			line.className = 'pv-t';
-			line.dataset.id = sortId(d);
-			line.dataset.d = d;
-			line.innerHTML = entryHeadHTML(d) + translateBtnHTML;
-			line.append(vs);
-			group.insertBefore(line, [...group.children].find(t => +t.dataset.id > sortId(d)) || null);
+			insertSorted(group, el, sortId(d));
 		}else
-			card.querySelector('p-e').append(vs);
+			pe.append(vs);
 		if(text)
 			noteLinks(vs);
 		if(h === readHl){ // Read in context: the verse in each card (not marked), the top one's in view
@@ -485,8 +488,9 @@ if(!isDictPage){
 	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
 	const ownLevel = Math.min(9, ...dicts.filter(x => x.primary).map(levelOf));
 	dicts.forEach(x => { x.on = levelOf(x) <= 1 || (x.primary && levelOf(x) <= ownLevel); });
-	// Searched: on, and in what the filter has picked (all of it: none picked)
-	const isOn = d => libOn[d] && (solo.length > 0 || inFilter(d));
+	// Used by a search (view 'filter') or a gloss ('gloss'): on, and in what
+	// that view has picked (all of it: none picked; a link's: just its)
+	const isOn = (d, view = 'filter') => libOn[d] && (solo.length > 0 || inFilter(d, view));
 
 	// Order: categories with the most priority-1 dictionaries first, then within
 	// a category this page's language first, then by priority (0, 1, 2, 3,
@@ -559,10 +563,17 @@ if(!isDictPage){
 	// A top category (a subcategory with no category too: Greek's Bible is everything)
 	const isTop = c => !c.sub || !catById(c.id.split('/')[0]);
 	const urlParams = new URLSearchParams(window.location.search);
-	// The categories picked (none: All), the filter's (what searches use)
-	// and the gloss's (what glosses use): view 'filter' or 'gloss'
-	const pickKeys = {filter: `peakslab-filter-${appname}`, gloss: `peakslab-glosscats-${appname}`};
-	const picks = {filter: urlParams.has('mode') ? urlParams.get('mode').split(',') : readList(pickKeys.filter), gloss: readList(pickKeys.gloss)};
+	// The filter (what searches use) and the gloss (what glosses use) work
+	// the same way, with the same drawer (filterHTML): each picks categories
+	// (none: All), remembered (the filter's can come in the link's ?mode=).
+	// What else changes: the gloss's has Gloss at the top, the filter's
+	// searches again.
+	const VIEWS = {
+		filter: {title: 'Filter', uses: 'searches', key: `peakslab-filter-${appname}`, changed: () => searchAgain()},
+		gloss: {title: 'Gloss with', uses: 'glosses', key: `peakslab-glosscats-${appname}`,
+			top: () => `<button class="first-default" data-gloss="go"${glossIds().length ? '' : ' disabled'}>⇄ Gloss</button>`},
+	};
+	const picks = {filter: urlParams.has('mode') ? urlParams.get('mode').split(',') : readList(VIEWS.filter.key), gloss: readList(VIEWS.gloss.key)};
 	const keepPicks = () => Object.keys(picks).forEach(v => { picks[v] = picks[v].filter(id => choice && catById(id)); });
 	keepPicks();
 	const filtered = (view = 'filter') => picks[view].length > 0;
@@ -613,9 +624,8 @@ if(!isDictPage){
 	function showLoad(){
 		if (!loading.size) { loadAll = loadDone = 0; loadPart.clear(); }
 		const part = [...loadPart].reduce((n, [d, b]) => n + (loading.has(d) ? b : 0), 0);
-		const bar = $('queryInput');
-		bar.classList.toggle('loading', !!loading.size);
-		bar.style.setProperty('--load', loading.size ? `${100 * (loadDone + part + .03 * loadAll) / (1.03 * loadAll || 1)}%` : '');
+		queryInput.classList.toggle('loading', !!loading.size);
+		queryInput.style.setProperty('--load', loading.size ? `${100 * (loadDone + part + .03 * loadAll) / (1.03 * loadAll || 1)}%` : '');
 	}
 	// A dictionary the search uses has loaded. One just downloaded (fetched)
 	// doesn't change the results showing: once they've all loaded, a prompt
@@ -629,11 +639,7 @@ if(!isDictPage){
 		if (fetched.delete(d) && query && (num || translationDiv.childElementCount)) stale = true;
 		else searchAgain();
 	}
-	const refreshBar = document.body.appendChild(document.createElement('div'));
-	refreshBar.id = 'refreshBar';
-	refreshBar.className = 'hide';
-	refreshBar.setAttribute('role', 'status');
-	refreshBar.innerHTML = '<span>New dictionaries downloaded: there may be more results.</span><button class="rb-go">Refresh</button><button class="close-btn" aria-label="Dismiss">×</button>';
+	const refreshBar = $('refreshBar');
 	function askRefresh(){
 		if (!stale) return;
 		if (performance.now() - loadStart < 1500) searchAgain(); // (it hides it)
@@ -648,8 +654,7 @@ if(!isDictPage){
 	const pendingLoad = new Map(); // dictionary -> what to do once it's loaded
 	function ensureLoaded(d, then){
 		if (loaded.has(d)) return then();
-		if (!pendingLoad.has(d)) pendingLoad.set(d, []);
-		pendingLoad.get(d).push(then);
+		push(pendingLoad, d, then);
 		if (!libOn[d]) asked.add(d);
 		loadDict(d);
 	}
@@ -665,12 +670,9 @@ if(!isDictPage){
 			URL.revokeObjectURL(el.src);
 			el.src = '';
 		});
-		if(container == resultsDiv){
+		if(container == resultsDiv)
 			settings.style.display = 'none';
-			resultsDiv.replaceChildren();
-		}else{
-			container.innerHTML = "";
-		}
+		container.replaceChildren();
 	}
 
 	// The query marked in an entry's text (not in its tags)
@@ -683,8 +685,6 @@ if(!isDictPage){
 	// The media decoders (media.js, with jbig2.wasm and codec2.wasm), loaded
 	// when first used
 	const media = () => import('/media.js');
-
-	const queryInput = $('queryInput');
 
 	// The query, newlines and all. The one line search bar can't hold
 	// newlines, so it shows them as spaces (same length, so the positions
@@ -704,13 +704,9 @@ if(!isDictPage){
 	const popupResults = $('popupResults');
 
 	// Above the results: the big text box for long queries and the
-	// starred dictionary's word by word gloss.
-	const topDiv = document.createElement('div');
-	resultsDiv.insertAdjacentElement('beforebegin', topDiv);
-	const bigQuery = topDiv.appendChild(document.createElement('textarea'));
-	bigQuery.id = 'bigQuery';
-	bigQuery.classList.add('hide');
-	const translationDiv = topDiv.appendChild(document.createElement('div'));
+	// search's word by word gloss.
+	const bigQuery = $('bigQuery');
+	const translationDiv = $('translation');
 
 	// Fullscreen: just the results, no search bar or buttons (and a popup
 	// fills the window)
@@ -756,14 +752,11 @@ if(!isDictPage){
 	// "លោកុប្បត្តិ ១:១") its name and digits. From the first Bible that's
 	// on. Its code ("gen") shows with its name: it's what to type.
 	let books = null; // [{code, n (chapters), name, zero (where its digits' 0 is)}]
-	let booksWait = null; // Waiting for them to load
+	let booksLoad = null;
 	function loadBooks(then){
-		if (books) return then();
-		if (booksWait) return booksWait.push(then);
-		booksWait = [then];
 		const mask = searchMask();
 		const d = dictIds.filter(isBibleText).sort((a, b) => mask[b] - mask[a] || sortId(a) - sortId(b))[0];
-		ensureLoaded(d, () => askDict(d, {type: 'heads'}, r => {
+		(booksLoad ??= askDict(d, {type: 'heads'}).then(r => {
 			const list = [], firsts = [];
 			r.heads.forEach((h, i) => {
 				const m = /^(.+) (\d+)\.\d+$/.exec(h);
@@ -771,7 +764,7 @@ if(!isDictPage){
 				if (list.at(-1)?.code !== m[1]) { list.push({code: m[1], n: 0, name: m[1], zero: 48}); firsts.push(i); }
 				list.at(-1).n = Math.max(list.at(-1).n, +m[2]);
 			});
-			askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}, r => {
+			return askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}).then(r => {
 				r.entries.forEach((e, i) => {
 					const ref = e && /<p-n>@?([^<]*?)\s*(\p{Nd})\s*[:.]\s*\p{Nd}+\s*<\/p-n>/u.exec(e.body);
 					if (!ref) return;
@@ -779,10 +772,8 @@ if(!isDictPage){
 					list[i].zero = ref[2].codePointAt(0) - 1; // (chapter 1)
 				});
 				books = list;
-				booksWait.splice(0).forEach(f => f());
-				booksWait = null;
 			});
-		}));
+		})).then(then);
 	}
 	const bookName = x => escapeHTML(x.name) + (x.name !== x.code ? `<small>${escapeHTML(x.code.toUpperCase())}</small>` : '');
 	const bookNum = (x, n) => String(n).replace(/\d/g, d => String.fromCodePoint(x.zero + +d)); // In the Bible's digits
@@ -809,10 +800,10 @@ if(!isDictPage){
 	let parallel = stored(parKey) ?? true;
 	function textsHTML(){
 		const texts = dictIds.filter(d => isBibleText(d) && downloaded.has(d)); // (downloaded: the library has the rest)
-		return `<ul class="rows"><li class="row"><button class="row-main check" data-par="1" aria-pressed="${parallel}"><span class="row-w">Parallel</span><span class="row-t">Verse by verse in each translation ticked</span></button></li></ul>` +
+		return `<ul class="rows">${rowHTML('check', `data-par="1" aria-pressed="${parallel}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul>` +
 			`<h3 class="drawer-h">Translations</h3>` + (texts.length ? '' : '<p class="empty">None downloaded.</p>') +
 			moreHTML + `<ul class="rows">${texts.map(d =>
-				`<li class="row"><button class="row-main ${parallel ? 'check' : 'radio'}" data-text="${d}" aria-pressed="${libOn[d]}"><span class="row-w">${escapeHTML(dicts[d].name)}</span><span class="row-t">${escapeHTML(typeLabel(dicts[d]))}</span></button></li>`).join('')}</ul>`;
+				rowHTML(parallel ? 'check' : 'radio', `data-text="${d}" aria-pressed="${libOn[d]}"`, escapeHTML(dicts[d].name), escapeHTML(typeLabel(dicts[d])))).join('')}</ul>`;
 	}
 	function pickText(t){
 		setOn(dictIds.filter(isBibleText), parallel ? d => d === t ? !libOn[d] : libOn[d] : d => d === t);
@@ -827,8 +818,7 @@ if(!isDictPage){
 	const bibleMode = () => hasBible && (pParts.includes('bible') || picks.filter.some(id => id.startsWith('bible')));
 	let lastRead = ''; // The chapter read last ("joh 3.")
 	let booksPick = null; // The book whose chapters the drawer shows
-	const bibleBar = topDiv.insertBefore(document.createElement('div'), topDiv.firstChild);
-	bibleBar.id = 'chNav';
+	const bibleBar = $('chNav');
 	function renderBibleBar(){
 		if (isChapter(query)) lastRead = query;
 		bibleBar.hidden = !bibleMode() && !isChapter(query);
@@ -858,7 +848,7 @@ if(!isDictPage){
 		}
 		const b = books.find(x => x.code === booksPick), cur = on => on ? ' aria-current="true"' : '';
 		return (b ? `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
-				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-read="${ref}"${cur(ref === lastRead)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
+				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-q="${ref}"${cur(ref === lastRead)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
 			`<div class="bk-grid">${books.map(x => `<button data-book="${escapeHTML(x.code)}"${cur(lastRead.startsWith(x.code + ' '))}>${bookName(x)}</button>`).join('')}</div>`);
 	}
 
@@ -868,7 +858,6 @@ if(!isDictPage){
 	// down, and comes back scrolling up.
 	// ---------------------------------------------------------------
 	const header = $('header');
-	const langBtn = $('langBtn');
 	const quick = $('quick');
 	langBtn.innerHTML = `<span class="lang-sym">${escapeHTML(langSym(curLang))}</span><span class="lang-name">${escapeHTML(cap(curLang))}${pParts.length > 1 ? ' · ' + escapeHTML(pParts.slice(1).map(cap).join(' · ')) : ''}</span>` +
 		chevron;
@@ -937,9 +926,8 @@ if(!isDictPage){
 	}
 	const listHTML = (k, n) => {
 		const items = lists[k].items.slice(0, n);
-		return items.length ? `<ul class="rows">${items.map(x => `<li class="row"><button class="row-main" data-q="${escapeHTML(x.w)}"><span class="row-w">${escapeHTML(x.w.replace(/\n/g, ' '))}</span>` +
-			(k === 'history' ? `<span class="row-t">${timeAgo(x.t)}</span>` : x.g ? `<span class="row-g">${escapeHTML(x.g)}</span>` : '') +
-			`</button><button class="row-x" data-rm="${k}" data-w="${escapeHTML(x.w)}" title="Remove" aria-label="Remove ${escapeHTML(x.w)}">✕</button></li>`).join('')}</ul>` :
+		return items.length ? `<ul class="rows">${items.map(x => { const w = escapeHTML(x.w); return rowHTML('', `data-q="${w}"`, escapeHTML(x.w.replace(/\n/g, ' ')), k === 'history' ? timeAgo(x.t) : escapeHTML(x.g || ''),
+			`<button class="row-x" data-rm="${k}" data-w="${w}" title="Remove" aria-label="Remove ${w}">✕</button>`); }).join('')}</ul>` :
 			`<p class="empty">${lists[k].empty}</p>`;
 	};
 
@@ -983,16 +971,15 @@ if(!isDictPage){
 	}
 
 	// The side panel for the whole history or all the bookmarks
-	const drawer = $('drawer');
-	const drawerBody = drawer.querySelector('.drawer-body');
-	let drawerView = null;
 	let showLibrary = false; // The menu's Library and settings, until something is searched
-	const drawerTitles = {history: 'History', bookmarks: 'Bookmarks', books: 'Books', texts: 'Bible translations', lang: 'Language', filter: 'Filter', gloss: 'Gloss with', first: 'Download dictionaries'};
+	// Each view's title and what's in it (the filter's and the gloss's: VIEWS, filterHTML)
+	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '');
+	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], books: ['Books', booksHTML], texts: ['Bible translations', textsHTML],
+		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML]};
 	function renderDrawer(){
-		const v = drawerView, scroll = drawerBody.scrollTop;
-		drawer.querySelector('.drawer-title').textContent = drawerTitles[v];
-		drawerBody.innerHTML = lists[v] ? listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '') :
-			v === 'books' ? booksHTML() : v === 'texts' ? textsHTML() : v === 'lang' ? langHTML() : v === 'first' ? firstHTML() : filterHTML(v);
+		const v = drawerView, scroll = drawerBody.scrollTop, [title, html] = drawers[v] || [VIEWS[v].title, filterHTML];
+		drawer.querySelector('.drawer-title').textContent = title;
+		drawerBody.innerHTML = html(v);
 		drawerBody.scrollTop = scroll;
 	}
 	// The groups opened (▸): a category in the filter or the library
@@ -1005,7 +992,7 @@ if(!isDictPage){
 			`<button class="cat-exp" data-exp="${escapeHTML(key)}" aria-expanded="${open}" aria-label="Show or hide what's in it">▸</button></div>` +
 			(open ? `<div class="cat-body">${body()}</div>` : '') + '</li>';
 	}
-	const groupHead = (key, label, text) => `<button class="cat-sel" data-exp="${escapeHTML(key)}"><span class="row-w">${escapeHTML(label)}</span><span class="row-t">${text}</span></button>`;
+	const groupHead = (key, label, text) => `<button class="cat-sel" data-exp="${escapeHTML(key)}">${wordsHTML(escapeHTML(label), text)}</button>`;
 	// What a view has: the library, every dictionary; the filter and the
 	// gloss, the downloaded ones
 	const inView = view => d => view === 'library' || downloaded.has(d);
@@ -1032,12 +1019,14 @@ if(!isDictPage){
 	// A dictionary: on or off, what kind it is, downloaded (✓) or not (⬇)
 	// and its size, what it is; to delete its download (🗑) or take an added
 	// one off the page (✕), and its star
+	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
+	// Its size, and downloaded (✓), loading or not (⬇)
+	const sizeHTML = (d, state = stateOf(d)) => `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${dicts[d].size ? sizeText(dicts[d].size) : ''}</span>`;
 	function dictRowHTML(d){
-		const x = dicts[d], state = loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
+		const x = dicts[d], state = stateOf(d);
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${libOn[d]}">` +
-			infoHTML(x, `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${x.size ? sizeText(x.size) : ''}</span>`) + '</button>' +
-			(x.added ? `<button class="dict-del" data-del="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` :
-				state === 'got' ? `<button class="dict-del" data-del="${d}" title="Delete its download (it's turned off)" aria-label="Delete ${escapeHTML(x.name)}'s download">🗑</button>` : '') +
+			infoHTML(x, sizeHTML(d)) + '</button>' +
+			(x.added || state === 'got' ? `<button class="dict-del" data-del="${d}" title="${x.added ? 'Take it off this page' : 'Delete its download (it\'s turned off)'}" aria-label="${x.added ? 'Remove' : 'Delete the download of'} ${escapeHTML(x.name)}">${x.added ? '✕' : '🗑'}</button>` : '') +
 			`${starBtnHTML(d)}</li>`;
 	}
 	function rowsHTML(id, view){
@@ -1053,8 +1042,8 @@ if(!isDictPage){
 		const tops = cats.filter(c => isTop(c) && shown(c, view));
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => groupHTML(`${view}:${c.id}`,
-			view !== 'library' ? btn(c, 'sel', `class="cat-chk check" aria-pressed="${!filtered(view) || picks[view].includes(c.id)}" aria-label="${view === 'gloss' ? 'Gloss with' : 'Search'} ${escapeHTML(c.label)}"`, '') +
-				btn(c, 'only', 'class="cat-sel" title="Just this"', `<span class="row-w">${escapeHTML(c.label)}</span><span class="row-t">${catCount(c, view)}</span>`) +
+			view !== 'library' ? btn(c, 'sel', `class="cat-chk check" aria-pressed="${!filtered(view) || picks[view].includes(c.id)}" aria-label="${VIEWS[view].title}: ${escapeHTML(c.label)}"`, '') +
+				btn(c, 'only', 'class="cat-sel" title="Just this"', wordsHTML(escapeHTML(c.label), catCount(c, view))) +
 				`<span class="gloss-rows">${GLOSS_ROWS.map(n => btn(c, 'row', `data-row="${n}" aria-pressed="${catRow(c.id) === n}" title="Its words in row ${n} of a gloss"`, n)).join('')}</span>` :
 				groupHead(`${view}:${c.id}`, c.label, catCount(c, view)),
 			() => {
@@ -1072,17 +1061,18 @@ if(!isDictPage){
 	// their downloaded dictionaries; untick any to search (or gloss) with
 	// just the rest, or tap one's name for just it
 	function filterHTML(view){
-		return (view === 'gloss' ? `<button class="first-default" data-gloss="go"${glossIds().length ? '' : ' disabled'}>⇄ Gloss</button>` : '') +
+		return (VIEWS[view].top?.() || '') +
 			'<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel()) +
-			(choice ? `<ul class="rows"><li class="row"><button class="row-main radio" data-all="1" aria-pressed="${!filtered(view)}"><span class="row-w">All</span><span class="row-t">${catCount({members: dictIds}, view)}</span></button></li></ul>` : '') +
+			(choice ? `<ul class="rows">${rowHTML('radio', `data-all="1" aria-pressed="${!filtered(view)}"`, 'All', catCount({members: dictIds}, view))}</ul>` : '') +
 			catsHTML(view) +
-			`<p class="empty">Tick as many as you like, or tap a name for just it: ${view === 'gloss' ? 'glosses' : 'searches'} use their dictionaries that are on. 1, 2, 3: the row of a gloss's word boxes their words go in. Star a dictionary (☆) for its entries to come first.</p>` + moreHTML;
+			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on. 1, 2, 3: the row of a gloss's word boxes their words go in. Star a dictionary (☆) for its entries to come first.</p>` + moreHTML;
 	}
+	const renderLibrary = () => { if (showLibrary) listDiv.innerHTML = libraryHTML(); };
 	// The library: every dictionary on the page, by category; then other
 	// languages' to add
 	function libraryHTML(){
 		const byLang = new Map();
-		allDicts.filter(x => !dictIds.some(d => dicts[d] === x)).forEach(x => byLang.set(x.lang, [...(byLang.get(x.lang) || []), x]));
+		allDicts.filter(x => !dictIds.some(d => dicts[d] === x)).forEach(x => push(byLang, x.lang, x));
 		const lang = ([l, xs]) => groupHTML(`lang:${l}`, groupHead(`lang:${l}`, cap(l), `${xs.length} ${xs.length === 1 ? 'dictionary' : 'dictionaries'}`),
 			() => `<ul class="rows dict-rows">${xs.map(x => `<li class="row dict-row"><div class="row-main">${infoHTML(x)}</div>` +
 				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
@@ -1129,8 +1119,7 @@ if(!isDictPage){
 			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
-			const got = downloaded.has(d) ? '<span class="lib-size got" title="Downloaded: it\'s just turned on">✓ Downloaded</span>' : undefined; // (no size: nothing to download)
-			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x, got)}</button></li>`;
+			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x, sizeHTML(d))}</button></li>`;
 		});
 		if (prev !== null) html += '</ul>';
 		if (!ids.length) html = '<p class="empty">These are all downloaded: slide for more.</p>';
@@ -1167,7 +1156,7 @@ if(!isDictPage){
 		setOn(got(), d => levelOf(dicts[d]) <= n);
 	}
 	drawerBody.addEventListener('input', e => { if (e.target.matches('.first-level input')) drawerView === 'first' ? showLevel(+e.target.value) : markLevel(+e.target.value); });
-	drawerBody.addEventListener('change', e => { if (e.target.matches('.first-level input') && picks[drawerView]) pickLevel(+e.target.value); });
+	drawerBody.addEventListener('change', e => { if (e.target.matches('.first-level input') && VIEWS[drawerView]) pickLevel(+e.target.value); });
 	function firstAnswer(v){
 		asking = false;
 		closeDrawer();
@@ -1180,8 +1169,8 @@ if(!isDictPage){
 
 	// The filter, the translations and the library, where they're showing
 	function renderLists(){
-		if (picks[drawerView] || drawerView === 'texts') renderDrawer();
-		if (showLibrary) listDiv.innerHTML = libraryHTML();
+		if (VIEWS[drawerView] || drawerView === 'texts') renderDrawer();
+		renderLibrary();
 	}
 	// Again, once (the service worker says which files it has all at once)
 	const renderListsSoon = debounce(() => {
@@ -1195,7 +1184,7 @@ if(!isDictPage){
 		navigator.storage?.estimate?.().then(e => {
 			if (e.usage === usage) return;
 			usage = e.usage;
-			if (showLibrary) listDiv.innerHTML = libraryHTML();
+			renderLibrary();
 		}).catch(() => {});
 	}
 	// Another language's dictionary onto the page (or back on it), on: at
@@ -1267,15 +1256,7 @@ if(!isDictPage){
 		document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', b.dataset.drawer === view));
 		drawer.querySelector('.drawer-close').focus();
 	}
-	function closeDrawer(){
-		drawerView = null;
-		drawer.classList.add('hide');
-		document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', false));
-	}
 	document.querySelectorAll('[data-drawer]').forEach(b => b.addEventListener('click', () => openDrawer(b.dataset.drawer)));
-	drawer.querySelector('.drawer-close').addEventListener('click', closeDrawer);
-	drawer.querySelector('.drawer-bg').addEventListener('click', closeDrawer);
-	document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerView) closeDrawer(); });
 
 	// The home page (nothing searched): recent searches and bookmarks
 	const homeDiv = $('home');
@@ -1290,8 +1271,8 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, read, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, library, pick, level, first, gloss} = b.dataset;
-		const view = drawerView === 'gloss' ? 'gloss' : 'filter'; // (whose categories)
+		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, library, pick, level, first, gloss} = b.dataset;
+		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
 			drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
@@ -1325,9 +1306,6 @@ if(!isDictPage){
 		} else if (book || booksBack) {
 			booksPick = book || null;
 			renderDrawer();
-		} else if (read) {
-			closeDrawer();
-			search(read);
 		} else if (all) {
 			setFilter(view, []);
 		} else if (act) { // A category's
@@ -1386,16 +1364,14 @@ if(!isDictPage){
 		if (ds.some(d => was[d] !== searched(d) && (!searched(d) || loaded.has(d)))) searchAgain();
 	}
 
-	// Changes what the filter (or the gloss) has picked: the filter's, the
-	// search again
+	// Changes what the filter (or the gloss) has picked
 	function setFilter(view, ids){
 		let s = ids.filter(catById);
 		if (cats.filter(isTop).every(c => s.includes(c.id))) s = []; // Every one: All
 		picks[view] = s;
-		store(pickKeys[view], s);
-		if (view === 'gloss') return renderDrawer();
+		store(VIEWS[view].key, s);
 		updateFilterUI();
-		searchAgain();
+		VIEWS[view].changed?.();
 	}
 	function updateFilterUI(){
 		renderLists();
@@ -1550,7 +1526,7 @@ if(!isDictPage){
 		document.body.classList.add('no-scroll');
 	}
 	function closePopupClick(e){
-		if (!e.target.closest('#popupContent, #controls')) { // (its buttons below are usable)
+		if (!e.target.closest('#popupContent, #controls, #drawer')) { // (its buttons below, and the drawer it opens, are usable)
 			document.removeEventListener('click', closePopupClick);
 			closePopup();
 		}
@@ -1581,10 +1557,8 @@ if(!isDictPage){
 		renderHome();
 		settings.style.display = 'block';
 		settings.classList.toggle('library', showLibrary);
-		if (showLibrary) {
-			listDiv.innerHTML = libraryHTML();
-			refreshUsage();
-		}
+		renderLibrary();
+		refreshUsage();
 		resultsDiv.replaceChildren();
 		translationDiv.replaceChildren();
 	}
@@ -1596,21 +1570,19 @@ if(!isDictPage){
 	}
 
 	let searchGen = 0;
-	// A search (stage st) in each worker with dictionaries searched in it;
-	// worker_code[i]: worker i is done
-	function initSearch(){
-		num = 0;
-		++searchGen;
+	// The search's stage st (a new search's first) in each worker with
+	// dictionaries searched in it, and its first results; worker_code[i]:
+	// worker i is done
+	function searchStage(start){
+		if (start) {
+			num = 0;
+			++searchGen;
+		}
 		forWorkers(searching, (w, code, i) => {
-			if (code.includes(true)) w.postMessage({type: "setquery", query});
-			w.postMessage({type: "initsearch", st, dicts: code, focus: starDids(i), gen: searchGen});
-			worker_code[i] = !code.includes(true);
-		});
-	}
-	function continueSearch(){
-		forWorkers(searching, (w, code, i) => {
-			if (code.includes(true)) w.postMessage({type: "continuesearch", st, focus: starDids(i)});
-			worker_code[i] = !code.includes(true);
+			const any = code.includes(true);
+			if (any && start) w.postMessage({type: "setquery", query});
+			if (any || start) w.postMessage({type: start ? "initsearch" : "continuesearch", st, dicts: code, focus: starDids(i), gen: searchGen});
+			worker_code[i] = !any;
 		});
 		getResults();
 	}
@@ -1630,11 +1602,11 @@ if(!isDictPage){
 
 	// Glosses use the dictionaries that are on (a link's: just its) in the
 	// categories the gloss has picked, each word's box with a row for each
-	// row's (glossRow): a dict folder's (dict/, bible/dict/, ...) first,
-	// then starred, then the dictionaries' order
-	const inDict = d => dicts[d].path.includes('/dict/');
-	const glossIds = () => dictIds.filter(d => libOn[d] && (solo.length > 0 || inFilter(d, 'gloss')))
-		.sort((a, b) => inDict(b) - inDict(a) || sortId(a) - sortId(b));
+	// row's (glossRow). The ones first win a word: starred (in the order
+	// starred), then by priority (0, 1, 2, 3, ..., then -1, -2, ...: rank),
+	// then the dictionaries' order
+	const glossIds = () => dictIds.filter(d => isOn(d, 'gloss'))
+		.sort((a, b) => isStar(b) - isStar(a) || (isStar(a) ? sortId(a) - sortId(b) : rank(dicts[a].priority) - rank(dicts[b].priority) || a - b));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
 
 	// The query word by word, when the search found nothing (a Bible text's
@@ -1650,9 +1622,8 @@ if(!isDictPage){
 		if (q !== query || num || !pieces.some(p => p.ds.length)) return;
 		const div = document.createElement('p-d');
 		div.className = 'translation';
-		div.innerHTML = `<h2>${names(glossed(div, pieces, queryText))}<button class="translate-btn" onclick="translateEntry(this)" title="Which dictionaries to gloss with">⇄ Gloss with…</button>${shareBtnHTML}</h2>` + translationHTML(pieces);
+		fillGloss(div, pieces, ids, queryText, n => `<h2>${n}${translateBtnHTML}${shareBtnHTML}</h2>`);
 		translationDiv.replaceChildren(div);
-		addMedia(div, pieces, ids);
 		updateStatus('No entry for all of it, glossed word by word.');
 		queryInput.classList.remove('error');
 	}
@@ -1690,9 +1661,12 @@ if(!isDictPage){
 	// ---------------------------------------------------------------
 	const workerReplies = new Map(); // tag -> what to do with the reply
 	let replyTag = 0;
-	function askDict(d, msg, then){
-		workerReplies.set(++replyTag, then);
-		workerOf(d).postMessage({...msg, did: didOf(d), tag: replyTag});
+	// Dictionary d's reply to msg (loaded first)
+	function askDict(d, msg){
+		return new Promise(then => ensureLoaded(d, () => {
+			workerReplies.set(++replyTag, then);
+			workerOf(d).postMessage({...msg, did: didOf(d), tag: replyTag});
+		}));
 	}
 	function gotReply(data){
 		const then = workerReplies.get(data.tag);
@@ -1706,24 +1680,18 @@ if(!isDictPage){
 	// the words found, addMedia)
 	function translateText(ids, text, done){
 		text = text.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
-		const all = [];
-		let left = ids.length;
-		ids.forEach((d, k) => ensureLoaded(d, () => askDict(d, {type: 'matchall', query: text}, r => {
+		Promise.all(ids.map((d, k) => askDict(d, {type: 'matchall', query: text}).then(r => {
 			const row = dicts[d].media ? 0 : glossRow(d); // (a media one's are in no row: addMedia)
-			all[k] = r.matches
+			return r.matches
 				.filter(([a]) => !/\s/.test(text[a])) // A word doesn't start with the space before it (a second index word can)
-				.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, bib: isBibleDict(d), d, rank: k, row}));
-			if (--left === 0) pickPieces(all.flat(), text, done);
-		})));
+				.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k, row}));
+		}))).then(all => pickPieces(all.flat(), text, done));
 	}
 
-	// Bible dictionaries (not texts: their headwords are verse references)
-	const isBibleDict = d => /^bible\//.test(dicts[d].cat) && !isBibleText(d);
 
 	// The best way to split text[a, b) into matches: the fewest characters
 	// none of them has (letters and digits: spaces and punctuation don't
-	// count), then the fewest Bible dictionary words (the dictionaries come
-	// first), then the fewest pieces, then the fewest second index words
+	// count), then the fewest pieces, then the fewest second index words
 	// (headwords come first), then the first dictionaries'. So a long match
 	// that leaves a piece no dictionary has loses to shorter ones that cover
 	// it all, and a second index word ("@ພຣະເຈົ້າ", an old spelling) wins
@@ -1731,18 +1699,18 @@ if(!isDictPage){
 	// match, none for unmatched)}].
 	function splitText(matches, text, a, b){
 		const at = new Map();
-		matches.forEach(x => { if (!at.has(x.a)) at.set(x.a, []); at.get(x.a).push(x); });
+		matches.forEach(x => push(at, x.a, x));
 		const n = b - a;
 		const cost = new Array(n + 1), pick = new Array(n + 1).fill(null);
-		cost[n] = [0, 0, 0, 0, 0];
-		const less = (x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || x[3] - y[3] || x[4] - y[4];
+		cost[n] = [0, 0, 0, 0];
+		const less = (x, y) => x.reduce((r, v, i) => r || v - y[i], 0);
 		for (let i = n - 1; i >= 0; --i) {
 			const c = cost[i + 1];
-			cost[i] = [c[0] + (/[\p{L}\p{M}\p{N}]/u.test(text[a + i]) ? 1 : 0), c[1], c[2] + (pick[i + 1] ? 1 : 0), c[3], c[4]]; // Unmatched, joined to unmatched text after it
+			cost[i] = [c[0] + (/[\p{L}\p{M}\p{N}]/u.test(text[a + i]) ? 1 : 0), c[1] + (pick[i + 1] ? 1 : 0), c[2], c[3]]; // Unmatched, joined to unmatched text after it
 			for (const x of at.get(a + i) || []) {
 				if (i + x.len > n) continue;
 				const e = cost[i + x.len];
-				const t = [e[0], e[1] + x.bib, e[2] + 1, e[3] + x.sec, e[4] + x.rank];
+				const t = [e[0], e[1] + 1, e[2] + x.sec, e[3] + x.rank];
 				if (less(t, cost[i]) < 0) { cost[i] = t; pick[i] = x; }
 			}
 		}
@@ -1758,13 +1726,12 @@ if(!isDictPage){
 	}
 
 	// Each word's rows: in each, of the row's dictionaries, the best entry
-	// for exactly it (headwords first, then the first dictionaries'), or
-	// else its parts', if they make it up. (A pronunciation dictionary's
-	// aren't for plain Latin text.)
+	// for exactly it (the first dictionary's: glossIds' order; its headword
+	// over a second index word), or else its parts', if they make it up
 	function pickPieces(matches, text, done){
-		const best = (xs, p) => xs.filter(x => x.a === p.a && x.len === p.b - p.a).sort((x, y) => x.sec - y.sec || x.bib - y.bib || x.rank - y.rank)[0];
+		const best = (xs, p) => xs.filter(x => x.a === p.a && x.len === p.b - p.a).sort((x, y) => x.rank - y.rank || x.sec - y.sec)[0];
 		const word = x => text.slice(x.a, x.a + x.len);
-		const rows = GLOSS_ROWS.map(r => matches.filter(x => x.row === r && !(dicts[x.d].type === 'phon' && latin(word(x)))));
+		const rows = GLOSS_ROWS.map(r => matches.filter(x => x.row === r));
 		const pieces = splitText(matches, text, 0, text.length);
 		const byDict = new Map(); // The matches each dictionary renders
 		pieces.forEach(p => {
@@ -1774,9 +1741,11 @@ if(!isDictPage){
 				const parts = x ? [] : splitText(xs.filter(y => y.a >= p.a && y.a + y.len <= p.b), text, p.a, p.b);
 				return x ? [x] : parts.every(q => q.w) ? parts.map(q => q.w) : [];
 			});
-			p.rows.flat().forEach(x => { if (!byDict.has(x.d)) byDict.set(x.d, []); byDict.get(x.d).push(x); });
+			p.rows.flat().forEach(x => push(byDict, x.d, x));
 		});
-		const finish = () => done(pieces.map(p => {
+		Promise.all([...byDict].map(([d, xs]) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}).then(r => {
+			xs.forEach((x, i) => { if (r.entries[i]) x.r = {...r.entries[i], d, sec: x.sec}; });
+		}))).then(() => done(pieces.map(p => {
 			const xs = p.rows.map(r => r.filter(x => x.r));
 			return {
 				text: text.slice(p.a, p.b),
@@ -1784,13 +1753,7 @@ if(!isDictPage){
 				rows: xs.map(r => r.map(x => glossOf(x.r, word(x))).filter(Boolean).join(' ')),
 				ds: [...new Set(xs.flat().map(x => x.d))], // (the dictionaries in its rows)
 			};
-		}));
-		let left = byDict.size;
-		if (!left) return finish();
-		byDict.forEach((xs, d) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}, r => {
-			xs.forEach((x, i) => { if (r.entries[i]) x.r = {...r.entries[i], d, sec: x.sec}; });
-			if (--left === 0) finish();
-		}));
+		})));
 	}
 
 	// Each word in a box, with its rows under it, each an entry in a line
@@ -1798,7 +1761,6 @@ if(!isDictPage){
 	// says what it means, unless it's in the same script: then the word is
 	// the entry's other spelling); tapping the word shows what the popup
 	// search finds for it
-	const latin = t => !/[^\u0000-ɏ]/.test(t);
 	const script = t => (t.match(/\p{L}/u)?.[0] ?? ' ').codePointAt(0) >> 7; // (its Unicode block, roughly)
 	const glossOf = (entry, word) => entry.sec && script(entry.header) !== script(word) ? entry.header : summary(entry.body, entry.header);
 	function translationHTML(pieces){
@@ -1819,27 +1781,25 @@ if(!isDictPage){
 		const words = [...new Set(pieces.filter(p => p.d !== undefined).map(p => p.text.trim()))];
 		if (!words.length) return;
 		ids.filter(d => dicts[d].media).forEach(d =>
-			ensureLoaded(d, () => askDict(d, {type: 'media', words}, r => r.files.forEach((f, k) => {
+			askDict(d, {type: 'media', words}).then(r => r.files.forEach((f, k) => {
 				if (!f || !f[1]) return;
 				if (!box.dataset.ds.split(',').includes(String(d))) box.dataset.ds += `,${d}`;
 				const ws = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(words[k])}"]`);
 				if (!AUDIO.test(f[0])) return ws.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(f[0], f[1], words[k])).classList.add('tr-img'); });
+				const src = audioSrc(f[0], f[1]); // (one for every box with the word)
 				ws.forEach(w => {
-					if (w.classList.contains('has-audio')) return;
-					w.classList.add('has-audio');
-					const b = w.appendChild(document.createElement('button'));
-					b.className = 'tr-play';
-					b.title = b.ariaLabel = 'Play';
-					b.textContent = '🔊';
-					const a = b.appendChild(document.createElement('audio'));
-					audioSrc(f[0], f[1]).then(u => { a.src = u; });
-					b.onclick = () => {
-						a.currentTime = 0;
-						a.play().catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play ${f[0]} here: ${e.message}`; });
-					};
+					if (w.querySelector('.tr-play')) return;
+					w.insertAdjacentHTML('beforeend', '<button class="tr-play" onclick="playWord(this)" title="Play" aria-label="Play">🔊<audio></audio></button>');
+					const a = w.lastChild.lastChild;
+					src.then(u => { a.src = u; });
 				});
-			}))));
+			})));
 	}
+	window.playWord = b => {
+		const a = b.lastChild;
+		a.currentTime = 0;
+		a.play().catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
+	};
 	// A recording's URL, ready before it's played: phones play sound only
 	// right in the tap, not after something else finishes (like decoding)
 	const audioSrc = async (type, bytes) => URL.createObjectURL(/codec2|c2/i.test(type) ? await media().then(m => m.codec2toWav(bytes)) : new Blob([bytes], {type: audioType(type)}));
@@ -1870,20 +1830,19 @@ if(!isDictPage){
 		box.scrollIntoView({block: 'nearest'});
 		box.textContent = `Glossing with ${ids.map(d => dicts[d].name).join(' + ')}…`;
 		translateText(ids, updateQuery(text), pieces => {
-			if (!box.isConnected) return;
-			box.innerHTML = `<div class="tr-head">${names(glossed(box, pieces, text))}${shareBtnHTML}</div>` +
-				(pieces.some(p => p.d !== undefined) ? translationHTML(pieces) : 'No words found.');
-			addMedia(box, pieces, ids);
+			if (box.isConnected) fillGloss(box, pieces, ids, text, n => `<div class="tr-head">${n}${shareBtnHTML}</div>`);
 		});
 	}
-	// A gloss's text and dictionaries (the ones in its words' rows; addMedia
-	// adds the media ones with any of its words), for sharing it; the ones
-	// in its rows
-	function glossed(box, pieces, text){
+	// A gloss (the search's, or an entry's) into box: head(the names of the
+	// dictionaries in its words' rows), then its words. Its text and those
+	// dictionaries are kept for sharing it (addMedia adds the media ones
+	// with any of its words).
+	function fillGloss(box, pieces, ids, text, head){
 		const ds = [...new Set(pieces.flatMap(p => p.ds))];
 		box.dataset.text = text;
 		box.dataset.ds = ds.join();
-		return ds;
+		box.innerHTML = head(names(ds)) + (pieces.some(p => p.d !== undefined) ? translationHTML(pieces) : 'No words found.');
+		addMedia(box, pieces, ids);
 	}
 
 	// ---------------------------------------------------------------
@@ -1893,14 +1852,7 @@ if(!isDictPage){
 	// ---------------------------------------------------------------
 	window.shareCard = btn => {
 		const card = btn.closest('.tr-entry, p-d');
-		const m = popMenu(btn, 'dict-menu', '<button data-a="copy">Copy</button><button data-a="link">Link</button>');
-		if (m) m.onclick = e => {
-			const a = e.target.closest('button')?.dataset.a;
-			if (!a) return;
-			m.remove();
-			if (a === 'copy') copy(btn, cardText(card));
-			else share(btn, cardLink(card));
-		};
+		popMenu(btn, '<button data-a="copy">Copy</button><button data-a="link">Link</button>', a => a === 'copy' ? copy(btn, cardText(card)) : share(btn, cardLink(card)));
 	};
 	const visible = el => el.checkVisibility?.() ?? true; // (not a hidden dictionary's)
 	const glossText = box => [...box.querySelectorAll('.tr-w')].map(w => [w.querySelector('p-a') || w, ...w.querySelectorAll('.tr-r')].map(x => x.textContent.trim()).join(' · ')).join('\n');
@@ -1925,22 +1877,15 @@ if(!isDictPage){
 		bigQuery.style.height = 'auto';
 		bigQuery.style.height = bigQuery.scrollHeight + 'px';
 	}
+	// (Shown from BIG characters, or a newline; hidden again below half that)
 	function updateBig(){
-		const on = !bigQuery.classList.contains('hide');
-		const len = queryText.length;
-		if (!on && (len >= BIG || queryText.includes('\n'))) {
-			bigQuery.classList.remove('hide');
-		} else if (on && len < BIG / 2 && !queryText.includes('\n')) {
-			bigQuery.classList.add('hide');
-			if (document.activeElement === bigQuery) {
-				queryInput.focus();
-				queryInput.setSelectionRange(len, len);
-			}
-			return;
-		} else if (!on) {
-			return;
-		}
-		if (document.activeElement !== bigQuery) {
+		const len = queryText.length, typing = document.activeElement === bigQuery;
+		const on = queryText.includes('\n') || len >= (bigQuery.classList.contains('hide') ? BIG : BIG / 2);
+		bigQuery.classList.toggle('hide', !on);
+		if (!on && typing) {
+			queryInput.focus();
+			queryInput.setSelectionRange(len, len);
+		} else if (on && !typing) {
 			bigQuery.value = queryText;
 			fitBig();
 		}
@@ -1979,14 +1924,11 @@ if(!isDictPage){
 		st = globreg.test(query) ? 0 : 3;
 		searching = searchMask(); // (the workers skip the ones not loaded)
 
-		updateStatus("Searching...");
-
 		loader = document.createElement('p-d');
 		loader.id = 'loader';
 		loader.textContent = "Loading more…";
 
-		initSearch();
-		getResults();
+		searchStage(true);
 		updateStatus('No matches found.');
 		queryInput.classList.add("error");
 	}
@@ -2030,10 +1972,9 @@ if(!isDictPage){
 		const text = e.clipboardData?.getData('text/plain');
 		if (!text || !/[\r\n]/.test(text)) return;
 		e.preventDefault();
-		const a = queryInput.selectionStart, b = queryInput.selectionEnd;
-		setQueryText(queryText.slice(0, a) + text.replace(/\r\n?/g, '\n') + queryText.slice(b));
-		const end = a + text.replace(/\r\n?/g, '\n').length;
-		queryInput.setSelectionRange(end, end);
+		const a = queryInput.selectionStart, t = queryText.slice(0, a) + text.replace(/\r\n?/g, '\n');
+		setQueryText(t + queryText.slice(queryInput.selectionEnd));
+		queryInput.setSelectionRange(t.length, t.length);
 		updateBig();
 		debouncedSearch();
 	});
@@ -2075,8 +2016,8 @@ if(!isDictPage){
 	// the bottom of the screen: iOS's own menu, always on top next to the
 	// selection, covered ours.
 	const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // (iPadOS says it's a Mac)
-	const selMenu = document.body.appendChild(document.createElement('div'));
-	selMenu.className = ios ? 'selection-menu docked' : 'selection-menu';
+	const selMenu = $('selMenu');
+	selMenu.classList.toggle('docked', ios);
 	let selText = '', selEntry = null; // (the entry or verse it's in, to gloss it there)
 	const selButtons = () => {
 		const voices = window.speechSynthesis?.getVoices() || [];
@@ -2144,21 +2085,12 @@ if(!isDictPage){
 			this.replaceWith(a);
 		}
 	});
-	// In a translation, a tap anywhere on a word's box (but its 🔊) does too
+	// <p-w s="G976">word</p-w>: a word with its Strong's number, tap for
+	// its entry. In a translation, a tap anywhere on a word's box (but its
+	// 🔊) is a tap on its p-a.
 	document.addEventListener('click', e => {
-		const w = e.target.closest('.tr-w');
-		if (w && !e.target.closest('p-a, .tr-play')) w.querySelector('p-a')?.click();
-	});
-	customElements.define('p-a', class extends HTMLElement {
-		connectedCallback() {
-			this.addEventListener('click', () => openPopupSearch(this.textContent));
-		}
-	});
-	// <p-w s="G976">word</p-w>: a word with its Strong's number, tap for its entry
-	customElements.define('p-w', class extends HTMLElement {
-		connectedCallback() {
-			this.onclick = () => openPopupSearch(this.getAttribute('s'));
-		}
+		const w = e.target.closest('p-a, p-w, .tr-w'), a = w?.matches('.tr-w') ? w.querySelector('p-a') : w;
+		if (a && !e.target.closest('.tr-play')) openPopupSearch(a.getAttribute('s') || a.textContent);
 	});
 	// <p-il>word|transliteration|gloss|G976|grammar ¦ ...</p-il>: an
 	// interlinear verse, each word over the rest (and a sixth field: a note,

@@ -41,18 +41,34 @@ async function build() {
 		const { minify: minifyJs } = await import('terser');
 		const { default: CleanCSS } = await import('clean-css');
 
+		// (A few more passes, and rewrites that are safe for this code: a few
+		// hundred bytes)
+		const opts = {ecma: 2020, compress: {passes: 3, unsafe: true, unsafe_arrows: true, unsafe_methods: true, pure_getters: true}, format: {ecma: 2020}};
 		const [appMin, workerMin] = await Promise.all([
-			minifyJs(appJs, { module: true }),
-			minifyJs(workerJs, { toplevel: true }), // (nothing outside it uses its names)
+			minifyJs(appJs, { ...opts, module: true }),
+			minifyJs(workerJs, { ...opts, toplevel: true }), // (nothing outside it uses its names)
 		]);
 		if (appMin.error) throw appMin.error;
 		if (workerMin.error) throw workerMin.error;
 		appJs = appMin.code;
 		workerJs = workerMin.code;
 
-		const cssResult = new CleanCSS({ level: { 2: { restructureRules: true } } }).minify(css);
+		const cssResult = new CleanCSS({ level: { 1: { all: true }, 2: { all: true } } }).minify(css);
 		if (cssResult.errors.length) throw new Error(cssResult.errors.join('\n'));
 		css = cssResult.styles;
+
+		// Short names for the stylesheet's own custom properties (--card-bg
+		// -> --A), most used first: capitals (A..Z, then AA, AB, ...), which
+		// dictionaries' own styles don't use (cambogeo's --s); not the ones
+		// app.js sets ('--load')
+		const used = {};
+		for (const [, n] of css.matchAll(/--([\w-]+)/g)) used[n] = (used[n] || 0) + 1;
+		const keep = n => /^[A-Z]+$/.test(n) || appJs.includes(`'--${n}'`) || appJs.includes(`"--${n}"`);
+		const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', shortName = i => (i >= 26 ? L[Math.floor(i / 26) - 1] : '') + L[i % 26];
+		const short = {};
+		Object.keys(used).filter(n => !keep(n)).sort((a, b) => used[b] * b.length - used[a] * a.length)
+			.forEach((n, i) => { short[n] = shortName(i); });
+		css = css.replace(/--([\w-]+)/g, (m, n) => short[n] ? `--${short[n]}` : m);
 	}
 
 	// Embed peakworker.js as a string constant and hand app.js a ready-made Blob URL
@@ -88,6 +104,9 @@ async function build() {
 			removeAttributeQuotes: true,
 			collapseBooleanAttributes: true,
 			removeRedundantAttributes: true,
+			removeOptionalTags: true,
+			useShortDoctype: true,
+			removeEmptyAttributes: true,
 			// JS/CSS are already minified above; skip re-minifying them here.
 			minifyCSS: false,
 			minifyJS: false,
