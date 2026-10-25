@@ -75,7 +75,7 @@
     ["khmer/phonetics/dict/ipa.peak.zst", 1792403327, "Google Khmer Lexicon via: <a href=\"https://huggingface.co/datasets/seanghay/google-khmer-lexicon\">seanghay</a>.", 149, 2, "phon", 0, 593732],
     ["khmer/phonetics/dict/phnom.peak.zst", 1792401695, "Khmer pronouncing dictionary: standard Khmer and Phnom Penh dialect by <a href=\"https://unesdoc.unesco.org/ark:/48223/pf0000246360\">Unesco</a>", 131, 2, "phon", 0, 72157],
     ["khmer/phonetics/ref/khmervowels.peak.zst", 1792401693, "Khmer vowel charts and recordings, from the <a href=\"https://archive.org/details/aakanee_archive\">aakanee.com archive</a>", 6270, 1, "phon", 0, 17797],
-    ["khmer/ref/cambogeo.peak.zst", 1792749898, "Cambodian village names.", 312483, 1, "rbi", 0, 581032],
+    ["khmer/ref/cambogeo.peak.zst", 1792938470, "Cambodian village names.", 312483, 1, "rbi", 0, 1099985],
     ["khmer/ref/choukprov.peak.zst", 1792403323, "Proverbs from <a href=\"https://choukhmer.wordpress.com/literature/descriptive-proverbs-kar/\">Chouk Khmer</a>", 12861, 2, "mono", 0, 212580],
     ["khmer/ref/countries.peak.zst", 1792403315, "countries in French, Khmer, and English", 321, 3, "bi", 0, 9449],
     ["khmer/ref/kmwiki.peak.zst", 1792403368, "<a href=\"https://km.wikipedia.org/wiki/\">Khmer Wikipedia</a>", 1678, 3, "mono", 0, 2032842],
