@@ -1672,12 +1672,12 @@ if(!isDictPage){
 
 	// done gets the pieces: {text, d (the dictionary), entry ({d, header,
 	// body, sec}), pron (pronunciations)}; text no dictionary has has no d
-	// (A media dictionary's headwords are words too; its files are added to
-	// the words found, addMedia)
+	// (A media dictionary's headwords are words too: its entries' text is
+	// their details; its files are added to the words found, addMedia)
 	function translateText(ids, text, done){
 		text = text.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
 		Promise.all(ids.map((d, k) => askDict(d, {type: 'matchall', query: text}).then(r => {
-			const row = dicts[d].media ? 0 : glossRow(d); // (a media one's are in no row: addMedia)
+			const row = glossRow(d);
 			return r.matches
 				.filter(([a]) => !/\s/.test(text[a])) // A word doesn't start with the space before it (a second index word can)
 				.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k, row}));
@@ -1742,11 +1742,11 @@ if(!isDictPage){
 		Promise.all([...byDict].map(([d, xs]) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}).then(r => {
 			xs.forEach((x, i) => { if (r.entries[i]) x.r = {...r.entries[i], d, sec: x.sec}; });
 		}))).then(() => done(pieces.map(p => {
-			const xs = p.rows.map(r => r.filter(x => x.r));
+			const xs = p.rows.map(r => r.filter(x => x.r && (x.g = glossOf(x.r, word(x))))); // (a media file with no details has no text)
 			return {
 				text: text.slice(p.a, p.b),
 				d: p.w?.d,
-				rows: xs.map(r => r.map(x => glossOf(x.r, word(x))).filter(Boolean).join(' ')),
+				rows: xs.map(r => r.map(x => x.g).join(' ')),
 				ds: [...new Set(xs.flat().map(x => x.d))], // (the dictionaries in its rows)
 			};
 		})));

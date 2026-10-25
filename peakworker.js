@@ -147,9 +147,10 @@ self.onmessage = async ({data}) => {
 		reply(data, {entries: (data.lines || []).map(([m, index]) => {
 			const n = loaded(d) ? d.x.render_match(m, index) : -1;
 			if (n <= 0) return null;
-			if (d.slab) { // A media file: its name, no text (the page adds the file)
+			if (d.slab) { // A media file: its name, and its details as its text (the page adds the file)
 				const b = new Uint8Array(d.x.memory.buffer, d.rptr, n), end = b.indexOf(0);
-				return {header: d.str(d.rptr, end < 0 ? n : end).split('\t')[0].trim(), body: ''};
+				const f = d.str(d.rptr, end < 0 ? n : end).split('\t').map(x => x.replace(/^@/, '').trim());
+				return {header: f[0], body: f.slice(1, -1).filter(Boolean).join(' · ')};
 			}
 			const entry = d.str(d.rptr, n), tab = entry.indexOf('\t');
 			return {header: entry.slice(0, tab).trim(), body: entry.slice(tab + 1)};
