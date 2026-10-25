@@ -109,17 +109,17 @@ mark {
 #install-button, input[type="checkbox"] { display: none; }
 
 /* Buttons with no box of their own */
-.st-share, .text-btn, .bm-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
-.tr-play, .close-btn, .head-btn, .selection-menu button, .tr-pick button {
+.st-share, .text-btn, .bm-btn, .share-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
+.tr-play, .close-btn, .head-btn, .selection-menu button {
 	border: 0;
 	background: none;
 }
-.st-share, .text-btn, .row-main, .cat-sel, .tr-pick button,
-.setting, .tr-entry button, .qk, #langBtn, .ctx-btn, .vs-tr, .bk-grid button, #chNav button {
+.st-share, .text-btn, .row-main, .cat-sel,
+.setting, .qk, #langBtn, .ctx-btn, .vs-tr, .bk-grid button, #chNav button {
 	font: inherit;
 }
 /* Filled */
-.setting, .control-btn, .chords-btn, .tr-entry button {
+.setting, .control-btn, .chords-btn {
 	border: 0;
 	background: var(--control-btn-bg);
 	color: #fff;
@@ -399,8 +399,8 @@ p-d li::marker {
 	font-weight: bold;
 }
 li:only-child { list-style-type: none; }
-/* The headword and its bookmark */
-p-d > h2 .bm-btn {
+/* The headword, its bookmark and Share (a chapter's, a gloss's Share too) */
+p-d > h2 :is(.bm-btn, .share-btn), p-d.chapter > .share-btn, .tr-head .share-btn {
 	margin-left: .35em;
 	padding: 2px;
 	color: var(--muted);
@@ -409,6 +409,10 @@ p-d > h2 .bm-btn {
 }
 p-d > h2 .bm-btn[aria-pressed="true"] { color: var(--star); }
 p-d > h2 .bm-btn[aria-pressed="true"] svg { fill: currentColor; }
+p-d > h2 .share-btn { margin-left: .1em; }
+p-d.chapter > .share-btn { float: right; }
+.tr-head .share-btn { margin-left: .3em; font-size: 1.33em; }
+.share-btn:hover { color: var(--color1); }
 
 /* An entry, and the markup in the dictionaries */
 p-e { display: block; }
@@ -511,7 +515,7 @@ p-h { cursor: pointer; }
 /* The little menus (a dictionary's, Gloss with): over the page at the
    right of the entry (or verse, or the search's gloss), under what opened
    them, so they don't push anything down */
-:is(p-e, p-d, .pv-t):has(.menu) { position: relative; }
+:is(p-e, p-d, .pv-t, .tr-entry):has(.menu) { position: relative; }
 .menu {
 	position: absolute;
 	right: 0;
@@ -581,15 +585,18 @@ p-e.starred + p-e:not(.starred) { border-top-width: 2px; }
 	font-size: .9em;
 	line-height: 1.3;
 }
-.tr-p { font-size: .8em; color: var(--tr-pron); font-style: italic; }
-.tr-g {
+/* A word's rows (the filter's and the gloss's 1 2 3): by default its
+   pronunciation, then what it means */
+.tr-r {
 	font-size: .8em;
-	color: var(--tr-gloss);
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
+.tr-r1 { color: var(--tr-pron); font-style: italic; }
+.tr-r2 { color: var(--tr-gloss); }
+.tr-r3 { color: var(--muted); }
 /* Interlinear (p-il): each word over its transliteration, gloss, Strong's
    number and grammar */
 .il-w {
@@ -622,49 +629,9 @@ p-w:hover { text-decoration: underline dotted; }
 }
 .tr-entry .tr-head {
 	font-size: .75em;
-	opacity: .7;
+	color: var(--muted); /* (not opacity: its Share's menu goes over the words) */
 	margin-bottom: .2em;
 }
-.tr-entry button {
-	margin: 2px;
-	border-radius: 8px;
-	padding: 2px 8px;
-	font-size: .85em;
-}
-/* Which dictionaries to translate with */
-.tr-pick {
-	min-width: 12em;
-	max-width: 80%;
-	max-height: 60vh;
-	overflow-y: auto;
-	margin: 4px 6px 4px 0;
-	padding: 6px;
-	font-size: .85em;
-	line-height: 1.4;
-}
-.translate-btn + .tr-pick { margin-top: 2.6em; } /* (after a floated Gloss: below it, not over it) */
-.tr-pick .tr-q { display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 2px 4px 4px; }
-.tr-pick .tr-sub { padding: 6px 4px 2px; color: var(--muted); font-size: .9em; }
-.tr-pick button {
-	margin: 1px 0;
-	padding: 6px 10px;
-	text-align: left;
-	color: var(--card-text);
-	border-radius: 6px;
-}
-.tr-pick button:hover { background: var(--line); }
-.tr-pick button.tr-go {
-	margin: 0 0 0 auto;
-	text-align: center;
-	background: var(--gloss);
-	color: #fff;
-	font-weight: 600;
-}
-.tr-pick button.tr-go:hover { filter: brightness(1.1); }
-.tr-pick button.tr-go:disabled { opacity: .5; }
-.tr-pick .check { padding-left: 32px !important; }
-.tr-pick .check::before { left: 8px; width: 16px; height: 16px; }
-.tr-pick details summary { cursor: pointer; list-style-position: inside; }
 
 /* Bible: a verse's section (a Bible text's result) has a small
    reference, so a chapter's verses read on */
@@ -932,6 +899,20 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	transition: transform .15s;
 }
 .cat-exp[aria-expanded="true"] { transform: rotate(90deg); }
+/* A category's row in a gloss: 1 2 3, one picked */
+.gloss-rows { flex: none; display: flex; align-items: center; gap: 2px; }
+.gloss-rows button {
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: 50%;
+	background: none;
+	color: var(--muted);
+	font: inherit;
+	font-size: .8em;
+}
+.gloss-rows button[aria-pressed="true"] { border-color: var(--control-btn-bg); background: var(--control-btn-bg); color: #fff; font-weight: 700; }
 .cat-body { margin: 0 0 8px 34px; padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
 .cat-acts { display: flex; gap: 4px; }
 
