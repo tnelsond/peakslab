@@ -528,15 +528,11 @@ if(!isDictPage){
 	};
 
 	// The filter: categories made from the dictionaries on the page, by kind
-	// (the folders: Bible, Dictionaries, Bible texts, Music, Pronunciation,
-	// ...), Bible first. Pick any number of them and searches use just their
-	// dictionaries; none picked is All. Each dictionary is on or off, the
-	// same in every category.
-	const CAT_LABELS = {dict: 'Dictionaries', 'dict/tech': 'Technical terms', bible: 'Bible', 'bible/text': 'Bible texts',
-		'bible/dict': 'Bible words', 'bible/commentary': 'Bible notes', 'bible/psalter': 'Psalters', music: 'Music',
-		'music/chords': 'Chords', 'music/sheet': 'Sheet music', 'music/text': 'Song lyrics', phonetics: 'Pronunciation', 'phonetics/dict': 'Pronunciation dictionaries', 'phonetics/ref': 'Pronunciation guides',
-		media: 'Audio & images', ref: 'Reference'};
-	const catLabel = c => CAT_LABELS[c] || cap(c.replace('/', ' / '));
+	// (their folders, named as they are: Bible, Dict, Bible / text, Music,
+	// Phonetics, ...), Bible first. Pick any number of them and searches use
+	// just their dictionaries; none picked is All. Each dictionary is on or
+	// off, the same in every category.
+	const catLabel = c => cap(c.replaceAll('/', ' / '));
 	// The categories, in the order their entries come (their first
 	// dictionary's). Again when a dictionary's added or taken off. Choosing
 	// is worth it only with two or more: one category is everything.
