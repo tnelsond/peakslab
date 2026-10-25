@@ -7,6 +7,8 @@ let ack = null;
 // not rebuilding this markup on every streamed result. CSS fills it in when
 // it's bookmarked (aria-pressed).
 const bookmarkSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
+// A bookmark: its card's headword's, or w's (a verse's: "joh 3.16")
+const bmBtnHTML = w => `<button class="bm-btn" onclick="toggleBookmark(this)"${w ? ` data-w="${escapeHTML(w)}"` : ''} title="Bookmark" aria-pressed="false">${bookmarkSVG}</button>`;
 // A card's Share (shareCard): its text copied, or a link to it
 const shareBtnHTML = '<button class="share-btn" onclick="shareCard(this)" title="Share: copy it, or a link to it" aria-label="Share"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M12 15V3M7 8l5-5 5 5M5 12v8h14v-8"/></svg></button>';
 // Remembered things (null if there's nothing, or no storage)
@@ -260,9 +262,9 @@ if(!isDictPage){
 		seen.add(d + '\t' + data.body);
 		if(first){
 			const ctx = isBibleText(d) && chapterOf(nheader) && chapterOf(nheader) !== query ? '<button class="ctx-btn" onclick="readInContext(this)">Read in context</button>' : '';
-			div.innerHTML = `<h2><span class="hw">${data.header}</span>${ctx}<button class="bm-btn" onclick="toggleBookmark(this)" title="Bookmark" aria-pressed="false">${bookmarkSVG}</button>${shareBtnHTML}</h2>` +
+			div.innerHTML = `<h2><span class="hw">${data.header}</span>${ctx}${bmBtnHTML()}${shareBtnHTML}</h2>` +
 				'<button class="text-btn see-more" data-id="1e9" onclick="this.parentNode.classList.add(\'show-hidden\')">See more</button>'; // (entries go above it)
-			markBookmark(div);
+			markBookmarks(div);
 		}
 		// A media file's: its details and the file; text: Gloss, the chords'
 		// show/hide button if it has any, and the text
@@ -391,7 +393,7 @@ if(!isDictPage){
 		// dictionaries go: like an entry, with its name and Gloss
 		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}${translateBtnHTML}` : '') +
 			`<${tag} class="vs" data-v="${v}">${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
-			(par ? `</${tag}></div>` : `<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button> </${tag}>`);
+			(par ? `</${tag}></div>` : `<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button>${bmBtnHTML(h)} </${tag}>`);
 		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
 		if(par){
 			let group = pe.querySelector(`:scope > .pv[data-v="${v}"]`);
@@ -399,11 +401,15 @@ if(!isDictPage){
 				group = document.createElement('div');
 				group.className = 'pv';
 				group.dataset.v = v;
+				group.innerHTML = bmBtnHTML(h); // (one for the verse: the texts go after it)
 				insertSorted(pe, group, v, 'v');
+				markBookmarks(group);
 			}
 			insertSorted(group, el, sortId(d));
-		}else
+		}else{
 			pe.append(vs);
+			markBookmarks(vs);
+		}
 		if(text)
 			noteLinks(vs);
 		if(h === readHl){ // Read in context: the verse in each card (not marked), the top one's in view
@@ -442,6 +448,7 @@ if(!isDictPage){
 		const n = notes.get(+b.dataset.v)?.find(n => n.d === +b.dataset.d);
 		if (!n) return;
 		cleanup(popupResults);
+		popupQuery = n.data.header;
 		addResult({...n.data, dest: 'popup'});
 	};
 
@@ -917,7 +924,7 @@ if(!isDictPage){
 	function setList(k, items){
 		lists[k].items = items.slice(0, 200);
 		store(lists[k].key, lists[k].items);
-		document.querySelectorAll('#results > p-d, #popupResults > p-d').forEach(markBookmark);
+		markBookmarks();
 		renderHome();
 	}
 	const listHTML = (k, n) => {
@@ -942,19 +949,19 @@ if(!isDictPage){
 
 	const headwordOf = pd => (pd.querySelector(':scope > h2 .hw')?.textContent || '').trim();
 	const isBookmarked = w => lists.bookmarks.items.some(b => b.w === w);
-	function markBookmark(pd){
-		const b = pd.querySelector(':scope > h2 .bm-btn');
-		if (!b) return;
-		const on = isBookmarked(headwordOf(pd));
+	const bmWord = b => b.dataset.w || headwordOf(b.closest('p-d'));
+	// The bookmark buttons in el, pressed if theirs is bookmarked
+	const markBookmarks = (el = document) => el.querySelectorAll('.bm-btn').forEach(b => {
+		const on = isBookmarked(bmWord(b));
 		b.setAttribute('aria-pressed', on);
 		b.title = on ? 'Remove bookmark' : 'Bookmark';
-	}
-	// A bookmark keeps the first line of its section's first entry
+	});
+	// A bookmark keeps the first line of its section's first entry (a
+	// verse's: its text)
 	window.toggleBookmark = btn => {
-		const pd = btn.closest('p-d');
-		const w = headwordOf(pd);
+		const pd = btn.closest('p-d'), w = bmWord(btn);
 		if (!w) return;
-		const pe = pd.querySelector(':scope > p-e');
+		const pe = btn.dataset.w ? btn.closest('.vs, .pv') : pd.querySelector(':scope > p-e');
 		const g = (pe && entryText(pe).split('\n').find(isText)) || '';
 		const items = lists.bookmarks.items.filter(b => b.w !== w);
 		setList('bookmarks', isBookmarked(w) ? items : [{w, g: g.length > 120 ? g.slice(0, 119) + '…' : g, t: Date.now()}, ...items]);
@@ -1511,7 +1518,10 @@ if(!isDictPage){
 	}
 
 
+	// What the popup shows (its ⤢ searches it in the results)
+	let popupQuery = '';
 	function openPopupSearch(text){
+		popupQuery = text;
 		cleanup(popupResults);
 		const q = updateQuery(text);
 		forWorkers(libOn, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
@@ -1533,6 +1543,10 @@ if(!isDictPage){
 		document.body.classList.remove('no-scroll');
 	}
 	$('popupClose').addEventListener('click', closePopup);
+	$('popupFull').addEventListener('click', () => {
+		closePopup();
+		search(popupQuery);
+	});
 
 	function nextst(){
 		if(!st || st == 2)

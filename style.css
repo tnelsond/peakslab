@@ -407,8 +407,11 @@ p-d > h2 :is(.bm-btn, .share-btn), p-d.chapter > .share-btn, .tr-head .share-btn
 	vertical-align: middle;
 	line-height: 0;
 }
-p-d > h2 .bm-btn[aria-pressed="true"] { color: var(--star); }
-p-d > h2 .bm-btn[aria-pressed="true"] svg { fill: currentColor; }
+/* A verse's: after its Gloss (in parallel, the verse's group's: at its end) */
+.vs .bm-btn, .pv > .bm-btn { padding: 0 2px; color: var(--muted); vertical-align: middle; line-height: 0; }
+.pv > .bm-btn { float: right; }
+.bm-btn[aria-pressed="true"] { color: var(--star); }
+.bm-btn[aria-pressed="true"] svg { fill: currentColor; }
 p-d > h2 .share-btn { margin-left: .1em; }
 p-d.chapter > .share-btn { float: right; }
 .tr-head .share-btn { margin-left: .3em; font-size: 1.33em; }
@@ -932,7 +935,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	overflow-y: auto;
 	box-shadow: 0 20px 50px rgba(0,0,0,.7);
 }
-#popupClose { float: right; }
+#popupClose, #popupFull { float: right; }
 /* Fullscreen (the ⛶ below): it fills the window */
 body.fullscreen #popupContent {
 	position: fixed;
