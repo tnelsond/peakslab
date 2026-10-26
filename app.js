@@ -495,9 +495,10 @@ if(!isDictPage){
 	const levelOf = ({priority: p}) => p == null || p === 1 ? 0 : p === 0 ? 1 : [2, -1].includes(p) ? 2 : [3, -2].includes(p) ? 3 : 9;
 	const ownLevel = Math.min(9, ...dicts.filter(x => x.primary).map(levelOf));
 	dicts.forEach(x => { x.on = levelOf(x) <= 1 || (x.primary && levelOf(x) <= ownLevel); });
-	// Used by a search (view 'filter') or a gloss ('gloss'): on, and in what
-	// that view has picked (all of it: none picked; a link's: just its)
-	const isOn = (d, view = 'filter') => libOn[d] && (solo.length > 0 || inFilter(d, view));
+	// Used by a search (view 'filter') or a gloss ('gloss'): on (a gloss's:
+	// on for glosses, glossOn), and in what that view has picked (all of it:
+	// none picked; a link's: just its)
+	const isOn = (d, view = 'filter') => onIn(view)(d) && (solo.length > 0 || inFilter(d, view));
 
 	// Order: categories with the most priority-1 dictionaries first, then within
 	// a category this page's language first, then by priority (0, 1, 2, 3,
@@ -603,6 +604,12 @@ if(!isDictPage){
 	let asking = !solo.length && stored(libKey) === null;
 	const libOn = solo.length || asking ? dicts.map((_, d) => solo.includes(d)) : (saved => dicts.map(x => saved.get(x.path) ?? x.on))(new Map(readList(libKey).map(x => [x.file, !!x.enabled])));
 	const downloaded = new Set(); // In the offline cache (the service worker says), or loaded
+	// The gloss's own on or off for each (its drawer's: it changes nothing
+	// else), saved {path: on}; one not in it is as it's on for the rest. One
+	// that's off is on for glosses only while it's downloaded.
+	const glossKey = `peakslab-glossdicts-${appname}`, glossSet = solo.length ? {} : {...stored(glossKey)};
+	const glossOn = d => glossSet[dicts[d].path] ?? libOn[d] ? libOn[d] || downloaded.has(d) : false;
+	const onIn = view => view === 'gloss' ? glossOn : d => libOn[d];
 	const starKey = `peakslab-stars-${appname}`;
 	let stars = byPaths(readList(starKey));
 	const isStar = d => stars.includes(d);
@@ -1002,7 +1009,7 @@ if(!isDictPage){
 	// How many are on, of the ones the view has
 	function catCount(c, view){
 		const ds = c.members.filter(inView(view));
-		return `${ds.filter(d => libOn[d]).length} of ${ds.length} on`;
+		return `${ds.filter(onIn(view)).length} of ${ds.length} on`;
 	}
 	// A category's subcategories (Bible's Bible texts, ...)
 	const subsOf = c => c.sub ? [] : cats.filter(s => s.sub && s.id.split('/')[0] === c.id);
@@ -1025,16 +1032,17 @@ if(!isDictPage){
 	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
 	// Its size, and downloaded (✓), loading or not (⬇)
 	const sizeHTML = (d, state = stateOf(d)) => `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${dicts[d].size ? sizeText(dicts[d].size) : ''}</span>`;
-	function dictRowHTML(d){
-		const x = dicts[d], state = stateOf(d);
-		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${libOn[d]}">` +
-			infoHTML(x, sizeHTML(d)) + '</button>' +
+	// (The gloss's: on or off for glosses, no 🗑 or star: they're everything's)
+	function dictRowHTML(d, view){
+		const x = dicts[d], state = stateOf(d), own = view === 'gloss';
+		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">` +
+			infoHTML(x, sizeHTML(d)) + '</button>' + (own ? '</li>' :
 			(x.added || state === 'got' ? `<button class="dict-del" data-del="${d}" title="${x.added ? 'Take it off this page' : 'Delete its download (it\'s turned off)'}" aria-label="${x.added ? 'Remove' : 'Delete the download of'} ${escapeHTML(x.name)}">${x.added ? '✕' : '🗑'}</button>` : '') +
-			`${starBtnHTML(d)}</li>`;
+			`${starBtnHTML(d)}</li>`);
 	}
 	function rowsHTML(id, view){
 		const ds = listOf(id, view);
-		return ds.length ? `<ul class="rows dict-rows">${ds.map(dictRowHTML).join('')}</ul>` : '<p class="empty">None downloaded.</p>';
+		return ds.length ? `<ul class="rows dict-rows">${ds.map(d => dictRowHTML(d, view)).join('')}</ul>` : '<p class="empty">None downloaded.</p>';
 	}
 	// The categories; opened, their own dictionaries, then each
 	// subcategory's under its heading. Then Other: the ones in none. In the
@@ -1065,10 +1073,10 @@ if(!isDictPage){
 	// just the rest, or tap one's name for just it
 	function filterHTML(view){
 		return (VIEWS[view].top?.() || '') +
-			'<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel()) +
+			'<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel(view)) +
 			(choice ? `<ul class="rows">${rowHTML('radio', `data-all="1" aria-pressed="${!filtered(view)}"`, 'All', catCount({members: dictIds}, view))}</ul>` : '') +
 			catsHTML(view) +
-			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on. 1, 2, 3: the row of a gloss's word boxes their words go in. Star a dictionary (☆) for its entries to come first.</p>` + moreHTML;
+			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on${view === 'gloss' ? ' here (just for glosses: searches don\'t change)' : ''}. 1, 2, 3: the row of a gloss's word boxes their words go in.${view === 'gloss' ? '' : ' Star a dictionary (☆) for its entries to come first.'}</p>` + moreHTML;
 	}
 	const renderLibrary = () => { if (showLibrary) listDiv.innerHTML = libraryHTML(); };
 	// The library: every dictionary on the page, by category; then other
@@ -1150,13 +1158,15 @@ if(!isDictPage){
 	// picked, if it still is: two can be, with none of one's own
 	// downloaded), or -1
 	const got = () => dictIds.filter(d => downloaded.has(d));
-	let picked = -1;
-	const isLevel = n => got().every(d => libOn[d] === levelOf(dicts[d]) <= n);
-	const onLevel = () => isLevel(picked) ? picked : LEVELS.findIndex((_, n) => isLevel(n));
+	// (The gloss's: on for glosses)
+	const picked = {filter: -1, gloss: -1};
+	const isLevel = (n, view) => got().every(d => onIn(view)(d) === levelOf(dicts[d]) <= n);
+	const onLevel = view => isLevel(picked[view], view) ? picked[view] : LEVELS.findIndex((_, n) => isLevel(n, view));
 	function pickLevel(n){
 		if (drawerView === 'first') return showLevel(n);
-		picked = n;
-		setOn(got(), d => levelOf(dicts[d]) <= n);
+		const view = drawerView === 'gloss' ? 'gloss' : 'filter';
+		picked[view] = n;
+		(view === 'gloss' ? setGlossOn : setOn)(got(), d => levelOf(dicts[d]) <= n);
 	}
 	drawerBody.addEventListener('input', e => { if (e.target.matches('.first-level input')) drawerView === 'first' ? showLevel(+e.target.value) : markLevel(+e.target.value); });
 	drawerBody.addEventListener('change', e => { if (e.target.matches('.first-level input') && VIEWS[drawerView]) pickLevel(+e.target.value); });
@@ -1305,7 +1315,8 @@ if(!isDictPage){
 		} else if (text) {
 			pickText(+text);
 		} else if (on) {
-			setOn([+on], !libOn[+on]);
+			if (drawerView === 'gloss') setGlossOn([+on], !glossOn(+on));
+			else setOn([+on], !libOn[+on]);
 		} else if (book || booksBack) {
 			booksPick = book || null;
 			renderDrawer();
@@ -1365,6 +1376,13 @@ if(!isDictPage){
 		renderLists();
 		renderBibleBar();
 		if (ds.some(d => was[d] !== searched(d) && (!searched(d) || loaded.has(d)))) searchAgain();
+	}
+
+	// Turns these on or off for glosses only (the gloss's drawer)
+	function setGlossOn(ds, on){
+		ds.forEach(d => { glossSet[dicts[d].path] = typeof on === 'function' ? on(d) : on; });
+		if (!solo.length) store(glossKey, glossSet);
+		renderLists();
 	}
 
 	// Changes what the filter (or the gloss) has picked
