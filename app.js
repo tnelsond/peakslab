@@ -1038,16 +1038,16 @@ if(!isDictPage){
 		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
 	// A dictionary: on or off, what kind it is, its size, what it is; to
 	// delete its download (🗑) or take an added one off the page (✕), and
-	// its star. In the library, not on or off: its size, then ⬇ (a circle
-	// while it downloads, then 🗑)
+	// its star. In the library, not on or off: ⬇ (a circle while it
+	// downloads, then 🗑), its size under it
 	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
 	// (The gloss's: on or off for glosses, no 🗑 or star: they're everything's)
 	function dictRowHTML(d, view){
 		const x = dicts[d], state = stateOf(d), own = view === 'gloss', lib = view === 'library';
 		if (lib) return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><div class="row-main">${infoHTML(x, '')}</div>` +
-			(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') +
-			`<button class="dict-act ${state}" data-${state === 'got' ? 'del' : 'get'}="${d}"${state === 'loading' ? ' disabled' : ''} ` +
+			`<div class="dict-acts"><button class="dict-act ${state}" data-${state === 'got' ? 'del' : 'get'}="${d}"${state === 'loading' ? ' disabled' : ''} ` +
 			`aria-label="${{down: 'Download', loading: 'Downloading', got: x.added ? 'Delete and take off this page:' : 'Delete the download of'}[state]} ${escapeHTML(x.name)}" title="${{down: 'Download', loading: 'Downloading…', got: 'Delete its download'}[state]}">${{down: '⬇', loading: '', got: '🗑'}[state]}</button>` +
+			(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') + '</div>' +
 			(x.added && state !== 'got' ? `<button class="dict-del" data-del="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') +
 			`${starBtnHTML(d)}</li>`;
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">` +

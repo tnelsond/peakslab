@@ -830,11 +830,10 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	cursor: pointer;
 }
 .dict-row .lib-desc { white-space: normal; }
-/* The library's: its size, then download (⬇), downloading (a circle), delete (🗑) */
-.dict-row > .lib-size { align-self: center; padding: 0 6px 0 4px; }
+/* The library's: download (⬇), downloading (a circle), delete (🗑), its size under it */
+.dict-acts { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 2px; }
 .dict-act {
 	flex: none;
-	align-self: center;
 	display: flex;
 	align-items: center;
 	justify-content: center;

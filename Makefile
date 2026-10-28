@@ -11,7 +11,7 @@ $(FONTS): %.woff2: dict_src/%.ttf
 	mv $*.sub.woff2 $@
 	rm $*.sub.ttf
 	./createmeta.sh $@
-	$(MAKE) files.json
+	$(MAKE) filelist
 
 # Find .tsv files - clean paths without leading ./
 # A big file split into x.tsv.1, x.tsv.2, ... (see utils/splittsv.sh) is listed
@@ -32,6 +32,13 @@ files-src.json: meta peakgen $(META_FILES) $(SLAB_META_FILES) $(wildcard $(FONTS
 
 files.json: files-src.json
 	minify files-src.json > files.json
+
+# Just the list again, from the metas as they are (no peakgen, no dictionary
+# rebuilt): for an app file (404.html, peak.wasm, ...) with a new timestamp
+filelist:
+	./createdictlist.sh
+	minify files-src.json > files.json
+.PHONY: filelist
 
 # Rule: each .meta depends on its source (x.tsv, or every part x.tsv.1, x.tsv.2, ...)
 # so editing a source rebuilds it. A newer peakgen alone doesn't rebuild anything,
@@ -132,7 +139,7 @@ peak.wasm : peak.c zstddeclib.c peak.h utils/walloc-master/walloc.c $(wildcard u
 	$(if $(WASM_OPT),$(WASM_OPT) -Oz --converge --low-memory-unused --strip-debug --strip-producers --strip-target-features peak.wasm -o peak.wasm)
 	du -b peak.wasm
 	./createmeta.sh peak.wasm
-	$(MAKE) files.json # (its timestamp there is what makes installed copies update)
+	$(MAKE) filelist # (its timestamp there is what makes installed copies update)
 peak_tui : peak_cli2.c peak.h peak.c zstddeclib.c
 	gcc -DTB_IMPL -lreadline -ltinfo peak_cli2.c -o peak_tui
 # The terminal interface: peak.c is #included unchanged, termbox2 is header only.
@@ -150,13 +157,13 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 404.html : peakworker.js peak.html app.js style.css build.mjs
 	node build.mjs --minify
 	./createmeta.sh 404.html
-	$(MAKE) files.json # (its timestamp there is what makes installed copies update)
+	$(MAKE) filelist # (its timestamp there is what makes installed copies update)
 	cp 404.html index.html
 # The media decoders' code, loaded with their wasm when first used
 media.js : media-src.js
 	node_modules/.bin/terser media-src.js --module --compress --mangle -o media.js
 	./createmeta.sh media.js
-	$(MAKE) files.json # (its timestamp there is what makes installed copies update)
+	$(MAKE) filelist # (its timestamp there is what makes installed copies update)
 sw.js : sw-src.js
 	node_modules/.bin/terser sw-src.js --compress passes=2 --mangle --toplevel -o sw.js
 
