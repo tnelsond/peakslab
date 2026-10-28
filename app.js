@@ -7,7 +7,7 @@ let ack = null;
 // not rebuilding this markup on every streamed result. CSS fills it in when
 // it's bookmarked (aria-pressed).
 const bookmarkSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
-const compareSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>'; // (a verse's compare)
+const compareSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M12 6C10 4.5 7 4 3 4v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14"/></svg>'; // (a verse's compare)
 // A bookmark: its card's headword's, or w's (a verse's: "joh 3.16")
 const bmBtnHTML = w => `<button class="bm-btn" onclick="toggleBookmark(this)"${w ? ` data-w="${escapeHTML(w)}"` : ''} title="Bookmark" aria-pressed="false">${bookmarkSVG}</button>`;
 // A card's Share (shareCard): its text copied, or a link to it
@@ -1537,8 +1537,11 @@ if(!isDictPage){
 	function openPopupSearch(text){
 		popupQuery = text;
 		cleanup(popupResults);
-		const q = updateQuery(text);
-		forWorkers(glossMask(), (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
+		const q = updateQuery(text), mask = glossMask();
+		const go = m => forWorkers(m, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
+		go(mask);
+		// The gloss's that aren't loaded (off on the page): once they are
+		mask.forEach((on, d) => on && !loaded.has(d) && ensureLoaded(d, () => popupQuery === text && go(dicts.map((_, i) => i === d))));
 	}
 	window.compareVerse = b => openPopupSearch(b.dataset.w);
 	function popupOpen(){
