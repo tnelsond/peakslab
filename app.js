@@ -365,6 +365,7 @@ if(!isDictPage){
 	const refOf = body => /<p-n>@?([^<]*)<\/p-n>/.exec(body)?.[1];
 	function addVerse(data, h){
 		const d = dictOf(data), v = +h.split('.').pop();
+		if (!parallel && isBibleText(d) && d !== readText()) return; // (the others on are for glosses and compare)
 		if (dicts[d].cat === 'bible/commentary' && dictIds.some(t => isBibleText(t) && searched(t)))
 			return addNote(d, data, v);
 		const label = refOf(data.body);
@@ -809,17 +810,19 @@ if(!isDictPage){
 
 	// Parallel reading (unless it's turned off): a chapter verse by verse,
 	// each verse in every Bible text that's on, one after the other. Off,
-	// one translation. The translations drawer (from the Bible bar) has
-	// both: Parallel, and the translations (off: pick one; on: any).
+	// one translation: the first on (the others on, from the library, are
+	// for glosses and compare). The translations drawer (from the Bible bar)
+	// has both: Parallel, and the translations (off: pick one; on: any).
 	const moreHTML = '<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
 	const parKey = `peakslab-parallel-${appname}`;
 	let parallel = stored(parKey) ?? true;
+	const readText = () => dictIds.find(d => isBibleText(d) && libOn[d]);
 	function textsHTML(){
 		const texts = dictIds.filter(d => isBibleText(d) && downloaded.has(d)); // (downloaded: the library has the rest)
 		return `<ul class="rows">${rowHTML('check', `data-par="1" aria-pressed="${parallel}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul>` +
 			`<h3 class="drawer-h">Translations</h3>` + (texts.length ? '' : '<p class="empty">None downloaded.</p>') +
 			moreHTML + `<ul class="rows">${texts.map(d =>
-				rowHTML(parallel ? 'check' : 'radio', `data-text="${d}" aria-pressed="${libOn[d]}"`, escapeHTML(dicts[d].name), escapeHTML(typeLabel(dicts[d])))).join('')}</ul>`;
+				rowHTML(parallel ? 'check' : 'radio', `data-text="${d}" aria-pressed="${parallel ? libOn[d] : d === readText()}"`, escapeHTML(dicts[d].name), escapeHTML(typeLabel(dicts[d])))).join('')}</ul>`;
 	}
 	function pickText(t){
 		setOn(dictIds.filter(isBibleText), parallel ? d => d === t ? !libOn[d] : libOn[d] : d => d === t);
@@ -842,7 +845,7 @@ if(!isDictPage){
 		if (!books) return loadBooks(renderBibleBar);
 		const {b, ch} = chapterAt(lastRead);
 		const go = (dir, label) => `<button class="ch-go" data-go="${dir}" aria-label="${label} chapter"${nextChapter(lastRead, dir) ? '' : ' disabled'}>${dir < 0 ? '‹' : '›'}</button>`;
-		const texts = dictIds.filter(d => isBibleText(d) && libOn[d]);
+		const texts = dictIds.filter(d => isBibleText(d) && libOn[d] && (parallel || d === readText()));
 		bibleBar.innerHTML = go(-1, 'Previous') + `<button class="ch-book">${b ? `${escapeHTML(b.name)} ${bookNum(b, ch)}` : 'Books'} ▾</button>` +
 			`<button class="ch-text" data-texts="1">${parallel && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation'} ▾</button>` + go(1, 'Next');
 	}
@@ -1309,8 +1312,6 @@ if(!isDictPage){
 		else if (par) {
 			parallel = !parallel;
 			store(parKey, parallel);
-			const on = dictIds.filter(d => isBibleText(d) && libOn[d]);
-			if (!parallel && on.length > 1) setOn(on, d => d === on[0]); // Off: one translation (the first)
 			renderDrawer();
 			renderBibleBar();
 			if (isChapter(query)) searchAgain(); // The chapter showing, again
@@ -1366,15 +1367,11 @@ if(!isDictPage){
 
 	// Turns these dictionaries on or off (on: true, false, or one for each),
 	// and searches again if what's searched changed (one still loading
-	// searches again once it's loaded). Parallel off, one Bible text: one
-	// turned on (in the library, by a star, ...) turns the others off.
+	// searches again once it's loaded)
 	function setOn(ds, on){
-		const was = searchMask(), val = d => typeof on === 'function' ? on(d) : on;
-		const text = parallel ? undefined : ds.find(d => isBibleText(d) && !libOn[d] && val(d));
-		const off = text === undefined ? [] : dictIds.filter(d => isBibleText(d) && d !== text);
-		ds = [...new Set([...ds, ...off])];
+		const was = searchMask();
 		ds.forEach(d => {
-			libOn[d] = !off.includes(d) && val(d);
+			libOn[d] = typeof on === 'function' ? on(d) : on;
 			if (!libOn[d]) asked.delete(d); // (not kept loaded)
 		});
 		saveState();
