@@ -290,11 +290,11 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	align-items: center;
 	gap: 6px;
 	height: 32px;
-	padding: 0 8px 0 3px;
+	padding: 0 8px 0 12px;
 	border: 0;
 	background: rgba(255,255,255,.12);
 }
-.lang-sym, .ls-sym {
+.ls-sym {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -913,7 +913,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .gloss-rows button[aria-pressed="true"] { border-color: var(--control-btn-bg); background: var(--control-btn-bg); color: #fff; font-weight: 700; }
 .cat-body { margin: 0 0 8px 34px; padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
-.cat-acts { display: flex; gap: 4px; }
 
 /* A word's entries over the page */
 #popupOverlay {

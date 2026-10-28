@@ -135,7 +135,7 @@ if(!isDictPage){
 	['menuBtn', 'headMenu', 'quick', 'settings', 'controls'].forEach(id => $(id).classList.add('hide'));
 	document.querySelector('.sub-div').classList.add('hide');
 	$('about').classList.remove('hide');
-	langBtn.innerHTML = `<span class="lang-sym">?</span><span class="lang-name">Choose a language</span>${chevron}`;
+	langBtn.innerHTML = `<span class="lang-name">Choose a language</span>${chevron}`;
 	const openLangs = () => {
 		drawerView = 'lang';
 		drawer.querySelector('.drawer-title').textContent = 'Language';
@@ -878,7 +878,7 @@ if(!isDictPage){
 	// ---------------------------------------------------------------
 	const header = $('header');
 	const quick = $('quick');
-	langBtn.innerHTML = `<span class="lang-sym">${escapeHTML(langSym(curLang))}</span><span class="lang-name">${escapeHTML(cap(curLang))}${pParts.length > 1 ? ' · ' + escapeHTML(pParts.slice(1).map(cap).join(' · ')) : ''}</span>` +
+	langBtn.innerHTML = `<span class="lang-name">${escapeHTML(cap(curLang))}${pParts.length > 1 ? ' · ' + escapeHTML(pParts.slice(1).map(cap).join(' · ')) : ''}</span>` +
 		chevron;
 	langBtn.title = langBtn.ariaLabel = `Language: ${cap(curLang)}. Change language`;
 	langBtn.addEventListener('click', () => openDrawer('lang'));
@@ -1016,10 +1016,10 @@ if(!isDictPage){
 	// What a view has: the library, every dictionary; the filter and the
 	// gloss, the downloaded ones
 	const inView = view => d => view === 'library' || downloaded.has(d);
-	// How many are on, of the ones the view has
+	// How many are on (the library: downloaded), of the ones the view has
 	function catCount(c, view){
 		const ds = c.members.filter(inView(view));
-		return `${ds.filter(onIn(view)).length} of ${ds.length} on`;
+		return view === 'library' ? `${ds.filter(d => downloaded.has(d)).length} of ${ds.length} downloaded` : `${ds.filter(onIn(view)).length} of ${ds.length} on`;
 	}
 	// A category's subcategories (Bible's Bible texts, ...)
 	const subsOf = c => c.sub ? [] : cats.filter(s => s.sub && s.id.split('/')[0] === c.id);
@@ -1036,17 +1036,18 @@ if(!isDictPage){
 	// A dictionary's name, kind, size (with its state, if any) and description
 	const infoHTML = (x, size = x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') =>
 		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
-	// A dictionary: on or off, what kind it is, downloaded (✓) or not (⬇)
-	// and its size, what it is; to delete its download (🗑) or take an added
-	// one off the page (✕), and its star
+	// A dictionary: on or off (not in the library: there, Download), what
+	// kind it is, downloaded (✓) or not (⬇) and its size, what it is; to
+	// delete its download (🗑) or take an added one off the page (✕), and its star
 	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
 	// Its size, and downloaded (✓), loading or not (⬇)
-	const sizeHTML = (d, state = stateOf(d)) => `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet: it downloads when it\'s on'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${dicts[d].size ? sizeText(dicts[d].size) : ''}</span>`;
+	const sizeHTML = (d, state = stateOf(d)) => `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${dicts[d].size ? sizeText(dicts[d].size) : ''}</span>`;
 	// (The gloss's: on or off for glosses, no 🗑 or star: they're everything's)
 	function dictRowHTML(d, view){
-		const x = dicts[d], state = stateOf(d), own = view === 'gloss';
-		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">` +
-			infoHTML(x, sizeHTML(d)) + '</button>' + (own ? '</li>' :
+		const x = dicts[d], state = stateOf(d), own = view === 'gloss', lib = view === 'library';
+		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}">` + (lib ? '<div class="row-main">' : `<button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">`) +
+			infoHTML(x, sizeHTML(d)) + (lib ? '</div>' : '</button>') + (own ? '</li>' :
+			(lib && state === 'down' ? `<button class="text-btn" data-get="${d}">Download</button>` : '') +
 			(x.added || state === 'got' ? `<button class="dict-del" data-del="${d}" title="${x.added ? 'Take it off this page' : 'Delete its download (it\'s turned off)'}" aria-label="${x.added ? 'Remove' : 'Delete the download of'} ${escapeHTML(x.name)}">${x.added ? '✕' : '🗑'}</button>` : '') +
 			`${starBtnHTML(d)}</li>`);
 	}
@@ -1057,7 +1058,7 @@ if(!isDictPage){
 	// The categories; opened, their own dictionaries, then each
 	// subcategory's under its heading. Then Other: the ones in none. In the
 	// filter and the gloss a category's name picks it, and 1 2 3 its row in
-	// a gloss; in the library it opens it, with All on / All off / Defaults.
+	// a gloss; in the library it opens it.
 	function catsHTML(view){
 		if (!choice) return rowsHTML('', view);
 		const tops = cats.filter(c => isTop(c) && shown(c, view));
@@ -1070,8 +1071,7 @@ if(!isDictPage){
 			() => {
 				const subs = subsOf(c).filter(s => shown(s, view));
 				return (listOf(c.id, view).length || !subs.length ? rowsHTML(c.id, view) : '') +
-					subs.map(s => `<h4 class="cat-subh">${escapeHTML(s.label)}</h4>${rowsHTML(s.id, view)}`).join('') +
-					(view === 'library' ? `<div class="cat-acts">${btn(c, 'all', 'class="text-btn"', 'All on')}${btn(c, 'none', 'class="text-btn"', 'All off')}${btn(c, 'reset', 'class="text-btn"', 'Defaults')}</div>` : '');
+					subs.map(s => `<h4 class="cat-subh">${escapeHTML(s.label)}</h4>${rowsHTML(s.id, view)}`).join('');
 			});
 		const other = listOf('', view);
 		return `<ul class="rows cats">${tops.map(cat).join('')}` +
@@ -1292,7 +1292,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, library, pick, level, first} = b.dataset;
+		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, get, del, add, exp, library, pick, level, first} = b.dataset;
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
@@ -1308,6 +1308,7 @@ if(!isDictPage){
 			renderLists();
 		} else if (del) deleteDict(+del);
 		else if (add) addDict(add);
+		else if (get) setOn([+get], true); // (on, it downloads)
 		else if (library) openLibrary();
 		else if (par) {
 			parallel = !parallel;
@@ -1334,7 +1335,6 @@ if(!isDictPage){
 				store(rowsKey, rowSet);
 				return renderDrawer();
 			}
-			setOn(c.members, act === 'all' ? true : act === 'none' ? false : d => dicts[d].on); // All on, all off, the defaults
 		} else if (q !== undefined) {
 			closeDrawer();
 			search(q);
