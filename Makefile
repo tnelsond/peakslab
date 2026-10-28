@@ -1,11 +1,11 @@
 comma := ,
-# A language's font (khmer/battambang.ttf): a .woff2 of just its script's
+# A language's font (dict_src/khmer/battambang.ttf): a .woff2 of just its script's
 # characters (FONT_CHARS), which the app uses on that language's pages
-FONTS := $(patsubst %.ttf,%.woff2,$(wildcard */*.ttf))
+FONTS := $(patsubst dict_src/%.ttf,%.woff2,$(wildcard dict_src/*/*.ttf))
 all : peakgen peakgen.wasm sw.js media.js peak.wasm peak 404.html $(FONTS) files.json
 
 khmer/battambang.woff2: FONT_CHARS = U+1780-17FF,U+19E0-19FF,U+200B-200D,U+25CC
-%.woff2: %.ttf
+$(FONTS): %.woff2: dict_src/%.ttf
 	pyftsubset $< --unicodes='$(or $(FONT_CHARS),*)' --layout-features='*' --no-hinting --desubroutinize --output-file=$*.sub.ttf
 	woff2_compress $*.sub.ttf
 	mv $*.sub.woff2 $@
