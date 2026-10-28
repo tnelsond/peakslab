@@ -7,6 +7,7 @@ let ack = null;
 // not rebuilding this markup on every streamed result. CSS fills it in when
 // it's bookmarked (aria-pressed).
 const bookmarkSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
+const compareSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>'; // (a verse's compare)
 // A bookmark: its card's headword's, or w's (a verse's: "joh 3.16")
 const bmBtnHTML = w => `<button class="bm-btn" onclick="toggleBookmark(this)"${w ? ` data-w="${escapeHTML(w)}"` : ''} title="Bookmark" aria-pressed="false">${bookmarkSVG}</button>`;
 // A card's Share (shareCard): its text copied, or a link to it
@@ -356,7 +357,8 @@ if(!isDictPage){
 
 	// A verse of the chapter searched ("rom 8."): each dictionary's verses
 	// run together in one card, numbered as its references have them
-	// ("យ៉ូហាន ៣:១៦"); the ⇄ after a verse glosses it word by word.
+	// ("យ៉ូហាន ៣:១៦"); the ⇄ after a verse glosses it word by word, and
+	// its compare shows it in every translation in the popup.
 	// Parallel: the Bible texts share one card, verse by verse. Bible notes,
 	// with a Bible text showing, are little links on its verses (addNote).
 	// A verse's reference as the dictionary has it (its p-n: "យ៉ូហាន ៣:១៦")
@@ -393,7 +395,7 @@ if(!isDictPage){
 		// dictionaries go: like an entry, with its name and Gloss
 		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}${translateBtnHTML}` : '') +
 			`<${tag} class="vs" data-v="${v}">${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
-			(par ? `</${tag}></div>` : `<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button>${bmBtnHTML(h)} </${tag}>`);
+			(par ? `</${tag}></div>` : `<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button>${bmBtnHTML(h)}<button class="vs-cmp" onclick="compareVerse(this)" data-w="${escapeHTML(h)}" title="Compare translations" aria-label="Compare translations">${compareSVG}</button> </${tag}>`);
 		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
 		if(par){
 			let group = pe.querySelector(`:scope > .pv[data-v="${v}"]`);
@@ -1070,7 +1072,7 @@ if(!isDictPage){
 	// their downloaded dictionaries; untick any to search (or gloss) with
 	// just the rest, or tap one's name for just it
 	function filterHTML(view){
-		return '<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel(view)) +
+		return levelHTML(onLevel(view)) +
 			(choice ? `<ul class="rows">${rowHTML('radio', `data-all="1" aria-pressed="${!filtered(view)}"`, 'All', catCount({members: dictIds}, view))}</ul>` : '') +
 			catsHTML(view) +
 			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on${view === 'gloss' ? ' here (just for glosses and popups: searches don\'t change)' : ''}. 1, 2, 3: the row of a gloss's word boxes their words go in.${view === 'gloss' ? '' : ' Star a dictionary (☆) for its entries to come first.'}</p>` + moreHTML;
@@ -1538,6 +1540,7 @@ if(!isDictPage){
 		const q = updateQuery(text);
 		forWorkers(glossMask(), (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
 	}
+	window.compareVerse = b => openPopupSearch(b.dataset.w);
 	function popupOpen(){
 		popupOverlay.style.display = 'block';
 		popupOverlay.scrollTop = 0;
@@ -2058,6 +2061,7 @@ if(!isDictPage){
 			setQueryText(selText);
 			startSearch();
 		} else if (b.dataset.act === 'gloss') {
+			e.stopPropagation(); // (a popup's entry: keeps the popup open)
 			if (selEntry?.isConnected) glossInto(selEntry, selText, glossIds());
 		} else {
 			openPopupSearch(selText);

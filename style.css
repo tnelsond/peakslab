@@ -109,7 +109,7 @@ mark {
 #install-button, input[type="checkbox"] { display: none; }
 
 /* Buttons with no box of their own */
-.st-share, .text-btn, .bm-btn, .share-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
+.st-share, .text-btn, .bm-btn, .vs-cmp, .share-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
 .tr-play, .close-btn, .head-btn, .selection-menu button {
 	border: 0;
 	background: none;
@@ -408,7 +408,7 @@ p-d > h2 :is(.bm-btn, .share-btn), p-d.chapter > .share-btn, .tr-head .share-btn
 	line-height: 0;
 }
 /* A verse's: after its Gloss (in parallel, the verse's group's: at its end) */
-.vs .bm-btn, .pv > .bm-btn { padding: 0 2px; color: var(--muted); vertical-align: middle; line-height: 0; }
+.vs :is(.bm-btn, .vs-cmp), .pv > .bm-btn { padding: 0 2px; color: var(--muted); vertical-align: middle; line-height: 0; }
 .pv > .bm-btn { float: right; }
 .bm-btn[aria-pressed="true"] { color: var(--star); }
 .bm-btn[aria-pressed="true"] svg { fill: currentColor; }
