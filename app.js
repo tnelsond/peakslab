@@ -249,7 +249,7 @@ if(!isDictPage){
 			div = document.createElement('p-d');
 			div.id = `${idpre}-${nheader}`;
 			if(idpre == "mid" || data.st == 2){ // The other dictionaries' entries for it
-				const mask = popup ? [...libOn] : searchMask();
+				const mask = popup ? glossMask() : searchMask();
 				mask[dicts.findIndex(x => x.name === data.dict)] = false;
 				forWorkers(mask, (w, code) => w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: data.dest, dicts: code, gen: searchGen}));
 			}
@@ -570,12 +570,10 @@ if(!isDictPage){
 	// The filter (what searches use) and the gloss (what glosses use) work
 	// the same way, with the same drawer (filterHTML): each picks categories
 	// (none: All), remembered (the filter's can come in the link's ?mode=).
-	// What else changes: the gloss's has Gloss at the top, the filter's
-	// searches again.
+	// The gloss's is for the popup too; the filter's searches again.
 	const VIEWS = {
 		filter: {title: 'Filter', uses: 'searches', key: `peakslab-filter-${appname}`, changed: () => searchAgain()},
-		gloss: {title: 'Gloss with', uses: 'glosses', key: `peakslab-glosscats-${appname}`,
-			top: () => `<button class="first-default" data-gloss="go"${glossIds().length ? '' : ' disabled'}>⇄ Gloss</button>`},
+		gloss: {title: 'Gloss with', uses: 'glosses and popups', key: `peakslab-glosscats-${appname}`},
 	};
 	const picks = {filter: urlParams.has('mode') ? urlParams.get('mode').split(',') : readList(VIEWS.filter.key), gloss: readList(VIEWS.gloss.key)};
 	const keepPicks = () => Object.keys(picks).forEach(v => { picks[v] = picks[v].filter(id => choice && catById(id)); });
@@ -624,7 +622,7 @@ if(!isDictPage){
 	let worker_code = new Array(workers.length).fill(false);
 	// The dictionaries that are on are loaded, and any used while off (asked:
 	// glossing with one); searches use the ones on that the filter has
-	// (isOn), glosses and the popup every one that's on
+	// (isOn), glosses and the popup the ones the gloss has
 	const loaded = new Set(), loading = new Set(), asked = new Set();
 	// Behind the search bar while dictionaries load: how much of what's
 	// loading (by size, and the bytes of the ones downloading) has, since
@@ -886,22 +884,23 @@ if(!isDictPage){
 	// What the filter searches, as HTML and as text: All; All but the
 	// categories left out (struck through), when most are picked; or the
 	// ones picked
-	function filterLabel(){
-		if (!filtered()) return ['All', 'All'];
-		const left = cats.filter(c => isTop(c) && !picks.filter.includes(c.id)), names = cs => cs.map(c => c.label);
-		if (selCats().every(isTop) && left.length < picks.filter.length)
+	function filterLabel(view){
+		if (!filtered(view)) return ['All', 'All'];
+		const left = cats.filter(c => isTop(c) && !picks[view].includes(c.id)), names = cs => cs.map(c => c.label);
+		if (selCats(view).every(isTop) && left.length < picks[view].length)
 			return [`All ${names(left).map(l => `<s>${escapeHTML(l)}</s>`).join(' ')}`, `All but ${names(left).join(', ')}`];
-		const t = names(cats.filter(c => picks.filter.includes(c.id))).join(' + '); // (in the filter's order)
+		const t = names(cats.filter(c => picks[view].includes(c.id))).join(' + '); // (in the filter's order)
 		return [escapeHTML(t), t];
 	}
-	// The bar: the filter's button, with what it searches
+	// The bar: the filter's button, with what it searches, and the gloss's
+	const quickIcons = {filter: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>', gloss: '<span aria-hidden="true">⇄</span>'};
 	function renderQuick(){
 		renderBibleBar();
-		const [html, text] = filterLabel();
-		const b = `<button class="qk" aria-pressed="${filtered()}" aria-label="Filter: ${escapeHTML(text)}"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>${html}</button>`;
+		const b = Object.keys(VIEWS).map(v => { const [html, text] = filterLabel(v);
+			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" aria-label="${VIEWS[v].title}: ${escapeHTML(text)}">${quickIcons[v]}${html}</button>`; }).join('');
 		if (quick._html !== b) { quick._html = b; quick.innerHTML = b; } // Only when changed: keeps it tappable
 	}
-	quick.addEventListener('click', e => { if (e.target.closest('button')) openDrawer('filter'); });
+	quick.addEventListener('click', e => { const b = e.target.closest('button'); if (b) openDrawer(b.dataset.view); });
 	let lastY = 0;
 	window.addEventListener('scroll', () => {
 		const y = window.scrollY;
@@ -1067,16 +1066,14 @@ if(!isDictPage){
 		return `<ul class="rows cats">${tops.map(cat).join('')}` +
 			(other.length ? groupHTML(`${view}:`, groupHead(`${view}:`, 'Other', catCount({members: other}, view)), () => rowsHTML('', view)) : '') + '</ul>';
 	}
-	// The filter (view 'filter') and the gloss's (view 'gloss', with Gloss
-	// at the top): All (every category ticked), then the categories, with
+	// The filter (view 'filter') and the gloss's (view 'gloss'): All (every category ticked), then the categories, with
 	// their downloaded dictionaries; untick any to search (or gloss) with
 	// just the rest, or tap one's name for just it
 	function filterHTML(view){
-		return (VIEWS[view].top?.() || '') +
-			'<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel(view)) +
+		return '<h3 class="drawer-h">Downloaded dictionaries on</h3>' + levelHTML(onLevel(view)) +
 			(choice ? `<ul class="rows">${rowHTML('radio', `data-all="1" aria-pressed="${!filtered(view)}"`, 'All', catCount({members: dictIds}, view))}</ul>` : '') +
 			catsHTML(view) +
-			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on${view === 'gloss' ? ' here (just for glosses: searches don\'t change)' : ''}. 1, 2, 3: the row of a gloss's word boxes their words go in.${view === 'gloss' ? '' : ' Star a dictionary (☆) for its entries to come first.'}</p>` + moreHTML;
+			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on${view === 'gloss' ? ' here (just for glosses and popups: searches don\'t change)' : ''}. 1, 2, 3: the row of a gloss's word boxes their words go in.${view === 'gloss' ? '' : ' Star a dictionary (☆) for its entries to come first.'}</p>` + moreHTML;
 	}
 	const renderLibrary = () => { if (showLibrary) listDiv.innerHTML = libraryHTML(); };
 	// The library: every dictionary on the page, by category; then other
@@ -1284,7 +1281,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, library, pick, level, first, gloss} = b.dataset;
+		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, del, add, exp, library, pick, level, first} = b.dataset;
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
@@ -1295,10 +1292,7 @@ if(!isDictPage){
 			openDrawer('first');
 		} else if (first === 'delete') deleteAll();
 		else if (first) firstAnswer(first);
-		else if (gloss) {
-			closeDrawer();
-			glossDone?.();
-		} else if (exp) { // A group opened or closed
+		else if (exp) { // A group opened or closed
 			if (!expandedCats.delete(exp)) expandedCats.add(exp);
 			renderLists();
 		} else if (del) deleteDict(+del);
@@ -1542,7 +1536,7 @@ if(!isDictPage){
 		popupQuery = text;
 		cleanup(popupResults);
 		const q = updateQuery(text);
-		forWorkers(libOn, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
+		forWorkers(glossMask(), (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
 	}
 	function popupOpen(){
 		popupOverlay.style.display = 'block';
@@ -1635,6 +1629,7 @@ if(!isDictPage){
 	// then the dictionaries' order
 	const glossIds = () => dictIds.filter(d => isOn(d, 'gloss'))
 		.sort((a, b) => isStar(b) - isStar(a) || (isStar(a) ? sortId(a) - sortId(b) : rank(dicts[a].priority) - rank(dicts[b].priority) || a - b));
+	const glossMask = () => dicts.map((_, d) => isOn(d, 'gloss'));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
 
 	// The query word by word, when the search found nothing (a Bible text's
@@ -1833,17 +1828,15 @@ if(!isDictPage){
 	const audioSrc = async (type, bytes) => URL.createObjectURL(/codec2|c2/i.test(type) ? await media().then(m => m.codec2toWav(bytes)) : new Blob([bytes], {type: audioType(type)}));
 	const audioType = t => /webm/i.test(t) ? 'audio/webm; codecs=opus' : 'audio/' + t.toLowerCase();
 
-	// The ⇄ button on an entry (or verse) opens the gloss's drawer (like
-	// the filter: which categories, and their rows), every time; its Gloss
-	// glosses it. Tap ⇄ again to hide the gloss. (Its entry: the nearest; a
-	// parallel verse's line is one. The search's gloss, nothing having all
-	// of it: glossed again.)
-	let glossDone = null;
+	// The ⇄ button on an entry (or verse) glosses it with what the gloss
+	// (its ⇄ by the filter) has; tap it again to hide the gloss. (Its entry:
+	// the nearest; a parallel verse's line is one. The search's gloss,
+	// nothing having all of it: glossed again.)
 	window.translateEntry = btn => {
 		const pe = btn.closest('p-e, .vs, .pv-t, .translation'), shown = pe.querySelector(':scope > .tr-entry');
-		if (shown) return shown.remove();
-		glossDone = pe.matches('.translation') ? translate : () => glossInto(pe, entryText(pe), glossIds());
-		openDrawer('gloss');
+		if (shown) shown.remove();
+		else if (pe.matches('.translation')) translate();
+		else glossInto(pe, entryText(pe), glossIds());
 	};
 	// The gloss of an entry's (or verse's) text, or some of it: above the
 	// text (after the entry's name and buttons), so a long one doesn't push
