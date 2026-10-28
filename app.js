@@ -2104,7 +2104,7 @@ if(!isDictPage){
 	// Install app: the browser's prompt, or on iOS (which has none) how to
 	const installBtn = $('install-button');
 	let installPrompt = null;
-	const showInstall = on => { installBtn.style.display = on ? 'block' : 'none'; };
+	const showInstall = on => { installBtn.style.display = on ? 'flex' : 'none'; };
 	showInstall(ios && !navigator.standalone);
 	window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; showInstall(true); });
 	window.addEventListener('appinstalled', () => showInstall(false));
