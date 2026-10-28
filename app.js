@@ -1366,11 +1366,15 @@ if(!isDictPage){
 
 	// Turns these dictionaries on or off (on: true, false, or one for each),
 	// and searches again if what's searched changed (one still loading
-	// searches again once it's loaded)
+	// searches again once it's loaded). Parallel off, one Bible text: one
+	// turned on (in the library, by a star, ...) turns the others off.
 	function setOn(ds, on){
-		const was = searchMask();
+		const was = searchMask(), val = d => typeof on === 'function' ? on(d) : on;
+		const text = parallel ? undefined : ds.find(d => isBibleText(d) && !libOn[d] && val(d));
+		const off = text === undefined ? [] : dictIds.filter(d => isBibleText(d) && d !== text);
+		ds = [...new Set([...ds, ...off])];
 		ds.forEach(d => {
-			libOn[d] = typeof on === 'function' ? on(d) : on;
+			libOn[d] = !off.includes(d) && val(d);
 			if (!libOn[d]) asked.delete(d); // (not kept loaded)
 		});
 		saveState();
