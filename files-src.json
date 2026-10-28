@@ -1,9 +1,10 @@
 {
   "core": [
-    ["404.html", 1792935976],
+    ["404.html", 1793169400],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
+    ["khmer/battambang.woff2", 1793169367],
     ["media.js", 1792420795],
     ["peakslab.svg", 1789218198],
     ["peak.wasm", 1792573535]
@@ -20,6 +21,7 @@
     ["english/bible/psalter/psascott.peak.zst", 1788854149, "The Scottish Psalter from <a href=\"https://www.friendsofsabbath.org/cgmusic.com/workshop/index.htm\">friends of sabbath</a>", 20691, 2, "mono", 0, 101944],
     ["english/bible/text/eng-amp.peak.zst", 1788875088, "Amplified bible from <a href=\"https://beblia.com\">beblia</a>", 783, 4, "mono", 0, 1666195],
     ["english/bible/text/eng-bsb.peak.zst", 1788875095, "Berean Standard Bible from <a href=\"https://ebible.org\">eBible</a>", 417, -1, "mono", 0, 1233575],
+    ["english/bible/text/eng-erv.peak.zst", 1793178047, "Easy-to-Read Version bible from <a href=\"https://beblia.com\">beblia</a>", 1948, -1, "mono", 0, 1462654],
     ["english/bible/text/eng-kjv.peak.zst", 1792224840, "KJV bible from <a href=\"https://ebible.org\">eBible</a>", 545, -3, "mono", 0, 1264093],
     ["english/bible/text/eng-kjvs.peak.zst", 1792491317, "King James Version (1769) with Strong’s numbers: tap a word for its Greek or Hebrew. Public domain, from <a href=\"https://ebible.org/find/details.php?id=eng-kjv2006\">eBible</a>", 1300, -1, "mono", 0, 2029761],
     ["english/bible/text/eng-nasb.peak.zst", 1788875111, "English NASB (New American Standard Bible - NASB 1995) NEW AMERICAN STANDARD BIBLE® Copyright © 1960, 1962, 1963, 1968, 1971, 1972, 1973, 1975, 1977, 1995 by THE LOCKMAN FOUNDATION A Corporation Not for Profit LA HABRA, CA All Rights Reserved <a href=\"https://www.bible.com/bible/100/ISA.6.NASB1995\">bible.com</a>", 498, -3, "mono", 0, 1409257],
