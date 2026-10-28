@@ -765,7 +765,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .type-rbi { background: var(--type-rbi); }
 .type-aux { background: var(--type-aux); }
 .lib-size { font-size: .8em; color: var(--muted); white-space: nowrap; }
-.lib-size.got { color: var(--color1); }
 .dict-row .star-btn { font-size: 1.4em; padding: 0 10px; }
 .dict-row > .text-btn { white-space: nowrap; padding: 0 12px; }
 .cat-subh { margin: .8em 0 .1em; font-size: .85em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
@@ -831,6 +830,37 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	cursor: pointer;
 }
 .dict-row .lib-desc { white-space: normal; }
+/* The library's: its size, then download (⬇), downloading (a circle), delete (🗑) */
+.dict-row > .lib-size { align-self: center; padding: 0 6px 0 4px; }
+.dict-act {
+	flex: none;
+	align-self: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid var(--control-btn-bg);
+	border-radius: 50%;
+	background: none;
+	color: var(--control-btn-bg);
+	font-size: 16px;
+	cursor: pointer;
+}
+.dict-act.down { background: var(--control-btn-bg); color: #fff; }
+.dict-act.loading { cursor: default; }
+.dict-act.loading::before {
+	content: '';
+	width: 16px;
+	height: 16px;
+	box-sizing: border-box;
+	border: 2px solid var(--control-btn-bg);
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 /* Loading (downloading): its box spins */
 .dict-on:has(.loading)::before {
 	background: none !important;

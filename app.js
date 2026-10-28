@@ -1036,18 +1036,22 @@ if(!isDictPage){
 	// A dictionary's name, kind, size (with its state, if any) and description
 	const infoHTML = (x, size = x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') =>
 		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
-	// A dictionary: on or off (not in the library: there, Download), what
-	// kind it is, downloaded (✓) or not (⬇) and its size, what it is; to
-	// delete its download (🗑) or take an added one off the page (✕), and its star
+	// A dictionary: on or off, what kind it is, its size, what it is; to
+	// delete its download (🗑) or take an added one off the page (✕), and
+	// its star. In the library, not on or off: its size, then ⬇ (a circle
+	// while it downloads, then 🗑)
 	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
-	// Its size, and downloaded (✓), loading or not (⬇)
-	const sizeHTML = (d, state = stateOf(d)) => `<span class="lib-size ${state}" title="${{loading: 'Loading', got: 'Downloaded', down: 'Not downloaded yet'}[state]}">${{loading: '', got: '✓ ', down: '⬇ '}[state]}${dicts[d].size ? sizeText(dicts[d].size) : ''}</span>`;
 	// (The gloss's: on or off for glosses, no 🗑 or star: they're everything's)
 	function dictRowHTML(d, view){
 		const x = dicts[d], state = stateOf(d), own = view === 'gloss', lib = view === 'library';
-		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}">` + (lib ? '<div class="row-main">' : `<button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">`) +
-			infoHTML(x, sizeHTML(d)) + (lib ? '</div>' : '</button>') + (own ? '</li>' :
-			(lib && state === 'down' ? `<button class="text-btn" data-get="${d}">Download</button>` : '') +
+		if (lib) return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><div class="row-main">${infoHTML(x, '')}</div>` +
+			(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') +
+			`<button class="dict-act ${state}" data-${state === 'got' ? 'del' : 'get'}="${d}"${state === 'loading' ? ' disabled' : ''} ` +
+			`aria-label="${{down: 'Download', loading: 'Downloading', got: x.added ? 'Delete and take off this page:' : 'Delete the download of'}[state]} ${escapeHTML(x.name)}" title="${{down: 'Download', loading: 'Downloading…', got: 'Delete its download'}[state]}">${{down: '⬇', loading: '', got: '🗑'}[state]}</button>` +
+			(x.added && state !== 'got' ? `<button class="dict-del" data-del="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') +
+			`${starBtnHTML(d)}</li>`;
+		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">` +
+			infoHTML(x) + '</button>' + (own ? '</li>' :
 			(x.added || state === 'got' ? `<button class="dict-del" data-del="${d}" title="${x.added ? 'Take it off this page' : 'Delete its download (it\'s turned off)'}" aria-label="${x.added ? 'Remove' : 'Delete the download of'} ${escapeHTML(x.name)}">${x.added ? '✕' : '🗑'}</button>` : '') +
 			`${starBtnHTML(d)}</li>`);
 	}
@@ -1096,7 +1100,7 @@ if(!isDictPage){
 			() => `<ul class="rows dict-rows">${xs.map(x => `<li class="row dict-row"><div class="row-main">${infoHTML(x)}</div>` +
 				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
 		const here = sizeOf(dictIds.filter(d => downloaded.has(d) && dicts[d].lang === curLang)); // (not other languages')
-		return '<h2>Library</h2><p class="lib-help">Turn dictionaries on or off: ⬇ ones download when they\'re on, and 🗑 deletes a download. Star the ones you use most: their entries come first.</p>' +
+		return '<h2>Library</h2><p class="lib-help">⬇ downloads a dictionary and 🗑 deletes it (the filter turns them on or off). Star the ones you use most: their entries come first.</p>' +
 			'<p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
 			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''} <button class="text-btn" data-first="delete">Delete everything…</button></p>` +
 			catsHTML('library') +
@@ -1108,17 +1112,16 @@ if(!isDictPage){
 	// (and 3, -2); its dictionaries are listed, ticked, by category (the
 	// media folder's each under its own: Audio, Images), to untick any, and
 	// the next level's, unticked, to tick. Or choose in the library (all off). Not
-	// answered, it asks again next time. The library opens it again too,
-	// with just the ones not downloaded: Download turns the ticked ones on,
-	// the rest stay as they are.
+	// answered, it asks again next time. The library opens it again too.
+	// It lists just the ones not downloaded: Download turns the ticked ones
+	// on (the first time, the level's downloaded ones too), the rest stay as
+	// they are.
 	// (LEVELS and levelOf are with the dictionaries.) A level has the ones
 	// on by default too, whatever theirs.
 	const suggested = (d, n) => levelOf(dicts[d]) <= n || dicts[d].on;
 	const firstIds = dictIds.filter(d => suggested(d, LEVELS.length - 1));
 	let firstLevel = 1, firstPick;
-	// Had already: downloaded and on (one downloaded but off, like a Bible
-	// page's text loaded for its books' names, is still to turn on)
-	const have = d => downloaded.has(d) && libOn[d];
+	const have = d => downloaded.has(d);
 	const notGot = (more = 1) => firstIds.filter(d => !have(d) && suggested(d, firstLevel + more)); // (and the next level's)
 	const setLevel = n => { firstLevel = n; firstPick = new Set(notGot(0)); };
 	setLevel(1);
@@ -1138,12 +1141,12 @@ if(!isDictPage){
 			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
-			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x, sizeHTML(d))}</button></li>`;
+			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x)}</button></li>`;
 		});
 		if (prev !== null) html += '</ul>';
 		if (!ids.length) html = '<p class="empty">These are all downloaded: slide for more.</p>';
-		const picks = ids.filter(d => firstPick.has(d)), size = sizeOf(picks.filter(d => !downloaded.has(d))); // (one downloaded already is just turned on)
-		return html + `<button class="first-default" data-first="go"${picks.length ? '' : ' disabled'}>${picks.some(d => !downloaded.has(d)) ? `Download${size ? ` (${sizeText(size)})` : ''}` : 'Turn on'}</button>`;
+		const picks = ids.filter(d => firstPick.has(d)), size = sizeOf(picks);
+		return html + `<button class="first-default" data-first="go"${picks.length ? '' : ' disabled'}>Download${size ? ` (${sizeText(size)})` : ''}</button>`;
 	}
 	// The level slider, in the download prompt and the filter: at level n
 	// (-1: none, the ones on are someone's own pick)
@@ -1179,9 +1182,10 @@ if(!isDictPage){
 	drawerBody.addEventListener('input', e => { if (e.target.matches('.first-level input')) drawerView === 'first' ? showLevel(+e.target.value) : markLevel(+e.target.value); });
 	drawerBody.addEventListener('change', e => { if (e.target.matches('.first-level input') && VIEWS[drawerView]) pickLevel(+e.target.value); });
 	function firstAnswer(v){
+		const first = asking;
 		asking = false;
 		closeDrawer();
-		if (v === 'go') setOn(notGot().filter(d => firstPick.has(d)), true);
+		if (v === 'go') setOn([...notGot().filter(d => firstPick.has(d)), ...(first ? firstIds.filter(d => have(d) && suggested(d, firstLevel)) : [])], true);
 		else {
 			saveState();
 			openLibrary();
