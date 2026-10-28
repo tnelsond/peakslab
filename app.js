@@ -460,6 +460,12 @@ if(!isDictPage){
 	// The path's language segment(s) (usually one, e.g. ["khmer"]): the ones
 	// abbr has a locale code for
 	const pLangParts = pParts.filter(p => abbr[p]?.[2]);
+	// The language's fonts (its folder's .woff2s, e.g. khmer/battambang.woff2,
+	// just its script's characters): first, so the rest of the text keeps the
+	// page's font
+	const fonts = filesJson.core.map(([f]) => f).filter(f => f.startsWith(pParts[0] + '/') && f.endsWith('.woff2'));
+	fonts.forEach(f => document.fonts.add(new FontFace(f, `url(/${f})`)));
+	if (fonts.length) document.body.style.fontFamily = `${fonts.map(f => `"${f}"`).join()}, ${getComputedStyle(document.body).fontFamily}`;
 	const curLang = pLangParts[0] || pParts[0] || '';
 
 	// Every dictionary on the page, from files.json's [path, timestamp,

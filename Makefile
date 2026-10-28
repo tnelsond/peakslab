@@ -1,5 +1,17 @@
 comma := ,
-all : peakgen peakgen.wasm sw.js media.js peak.wasm peak 404.html files.json
+# A language's font (khmer/battambang.ttf): a .woff2 of just its script's
+# characters (FONT_CHARS), which the app uses on that language's pages
+FONTS := $(patsubst %.ttf,%.woff2,$(wildcard */*.ttf))
+all : peakgen peakgen.wasm sw.js media.js peak.wasm peak 404.html $(FONTS) files.json
+
+khmer/battambang.woff2: FONT_CHARS = U+1780-17FF,U+19E0-19FF,U+200B-200D,U+25CC
+%.woff2: %.ttf
+	pyftsubset $< --unicodes='$(or $(FONT_CHARS),*)' --layout-features='*' --no-hinting --desubroutinize --output-file=$*.sub.ttf
+	woff2_compress $*.sub.ttf
+	mv $*.sub.woff2 $@
+	rm $*.sub.ttf
+	./createmeta.sh $@
+	$(MAKE) files.json
 
 # Find .tsv files - clean paths without leading ./
 # A big file split into x.tsv.1, x.tsv.2, ... (see utils/splittsv.sh) is listed
@@ -15,7 +27,7 @@ SLAB_DIRS := $(patsubst %/zzz.meta,%,$(shell find dict_src -name zzz.meta 2>/dev
 SLAB_META_FILES := $(patsubst dict_src/%,meta/%.meta,$(SLAB_DIRS))
 
 # The core files (404.html, peak.wasm, ...) too, so a rebuilt app reaches the service worker
-files-src.json: meta peakgen $(META_FILES) $(SLAB_META_FILES) $(filter-out meta/files.json.meta,$(wildcard meta/*.meta)) abbreviations.json
+files-src.json: meta peakgen $(META_FILES) $(SLAB_META_FILES) $(wildcard $(FONTS:%=meta/%.meta)) $(filter-out meta/files.json.meta,$(wildcard meta/*.meta)) abbreviations.json
 	./createdictlist.sh
 
 files.json: files-src.json
