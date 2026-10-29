@@ -1046,17 +1046,18 @@ if(!isDictPage){
 		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
 	// A dictionary: on or off, what kind it is, its size, what it is, and
 	// its star (deleting is the library's). In the library, not on or off:
-	// ⬇ (a circle while it downloads, then 🗑), its size under it, and ✕ to
-	// take an added one off the page
+	// ⬇ (a circle while it downloads, then 🗑), its size under it. One added
+	// from another language has ✕ for 🗑 (and beside ⬇): it comes off the
+	// page, its download stays (its own language's page can delete it)
 	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
 	// (The gloss's: on or off for glosses, no star: they're everything's)
 	function dictRowHTML(d, view){
 		const x = dicts[d], state = stateOf(d), own = view === 'gloss', lib = view === 'library';
 		if (lib) return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><div class="row-main">${infoHTML(x, '')}</div>` +
-			`<div class="dict-acts"><button class="dict-act ${state}" data-${state === 'got' ? 'del' : 'get'}="${d}"${state === 'loading' ? ' disabled' : ''} ` +
-			`aria-label="${{down: 'Download', loading: 'Downloading', got: x.added ? 'Delete and take off this page:' : 'Delete the download of'}[state]} ${escapeHTML(x.name)}" title="${{down: 'Download', loading: 'Downloading…', got: 'Delete its download'}[state]}">${{down: '⬇', loading: '', got: '🗑'}[state]}</button>` +
+			`<div class="dict-acts"><button class="dict-act ${state}" data-${state !== 'got' ? 'get' : x.added ? 'unlink' : 'del'}="${d}"${state === 'loading' ? ' disabled' : ''} ` +
+			`aria-label="${{down: 'Download', loading: 'Downloading', got: x.added ? 'Take off this page:' : 'Delete the download of'}[state]} ${escapeHTML(x.name)}" title="${{down: 'Download', loading: 'Downloading…', got: x.added ? 'Take it off this page (its download stays)' : 'Delete its download'}[state]}">${{down: '⬇', loading: '', got: x.added ? '✕' : '🗑'}[state]}</button>` +
 			(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') + '</div>' +
-			(x.added && state !== 'got' ? `<button class="dict-del" data-del="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') +
+			(x.added && state !== 'got' ? `<button class="dict-del" data-unlink="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') +
 			`${starBtnHTML(d)}</li>`;
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">` +
 			infoHTML(x) + '</button>' + (own ? '' : starBtnHTML(d)) + '</li>';
@@ -1245,8 +1246,7 @@ if(!isDictPage){
 		} catch (e) { /* no Cache API */ }
 		return files;
 	}
-	// A download deleted (it's turned off: it downloads again when it's
-	// on); an added one is taken off the page too (its number stays, unused)
+	// A download deleted (it's turned off: it downloads again when it's on)
 	async function deleteDict(d){
 		const x = dicts[d];
 		if (libOn[d]) setOn([d], false);
@@ -1254,14 +1254,20 @@ if(!isDictPage){
 		for (const [c, r, path] of await cachedDicts()) if (path === x.path) await c.delete(r);
 		downloaded.delete(d);
 		refreshUsage();
-		if (x.added) {
-			x.added = false;
-			store(addKey, readList(addKey).filter(p => p !== x.path));
-			[dictIds, stars].forEach(l => { const i = l.indexOf(d); if (i >= 0) l.splice(i, 1); });
-			buildCats();
-			keepPicks(); // (a category gone)
-			setFilter('filter', picks.filter);
-		}
+		renderLists();
+	}
+	// An added one taken off the page, turned off; its download stays (its
+	// number stays, unused)
+	function unlinkDict(d){
+		const x = dicts[d];
+		if (libOn[d]) setOn([d], false);
+		else if (loaded.has(d)) unloadDict(d);
+		x.added = false;
+		store(addKey, readList(addKey).filter(p => p !== x.path));
+		[dictIds, stars].forEach(l => { const i = l.indexOf(d); if (i >= 0) l.splice(i, 1); });
+		buildCats();
+		keepPicks(); // (a category gone)
+		setFilter('filter', picks.filter);
 		renderLists();
 	}
 	// Every language's downloaded dictionaries deleted (asked first, with
@@ -1301,7 +1307,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, get, del, add, exp, library, pick, level, first} = b.dataset;
+		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, get, del, unlink, add, exp, library, pick, level, first} = b.dataset;
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
@@ -1316,6 +1322,7 @@ if(!isDictPage){
 			if (!expandedCats.delete(exp)) expandedCats.add(exp);
 			renderLists();
 		} else if (del) deleteDict(+del);
+		else if (unlink) unlinkDict(+unlink);
 		else if (add) addDict(add);
 		else if (get) setOn([+get], true); // (on, it downloads)
 		else if (library) openLibrary();
