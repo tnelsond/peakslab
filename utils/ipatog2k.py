@@ -54,6 +54,9 @@ SOURCE = {'aə': {'ើ'}, 'uu': {'ូ'}, 'ao': {'ោ'}, 'ii': {'ី'}, 'i': {'�
 GLOTTAL_K = ('a', 'aa', 'ɑ', 'ɑɑ', 'ea', 'oa', 'ie', 'iə', 'uə')  # final ក is ʔ after these (neaʔ, piʔɓaʔ, kʰʔɔʔ)
 PALATAL_K = ('ae', 'ee')  # and c after these (sʔaᵋc)
 VOWELCHARS = 'aeiouəɑɔɛɨ'
+# Words not read by the vowel charts, where their ន starts a syllable
+# (ពុំនោះ pʊm.nuh, ដូចនេះ ɗoᶷc.nih; but ធ្នោះ tʰnuᵊh): word, chart's, theirs
+EXCEPT = [('នោះ', 'nuᵊh', 'nuh'), ('នេះ', 'nɛᵉh', 'nih')]
 
 def series(k, i):
 	"""Series of the consonant cluster the vowel sign at k[i] is written on"""
@@ -146,6 +149,9 @@ def convert(key, ipa):
 		if coda == 'ŋ' and nuc in ('i', 'e', 'ɛ', 'aᵋ', 'ɛᵉ'):
 			coda = 'ɲ'  # មីង miɲ, ក្មេង kʰmeɲ, កន្លែង kɔnlaᵋɲ
 		out.append(o + nuc + coda)
+	for word, chart, ipa in EXCEPT:
+		if re.search(f'(?<!{COENG}){word}', key):
+			out = [ipa if syl == chart else syl for syl in out]
 	return '.'.join(out)  # syllables split with periods, as in IPA
 
 seen = set()
