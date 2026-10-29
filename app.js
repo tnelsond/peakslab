@@ -778,17 +778,24 @@ if(!isDictPage){
 	// their chapters, and each book's first verse's reference (e.g.
 	// "លោកុប្បត្តិ ១:១") its name and digits. From the first Bible that's
 	// on. Its code ("gen") shows with its name: it's what to type.
-	let books = null; // [{code, n (chapters), name, zero (where its digits' 0 is)}]
+	let books = null; // [{code, n (chapters), name, zero (where its digits' 0 is), s (section)}]
+	// The sections' first books: the Law, History, Poetry, the Major and Minor
+	// Prophets, the Gospels, Acts, Paul's letters, the General letters, Revelation
+	const sections = 'gen jos job isa hos mat act rom heb rev'.split(' ');
 	let booksLoad = null;
 	function loadBooks(then){
 		const mask = searchMask();
 		const d = dictIds.filter(isBibleText).sort((a, b) => mask[b] - mask[a] || sortId(a) - sortId(b))[0];
 		(booksLoad ??= askDict(d, {type: 'heads'}).then(r => {
 			const list = [], firsts = [];
+			let s = 0;
 			r.heads.forEach((h, i) => {
 				const m = /^(.+) (\d+)\.\d+$/.exec(h);
 				if (!m) return;
-				if (list.at(-1)?.code !== m[1]) { list.push({code: m[1], n: 0, name: m[1], zero: 48}); firsts.push(i); }
+				if (list.at(-1)?.code !== m[1]) {
+					s = Math.max(s, sections.indexOf(m[1].toLowerCase()));
+					list.push({code: m[1], n: 0, name: m[1], zero: 48, s}); firsts.push(i);
+				}
 				list.at(-1).n = Math.max(list.at(-1).n, +m[2]);
 			});
 			return askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}).then(r => {
@@ -878,7 +885,7 @@ if(!isDictPage){
 		const b = books.find(x => x.code === booksPick), cur = on => on ? ' aria-current="true"' : '';
 		return (b ? `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
 				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-q="${ref}"${cur(ref === lastRead)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
-			`<div class="bk-grid">${books.map(x => `<button data-book="${escapeHTML(x.code)}"${cur(lastRead.startsWith(x.code + ' '))}>${bookName(x)}</button>`).join('')}</div>`);
+			`<div class="bk-grid">${books.map(x => `<button class="s${x.s}" data-book="${escapeHTML(x.code)}"${cur(lastRead.startsWith(x.code + ' '))}>${bookName(x)}</button>`).join('')}</div>`);
 	}
 
 	// ---------------------------------------------------------------

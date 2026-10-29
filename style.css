@@ -378,6 +378,11 @@ p-d ul {
 	padding-left: 1em;
 	list-style: square;
 }
+/* Items without a list around them (aakanee's): as indented as a list's */
+p-d li:not(:is(ul, ol) > li) {
+	margin-left: 1em;
+	list-style: square;
+}
 p-d li::marker {
 	color: var(--control-btn-bg);
 	font-weight: bold;
@@ -676,6 +681,12 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	border-radius: 8px;
 	font-size: .92em;
 }
+/* The books by section (s0 the Law … s9 Revelation): a tint of its color */
+.bk-grid .s0 { --sec: #e5739a; } .bk-grid .s1 { --sec: #e6a23c; } .bk-grid .s2 { --sec: #d4c22a; }
+.bk-grid .s3 { --sec: #d9534f; } .bk-grid .s4 { --sec: #c97a5a; } .bk-grid .s5 { --sec: #3c9dd9; }
+.bk-grid .s6 { --sec: #2bb3a0; } .bk-grid .s7 { --sec: #6c7ae0; } .bk-grid .s8 { --sec: #9a6bd6; }
+.bk-grid .s9 { --sec: #8e8e8e; }
+.bk-grid button[class] { background: color-mix(in srgb, var(--sec) 25%, var(--card-bg)); border-color: var(--sec); }
 .bk-grid button:hover { border-color: var(--control-btn-bg); }
 .bk-grid button[aria-current="true"] { background: var(--control-btn-bg); border-color: transparent; color: #fff; }
 /* A book's code ("GEN"), under (or after) its name in the Bible */
