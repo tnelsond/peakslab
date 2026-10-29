@@ -2,7 +2,7 @@
   "khmer": ["km", "ខ", "km_KH", "🇰🇭"],
   "lao": ["lo", "ລ", "lo_LA", "🇱🇦"],
   "english": ["en", "E", "en_US", "🇺🇸"],
-  "german": ["de", "ß", "de_GE", "🇩🇪"],
+  "german": ["de", "ß", "de_DE", "🇩🇪"],
   "indonesian": ["id", "Id", "id_ID", "🇮🇩"],
   "portuguese": ["pt", "Pt", "pt_BR", "🇧🇷"],
   "spanish": ["es", "Es", "es_ES", "🇪🇸"],
