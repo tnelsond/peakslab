@@ -8,6 +8,10 @@ let ack = null;
 // it's bookmarked (aria-pressed).
 const bookmarkSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
 const compareSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M12 6C10 4.5 7 4 3 4v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14"/></svg>'; // (a verse's compare)
+// A Bible card's Read in context (an open book, + over it) and Popup (the
+// book in a popup's two squares)
+const contextSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M12 11.5c-2-1.3-5-1.8-9-1.8v10.5c4 0 7 .5 9 1.8 2-1.3 5-1.8 9-1.8V9.7c-4 0-7 .5-9 1.8zM12 11.5v10.5M12 1.5v6M9 4.5h6"/></svg>';
+const popupSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M8 7V3.5A1.5 1.5 0 0 1 9.5 2h11A1.5 1.5 0 0 1 22 3.5v11a1.5 1.5 0 0 1-1.5 1.5H17"/><rect x="2" y="7.5" width="14.5" height="14.5" rx="1.5"/><path d="M9.25 13.2c-1.2-.8-2.7-1.1-4.5-1.1v6.4c1.8 0 3.3.3 4.5 1.1 1.2-.8 2.7-1.1 4.5-1.1v-6.4c-1.8 0-3.3.3-4.5 1.1zM9.25 13.2v6.4" stroke-width="1.6"/></svg>';
 // A bookmark: its card's headword's, or w's (a verse's: "joh 3.16")
 const bmBtnHTML = w => `<button class="bm-btn" onclick="toggleBookmark(this)"${w ? ` data-w="${escapeHTML(w)}"` : ''} title="Bookmark" aria-pressed="false">${bookmarkSVG}</button>`;
 // A card's Share (shareCard): its text copied, or a link to it
@@ -1041,8 +1045,8 @@ if(!isDictPage){
 		const label = par && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation';
 		// Not a chapter (a verse, a range): no ‹ ›, but Read in context (its
 		// whole chapter) and Popup
-		const more = ref.kind === 'chapter' ? '' : '<button class="cb-act" data-cb="ctx" title="Read the whole chapter, at this">Read in context</button>' +
-			'<button class="cb-act" data-cb="popup" title="Show it in the popup, in every translation">Popup</button>';
+		const more = ref.kind === 'chapter' ? '' : `<button class="cb-act" data-cb="ctx" title="Read in context: the whole chapter, at this" aria-label="Read in context">${contextSVG}</button>` +
+			`<button class="cb-act" data-cb="popup" title="Show it in the popup, in every translation" aria-label="Show it in the popup">${popupSVG}</button>`;
 		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book" data-cb="book" title="Books">${refLabel(ref)} ▾</button>` +
 			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>${go(1, 'Next')}</span>` +
 			`<span class="cb-acts">${more}${ref.kind === 'verse' ? bmBtnHTML() : ''}${shareBtnHTML}</span>`;

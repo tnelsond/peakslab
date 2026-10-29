@@ -714,7 +714,8 @@ p-d:has(> .card-bar) > h2 { display: none; }
 /* The reference: big */
 .card-bar .cb-book { font-size: 1.3em; font-weight: 700; padding: 0 14px; }
 .card-bar .cb-text { max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.card-bar .cb-act { min-height: 32px; font-size: .9em; }
+.card-bar .cb-act { flex: none; width: 40px; min-height: 36px; padding: 0; line-height: 0; }
+.card-bar .cb-act svg { display: block; margin: auto; }
 .card-bar .ch-go { flex: none; width: 36px; padding: 0; font-size: 1.4em; line-height: 1; }
 .card-bar .ch-go:disabled { opacity: .35; cursor: default; }
 .card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act):not(:disabled):hover { background: rgba(255, 255, 255, .28); }
