@@ -1104,8 +1104,10 @@ if(!isDictPage){
 		const byLang = new Map();
 		allDicts.filter(x => !dictIds.some(d => dicts[d] === x)).forEach(x => push(byLang, x.lang, x));
 		const lang = ([l, xs]) => groupHTML(`lang:${l}`, groupHead(`lang:${l}`, cap(l), `${xs.length} ${xs.length === 1 ? 'dictionary' : 'dictionaries'}`),
-			() => `<ul class="rows dict-rows">${xs.map(x => `<li class="row dict-row"><div class="row-main">${infoHTML(x)}</div>` +
-				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
+			() => `<ul class="rows dict-rows">${xs.map(x => (got => `<li class="row dict-row"><div class="row-main">${got ? infoHTML(x, '') : infoHTML(x)}</div>` +
+				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button>` +
+				(got ? `<div class="dict-acts"><button class="dict-act got" data-delpath="${escapeHTML(x.path)}" aria-label="Delete the download of ${escapeHTML(x.name)}" title="Delete its download">🗑</button>` +
+					(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') + '</div>' : '') + '</li>')(cachedPaths.has(x.path))).join('')}</ul>`);
 		const here = sizeOf(dictIds.filter(d => downloaded.has(d) && dicts[d].lang === curLang)); // (not other languages')
 		return '<h2>Library</h2><p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
 			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''} <button class="text-btn" data-first="delete">Delete everything…</button></p>` +
@@ -1209,14 +1211,21 @@ if(!isDictPage){
 		refreshUsage();
 	}, 50);
 	// The space all of PeakSlab takes (the browser's estimate: every
-	// language's downloads, and the app); the library shows it
-	let usage = 0;
+	// language's downloads, and the app), and every language's downloaded
+	// dictionaries (paths: other languages' get 🗑); the library shows them
+	let usage = 0, cachedPaths = new Set();
 	function refreshUsage(){
 		navigator.storage?.estimate?.().then(e => {
 			if (e.usage === usage) return;
 			usage = e.usage;
 			renderLibrary();
 		}).catch(() => {});
+		cachedDicts().then(files => {
+			const paths = new Set(files.map(f => f[2]));
+			if (paths.size === cachedPaths.size && [...paths].every(p => cachedPaths.has(p))) return;
+			cachedPaths = paths;
+			renderLibrary();
+		});
 	}
 	// Another language's dictionary onto the page (or back on it), on: at
 	// the end, so every other one keeps its number; its categories opened
@@ -1270,6 +1279,11 @@ if(!isDictPage){
 		setFilter('filter', picks.filter);
 		renderLists();
 	}
+	// Another language's download deleted (the library's Other languages)
+	async function deletePath(path){
+		for (const [c, r, p] of await cachedDicts()) if (p === path) await c.delete(r);
+		refreshUsage();
+	}
 	// Every language's downloaded dictionaries deleted (asked first, with
 	// their size), all turned off; the app and the settings stay. Each page
 	// asks which to download again.
@@ -1307,7 +1321,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, get, del, unlink, add, exp, library, pick, level, first} = b.dataset;
+		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, get, del, delpath, unlink, add, exp, library, pick, level, first} = b.dataset;
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
@@ -1323,6 +1337,7 @@ if(!isDictPage){
 			renderLists();
 		} else if (del) deleteDict(+del);
 		else if (unlink) unlinkDict(+unlink);
+		else if (delpath) deletePath(delpath);
 		else if (add) addDict(add);
 		else if (get) setOn([+get], true); // (on, it downloads)
 		else if (library) openLibrary();
