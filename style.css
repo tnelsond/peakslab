@@ -735,6 +735,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 .lang-row:visited, .lang-row:hover { color: var(--card-text); }
 .lang-row { flex-direction: row !important; align-items: center !important; gap: 10px !important; flex-wrap: wrap; text-decoration: none; }
 .lang-row .row-t { margin-left: auto; }
+.lang-flag { flex: none; font-size: 1.3em; line-height: 1; }
 .lang-row[aria-current="page"] .row-w { color: var(--color1); }
 
 /* A dictionary in the filter: on or off, its kind, size, description, star */

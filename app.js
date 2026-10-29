@@ -108,9 +108,11 @@ const rowHTML = (cls, attrs, w, t, after = '') => `<li class="row"><button class
 // The language panel's rows: the languages, biggest first
 const langCounts = {};
 filesJson.dicts.forEach(f => { const l = f[0].split('/')[0]; langCounts[l] = (langCounts[l] || 0) + 1; });
-const langRow = (href, name, n, cur) => `<li class="row"><a class="row-main lang-row" href="${href}"${cur ? ' aria-current="page"' : ''}><span class="row-w">${escapeHTML(name)}</span><span class="row-t">${n} ${n === 1 ? 'dictionary' : 'dictionaries'}</span></a></li>`;
+// A language's row in the language panel: its flag (abbreviations.json's
+// fourth), name and how many dictionaries
+const langRow = (href, name, n, cur, lang) => `<li class="row"><a class="row-main lang-row" href="${href}"${cur ? ' aria-current="page"' : ''}>${abbr[lang]?.[3] ? `<span class="lang-flag" aria-hidden="true">${abbr[lang][3]}</span>` : ''}<span class="row-w">${escapeHTML(name)}</span><span class="row-t">${n} ${n === 1 ? 'dictionary' : 'dictionaries'}</span></a></li>`;
 const langRows = (skip, qs) => '<ul class="rows">' + Object.keys(langCounts).filter(l => l !== skip).sort((a, b) => langCounts[b] - langCounts[a])
-	.map(l => langRow(`/${l}${qs}`, cap(l), langCounts[l], false)).join('') + '</ul>';
+	.map(l => langRow(`/${l}${qs}`, cap(l), langCounts[l], false, l)).join('') + '</ul>';
 
 const langBtn = $('langBtn');
 const queryInput = $('queryInput');
@@ -896,8 +898,8 @@ if(!isDictPage){
 		const qs = queryText ? '?text=' + encodeURIComponent(queryText) : '';
 		const mine = filesJson.dicts.filter(f => f[0].startsWith(curLang + '/'));
 		const secs = [...new Set(mine.map(f => f[0].split('/')[1]))].filter(c => !['media', 'phonetics'].includes(c));
-		return `<ul class="rows">${langRow(`/${curLang}${qs}`, cap(curLang), langCounts[curLang], pParts.length < 2)}` +
-			(secs.length > 1 ? secs.map(c => langRow(`/${curLang}/${c}${qs}`, `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c)).join('') : '') + '</ul>' +
+		return `<ul class="rows">${langRow(`/${curLang}${qs}`, cap(curLang), langCounts[curLang], pParts.length < 2, curLang)}` +
+			(secs.length > 1 ? secs.map(c => langRow(`/${curLang}/${c}${qs}`, `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c, curLang)).join('') : '') + '</ul>' +
 			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
 	// What the filter searches, as HTML and as text: All; All but the

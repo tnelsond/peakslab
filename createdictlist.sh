@@ -20,7 +20,8 @@
 # All other files go under "core" (filename + timestamp only).
 # In both arrays, timestamp is always element[1] so it can be read the same
 # way regardless of file type.
-# Each abbr value is [romanized, symbolic] (or more elements if provided).
+# Each abbr value is [romanized, symbolic] (a language's also has its locale
+# and flag: ["km", "ខ", "km_KH", "🇰🇭"]).
 # Each abbr entry is written on a single line.
 
 OUT="files-src.json"
