@@ -57,16 +57,18 @@ my %V = (
 	'ាំង' => {o=>['a','eᵃ']},
 	'ះ'   => {o=>['ah','eᵃh']},
 	'ាះ'  => {o=>['ah','eᵃh']},
-	'ិះ'  => {o=>['eh','ih']},
+	'ិះ'  => {o=>['ih','ih']},
 	'ឹះ'  => {o=>['əh','ɯh']},
 	'ឺះ'  => {o=>['əh','ɯh']},
 	'ែះ'  => {o=>['ɛh','ɛh']},
 	'ុះ'  => {o=>['oh','uh']},
-	'េះ'  => {o=>['eh','ih']},
+	'េះ'  => {o=>['eh','ɛᵉh']},
 	'ោះ'  => {o=>['ɔh','uᵊh']},
 	'ៈ'   => {o=>['aʔ','eᵃʔ']},
 	'័'   => {o=>['a','a']},
 );
+# Words not read by the vowel charts
+my %EXCEPT = ('នេះ' => 'nih', 'នោះ' => 'nuh');
 my %GLOTTAL_K = map { $_ => 1 } ('a', 'ɔ', 'eᵃ', 'oᵃ', 'iᵊ', 'uᵊ'); # final ក is ʔ after these
 my %PALATAL_K = map { $_ => 1 } ('aᵋ', 'e', 'ɛᵉ');                   # and c after these
 
@@ -83,6 +85,7 @@ sub syllable {
 	my ($syl, $first, $last) = @_;
 	my @ch = split //, $syl;
 	return '' unless @ch;
+	return $EXCEPT{$syl} if $EXCEPT{$syl};
 	my @cons;
 	my ($vowel, $shift, $short, $final) = ('', 0, 0, undef);
 	my $c = shift @ch;
