@@ -1044,12 +1044,12 @@ if(!isDictPage){
 	// A dictionary's name, kind, size (with its state, if any) and description
 	const infoHTML = (x, size = x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') =>
 		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
-	// A dictionary: on or off, what kind it is, its size, what it is; to
-	// delete its download (🗑) or take an added one off the page (✕), and
-	// its star. In the library, not on or off: ⬇ (a circle while it
-	// downloads, then 🗑), its size under it
+	// A dictionary: on or off, what kind it is, its size, what it is, and
+	// its star (deleting is the library's). In the library, not on or off:
+	// ⬇ (a circle while it downloads, then 🗑), its size under it, and ✕ to
+	// take an added one off the page
 	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
-	// (The gloss's: on or off for glosses, no 🗑 or star: they're everything's)
+	// (The gloss's: on or off for glosses, no star: they're everything's)
 	function dictRowHTML(d, view){
 		const x = dicts[d], state = stateOf(d), own = view === 'gloss', lib = view === 'library';
 		if (lib) return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><div class="row-main">${infoHTML(x, '')}</div>` +
@@ -1059,9 +1059,7 @@ if(!isDictPage){
 			(x.added && state !== 'got' ? `<button class="dict-del" data-del="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') +
 			`${starBtnHTML(d)}</li>`;
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">` +
-			infoHTML(x) + '</button>' + (own ? '</li>' :
-			(x.added || state === 'got' ? `<button class="dict-del" data-del="${d}" title="${x.added ? 'Take it off this page' : 'Delete its download (it\'s turned off)'}" aria-label="${x.added ? 'Remove' : 'Delete the download of'} ${escapeHTML(x.name)}">${x.added ? '✕' : '🗑'}</button>` : '') +
-			`${starBtnHTML(d)}</li>`);
+			infoHTML(x) + '</button>' + (own ? '' : starBtnHTML(d)) + '</li>';
 	}
 	function rowsHTML(id, view){
 		const ds = listOf(id, view);
