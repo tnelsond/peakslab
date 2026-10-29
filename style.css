@@ -274,7 +274,7 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	max-width: 1200px;
 	max-height: 48px;
 	margin: 0 auto;
-	padding: 0 3px 6px;
+	padding: 0 3px 6px 0;
 	overflow: hidden;
 	transition: max-height .2s, padding .2s, opacity .2s;
 }
@@ -290,7 +290,7 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	align-items: center;
 	gap: 4px;
 	height: 32px;
-	padding: 0 6px;
+	padding: 0 6px 0 10px;
 	border: 0;
 	background: #fd9; /* (as the language symbols' circles were) */
 	color: #432;
