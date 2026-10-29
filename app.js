@@ -269,17 +269,16 @@ if(!isDictPage){
 			div.classList.add('verse');
 		div.seen.add(d + '\t' + data.body);
 		if(first){
-			div.innerHTML = `<h2><span class="hw">${data.header}</span>${bmBtnHTML()}${shareBtnHTML}</h2>` +
+			const ctx = isBibleText(d) && chapterOf(nheader) && chapterOf(nheader) !== query ? '<button class="ctx-btn" onclick="readInContext(this)">Read in context</button>' : '';
+			div.innerHTML = `<h2><span class="hw">${data.header}</span>${ctx}${bmBtnHTML()}${shareBtnHTML}</h2>` +
 				'<button class="text-btn see-more" data-id="1e9" onclick="this.parentNode.classList.add(\'show-hidden\')">See more</button>'; // (entries go above it)
 			markBookmarks(div);
 		}
 		// A media file's: its details and the file; text: Gloss, the chords'
-		// show/hide button if it has any, the text, and a Bible text's Read
-		// in context (each translation's)
-		const ctx = isBibleText(d) && chapterOf(nheader) && chapterOf(nheader) !== query ? '<button class="ctx-btn" onclick="readInContext(this)">Read in context</button>' : '';
+		// show/hide button if it has any, and the text
 		const t = document.createElement('template');
 		t.innerHTML = entryHTML(d, data.filetype ? (data.subheader ? `<p-n>${data.subheader.join(",<br>")}<br></p-n>` : '') :
-			translateBtnHTML + (data.body?.includes('<p-m') ? chordsBtnHTML : '') + (mark ? highlightText(data.body, data.query) : data.body) + ctx);
+			translateBtnHTML + (data.body?.includes('<p-m') ? chordsBtnHTML : '') + (mark ? highlightText(data.body, data.query) : data.body));
 		const el = t.content.firstChild;
 		if(data.filetype)
 			el.append(mediaElement(data.filetype, data.body, data.header));
