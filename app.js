@@ -214,6 +214,7 @@ if(!isDictPage){
 				else { // The search is done
 					loader?.remove();
 					loader = null;
+					showChapter();
 					if (num == 0) { // Nothing has all of it: none of the last search's, and word by word
 						if (query) cleanup(resultsDiv);
 						translate();
@@ -425,10 +426,8 @@ if(!isDictPage){
 		}
 		if(text)
 			noteLinks(vs);
-		if(h === readHl){ // Read in context: the verse in each card (not marked), the top one's in view
+		if(h === readHl) // Read in context: the verse in each card (not marked), the top one's in view (showChapter)
 			vs.classList.add('ctx');
-			resultsDiv.querySelector('.vs.ctx').scrollIntoView({block: 'center'});
-		}
 		found();
 	}
 
@@ -1646,7 +1645,7 @@ if(!isDictPage){
 		return stars.filter(d => d % workers.length == i).map(didOf);
 	}
 
-	let searchGen = 0, searchAt = 0;
+	let searchGen = 0, searchAt = 0, chapterTimer = 0;
 	// The search's stage st (a new search's first) in each worker with
 	// dictionaries searched in it, and its first results; worker_code[i]:
 	// worker i is done
@@ -2001,6 +2000,12 @@ if(!isDictPage){
 		st = globreg.test(query) ? 0 : 3;
 		searching = searchMask(); // (the workers skip the ones not loaded)
 
+		// A chapter shows when it's all there (or after 3s): laid out once,
+		// not again with each verse
+		clearTimeout(chapterTimer);
+		resultsDiv.classList.toggle('filling', isChapter(query));
+		if (isChapter(query)) chapterTimer = setTimeout(showChapter, 3000);
+
 		loader = document.createElement('p-d');
 		loader.id = 'loader';
 		loader.textContent = "Loading more…";
@@ -2008,6 +2013,13 @@ if(!isDictPage){
 		searchStage(true);
 		updateStatus('No matches found.');
 		queryInput.classList.add("error");
+	}
+
+	function showChapter(){
+		clearTimeout(chapterTimer);
+		if (!resultsDiv.classList.contains('filling')) return;
+		resultsDiv.classList.remove('filling');
+		resultsDiv.querySelector('.vs.ctx')?.scrollIntoView({block: 'center'});
 	}
 
 	// The search again, even if it's what's showing
