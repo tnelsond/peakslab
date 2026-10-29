@@ -8,7 +8,6 @@
 	--tr-pron: #333;
 	--strongs: #1d5a78; /* a word with a Strong's number */
 	--bg-color: #ba8;
-	--popup-bg: #aaa; /* a gray as light as the page's brown */
 	--card-bg: #fff;
 	--card-text: #1a1a1a;
 	--header-bg: #643;
@@ -48,7 +47,6 @@ body.dark-mode {
 	--tab-fg: #ac0;
 	--color1: #ac0; /* the logo's green */
 	--bg-color: #321;
-	--popup-bg: #2a2a2a;
 	--card-bg: #110;
 	--card-text: #e0e0ff;
 	--search-bg: #000;
@@ -370,6 +368,10 @@ p-d {
 	user-select: text !important;
 	-webkit-touch-callout: none !important;
 }
+/* About: just there, on white (on the root page and in its drawer) */
+.about { padding: 16px 18px; background: var(--card-bg); color: var(--card-text); line-height: 1.6; }
+.about h2, .about h3 { margin: .3em 0; color: var(--color1); }
+.drawer-body .about { margin: -4px -14px -24px; min-height: 100%; } /* (the whole drawer) */
 p-d h1 { font-size: 1.5em; }
 p-d h1, p-d h2, p-d h3 {
 	margin-top: 0;
@@ -947,7 +949,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	z-index: 3000;
 }
 #popupContent {
-	background: var(--popup-bg);
+	background: var(--bg-color); /* the page's brown */
 	color: var(--card-text);
 	padding: 20px;
 	border-radius: 18px;

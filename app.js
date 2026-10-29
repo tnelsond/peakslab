@@ -373,14 +373,18 @@ if(!isDictPage){
 	// with a Bible text showing, are little links on its verses (addNote).
 	// A verse's reference as the dictionary has it (its p-n: "យ៉ូហាន ៣:១៦")
 	const refOf = body => /<p-n>@?([^<]*)<\/p-n>/.exec(body)?.[1];
-	function addVerse(data, h){
-		const d = dictOf(data), v = +h.split('.').pop();
-		if (!parallel && isBibleText(d) && d !== readText()) return loadmore(); // (the others on are for glosses and compare)
+	// (A range's, from rangeMore or popupRange: its dictionary d, in the
+	// results or the popup, root; its chapters' first verses say their
+	// chapter: "2:1")
+	function addVerse(data, h, d = dictOf(data), root = resultsDiv){
+		const [c, cv] = h.split(' ').pop().split('.').map(Number), v = c * 1000 + cv; // (by chapter, then verse)
+		const main = root === resultsDiv;
+		if (main && !parallel && isBibleText(d) && d !== readText()) return loadmore(); // (the others on are for glosses and compare)
 		if (dicts[d].cat === 'bible/commentary' && dictIds.some(t => isBibleText(t) && searched(t)))
 			return addNote(d, data, v);
 		const label = refOf(data.body);
 		const par = parallel && isBibleText(d);
-		const cardId = par ? 'ch-par' : `ch-${d}`, cardSort = par ? -1e6 : sortId(d);
+		const cardId = (main ? 'ch-' : 'pch-') + (par ? 'par' : d), cardSort = par ? -1e6 : sortId(d);
 		let card = $(cardId);
 		if(!card){
 			card = document.createElement('p-d');
@@ -388,10 +392,12 @@ if(!isDictPage){
 			card.className = par ? 'chapter parallel' : 'chapter';
 			card.dataset.id = cardSort;
 			card.innerHTML = shareBtnHTML + (par ? '<p-e></p-e>' : entryHTML(d));
-			const after = [...resultsDiv.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > cardSort);
-			resultsDiv.insertBefore(card, after || (loader && loader.parentNode === resultsDiv ? loader : null));
+			const after = [...root.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > cardSort);
+			root.insertBefore(card, after || (main && loader && loader.parentNode === resultsDiv ? loader : null));
 		}
-		const n = ((label && /\p{Nd}+\s*[:.]\s*(\p{Nd}+)/u.exec(label)) || [, String(v)])[1];
+		const ref = label && /(\p{Nd}+\s*[:.]\s*)(\p{Nd}+)/u.exec(label);
+		const full = ref && rangeOf(main ? query : updateQuery(popupQuery)) && (cv === 1 || !card.querySelector('.vs'));
+		const n = ref ? (full ? ref[1] + ref[2] : ref[2]) : String(cv);
 		let body = data.body.replace(/<p-n>[\s\S]*?<\/p-n>/, '');
 		const text = isBibleText(d);
 		if(text) // Verses run on
@@ -425,11 +431,12 @@ if(!isDictPage){
 		}
 		if(text)
 			noteLinks(vs);
-		if(h === readHl){ // Read in context: the verse in each card (not marked), the top one's in view
+		if(main && h === readHl){ // Read in context: the verse in each card (not marked), the top one's in view
 			vs.classList.add('ctx');
 			resultsDiv.querySelector('.vs.ctx').scrollIntoView({block: 'center'});
 		}
-		found();
+		if(main)
+			found();
 	}
 
 	// The chapter's notes, by verse (the first of the ones each is on):
@@ -687,7 +694,7 @@ if(!isDictPage){
 	}
 	// What a search uses: the ones on that the filter has; reading a chapter,
 	// every Bible text that's on too (the filter doesn't change them)
-	const searched = d => isOn(d) || (libOn[d] && isBibleText(d) && isChapter(query));
+	const searched = d => isOn(d) || (libOn[d] && isBibleText(d) && (isChapter(query) || !!rangeOf(query)));
 	const searchMask = () => dicts.map((_, d) => searched(d));
 	let searching = []; // What the search showing uses (startSearch)
 
@@ -764,6 +771,93 @@ if(!isDictPage){
 	const hasBible = dictIds.some(isBibleText);
 	// A verse's chapter: "rom 8.1" -> "rom 8.", else null
 	const chapterOf = h => (/^(.+ \d+\.)\d+$/.exec(h || '') || [])[1] || null;
+	// A range of verses ("rom 1.4-20", "rom 1:4-2:3") or of chapters ("rom
+	// 1-5", "rom1-5"): its book as typed (a code, or a book's name) and its
+	// first and last [chapter, verse] (a chapter's last verse: Infinity)
+	function rangeOf(q){
+		const m = /^(.*?\D) ?(\d+)(?:[.:](\d+))? ?[-–] ?(?:(\d+)[.:])?(\d+)\.?$/.exec(q || '');
+		if (!m) return null;
+		const [, book, c1, v1, c2, n] = m;
+		const from = [+c1, v1 ? +v1 : 1], to = v1 || c2 ? [c2 ? +c2 : +c1, +n] : [+n, Infinity];
+		return to[0] < from[0] || (to[0] === from[0] && to[1] < from[1]) ? null : {book: book.trim().replace(/\.$/, ''), from, to}; // ("Rom. 1:4-20")
+	}
+	// Bible d's lines in range r: [first, last] (in its order, the Bible's),
+	// or null. Its book's code, or the name a Bible gives it (books).
+	const bookCode = book => (b => books?.find(x => x.code.toLowerCase() === b || x.name.toLowerCase() === b)?.code || book)(book.toLowerCase());
+	const headsCache = {};
+	const headsOf = d => headsCache[d] ??= askDict(d, {type: 'heads'}).then(r => r.heads.map(h => h.toLowerCase()));
+	function rangeLines(d, r){
+		return headsOf(d).then(heads => {
+			const code = bookCode(r.book).toLowerCase();
+			const after = (c, v, [fc, fv]) => c > fc || (c === fc && v >= fv);
+			let first = -1, last = -1;
+			heads.forEach((h, i) => {
+				const m = /^(.+) (\d+)\.(\d+)$/.exec(h);
+				if (!m || m[1] !== code) return;
+				if (first < 0 && after(+m[2], +m[3], r.from)) first = i;
+				if (!after(+m[2], +m[3], [r.to[0], r.to[1] + 1])) last = i;
+			});
+			return first >= 0 && last >= first ? [first, last] : null;
+		});
+	}
+	const lineMsg = (from, n) => ({type: 'renderlines', lines: Array.from({length: n}, (_, i) => [from + i, 3])}); // (3: by line)
+	// A range searched: each Bible text's lines in it, like a chapter's, in
+	// pieces as the end of them comes near (rangeMore). In no Bible: searched.
+	let ranged = null; // {gen, parts: [{d, at (the next line), last}], busy}
+	let rangeShown = ''; // The range showing (the Bible bar's)
+	function rangeSearch(r, otherwise){
+		const gen = ++searchGen;
+		worker_code.fill(true); // (nothing for the workers to go on with)
+		num = 0;
+		ranged = null;
+		const texts = dictIds.filter(d => isBibleText(d) && searched(d) && (parallel || d === readText()));
+		new Promise(then => books ? then() : loadBooks(then))
+			.then(() => Promise.all(texts.map(d => rangeLines(d, r).then(l => l && {d, at: l[0], last: l[1]}))))
+			.then(parts => {
+				if (gen !== searchGen) return;
+				parts = parts.filter(Boolean);
+				if (!parts.length) return otherwise();
+				cleanup(resultsDiv);
+				loader = document.createElement('p-d');
+				loader.id = 'loader';
+				loader.textContent = "Loading more…";
+				resultsDiv.append(loader);
+				ranged = {gen, parts, busy: false};
+				lastRead = `${bookCode(r.book)} ${r.from[0]}.`; // (the Bible bar's)
+				rangeShown = query;
+				renderBibleBar();
+				rangeMore();
+			});
+	}
+	function rangeMore(){
+		const g = ranged;
+		if (!g || g.busy || g.gen !== searchGen) return;
+		g.busy = true;
+		Promise.all(g.parts.filter(p => p.at <= p.last).map(p => {
+			const n = Math.min(30, p.last - p.at + 1);
+			p.at += n;
+			return askDict(p.d, lineMsg(p.at - n, n)).then(r => [p.d, r.entries]);
+		})).then(rs => {
+			if (g.gen !== searchGen) return;
+			rs.forEach(([d, entries]) => entries.forEach(e => e && addVerse(e, updateQuery(e.header), d)));
+			g.busy = false;
+			if (g.parts.some(p => p.at <= p.last)) return loadmore();
+			loader?.remove();
+			loader = null;
+			ranged = null;
+		});
+	}
+	// In the popup: the whole range, in each Bible text on (its first 500 verses)
+	function popupRange(r, text){
+		const texts = dictIds.filter(d => isBibleText(d) && (libOn[d] || isOn(d, 'gloss')));
+		new Promise(then => books ? then() : loadBooks(then))
+			.then(() => Promise.all(texts.map(d => rangeLines(d, r).then(l => l && askDict(d, lineMsg(l[0], Math.min(500, l[1] - l[0] + 1))).then(x => [d, x.entries])))))
+			.then(rs => {
+				if (popupQuery !== text) return;
+				rs.filter(Boolean).forEach(([d, entries]) => entries.forEach(e => e && addVerse(e, updateQuery(e.header), d, popupResults)));
+				if (popupResults.querySelector('.vs')) popupOpen();
+			});
+	}
 	const search = text => { setQueryText(text); startSearch(); addHistory(queryText); };
 	let readHl = ''; // The verse to show in its chapter (Read in context)
 	window.readInContext = btn => {
@@ -859,7 +953,7 @@ if(!isDictPage){
 	const bibleBar = $('chNav');
 	function renderBibleBar(){
 		if (isChapter(query)) lastRead = query;
-		bibleBar.hidden = !bibleMode() && !isChapter(query);
+		bibleBar.hidden = !bibleMode() && !isChapter(query) && rangeShown !== query;
 		if (bibleBar.hidden) return;
 		if (!books) return loadBooks(renderBibleBar);
 		const {b, ch} = chapterAt(lastRead);
@@ -1587,6 +1681,7 @@ if(!isDictPage){
 		popupQuery = text;
 		cleanup(popupResults);
 		const q = updateQuery(text), mask = glossMask();
+		if (hasBible && rangeOf(q)) return popupRange(rangeOf(q), text);
 		const go = m => forWorkers(m, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
 		go(mask);
 		// The gloss's that aren't loaded (off on the page): once they are
@@ -1668,6 +1763,7 @@ if(!isDictPage){
 	// More results when the end of them comes near (a chapter's verses too;
 	// Read in context: till its verse is there; nothing searched: nothing)
 	function loadmore(){
+		if (ranged && loader && loader.getBoundingClientRect().top <= window.innerHeight + 400) rangeMore();
 		if(query && ((readHl && !resultsDiv.querySelector('.vs.ctx')) || (loader && loader.getBoundingClientRect().top <= window.innerHeight + 400)) && worker_code.includes(false))
 			getResults();
 	}
@@ -1759,12 +1855,28 @@ if(!isDictPage){
 	// their details; its files are added to the words found, addMedia)
 	function translateText(ids, text, done){
 		text = text.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
-		Promise.all(ids.map((d, k) => askDict(d, {type: 'matchall', query: text}).then(r => {
+		Promise.all([...ids.map((d, k) => askDict(d, {type: 'matchall', query: text}).then(r => {
 			const row = glossRow(d);
 			return r.matches
 				.filter(([a]) => !/\s/.test(text[a])) // A word doesn't start with the space before it (a second index word can)
 				.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k, row}));
-		}))).then(all => pickPieces(all.flat(), text, done));
+		})), rangeMatches(ids, text)]).then(all => pickPieces(all.flat(), text, done));
+	}
+	// The Bible ranges in a text ("rom 1.4-20", "Romans 8:28-30"): a word
+	// each (first: before its parts), its gloss the start of its verses, in a
+	// Bible text that glosses (or else one that's on); tapped, the popup has
+	// them all (popupRange)
+	const RANGES = /(^|[^\p{L}\p{N}])((?:\d ?)?\p{L}[\p{L}\p{M}]*\.? ?\d+(?:[.:]\d+)? ?[-–] ?(?:\d+[.:])?\d+)(?!\p{N})/gu;
+	function rangeMatches(ids, text){
+		const d = ids.find(isBibleText) ?? dictIds.find(x => isBibleText(x) && libOn[x]);
+		const found = d === undefined ? [] : [...text.matchAll(RANGES)].map(m => ({a: m.index + m[1].length, s: m[2], r: rangeOf(m[2])})).filter(x => x.r);
+		if (!found.length) return [];
+		return new Promise(then => books ? then() : loadBooks(then))
+			.then(() => Promise.all(found.map(x => rangeLines(d, x.r).then(l => l && askDict(d, lineMsg(l[0], Math.min(20, l[1] - l[0] + 1))).then(res => ({
+				a: x.a, len: x.s.length, d, rank: -1, sec: 0, row: glossRow(d),
+				r: {header: x.s, body: res.entries.filter(Boolean).map(e => e.body.replace(/<p-n>[\s\S]*?<\/p-n>/, '')).join(' '), d, sec: 0}, // (rendered already)
+			}))))))
+			.then(xs => xs.filter(Boolean));
 	}
 
 
@@ -1820,7 +1932,7 @@ if(!isDictPage){
 				const parts = x ? [] : splitText(xs.filter(y => y.a >= p.a && y.a + y.len <= p.b), text, p.a, p.b);
 				return x ? [x] : parts.every(q => q.w) ? parts.map(q => q.w) : [];
 			});
-			p.rows.flat().forEach(x => push(byDict, x.d, x));
+			p.rows.flat().forEach(x => x.r || push(byDict, x.d, x)); // (a range's is rendered)
 		});
 		Promise.all([...byDict].map(([d, xs]) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}).then(r => {
 			xs.forEach((x, i) => { if (r.entries[i]) x.r = {...r.entries[i], d, sec: x.sec}; });
@@ -1997,6 +2109,13 @@ if(!isDictPage){
 		hideRefresh(); // (this search has every dictionary that's loaded)
 		translationDiv.replaceChildren();
 		window.scrollTo(0, 0);
+		updateStatus('No matches found.');
+		queryInput.classList.add("error");
+		const range = hasBible && rangeOf(query);
+		if (range) rangeSearch(range, runSearch);
+		else runSearch();
+	}
+	function runSearch(){
 		worker_code.fill(false);
 		st = globreg.test(query) ? 0 : 3;
 		searching = searchMask(); // (the workers skip the ones not loaded)
@@ -2006,8 +2125,6 @@ if(!isDictPage){
 		loader.textContent = "Loading more…";
 
 		searchStage(true);
-		updateStatus('No matches found.');
-		queryInput.classList.add("error");
 	}
 
 	// The search again, even if it's what's showing
