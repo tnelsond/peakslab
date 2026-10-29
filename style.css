@@ -13,7 +13,7 @@
 	--card-text: #1a1a1a;
 	--header-bg: #643;
 	--header-fg: #f3e6c8;
-	--tab-bg: #df8;
+	--tab-bg: #ac0; /* the logo's green */
 	--color1: #060;
 	--maintext: #100;
 	--alttext: #900;
@@ -46,7 +46,7 @@ body.dark-mode {
 	--gloss: #2b7d3c;
 	--alttext: #d75;
 	--tab-bg: #672;
-	--color1: #df8;
+	--color1: #ac0; /* the logo's green */
 	--bg-color: #321;
 	--card-bg: #110;
 	--card-text: #e0e0ff;
@@ -292,9 +292,7 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	height: 32px;
 	padding: 0 6px 0 10px;
 	border: 0;
-	background: #fd9; /* (as the language symbols' circles were) */
-	color: #432;
-	font-weight: 600;
+	background: rgba(255,255,255,.12);
 }
 .sub-div { flex: none; width: 1px; height: 20px; background: rgba(255,255,255,.25); }
 #quick {
