@@ -403,13 +403,16 @@ if(!isDictPage){
 		// Its headings go above its number, which stays on the line with its
 		// first word
 		const heads = (/^\s*(?:<h\d[^>]*>[\s\S]*?<\/h\d>\s*)+/i.exec(body) || [''])[0];
-		const rest = body.slice(heads.length).trimStart();
+		let rest = body.slice(heads.length).trimStart();
+		const para = /^((?:<[^>]+>\s*)*)¶\s*/.exec(rest); // A paragraph starts with it: no ¶, a new line (CSS)
+		if(para)
+			rest = para[1] + rest.slice(para[0].length);
 		const word = /^[^\s\u200B<]*/.exec(rest)[0];
 		const tag = text ? 'span' : 'div', t = document.createElement('template');
 		// In parallel, in the verse's group, by verse, each text as the
 		// dictionaries go: like an entry, with its name and Gloss
 		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}${translateBtnHTML}` : '') +
-			`<${tag} class="vs" data-v="${v}">${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
+			`<${tag} class="vs${para ? ' para' : ''}" data-v="${v}">${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
 			(par ? `</${tag}></div>` : `<button class="vs-tr" onclick="translateEntry(this)" title="Gloss word by word" aria-label="Gloss this verse">⇄</button>${bmBtnHTML(h)}<button class="vs-cmp" onclick="compareVerse(this)" data-w="${escapeHTML(h)}" title="Compare translations" aria-label="Compare translations">${compareSVG}</button> </${tag}>`);
 		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
 		if(par){

@@ -372,6 +372,8 @@ p-d {
 .about { padding: 16px 18px; background: var(--card-bg); color: var(--card-text); line-height: 1.6; }
 .about h2, .about h3 { margin: .3em 0; color: var(--color1); }
 .drawer-body .about { margin: -4px -14px -24px; min-height: 100%; } /* (the whole drawer) */
+/* A chapter's paragraphs: a verse that starts one (its ¶) on a new line */
+.vs ~ .vs.para::before { content: ""; display: block; margin-top: .5em; }
 p-d h1 { font-size: 1.5em; }
 p-d h1, p-d h2, p-d h3 {
 	margin-top: 0;
