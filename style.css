@@ -290,9 +290,11 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	align-items: center;
 	gap: 6px;
 	height: 32px;
-	padding: 0 8px 0 12px;
+	padding: 0 7px 0 9px;
 	border: 0;
-	background: rgba(255,255,255,.12);
+	background: #fd9; /* (as the language symbols' circles were) */
+	color: #432;
+	font-weight: 600;
 }
 .sub-div { flex: none; width: 1px; height: 20px; background: rgba(255,255,255,.25); }
 #quick {
