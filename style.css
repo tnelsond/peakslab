@@ -288,9 +288,9 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 #langBtn {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
+	gap: 4px;
 	height: 32px;
-	padding: 0 7px 0 9px;
+	padding: 0 6px;
 	border: 0;
 	background: #fd9; /* (as the language symbols' circles were) */
 	color: #432;
