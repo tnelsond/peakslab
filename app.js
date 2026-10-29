@@ -1099,8 +1099,7 @@ if(!isDictPage){
 			() => `<ul class="rows dict-rows">${xs.map(x => `<li class="row dict-row"><div class="row-main">${infoHTML(x)}</div>` +
 				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button></li>`).join('')}</ul>`);
 		const here = sizeOf(dictIds.filter(d => downloaded.has(d) && dicts[d].lang === curLang)); // (not other languages')
-		return '<h2>Library</h2><p class="lib-help">⬇ downloads a dictionary and 🗑 deletes it (the filter turns them on or off). Star the ones you use most: their entries come first.</p>' +
-			'<p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
+		return '<h2>Library</h2><p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
 			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''} <button class="text-btn" data-first="delete">Delete everything…</button></p>` +
 			catsHTML('library') +
 			(byLang.size ? `<ul class="rows cats">${groupHTML('library:langs', groupHead('library:langs', 'Other languages', `${byLang.size} languages: add their dictionaries`),
