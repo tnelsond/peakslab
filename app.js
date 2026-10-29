@@ -280,7 +280,7 @@ if(!isDictPage){
 			markBookmarks(div);
 		}
 		if(!popup && isBibleText(d) && !div.querySelector(':scope > .card-bar')) // A verse's card: its bar, under its reference
-			addCardBar(div, verseRef(nheader), div.querySelector(':scope > h2'));
+			addCardBar(div, verseRef(nheader), nheader);
 		// A media file's: its details and the file; text: Gloss, the chords'
 		// show/hide button if it has any, and the text
 		const t = document.createElement('template');
@@ -401,7 +401,7 @@ if(!isDictPage){
 			card.innerHTML = shareBtnHTML + (par ? '<p-e></p-e>' : entryHTML(d));
 			const after = [...root.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > cardSort);
 			root.insertBefore(card, after || (main && loader && loader.parentNode === resultsDiv ? loader : null));
-			if (main && (par || isBibleText(d))) addCardBar(card, searchRef(), null); // (its Share goes in it)
+			if (main && (par || isBibleText(d))) addCardBar(card, searchRef(), query); // (its Share goes in it)
 		}
 		const ref = label && /(\p{Nd}+\s*[:.]\s*)(\p{Nd}+)/u.exec(label);
 		const full = ref && (own ? own.range : rangeOf(main ? query : updateQuery(popupQuery))) && (cv === 1 || !card.querySelector('.vs'));
@@ -1008,17 +1008,16 @@ if(!isDictPage){
 	}
 	const cardRef = card => ({bk: card.dataset.bk, from: +card.dataset.from, to: +card.dataset.to, kind: card.dataset.kind});
 	const bookOf = bk => books?.find(x => x.code.toLowerCase() === bookCode(bk).toLowerCase());
-	// The bar into a card, after el (none: at its top, with the card's Share)
-	function addCardBar(card, ref, el){
+	// The bar at the top of a card, in place of its heading (a verse's
+	// stays, hidden: its headword is its bookmark's and Share's) and its
+	// Share; q, what its Popup searches
+	function addCardBar(card, ref, q){
 		if (!ref) return;
-		Object.assign(card.dataset, {bk: ref.bk, from: ref.from, to: ref.to, kind: ref.kind});
+		Object.assign(card.dataset, {bk: ref.bk, from: ref.from, to: ref.to, kind: ref.kind, q});
 		const bar = document.createElement('div');
 		bar.className = 'card-bar';
-		if (el) el.after(bar);
-		else {
-			card.querySelector(':scope > .share-btn')?.remove();
-			card.prepend(bar);
-		}
+		card.querySelector(':scope > .share-btn')?.remove();
+		card.prepend(bar);
 		renderCardBar(card);
 	}
 	// A reference in the book's own name and digits: "John 3:16", "Romans
@@ -1040,22 +1039,32 @@ if(!isDictPage){
 		const chapter = ref.kind === 'chapter' && b ? `${b.code} ${Math.floor(ref.from / 1000)}.` : '';
 		const go = (dir, label) => chapter ? `<button class="ch-go" data-go="${dir}" aria-label="${label} chapter"${nextChapter(chapter, dir) ? '' : ' disabled'}>${dir < 0 ? '‹' : '›'}</button>` : '';
 		const label = par && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation';
-		bar.innerHTML = go(-1, 'Previous') + `<button class="cb-book" data-cb="book" title="Books">${refLabel(ref)} ▾</button>` +
-			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>` +
-			go(1, 'Next') + (card.matches('.chapter') ? shareBtnHTML : '');
+		// Not a chapter (a verse, a range): no ‹ ›, but Read in context (its
+		// whole chapter) and Popup
+		const more = ref.kind === 'chapter' ? '' : '<button class="cb-act" data-cb="ctx" title="Read the whole chapter, at this">Read in context</button>' +
+			'<button class="cb-act" data-cb="popup" title="Show it in the popup, in every translation">Popup</button>';
+		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book" data-cb="book" title="Books">${refLabel(ref)} ▾</button>` +
+			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>${go(1, 'Next')}</span>` +
+			`<span class="cb-acts">${more}${ref.kind === 'verse' ? bmBtnHTML() : ''}${shareBtnHTML}</span>`;
+		markBookmarks(bar);
 	}
 	const renderCardBars = () => resultsDiv.querySelectorAll(':scope > p-d > .card-bar').forEach(bar => renderCardBar(bar.parentNode));
 	resultsDiv.addEventListener('click', e => {
-		const b = e.target.closest('.card-bar > button');
-		if (!b || b.matches('.share-btn')) return;
-		const card = b.closest('p-d'), b0 = bookOf(card.dataset.bk);
+		const b = e.target.closest('.card-bar button');
+		if (!b || b.matches('.share-btn, .bm-btn')) return;
+		const card = b.closest('p-d'), b0 = bookOf(card.dataset.bk), ref = cardRef(card);
 		if (b.dataset.cb === 'texts') return openCardTexts(card);
 		closeMenus();
-		if (b.dataset.go) search(nextChapter(`${b0.code} ${Math.floor(card.dataset.from / 1000)}.`, +b.dataset.go));
+		const code = (b0?.code || ref.bk).toLowerCase(), c = Math.floor(ref.from / 1000);
+		if (b.dataset.go) search(nextChapter(`${b0.code} ${c}.`, +b.dataset.go));
 		else if (b.dataset.cb === 'book') {
 			booksPick = b0?.code || null;
 			openDrawer('books');
-		}
+		} else if (b.dataset.cb === 'ctx') { // Its chapter, at its (first) verse
+			readHl = `${code} ${c}.${ref.from % 1000}`;
+			query = ''; // (searches again even if it's the chapter showing)
+			search(`${code} ${c}.`);
+		} else if (b.dataset.cb === 'popup') openPopupSearch(card.dataset.q);
 	});
 	// A card's translations, in the side panel (the translations drawer's,
 	// for just that card: textsCard): Parallel, and the downloaded
