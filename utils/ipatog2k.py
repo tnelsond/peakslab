@@ -142,8 +142,8 @@ def convert(key, ipa):
 			nuc = VOWEL.get(v, v)
 		if nuc == 'ọ' and coda == 'm':
 			nuc = 'ʊ'  # ុំ cʊm, phnʊm
-		elif nuc == 'ọ' and coda in ('', 'ʔ', 'h'):
-			nuc = 'u'  # an open ុ: ajuʔ, and before h: នោះ nuh
+		elif nuc == 'ọ' and v == 'u' and coda in ('', 'ʔ', 'h'):
+			nuc = 'u'  # an open ុ: ajuʔ, and before h: ពុះ puh (but ោ isn't: ទោស tọh)
 		if nuc == 'aᵊ' and coda == 'c':
 			nuc = 'aᵒ'  # សើច saᵒc
 		if coda == 'ŋ' and nuc in ('i', 'e', 'ɛ', 'aᵋ', 'ɛᵉ'):

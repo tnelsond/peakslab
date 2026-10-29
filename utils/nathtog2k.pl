@@ -120,7 +120,7 @@ sub syllable {
 	$nuc = $ser == 1 ? 'aʲ' : 'ɛʲ', $coda = '' if $vowel eq '័' && $coda eq 'j'; # ឆ័យ cʰaʲ, ជ័យ cɛʲ
 	if ($vowel eq 'ិ' && ($coda =~ /^[ɲc]$/ || $coda eq 't' && $ser == 1)) { $nuc = $coda eq 'c' ? 'e' : 'ɛ' } # វិញ wɛɲ, ចិត្ត cɛt, តិច tec (but បណ្ឌិត ɓɔnɗət)
 	$nuc = 'ʊ' if $nuc eq 'ọ' && $coda eq 'm';                    # ុំ cʊm
-	$nuc = 'u' if $nuc eq 'ọ' && $coda eq 'h';                    # នុះ nuh, មៈ-នុស
+	$nuc = 'u' if $nuc eq 'ọ' && $vowel eq 'ុ' && $coda eq 'h';   # នុះ nuh, មៈ-នុស (but ទោស tọh)
 	$nuc = 'aᵒ' if $nuc eq 'aᵊ' && $coda eq 'c';                 # សើច saᵒc
 	$nuc = 'aɯ', $coda = '' if $nuc eq 'a' && $coda eq 'w';       # ាវ aɯ
 	$nuc = 'əⁱ', $coda = '' if $vowel eq 'ូ' && $coda eq 'w';      # ូវ kəⁱ
