@@ -124,7 +124,7 @@ let drawerView = null;
 function closeDrawer(){
 	drawerView = null;
 	drawer.classList.add('hide');
-	document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', false));
+	document.querySelectorAll('[data-drawer], .cb-text').forEach(b => b.setAttribute('aria-expanded', false));
 }
 drawer.querySelector('.drawer-close').addEventListener('click', closeDrawer);
 drawer.querySelector('.drawer-bg').addEventListener('click', closeDrawer);
@@ -1041,7 +1041,7 @@ if(!isDictPage){
 		const go = (dir, label) => chapter ? `<button class="ch-go" data-go="${dir}" aria-label="${label} chapter"${nextChapter(chapter, dir) ? '' : ' disabled'}>${dir < 0 ? '‹' : '›'}</button>` : '';
 		const label = par && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation';
 		bar.innerHTML = go(-1, 'Previous') + `<button class="cb-book" data-cb="book" title="Books">${refLabel(ref)} ▾</button>` +
-			`<button class="cb-text" data-cb="texts" aria-haspopup="true" aria-expanded="${bar.nextElementSibling?.classList.contains('tx-menu') || false}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>` +
+			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>` +
 			go(1, 'Next') + (card.matches('.chapter') ? shareBtnHTML : '');
 	}
 	const renderCardBars = () => resultsDiv.querySelectorAll(':scope > p-d > .card-bar').forEach(bar => renderCardBar(bar.parentNode));
@@ -1049,7 +1049,7 @@ if(!isDictPage){
 		const b = e.target.closest('.card-bar > button');
 		if (!b || b.matches('.share-btn')) return;
 		const card = b.closest('p-d'), b0 = bookOf(card.dataset.bk);
-		if (b.dataset.cb === 'texts') return cardTextsMenu(card);
+		if (b.dataset.cb === 'texts') return openCardTexts(card);
 		closeMenus();
 		if (b.dataset.go) search(nextChapter(`${b0.code} ${Math.floor(card.dataset.from / 1000)}.`, +b.dataset.go));
 		else if (b.dataset.cb === 'book') {
@@ -1057,55 +1057,48 @@ if(!isDictPage){
 			openDrawer('books');
 		}
 	});
-	// A card's translations: Parallel, and the downloaded translations (off:
-	// pick one; on: any), then Apply to all
-	function cardTextsHTML(card){
+	// A card's translations, in the side panel (the translations drawer's,
+	// for just that card: textsCard): Parallel, and the downloaded
+	// translations (off: pick one; on: any), then Apply to all
+	let textsCard = null;
+	function openCardTexts(card){
+		if (drawerView === 'cardtexts' && textsCard === card) return closeDrawer();
+		textsCard = card;
+		drawerView = null; // (opens it, even from another card's)
+		openDrawer('cardtexts');
+		renderCardBars();
+	}
+	function cardTextsHTML(){
+		const card = textsCard;
+		if (!card?.isConnected) return '<p class="empty">That card is gone: search again.</p>';
 		const texts = cardTexts(card), par = cardPar(card), all = dictIds.filter(d => isBibleText(d) && downloaded.has(d));
-		return `<ul class="rows">${rowHTML('check', `data-tx-par="1" aria-pressed="${par}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul>` +
-			`<h3 class="drawer-h">${card.dataset.own ? 'This card' : 'Translations'}</h3>` +
-			(all.length ? `<ul class="rows">${all.map(d => rowHTML(par ? 'check' : 'radio', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, escapeHTML(dicts[d].name), escapeHTML(typeLabel(dicts[d])))).join('')}</ul>` :
-				'<p class="empty">None downloaded. <button class="text-btn" data-library="1">Go to the library</button></p>') +
+		return `<p class="empty">For ${refLabel(cardRef(card))} only. Apply to all for every card.</p>` +
+			`<ul class="rows">${rowHTML('check', `data-tx-par="1" aria-pressed="${par}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul>` +
+			`<h3 class="drawer-h">Translations</h3>` + (all.length ? '' : '<p class="empty">None downloaded.</p>') +
+			moreHTML + `<ul class="rows">${all.map(d => rowHTML(par ? 'check' : 'radio', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, escapeHTML(dicts[d].name), escapeHTML(typeLabel(dicts[d])))).join('')}</ul>` +
 			`<button class="tx-all" data-tx-all="1"${texts.length ? '' : ' disabled'}>Apply to all</button>`;
 	}
-	// The menu under the card's bar (its translation button again, or a tap
-	// anywhere else, closes it): a choice changes just the card
-	function cardTextsMenu(card){
-		const bar = card.querySelector(':scope > .card-bar'), open = bar.nextElementSibling?.classList.contains('tx-menu');
-		closeMenus();
-		bar.querySelector('.cb-text').setAttribute('aria-expanded', !open);
-		if (open) return;
-		const m = document.createElement('div');
-		m.className = 'menu tx-menu';
-		m.innerHTML = cardTextsHTML(card);
-		m.addEventListener('click', e => {
-			e.stopPropagation();
-			const b = e.target.closest('button');
-			if (!b) return;
-			const {tx, txPar, txAll, library} = b.dataset;
-			if (library || txAll) {
-				m.remove();
-				bar.querySelector('.cb-text')?.setAttribute('aria-expanded', false);
-				return library ? openLibrary() : applyToAll(card);
-			}
-			let texts = cardTexts(card), par = cardPar(card);
-			if (txPar) {
-				par = !par;
-				if (!par) texts = [texts[0] ?? barTexts()[0] ?? dictIds.find(d => isBibleText(d) && downloaded.has(d))].filter(x => x !== undefined);
-			} else if (tx !== undefined) {
-				const d = +tx;
-				texts = !par ? [d] : texts.includes(d) ? texts.filter(x => x !== d) : dictIds.filter(x => x === d || texts.includes(x));
-			} else return;
-			setCardTexts(card, texts, par);
-			if (!par && tx !== undefined) {
-				m.remove();
-				bar.querySelector('.cb-text').setAttribute('aria-expanded', false);
-			} else m.innerHTML = cardTextsHTML(card);
-		});
-		bar.after(m);
-		const p = m.offsetParent.getBoundingClientRect(), a = bar.querySelector('.cb-text').getBoundingClientRect();
-		m.style.top = `${a.bottom - p.top + 4}px`;
-		if (a.left - p.left + m.offsetWidth <= p.width) m.style.left = `${Math.max(0, a.left - p.left)}px`;
-		else m.style.right = '0';
+	// A choice in it changes just the card (picking one, not in parallel,
+	// closes it, as the translations drawer does)
+	function cardTextsClick({tx, txPar, txAll}){
+		const card = textsCard;
+		if (!card?.isConnected) return;
+		if (txAll) {
+			closeDrawer();
+			return applyToAll(card);
+		}
+		let texts = cardTexts(card), par = cardPar(card);
+		if (txPar) {
+			par = !par;
+			if (!par) texts = [texts[0] ?? barTexts()[0] ?? dictIds.find(d => isBibleText(d) && downloaded.has(d))].filter(x => x !== undefined);
+		} else {
+			const d = +tx;
+			texts = !par ? [d] : texts.includes(d) ? texts.filter(x => x !== d) : dictIds.filter(x => x === d || texts.includes(x));
+		}
+		setCardTexts(card, texts, par);
+		if (!par && tx !== undefined) closeDrawer();
+		else renderDrawer();
+		renderCardBars();
 	}
 	function setCardTexts(card, texts, par){
 		Object.assign(card.dataset, {own: 1, texts: texts.join(), par: par ? 1 : 0});
@@ -1283,7 +1276,7 @@ if(!isDictPage){
 	let showLibrary = false; // The menu's Library and settings, until something is searched
 	// Each view's title and what's in it (the filter's and the gloss's: VIEWS, filterHTML)
 	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '');
-	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], books: ['Books', booksHTML], texts: ['Bible translations', textsHTML],
+	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], books: ['Books', booksHTML], texts: ['Bible translations', textsHTML], cardtexts: ['Bible translations', cardTextsHTML],
 		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML], about: ['About', () => $('about').innerHTML]};
 	function renderDrawer(){
 		const v = drawerView, scroll = drawerBody.scrollTop, [title, html] = drawers[v] || [VIEWS[v].title, filterHTML];
@@ -1483,7 +1476,7 @@ if(!isDictPage){
 
 	// The filter, the translations and the library, where they're showing
 	function renderLists(){
-		if (VIEWS[drawerView] || drawerView === 'texts') renderDrawer();
+		if (VIEWS[drawerView] || drawerView === 'texts' || drawerView === 'cardtexts') renderDrawer();
 		renderLibrary();
 	}
 	// Again, once (the service worker says which files it has all at once)
@@ -1602,7 +1595,8 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, get, del, delpath, unlink, add, exp, library, pick, level, first} = b.dataset;
+		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txPar, txAll} = b.dataset;
+		if (tx !== undefined || txPar || txAll) return cardTextsClick(b.dataset); // (a card's translations)
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
