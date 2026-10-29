@@ -130,7 +130,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerView
 
 if(!isDictPage){
 	// The root page: the app with nothing but the language button (typing
-	// opens it too, and the text goes along), and what Peak Slab is
+	// opens it too, and the text goes along), and what Peak Slab is (the
+	// About drawer elsewhere)
 	['menuBtn', 'headMenu', 'quick', 'settings', 'controls'].forEach(id => $(id).classList.add('hide'));
 	document.querySelector('.sub-div').classList.add('hide');
 	$('about').classList.remove('hide');
@@ -142,7 +143,7 @@ if(!isDictPage){
 		drawer.classList.remove('hide');
 	};
 	langBtn.addEventListener('click', openLangs);
-	$('pickLang').addEventListener('click', openLangs);
+	$('about').querySelector('[data-open]').addEventListener('click', openLangs);
 	queryInput.addEventListener('input', openLangs);
 }else{
 	let num = 0;
@@ -244,22 +245,27 @@ if(!isDictPage){
 		if(!popup && isChapter(query)) // Reading a chapter: just it
 			return;
 		let div = $(`${idpre}-${nheader}`);
-		const first = div === null;
+		const d = dictOf(data);
+		if (typeof data.body === 'string' && div?.seen.has(d + '\t' + data.body)) return; // An entry found twice (by two of the searches) shows once
+		// Nothing goes in above the bottom of the screen (what's read, or
+		// being read): an entry that would starts its word again at the end
+		const more = !popup && div && fixed([...div.children].find(c => +c.dataset.id > sortId(d)));
+		const first = !div || more;
 		if(first){
+			const seen = div?.seen;
+			div?.removeAttribute('id');
 			div = document.createElement('p-d');
 			div.id = `${idpre}-${nheader}`;
-			if(idpre == "mid" || data.st == 2){ // The other dictionaries' entries for it
+			div.seen = seen || new Set();
+			if(!more && (idpre == "mid" || data.st == 2)){ // The other dictionaries' entries for it
 				const mask = popup ? glossMask() : searchMask();
 				mask[dicts.findIndex(x => x.name === data.dict)] = false;
 				forWorkers(mask, (w, code) => w.postMessage({type: "tempsearch", st: 1, query: nheader, dest: data.dest, dicts: code, gen: searchGen}));
 			}
 		}
-		const d = dictOf(data);
 		if(isBibleText(d))
 			div.classList.add('verse');
-		const seen = div.seen ??= new Set(); // An entry found twice (by two of the searches) shows once
-		if (typeof data.body === 'string' && seen.has(d + '\t' + data.body)) return;
-		seen.add(d + '\t' + data.body);
+		div.seen.add(d + '\t' + data.body);
 		if(first){
 			const ctx = isBibleText(d) && chapterOf(nheader) && chapterOf(nheader) !== query ? '<button class="ctx-btn" onclick="readInContext(this)">Read in context</button>' : '';
 			div.innerHTML = `<h2><span class="hw">${data.header}</span>${ctx}${bmBtnHTML()}${shareBtnHTML}</h2>` +
@@ -276,7 +282,7 @@ if(!isDictPage){
 			el.append(mediaElement(data.filetype, data.body, data.header));
 		insertSorted(div, el, sortId(d));
 
-		if(!popup && isStar(d)){ // Its sections go above the other dictionaries'
+		if(!popup && isStar(d) && !fixed(focusEnd.isConnected ? focusEnd : resultsDiv) && !(div.isConnected && fixed(div))){ // Its sections go above the other dictionaries' (off the screen)
 			if(!focusEnd.isConnected)
 				resultsDiv.prepend(focusEnd);
 			if(first || focusEnd.compareDocumentPosition(div) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -290,6 +296,9 @@ if(!isDictPage){
 		}
 		if(!popup) found();
 	}
+	// Not to move: on the screen or above it (and showing), once the
+	// search's first results are in (its first 300 ms: in order)
+	const fixed = el => performance.now() - searchAt > 300 && el?.getClientRects().length > 0 && el.getBoundingClientRect().top < innerHeight;
 	// el into parent before the first child with a bigger data-id (or data-[key])
 	const insertSorted = (parent, el, n, key = 'id') => parent.insertBefore(el, [...parent.children].find(c => +c.dataset[key] > n) || null);
 	// An entry of dictionary d (starred: they come first, and stand out),
@@ -994,7 +1003,7 @@ if(!isDictPage){
 	// Each view's title and what's in it (the filter's and the gloss's: VIEWS, filterHTML)
 	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '');
 	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], books: ['Books', booksHTML], texts: ['Bible translations', textsHTML],
-		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML]};
+		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML], about: ['About', () => $('about').innerHTML]};
 	function renderDrawer(){
 		const v = drawerView, scroll = drawerBody.scrollTop, [title, html] = drawers[v] || [VIEWS[v].title, filterHTML];
 		drawer.querySelector('.drawer-title').textContent = title;
@@ -1606,7 +1615,7 @@ if(!isDictPage){
 		return stars.filter(d => d % workers.length == i).map(didOf);
 	}
 
-	let searchGen = 0;
+	let searchGen = 0, searchAt = 0;
 	// The search's stage st (a new search's first) in each worker with
 	// dictionaries searched in it, and its first results; worker_code[i]:
 	// worker i is done
@@ -1614,6 +1623,7 @@ if(!isDictPage){
 		if (start) {
 			num = 0;
 			++searchGen;
+			searchAt = performance.now();
 		}
 		forWorkers(searching, (w, code, i) => {
 			const any = code.includes(true);

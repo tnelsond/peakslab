@@ -984,6 +984,7 @@ body.no-scroll #controls { z-index: 3001; } /* Over a popup too */
 	opacity: .55;
 }
 .control-btn:hover, body.fullscreen .control-btn { opacity: 1; }
+body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscreen: just ⛶ (install's display is inline) */
 .control-btn.txt { font-size: 14px; font-weight: 600; }
 
 /* The menu for selected text */
