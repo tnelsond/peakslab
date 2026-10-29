@@ -14,6 +14,7 @@
 	--header-bg: #643;
 	--header-fg: #f3e6c8;
 	--tab-bg: #ac0; /* the logo's green */
+	--tab-fg: #000;
 	--color1: #060;
 	--maintext: #100;
 	--alttext: #900;
@@ -46,6 +47,7 @@ body.dark-mode {
 	--gloss: #2b7d3c;
 	--alttext: #d75;
 	--tab-bg: #672;
+	--tab-fg: #ac0;
 	--color1: #ac0; /* the logo's green */
 	--bg-color: #321;
 	--card-bg: #110;
@@ -316,7 +318,7 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 }
 .qk svg { flex: none; width: 16px; height: 16px; }
 .qk s { opacity: .75; }
-.qk[aria-pressed="true"] { border-color: transparent; background: var(--tab-bg); color: var(--color1); font-weight: 600; }
+.qk[aria-pressed="true"] { border-color: transparent; background: var(--tab-bg); color: var(--tab-fg); font-weight: 600; }
 .cat-chk { flex: none; }
 
 /* Content */
@@ -421,6 +423,7 @@ p-h { /* the dictionary's name and buttons */
 	background: var(--tab-bg);
 	font-size: 13px;
 	line-height: 1.6;
+	user-select: none; /* (not copied with the entries) */
 }
 p-l {
 	margin-bottom: .3em;
