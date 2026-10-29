@@ -1,6 +1,9 @@
 #define ZSTD_STATIC_LINKING_ONLY
 #include "zstddeclib.c"
 #include "utils/stringzilla/stringzilla.h"
+#if defined(__wasm_simd128__)
+#include <wasm_simd128.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 
@@ -264,6 +267,30 @@ void continue_search(enum searchtype st){
 
 static int p_startline(struct tpat *t);
 
+// sz_find, 16 places at a time in wasm (StringZilla's are x86 and Arm only,
+// so wasm gets its serial one): the places with the needle's first, middle
+// and last bytes, then the whole needle there; the rest (under 16 + its
+// length) is sz_find's.
+static const char *p_find(const char *h, size_t h_len, const char *n, size_t n_len){
+#if defined(__wasm_simd128__)
+	if(n_len && h_len >= n_len + 15){
+		size_t mid = n_len / 2, i = 0;
+		v128_t f = wasm_i8x16_splat(n[0]), m = wasm_i8x16_splat(n[mid]), l = wasm_i8x16_splat(n[n_len - 1]);
+		for(; i + n_len + 15 <= h_len; i += 16){
+			v128_t eq = wasm_v128_and(wasm_v128_and(wasm_i8x16_eq(wasm_v128_load(h + i), f),
+				wasm_i8x16_eq(wasm_v128_load(h + i + mid), m)), wasm_i8x16_eq(wasm_v128_load(h + i + n_len - 1), l));
+			for(uint32_t bits = wasm_i8x16_bitmask(eq); bits; bits &= bits - 1){
+				const char *c = h + i + __builtin_ctz(bits);
+				if(sz_equal(c, n, n_len))
+					return c;
+			}
+		}
+		return sz_find(h + i, h_len - i, n, n_len);
+	}
+#endif
+	return sz_find(h, h_len, n, n_len);
+}
+
 EMSCRIPTEN_KEEPALIVE
 int init_search(enum searchtype st, int clear) {
 	if(clear){
@@ -396,10 +423,9 @@ void p_loadtag(uint8_t *tags, uint32_t *tagoff, uint32_t *tagid){
 }
 
 int p_strncpy(uint8_t* dest, size_t dest_size, const uint8_t* src) {
-    size_t i;
-    for (i = 0; i < dest_size - 1 && src[i] != '\0'; i++) {
-        dest[i] = src[i];
-    }
+    const uint8_t *nul = (const uint8_t*)sz_find_byte((const char *)src, dest_size - 1, "\0");
+    size_t i = nul ? (size_t)(nul - src) : dest_size - 1;
+    memcpy(dest, src, i);
     dest[i] = '\0';
     return i;
 }
@@ -432,10 +458,14 @@ int p_render(uint8_t *dest, size_t dest_size, size_t i){
 	uint32_t tagoff, tagid;
 	p_loadtag(tags, &tagoff, &tagid);
 	uint8_t *c = str;
+	uint8_t *lineend = p_linetostr(i+1, INDEX1); // (line_idx has an extra end entry)
+	uint8_t *end = (uint8_t*)sz_find_byte((const char *)str, lineend - str, "\0");
+	if(!end)
+		end = lineend;
 	int upper = 0;
-	int j = 0;
+	uint32_t j = 0;
 	//printf("About to enter rendering loop:\n");
-	while(*c || tags < tagend){
+	while(c < end || tags < tagend){
 		while(j == tagoff && tags < tagend){
 			switch(tagid){
 				case CAPITAL_SINGLE:
@@ -456,16 +486,23 @@ int p_render(uint8_t *dest, size_t dest_size, size_t i){
 				j = 0;
 			}
 		}
-		if(*c){
+		if(c < end){ // The text up to the next tag, at once
 			if(len + 3 > dest_size){
 				//puts("Exceeded result buffer size");
 				break;
 			}
-			dest[len++] = upper ? toupper(*c) : *c;
-			//putchar(dest[len-1]);
+			size_t run = end - c;
+			if(tags < tagend && tagoff > j && tagoff - j < run)
+				run = tagoff - j;
+			if(run > dest_size - 2 - len)
+				run = dest_size - 2 - len;
+			memcpy(dest + len, c, run);
+			for(size_t k = 0; upper && k < (upper == 1 ? 1 : run); ++k)
+				dest[len + k] = toupper(dest[len + k]);
 			upper = upper == 1 ? 0 : upper;
-			c++;
-			++j;
+			len += run;
+			c += run;
+			j += run;
 		}else if(j != tagoff){
 			//printf("\n\n#####tagoff: %d; Error with tagoffset at the end of the line!!\n", tagoff);
 			break;
@@ -579,7 +616,7 @@ static int p_startline(struct tpat *t){
 		return st == INDEX2 ? p_getline(p_linetostr(m, st)) : m;
 	}
 	uint8_t *start = g_d + ps_h->line_start;
-	uint8_t *match = (uint8_t*)sz_find((const char *)start, ps_h->line_len, t->s, t->len);
+	uint8_t *match = (uint8_t*)p_find((const char *)start, ps_h->line_len, t->s, t->len);
 	return match ? p_getline(match) : -1;
 }
 
@@ -673,11 +710,10 @@ int translate_next(){
 	while(match < 0 && tr_pos < tr_textlen && tr_match[tr_pos] < 0){ // Join unmatched text
 		tr_pos += tr_len[tr_pos];
 	}
-	int len = 0;
-	while(start + len < tr_pos && len + 2 < g_result_max){
-		g_result_loc[len] = tr_text[start + len];
-		++len;
-	}
+	int len = tr_pos - start;
+	if(len + 2 > (int)g_result_max)
+		len = g_result_max - 2;
+	memcpy(g_result_loc, tr_text + start, len);
 	g_result_loc[len++] = '\0';
 	if(match >= 0){
 		enum searchtype st = ps_h->features & NOSORT ? INDEX2 : INDEX1;
@@ -893,7 +929,7 @@ int get_result(int skip){
 					//printf("len: %d\n", len);
 					len = end - start;
 					size_t header_len = (uint8_t*)sz_find_byte((const char *)start, len, "\0") - start;
-					match = (uint8_t*)sz_find((const char *)start, header_len, (const char *)psa->qloc, psa->qlen);
+					match = (uint8_t*)p_find((const char *)start, header_len, (const char *)psa->qloc, psa->qlen);
 				}while(!match || !(skip || tracker_add(tline)));
 			}
 			else{
@@ -971,7 +1007,7 @@ int get_result(int skip){
 							do{
 								l = r;
 								r = p_linetostr(psa->line+1, psa->st);
-								match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
+								match = (uint8_t*)p_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
 								++psa->line;
 							}while(match && psa->line < ps_h->line_idx_len);
 							match = match ? NULL : l;
@@ -979,7 +1015,7 @@ int get_result(int skip){
 							if(l){
 								start = (uint8_t*) (g_d + ps_h->line_start + p_read_bytes(g_d, ps_h->line_idx_start, psa->line, ps_h->bline_idx));
 							}
-							match = (uint8_t*)sz_find((const char *)start, last - start, (const char *)psa->seg[i].s, psa->seg[i].len);
+							match = (uint8_t*)p_find((const char *)start, last - start, (const char *)psa->seg[i].s, psa->seg[i].len);
 							if(match){
 								psa->line = p_getline(match);
 								l = p_linetostr(psa->line, psa->st);
@@ -994,7 +1030,7 @@ int get_result(int skip){
 
 					// OTHER SEGMENTS
 					else{
-						match = (uint8_t*)sz_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
+						match = (uint8_t*)p_find((const char *)l, r - l, (const char *)psa->seg[i].s, psa->seg[i].len);
 						if(psa->seg[i].flags & NOT){
 							match = match ? NULL : l;
 						}
