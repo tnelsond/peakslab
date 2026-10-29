@@ -368,7 +368,6 @@ p-d {
 	user-select: text !important;
 	-webkit-touch-callout: none !important;
 }
-#results.filling > p-d.chapter { display: none; } /* (a chapter, till it's all there) */
 p-d h1 { font-size: 1.5em; }
 p-d h1, p-d h2, p-d h3 {
 	margin-top: 0;
