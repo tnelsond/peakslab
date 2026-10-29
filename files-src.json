@@ -1,13 +1,13 @@
 {
   "core": [
-    ["404.html", 1793255373],
+    ["404.html", 1793256110],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
     ["khmer/battambang.woff2", 1793169367],
     ["media.js", 1792420795],
     ["peakslab.svg", 1789218198],
-    ["peak.wasm", 1792573535]
+    ["peak.wasm", 1793256101]
   ],
   "dicts": [
     ["chitonga/bible/text/toibible.peak.zst", 1788875079, "TOI Chitonga Bible", 693, 1, "mono", 0, 1566426],

@@ -51,7 +51,7 @@ static int tracker_add(uint32_t val) {
 
 #define SEGMAX 10
 enum flag{
-	ANY=1, NOT=2, BEGIN=4
+	ANY=1, NOT=2, BEGIN=4, START=8
 };
 struct tpat{
 	char *s;
@@ -262,6 +262,8 @@ void continue_search(enum searchtype st){
 	}
 }
 
+static int p_startline(struct tpat *t);
+
 EMSCRIPTEN_KEEPALIVE
 int init_search(enum searchtype st, int clear) {
 	if(clear){
@@ -281,18 +283,19 @@ int init_search(enum searchtype st, int clear) {
 		psa->seg[i].s = psa->qloc+psa->qlen;
 		while (psa->qlen < psa->qmax && psa->qloc[psa->qlen]){
 			c = psa->qloc[psa->qlen];
-			if(c == '+' || c == '!' || c == '*' || c == '^'){
+			if(c == '+' || c == '!' || c == '*' || c == '^' || c == '@'){
 				if(psa->seg[i].len){
 					if(psa->qlen > 0 && psa->qloc[psa->qlen-1] == ' '){
 						--psa->seg[i].len;
 						psa->qloc[psa->qlen-1] = '\0';
 					}
 					psa->qloc[psa->qlen] = '\0';
-					if((psa->seg[i].flags & BEGIN) || (!(psa->seg[psa->lseg].flags & BEGIN) && (psa->seg[i].len > psa->seg[psa->lseg].len) && !(psa->seg[i].flags & NOT))){
+					if(psa->seg[i].flags & START){ // Not matched: where the search starts (its slot is used again)
+						psa->line = p_startline(&psa->seg[i]);
+					}else if((psa->seg[i].flags & BEGIN) || (!(psa->seg[psa->lseg].flags & BEGIN) && (psa->seg[i].len > psa->seg[psa->lseg].len) && !(psa->seg[i].flags & NOT))){
 						psa->lseg = i;
 					}
-					++i;
-					if(i > SEGMAX-1){
+					if(!(psa->seg[i].flags & START) && ++i > SEGMAX-1){
 						i = SEGMAX-1;
 						printf("EXCEEDED MAX SEARCH GLOBS (%d)!\n", SEGMAX);
 						break;
@@ -300,7 +303,7 @@ int init_search(enum searchtype st, int clear) {
 					psa->seg[i].flags = 0;
 				}
 				psa->seg[i].flags |= c == '+' ? ANY : c == '!' ? NOT : 0;
-				psa->seg[i].flags |= c == '^' ? BEGIN : 0;
+				psa->seg[i].flags |= c == '^' ? BEGIN : c == '@' ? START : 0;
 				psa->seg[i].len = 0;
 				psa->seg[i].s = psa->qloc+psa->qlen+1;
 			}else if(c == ' ' && !psa->seg[i].len){
@@ -309,6 +312,15 @@ int init_search(enum searchtype st, int clear) {
 				++psa->seg[i].len;
 			}
 			++psa->qlen;
+		}
+		if(psa->seg[i].flags & START){
+			psa->line = p_startline(&psa->seg[i]);
+			if(i){
+				--i;
+			}else{ // Nothing else: every line from there (an empty ^ matches them all)
+				psa->seg[i].flags = BEGIN;
+				psa->seg[i].len = 0;
+			}
 		}
 		if(!(psa->seg[psa->lseg].flags & BEGIN) && (psa->seg[i].len > psa->seg[psa->lseg].len) && !(psa->seg[i].flags & NOT)){
 			psa->lseg = i;
@@ -552,6 +564,23 @@ static int p_lowerbound(enum searchtype st, int n, const uint8_t *q){
 		}
 	}
 	return l;
+}
+
+// The line an @ segment starts the search at: with ^ the first headword
+// starting with it (a binary search; a Bible's headwords are in its second
+// index), else the first line with it anywhere. -1: none.
+static int p_startline(struct tpat *t){
+	if(t->flags & BEGIN){
+		enum searchtype st = ps_h->features & NOSORT ? INDEX2 : INDEX1;
+		int n = st == INDEX2 ? ps_h->idx2_len : ps_h->line_idx_len - 1; // line_idx has an extra end entry
+		int m = p_lowerbound(st, n, (uint8_t*)t->s);
+		if(m >= n || ps_cmp_basic(p_linetostr(m, st), t->s))
+			return -1;
+		return st == INDEX2 ? p_getline(p_linetostr(m, st)) : m;
+	}
+	uint8_t *start = g_d + ps_h->line_start;
+	uint8_t *match = (uint8_t*)sz_find((const char *)start, ps_h->line_len, t->s, t->len);
+	return match ? p_getline(match) : -1;
 }
 
 // text needs len+1 bytes and has to stay there until the last translate_next().
@@ -913,7 +942,7 @@ int get_result(int skip){
 				/* This goes through the glob segments starting with the longest one, then matches subsequent segments going backwards, then going forwards after that */
 				while(i <= psa->segend){
 					uint32_t flags = psa->seg[psa->lseg].flags;
-					if(psa->line >= ps_h->line_idx_len){
+					if(psa->line >= ps_h->line_idx_len - 1){ // (the last entry is the end of the last line)
 						psa->line = -1;
 						return -1;
 					}

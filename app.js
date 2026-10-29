@@ -1667,7 +1667,7 @@ if(!isDictPage){
 	window.addEventListener('scroll', throttledCheck, { passive: true });
 	window.addEventListener('resize', throttledCheck);
 
-	const globreg = /[!+*^]/;
+	const globreg = /[!+*^@]/;
 
 	// Glosses use the dictionaries that are on (a link's: just its) in the
 	// categories the gloss has picked, each word's box with a row for each
