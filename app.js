@@ -292,10 +292,8 @@ if(!isDictPage){
 		}else if(first){
 			(popup ? popupResults : resultsDiv).insertBefore(div, popup ? null : loader);
 		}
-		if(first && popup){
+		if(first && popup)
 			popupOpen();
-			setTimeout(() => document.addEventListener('click', closePopupClick)); // (after the click that opened it, if one did)
-		}
 		if(!popup) found();
 	}
 	// Not to move: on the screen or above it (and showing), once the
@@ -1674,6 +1672,7 @@ if(!isDictPage){
 		popupOverlay.style.display = 'block';
 		popupOverlay.scrollTop = 0;
 		document.body.classList.add('no-scroll');
+		setTimeout(() => document.addEventListener('click', closePopupClick)); // A click outside closes it (after the click that opened it, if one did)
 	}
 	function closePopupClick(e){
 		if (!e.target.closest('#popupContent, #controls, #drawer')) { // (its buttons below, and the drawer it opens, are usable)
