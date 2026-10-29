@@ -7,7 +7,6 @@
 	--tr-link: #002;
 	--tr-pron: #333;
 	--strongs: #1d5a78; /* a word with a Strong's number */
-	--gloss: #1f7a34; /* the Gloss buttons (white on it) */
 	--bg-color: #ba8;
 	--card-bg: #fff;
 	--card-text: #1a1a1a;
@@ -24,8 +23,7 @@
 	--header-text: #000;
 	--header-placeholder: rgba(0,0,0,.6);
 	--result-entry-bg: #fdf8f0;
-	--accent-color: #8bac0f;
-	--control-btn-bg: #280;
+	--control-btn-bg: #280; /* every green button (white on it), both modes */
 	--mark-bg: #fd5;
 	--mark-fg: #000;
 	--star: #b7790f;
@@ -44,7 +42,6 @@ body.dark-mode {
 	--tr-link: #cdf;
 	--tr-pron: #ccc;
 	--strongs: #9fd3e6;
-	--gloss: #2b7d3c;
 	--alttext: #d75;
 	--tab-bg: #672;
 	--tab-fg: #ac0;
@@ -60,7 +57,6 @@ body.dark-mode {
 	--result-entry-bg: #110;
 	--mark-bg: #660;
 	--mark-fg: #fff;
-	--control-btn-bg: #890;
 	--star: #e9b64a;
 	--star-bg: #2e2510;
 	--muted: #b3a68f;
@@ -136,9 +132,9 @@ mark {
 }
 /* Gloss: filled, white letters (an entry's and a verse's) */
 .translate-btn, .vs-tr {
-	border: 1px solid var(--gloss);
+	border: 1px solid var(--control-btn-bg);
 	border-radius: 999px;
-	background: var(--gloss);
+	background: var(--control-btn-bg);
 	color: #fff;
 	font-weight: 600;
 }
@@ -367,7 +363,7 @@ p-d {
 	word-break: break-word;
 	font-size: var(--font-size);
 	border-radius: 12px;
-	border-left: 4px solid var(--accent-color);
+	border-left: 4px solid var(--tab-bg);
 	-webkit-user-select: text !important;
 	user-select: text !important;
 	-webkit-touch-callout: none !important;
@@ -383,7 +379,7 @@ p-d ul {
 	list-style: square;
 }
 p-d li::marker {
-	color: #290;
+	color: var(--control-btn-bg);
 	font-weight: bold;
 }
 li:only-child { list-style-type: none; }
@@ -450,7 +446,7 @@ p-ipa {
 }
 p-eg {
 	background: #ff9;
-	border: 2px solid green;
+	border: 2px solid var(--control-btn-bg);
 	margin: 5px;
 	clear: left;
 }
@@ -461,7 +457,7 @@ p-tags {
 }
 p-q, p-q2 {
 	display: block;
-	border-left: 2px solid var(--accent-color);
+	border-left: 2px solid var(--tab-bg);
 	margin-left: 1em;
 	padding-left: 1em;
 }
@@ -1015,7 +1011,7 @@ body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscree
 	opacity: .9;
 	color: var(--header-text);
 }
-.selection-menu .sel-gloss { background: var(--gloss); color: #fff; font-weight: 600; opacity: 1; }
+.selection-menu .sel-gloss { background: var(--control-btn-bg); color: #fff; font-weight: 600; opacity: 1; }
 /* iOS: docked at the bottom of the screen, clear of the native menu
    (see createSelMenu in app.js), over the round buttons */
 .selection-menu.docked {
