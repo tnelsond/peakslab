@@ -294,20 +294,6 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	border: 0;
 	background: rgba(255,255,255,.12);
 }
-.ls-sym {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 26px;
-	height: 26px;
-	padding: 0 3px;
-	box-sizing: border-box;
-	border-radius: 999px;
-	background: #fd9;
-	color: #432;
-	font-weight: 700;
-	font-size: 13px;
-}
 .sub-div { flex: none; width: 1px; height: 20px; background: rgba(255,255,255,.25); }
 #quick {
 	flex: 1;

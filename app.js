@@ -100,7 +100,6 @@ function escapeHTML(text){
 }
 const abbr = filesJson.abbr || {};
 const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
-const langSym = l => abbr[l]?.[1] || cap(l).slice(0, 2);
 const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 // A list's row: its button (class and attributes), its words and what's
 // under them
@@ -109,9 +108,9 @@ const rowHTML = (cls, attrs, w, t, after = '') => `<li class="row"><button class
 // The language panel's rows: the languages, biggest first
 const langCounts = {};
 filesJson.dicts.forEach(f => { const l = f[0].split('/')[0]; langCounts[l] = (langCounts[l] || 0) + 1; });
-const langRow = (href, sym, name, n, cur) => `<li class="row"><a class="row-main lang-row" href="${href}"${cur ? ' aria-current="page"' : ''}><span class="ls-sym">${escapeHTML(sym)}</span><span class="row-w">${escapeHTML(name)}</span><span class="row-t">${n} ${n === 1 ? 'dictionary' : 'dictionaries'}</span></a></li>`;
+const langRow = (href, name, n, cur) => `<li class="row"><a class="row-main lang-row" href="${href}"${cur ? ' aria-current="page"' : ''}><span class="row-w">${escapeHTML(name)}</span><span class="row-t">${n} ${n === 1 ? 'dictionary' : 'dictionaries'}</span></a></li>`;
 const langRows = (skip, qs) => '<ul class="rows">' + Object.keys(langCounts).filter(l => l !== skip).sort((a, b) => langCounts[b] - langCounts[a])
-	.map(l => langRow(`/${l}${qs}`, langSym(l), cap(l), langCounts[l], false)).join('') + '</ul>';
+	.map(l => langRow(`/${l}${qs}`, cap(l), langCounts[l], false)).join('') + '</ul>';
 
 const langBtn = $('langBtn');
 const queryInput = $('queryInput');
@@ -885,11 +884,11 @@ if(!isDictPage){
 	// The language panel: this language and its sections, then the others,
 	// biggest first
 	function langHTML(){
-		const qs = queryText ? '?text=' + encodeURIComponent(queryText) : '', row = langRow;
+		const qs = queryText ? '?text=' + encodeURIComponent(queryText) : '';
 		const mine = filesJson.dicts.filter(f => f[0].startsWith(curLang + '/'));
 		const secs = [...new Set(mine.map(f => f[0].split('/')[1]))].filter(c => !['media', 'phonetics'].includes(c));
-		return `<ul class="rows">${row(`/${curLang}${qs}`, langSym(curLang), cap(curLang), langCounts[curLang], pParts.length < 2)}` +
-			(secs.length > 1 ? secs.map(c => row(`/${curLang}/${c}${qs}`, langSym(c), `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c)).join('') : '') + '</ul>' +
+		return `<ul class="rows">${langRow(`/${curLang}${qs}`, cap(curLang), langCounts[curLang], pParts.length < 2)}` +
+			(secs.length > 1 ? secs.map(c => langRow(`/${curLang}/${c}${qs}`, `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c)).join('') : '') + '</ul>' +
 			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
 	// What the filter searches, as HTML and as text: All; All but the
