@@ -244,11 +244,11 @@ if(!isDictPage){
 		const nheader = updateQuery(data.header);
 		if(!popup && !data.filetype && chapterOf(nheader) === query)
 			return addVerse(data, nheader);
-		if(!popup && isChapter(query)) // Reading a chapter: just it
-			return;
+		if(!popup && isChapter(query)) // Reading a chapter: just it (and the rest of it)
+			return loadmore();
 		let div = $(`${idpre}-${nheader}`);
 		const d = dictOf(data);
-		if (typeof data.body === 'string' && div?.seen.has(d + '\t' + data.body)) return; // An entry found twice (by two of the searches) shows once
+		if (typeof data.body === 'string' && div?.seen.has(d + '\t' + data.body)) return popup || loadmore(); // An entry found twice (by two of the searches) shows once (and more come)
 		// Nothing goes in above the bottom of the screen (what's read, or
 		// being read): an entry that would starts its word again at the end
 		const more = !popup && div && fixed([...div.children].find(c => +c.dataset.id > sortId(d)));
@@ -375,7 +375,7 @@ if(!isDictPage){
 	const refOf = body => /<p-n>@?([^<]*)<\/p-n>/.exec(body)?.[1];
 	function addVerse(data, h){
 		const d = dictOf(data), v = +h.split('.').pop();
-		if (!parallel && isBibleText(d) && d !== readText()) return; // (the others on are for glosses and compare)
+		if (!parallel && isBibleText(d) && d !== readText()) return loadmore(); // (the others on are for glosses and compare)
 		if (dicts[d].cat === 'bible/commentary' && dictIds.some(t => isBibleText(t) && searched(t)))
 			return addNote(d, data, v);
 		const label = refOf(data.body);
@@ -442,7 +442,7 @@ if(!isDictPage){
 			notesGen = searchGen;
 		}
 		const list = notes.get(v) || [];
-		if (list.some(n => n.d === d)) return;
+		if (list.some(n => n.d === d)) return loadmore();
 		list.push({d, data});
 		notes.set(v, list);
 		resultsDiv.querySelectorAll(`.vs[data-v="${v}"]`).forEach(noteLinks);
@@ -779,9 +779,11 @@ if(!isDictPage){
 	// "លោកុប្បត្តិ ១:១") its name and digits. From the first Bible that's
 	// on. Its code ("gen") shows with its name: it's what to type.
 	let books = null; // [{code, n (chapters), name, zero (where its digits' 0 is), s (section)}]
-	// The sections' first books: the Law, History, Poetry, the Major and Minor
-	// Prophets, the Gospels, Acts, Paul's letters, the General letters, Revelation
+	// The sections' first books (the Law, History, Poetry, the Major and Minor
+	// Prophets, the Gospels, Acts, Paul's letters, the General letters,
+	// Revelation) and their colors, each unlike the ones next to it
 	const sections = 'gen jos job isa hos mat act rom heb rev'.split(' ');
+	const secColors = 'f59 39e fc2 a6e 3c9 e33 2cc f90 75f c4a'.split(' ');
 	let booksLoad = null;
 	function loadBooks(then){
 		const mask = searchMask();
@@ -885,7 +887,7 @@ if(!isDictPage){
 		const b = books.find(x => x.code === booksPick), cur = on => on ? ' aria-current="true"' : '';
 		return (b ? `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
 				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-q="${ref}"${cur(ref === lastRead)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
-			`<div class="bk-grid">${books.map(x => `<button class="s${x.s}" data-book="${escapeHTML(x.code)}"${cur(lastRead.startsWith(x.code + ' '))}>${bookName(x)}</button>`).join('')}</div>`);
+			`<div class="bk-grid">${books.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}"${cur(lastRead.startsWith(x.code + ' '))}>${bookName(x)}</button>`).join('')}</div>`);
 	}
 
 	// ---------------------------------------------------------------

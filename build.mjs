@@ -60,10 +60,10 @@ async function build() {
 		// Short names for the stylesheet's own custom properties (--card-bg
 		// -> --A), most used first: capitals (A..Z, then AA, AB, ...), which
 		// dictionaries' own styles don't use (cambogeo's --s); not the ones
-		// app.js sets ('--load')
+		// app.js sets ('--load', or in a style attribute: "--sec:")
 		const used = {};
 		for (const [, n] of css.matchAll(/--([\w-]+)/g)) used[n] = (used[n] || 0) + 1;
-		const keep = n => /^[A-Z]+$/.test(n) || appJs.includes(`'--${n}'`) || appJs.includes(`"--${n}"`);
+		const keep = n => /^[A-Z]+$/.test(n) || appJs.includes(`'--${n}'`) || appJs.includes(`"--${n}"`) || appJs.includes(`--${n}:`);
 		const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', shortName = i => (i >= 26 ? L[Math.floor(i / 26) - 1] : '') + L[i % 26];
 		const short = {};
 		Object.keys(used).filter(n => !keep(n)).sort((a, b) => used[b] * b.length - used[a] * a.length)
