@@ -835,8 +835,8 @@ if(!isDictPage){
 			loader = null;
 		});
 	}
-	// In the popup: the whole range (its first 500 verses), in each Bible text on
-	const popupRange = (r, text) => dictIds.filter(d => isBibleText(d) && (libOn[d] || isOn(d, 'gloss'))).forEach(d => rangeLines(d, r).then(p =>
+	// In the popup: the whole range (its first 500 verses), in each Bible text the gloss has (as a popup's search)
+	const popupRange = (r, text) => dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss')).forEach(d => rangeLines(d, r).then(p =>
 		p && popupQuery === text && showLines(d, p.at, Math.min(500, p.last - p.at + 1), popupResults).then(() => popupQuery === text && popupOpen())));
 	const search = text => { setQueryText(text); startSearch(); addHistory(queryText); };
 	let readHl = ''; // The verse to show in its chapter (Read in context)
@@ -1845,11 +1845,11 @@ if(!isDictPage){
 	}
 	// The Bible ranges in a text ("rom 1.4-20", "Romans 8:28-30"): a word
 	// each (first: before its parts), its gloss the start of its verses, in a
-	// Bible text that glosses (or else one that's on); tapped, the popup has
+	// Bible text that glosses; tapped, the popup has
 	// them all (popupRange)
 	const RANGES = /(^|[^\p{L}\p{N}])((?:\d ?)?\p{L}[\p{L}\p{M}]*\.? ?\d+(?:[.:]\d+)? ?[-–] ?(?:\d+[.:])?\d+)(?!\p{N})/gu;
 	function rangeMatches(ids, text){
-		const d = ids.find(isBibleText) ?? dictIds.find(x => isBibleText(x) && libOn[x]);
+		const d = ids.find(isBibleText);
 		const found = d === undefined ? [] : [...text.matchAll(RANGES)].map(m => ({a: m.index + m[1].length, s: m[2], r: rangeOf(m[2])})).filter(x => x.r);
 		if (!found.length) return [];
 		return Promise.all(found.map(x => rangeLines(d, x.r).then(p => p && askDict(d, lineMsg(p.at, Math.min(20, p.last - p.at + 1))).then(res => ({
