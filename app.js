@@ -417,12 +417,14 @@ if(!isDictPage){
 		const para = /^((?:<[^>]+>\s*)*)¶\s*/.exec(rest); // A paragraph starts with it: no ¶, a new line (CSS)
 		if(para)
 			rest = para[1] + rest.slice(para[0].length);
-		const word = /^[^\s\u200B<]*/.exec(rest)[0];
+		// (a verse that starts with a quote, a poem's line: its number at
+		// the start of the line, not on one of its own above it)
+		const lead = /^(?:<p-q\d*>\s*)?/.exec(rest)[0], word = /^[^\s\u200B<]*/.exec(rest.slice(lead.length))[0];
 		const tag = text ? 'span' : 'div', t = document.createElement('template');
 		// In parallel, in the verse's group, by verse, each text as the
 		// dictionaries go: like an entry, with its name and Gloss
 		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}` : '') +
-			`<${tag} class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
+			`<${tag} class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}${lead}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(lead.length + word.length)}` +
 			(par ? `</${tag}></div>` : ` </${tag}>`);
 		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
 		if(par){
@@ -1142,14 +1144,14 @@ if(!isDictPage){
 			const texts = glossTexts();
 			return '<p class="empty">Comparing uses the translations the gloss has (⇄ in the header): ticking them here changes those, not the search\'s.</p>' +
 			(all.length ? '' : '<p class="empty">None downloaded.</p>') + moreHTML +
-			`<ul class="rows">${all.map(d => rowHTML('check', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, escapeHTML(dicts[d].name), escapeHTML(typeLabel(dicts[d])))).join('')}</ul>`;
+			`<ul class="rows">${all.map(d => rowHTML('check', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, `${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}`, '')).join('')}</ul>`;
 		}
 		if (card && !card.isConnected) return '<p class="empty">That card is gone: search again.</p>';
 		const texts = card ? cardTexts(card) : barTexts(), par = card ? cardPar(card) : parallel;
 		return (card ? `<p class="empty">For ${refLabel(cardRef(card))} only. Apply to all for every card.</p>` : '') +
 			`<ul class="rows">${rowHTML('check', `data-tx-par="1" aria-pressed="${par}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul>` +
 			`<h3 class="drawer-h">Translations</h3>` + (all.length ? '' : '<p class="empty">None downloaded.</p>') +
-			moreHTML + `<ul class="rows">${all.map(d => rowHTML(par ? 'check' : 'radio', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, escapeHTML(dicts[d].name), escapeHTML(typeLabel(dicts[d])))).join('')}</ul>` +
+			moreHTML + `<ul class="rows">${all.map(d => rowHTML(par ? 'check' : 'radio', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, `${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}`, '')).join('')}</ul>` +
 			(card ? `<button class="tx-all" data-tx-all="1"${texts.length ? '' : ' disabled'}>Apply to all</button>` : '');
 	}
 	// A choice in it changes just the card (picking one, not in parallel,

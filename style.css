@@ -439,6 +439,9 @@ p-q, p-q2 {
 	margin-left: 1em;
 	padding-left: 1em;
 }
+/* A verse with a quote's lines (a poem's) is a block too: not lines inside
+   a span (a selection in them wasn't highlighted) */
+.vs:has(> :is(p-q, p-q2)) { display: block; }
 
 /* Chords: hidden unless <body> has .show-chords (the button app.js adds
    to entries with p-m), which also switches every button's label */
@@ -762,6 +765,8 @@ p-d[data-pop="cmp"] > .card-bar { background: var(--compare-bg); }
 .row-main:hover .row-w { text-decoration: underline; }
 .row-w, .row-t { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-w { font-size: 1.05em; font-weight: 600; }
+.row-t:empty { display: none; }
+.row-w .lib-type { margin-left: .4em; font-weight: 400; vertical-align: 1px; } /* (a translation's language, beside its name) */
 .row-t { font-size: .82em; color: var(--muted); }
 .row-x {
 	flex: none;
