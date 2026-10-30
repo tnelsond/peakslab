@@ -30,7 +30,7 @@
 	--star-bg: #fbf0d4;
 	--head-bg: #367117; /* a card's heading and Bible bar: green (between the buttons' and a forest green) */
 	--compare-bg: #2c5d73; /* the popup's Bible bar: it compares (the gloss's translations) */
-	--fold-bg: #7a5b38; /* a collapsed card's heading: brown */
+	--fold-bg: #4a5a2f; /* a collapsed card's heading: forest (camo) green */
 	--pill-bg: #e6d6b6; /* a dictionary's name: tan, */
 	--pill-fg: #5a3c1e; /* dark brown */
 	--muted: #6b5d48;
@@ -66,7 +66,7 @@ body.dark-mode {
 	--star-bg: #2e2510;
 	--head-bg: #2f6913;
 	--compare-bg: #244b5d;
-	--fold-bg: #5e4529;
+	--fold-bg: #3d4a27;
 	--pill-bg: #4a3d29;
 	--pill-fg: #ead9b7;
 	--muted: #b3a68f;
@@ -688,18 +688,18 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
 p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); border-color: #fff; }
-/* Collapse all (the right of every heading): a small black chevron, up
+/* Collapse all (the right of every heading): a small white chevron, up
    (collapsed: down); the cards, just their headings. One whose heading
    was tapped (flip): the other way from the rest. */
 .fold-btn {
 	flex: none;
-	width: 28px;
-	height: 28px;
-	margin-left: auto;
+	width: 48px;
+	height: 44px;
+	margin: -8px -14px -8px auto; /* (a big target: to the heading's right edge, its height not more) */
 	padding: 0;
 	border: 0;
 	background: none;
-	color: #000;
+	color: #fff;
 	line-height: 0;
 	cursor: pointer;
 }
