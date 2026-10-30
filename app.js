@@ -1148,20 +1148,15 @@ if(!isDictPage){
 		renderCardBars();
 	}
 	function cardTextsHTML(){
-		const card = textsCard, all = dictIds.filter(d => isBibleText(d) && downloaded.has(d));
-		if (comparing) {
-			const texts = glossTexts();
-			return '<p class="empty">Comparing uses the translations the gloss has (⇄ in the header): ticking them here changes those, not the search\'s.</p>' +
-			(all.length ? '' : '<p class="empty">None downloaded.</p>') + moreHTML +
-			`<ul class="rows">${all.map(d => rowHTML('check', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, `${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}`, '')).join('')}</ul>`;
-		}
-		if (card && !card.isConnected) return '<p class="empty">That card is gone: search again.</p>';
-		const texts = card ? cardTexts(card) : barTexts(), par = card ? cardPar(card) : parallel;
-		return (card ? `<p class="empty">For ${refLabel(cardRef(card))} only. Apply to all for every card.</p>` : '') +
-			`<ul class="rows">${rowHTML('check', `data-tx-par="1" aria-pressed="${par}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul>` +
-			`<h3 class="drawer-h">Translations</h3>` + (all.length ? '' : '<p class="empty">None downloaded.</p>') +
-			moreHTML + `<ul class="rows">${all.map(d => rowHTML(par ? 'check' : 'radio', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, `${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}`, '')).join('')}</ul>` +
-			(card ? `<button class="tx-all" data-tx-all="1"${texts.length ? '' : ' disabled'}>Apply to all</button>` : '');
+		const card = textsCard, all = dictIds.filter(d => isBibleText(d) && downloaded.has(d)), empty = t => `<p class="empty">${t}</p>`;
+		if (card && !card.isConnected && !comparing) return empty('That card is gone: search again.');
+		const texts = comparing ? glossTexts() : card ? cardTexts(card) : barTexts(), par = comparing || (card ? cardPar(card) : parallel);
+		return (comparing ? empty('Comparing uses the translations the gloss has (⇄ in the header): ticking them here changes those, not the search\'s.') :
+				(card ? empty(`For ${refLabel(cardRef(card))} only. Apply to all for every card.`) : '') +
+				`<ul class="rows">${rowHTML('check', `data-tx-par="1" aria-pressed="${par}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul><h3 class="drawer-h">Translations</h3>`) +
+			(all.length ? '' : empty('None downloaded.')) + moreHTML +
+			`<ul class="rows">${all.map(d => rowHTML(par ? 'check' : 'radio', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, `${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}`, '')).join('')}</ul>` +
+			(card && !comparing ? `<button class="tx-all" data-tx-all="1"${texts.length ? '' : ' disabled'}>Apply to all</button>` : '');
 	}
 	// A choice in it changes just the card (picking one, not in parallel,
 	// closes it, as the translations drawer does)
@@ -1420,14 +1415,16 @@ if(!isDictPage){
 	// page, its download stays (its own language's page can delete it)
 	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
 	// (The gloss's: on or off for glosses, no star: they're everything's)
+	// A library row: x's details, its button (state, data-attribute and
+	// what it does: its title), its size under it; then more (✕, ☆, Add)
+	const libRowHTML = (x, state, data, t, more = '', star = '') => `<li class="row dict-row${star}"><div class="row-main">${infoHTML(x, '')}</div>` +
+		`<div class="dict-acts"><button class="dict-act ${state}" ${data}${state === 'loading' ? ' disabled' : ''} title="${t}" aria-label="${t}: ${escapeHTML(x.name)}">${{down: '⬇', loading: '', got: '🗑', off: '✕'}[state]}</button>` +
+		(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') + '</div>' + more + '</li>';
 	function dictRowHTML(d, view){
-		const x = dicts[d], state = stateOf(d), own = view === 'gloss', lib = view === 'library';
-		if (lib) return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><div class="row-main">${infoHTML(x, '')}</div>` +
-			`<div class="dict-acts"><button class="dict-act ${state}" data-${state !== 'got' ? 'get' : x.added ? 'unlink' : 'del'}="${d}"${state === 'loading' ? ' disabled' : ''} ` +
-			`aria-label="${{down: 'Download', loading: 'Downloading', got: x.added ? 'Take off this page:' : 'Delete the download of'}[state]} ${escapeHTML(x.name)}" title="${{down: 'Download', loading: 'Downloading…', got: x.added ? 'Take it off this page (its download stays)' : 'Delete its download'}[state]}">${{down: '⬇', loading: '', got: x.added ? '✕' : '🗑'}[state]}</button>` +
-			(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') + '</div>' +
-			(x.added && state !== 'got' ? `<button class="dict-del" data-unlink="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') +
-			`${starBtnHTML(d)}</li>`;
+		const x = dicts[d], state = stateOf(d), own = view === 'gloss';
+		if (view === 'library') return libRowHTML(x, x.added && state === 'got' ? 'off' : state, `data-${state !== 'got' ? 'get' : x.added ? 'unlink' : 'del'}="${d}"`,
+			{down: 'Download', loading: 'Downloading…', got: x.added ? 'Take it off this page (its download stays)' : 'Delete its download'}[state],
+			(x.added && state !== 'got' ? `<button class="dict-del" data-unlink="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') + starBtnHTML(d), isStar(d) ? ' starred' : '');
 		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">` +
 			infoHTML(x) + '</button>' + (own ? '' : starBtnHTML(d)) + '</li>';
 	}
@@ -1474,10 +1471,9 @@ if(!isDictPage){
 		const byLang = new Map();
 		allDicts.filter(x => !dictIds.some(d => dicts[d] === x)).forEach(x => push(byLang, x.lang, x));
 		const lang = ([l, xs]) => groupHTML(`lang:${l}`, groupHead(`lang:${l}`, cap(l), `${xs.length} ${xs.length === 1 ? 'dictionary' : 'dictionaries'}`),
-			() => `<ul class="rows dict-rows">${xs.map(x => (got => `<li class="row dict-row"><div class="row-main">${got ? infoHTML(x, '') : infoHTML(x)}</div>` +
-				`<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button>` +
-				(got ? `<div class="dict-acts"><button class="dict-act got" data-delpath="${escapeHTML(x.path)}" aria-label="Delete the download of ${escapeHTML(x.name)}" title="Delete its download">🗑</button>` +
-					(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') + '</div>' : '') + '</li>')(cachedPaths.has(x.path))).join('')}</ul>`);
+			() => `<ul class="rows dict-rows">${xs.map(x => cachedPaths.has(x.path) ? libRowHTML(x, 'got', `data-delpath="${escapeHTML(x.path)}"`, 'Delete its download', addBtn(x)) :
+				`<li class="row dict-row"><div class="row-main">${infoHTML(x)}</div>${addBtn(x)}</li>`).join('')}</ul>`);
+		const addBtn = x => `<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button>`;
 		const here = sizeOf(dictIds.filter(d => downloaded.has(d) && dicts[d].lang === curLang)); // (not other languages')
 		return '<p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
 			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''} <button class="text-btn" data-first="delete">Delete everything…</button></p>` +
@@ -1628,10 +1624,10 @@ if(!isDictPage){
 		return files;
 	}
 	// A download deleted (it's turned off: it downloads again when it's on)
+	const offDict = d => libOn[d] ? setOn([d], false) : loaded.has(d) && unloadDict(d);
 	async function deleteDict(d){
 		const x = dicts[d];
-		if (libOn[d]) setOn([d], false);
-		else if (loaded.has(d)) unloadDict(d);
+		offDict(d);
 		for (const [c, r, path] of await cachedDicts()) if (path === x.path) await c.delete(r);
 		downloaded.delete(d);
 		refreshUsage();
@@ -1641,8 +1637,7 @@ if(!isDictPage){
 	// number stays, unused)
 	function unlinkDict(d){
 		const x = dicts[d];
-		if (libOn[d]) setOn([d], false);
-		else if (loaded.has(d)) unloadDict(d);
+		offDict(d);
 		x.added = false;
 		store(addKey, readList(addKey).filter(p => p !== x.path));
 		[dictIds, stars].forEach(l => { const i = l.indexOf(d); if (i >= 0) l.splice(i, 1); });
