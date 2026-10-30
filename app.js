@@ -1255,17 +1255,25 @@ if(!isDictPage){
 		if (quick._html !== b) { quick._html = b; quick.innerHTML = b; } // Only when changed: keeps it tappable
 	}
 	quick.addEventListener('click', e => { const b = e.target.closest('button'); if (b) openDrawer(b.dataset.view); });
+	// The whole header slides away while scrolling down, and comes back
+	// scrolling up. The card being read has its
+	// heading (or Bible bar) at the top of the screen (CSS: sticky), under
+	// the header when it's there (--stick).
 	let lastY = 0;
+	const setHeader = hide => {
+		header.classList.toggle('compact', hide);
+		document.documentElement.style.setProperty('--stick', hide ? '0px' : header.offsetHeight + 'px');
+	};
 	window.addEventListener('scroll', () => {
 		const y = window.scrollY;
-		if (y > lastY + 6 && y > 80) header.classList.add('compact');
-		else if (y < lastY - 6 || y < 40) header.classList.remove('compact');
+		if (y > lastY + 6 && y > 80) setHeader(true);
+		else if (y < lastY - 6 || y < 40) setHeader(false);
 		lastY = y;
 	}, {passive: true});
 	// The results start below the whole header
 	new ResizeObserver(() => {
-		if (!header.classList.contains('compact'))
-			document.documentElement.style.setProperty('--hh', header.offsetHeight + 'px');
+		document.documentElement.style.setProperty('--hh', header.offsetHeight + 'px');
+		setHeader(header.classList.contains('compact'));
 	}).observe(header);
 
 	// ---------------------------------------------------------------

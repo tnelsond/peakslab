@@ -165,7 +165,10 @@ mark {
 	background: var(--header-bg);
 	z-index: 1000;
 	padding: 0 3px;
+	transition: transform .2s;
 }
+/* Scrolling down: all of it slides away (app.js) */
+#header.compact { transform: translateY(-100%); }
 #searchContainer {
 	display: flex;
 	align-items: center;
@@ -263,8 +266,7 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	.head-menu .head-btn .lbl { display: inline; }
 }
 
-/* The header's second line: language, and quick switches for the filter.
-   Slides away while scrolling down (#header.compact). */
+/* The header's second line: language, and quick switches for the filter */
 #subbar {
 	display: flex;
 	align-items: center;
@@ -276,7 +278,6 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	overflow: hidden;
 	transition: max-height .2s, padding .2s, opacity .2s;
 }
-#header.compact #subbar { max-height: 0; padding-bottom: 0; opacity: 0; }
 #langBtn, .qk {
 	flex: none;
 	border-radius: 999px;
@@ -632,7 +633,7 @@ p-w:hover { text-decoration: underline dotted; }
 
 /* Bible: a verse's section (a Bible text's result) has a small
    reference, so a chapter's verses read on */
-p-d.verse > h2 { font-size: 1em; margin: .3em 0; }
+p-d.verse > h2 { font-size: 1em; }
 p-d.verse p-e :is(h3, h4), p-d.chapter p-e :is(h3, h4) { font-size: 1.05em; color: var(--color1); }
 p-d.verse p-e :is(h3, h4) { margin: .3em 0; }
 /* A chapter: each dictionary's verses in one card, running on */
@@ -696,6 +697,19 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 #chNav.card-bar { justify-content: center; max-width: 640px; margin: 10px auto 4px; border-radius: 12px; }
 #chNav .cb-sel { flex: none; }
+/* A card's heading (a word's, the search's gloss's) and Bible bar stay at
+   the top of the screen while it's being read (under the header, when
+   it's there: --stick; in the popup, at its top) */
+p-d > h2, .card-bar { position: sticky; top: var(--stick, 0px); z-index: 4; transition: top .2s; }
+body.fullscreen :is(p-d > h2, .card-bar) { top: 0; }
+#popupContent :is(p-d > h2, .card-bar) { top: -20px; } /* (its top edge: over its padding) */
+p-d > h2 {
+	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) .2em;
+	padding: var(--pd) var(--pd) .3em;
+	border-radius: 8px 12px 0 0;
+	background: var(--result-entry-bg);
+	box-shadow: 0 1px 0 var(--line);
+}
 /* (the verse's heading: the bar has it) */
 p-d:has(> .card-bar) > h2 { display: none; }
 .cb-sel, .cb-acts { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
