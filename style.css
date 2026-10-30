@@ -115,13 +115,13 @@ mark {
 #install-button, input[type="checkbox"] { display: none; }
 
 /* Buttons with no box of their own */
-.text-btn, .bm-btn, .vs-cmp, .share-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
+.text-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
 .tr-play, .close-btn, .head-btn {
 	border: 0;
 	background: none;
 }
 .text-btn, .row-main, .cat-sel,
-.setting, .qk, #langBtn, .ctx-btn, .vs-tr, .bk-grid button {
+.setting, .qk, #langBtn, .bk-grid button {
 	font: inherit;
 }
 /* Filled */
@@ -130,29 +130,8 @@ mark {
 	background: var(--control-btn-bg);
 	color: #fff;
 }
-/* Outlined pills */
-.ctx-btn {
-	border: 1px solid var(--control-btn-bg);
-	border-radius: 999px;
-	background: none;
-	color: var(--control-btn-bg);
-	vertical-align: middle;
-}
-/* Gloss: filled, white letters (an entry's and a verse's) */
-.translate-btn, .vs-tr {
-	border: 1px solid var(--control-btn-bg);
-	border-radius: 999px;
-	background: var(--control-btn-bg);
-	color: #fff;
-	font-weight: 600;
-}
 /* Not selected with the text around them */
-.chords-btn, .translate-btn, .ctx-btn, .setting, .control-btn { -webkit-user-select: none; user-select: none; }
-/* Next to an entry's dictionary name */
-.chords-btn, .translate-btn {
-	float: right;
-	margin: 0 6px 0 0;
-}
+.chords-btn, .setting, .control-btn { -webkit-user-select: none; user-select: none; }
 .setting {
 	font-size: 15px;
 	border-radius: 8px;
@@ -397,23 +376,6 @@ p-d li::marker {
 	font-weight: bold;
 }
 li:only-child { list-style-type: none; }
-/* The headword, its bookmark and Share (a chapter's, a gloss's Share too) */
-p-d > h2 :is(.bm-btn, .share-btn), p-d.chapter > .share-btn, .tr-head .share-btn {
-	margin-left: .35em;
-	padding: 2px;
-	color: var(--muted);
-	vertical-align: middle;
-	line-height: 0;
-}
-/* A verse's: after its Gloss (in parallel, the verse's group's: at its end) */
-.vs :is(.bm-btn, .vs-cmp), .pv > .bm-btn { padding: 0 2px; color: var(--muted); vertical-align: middle; line-height: 0; }
-.pv > .bm-btn { float: right; }
-.bm-btn[aria-pressed="true"] { color: var(--star); }
-.bm-btn[aria-pressed="true"] svg { fill: currentColor; }
-p-d > h2 .share-btn { margin-left: .1em; }
-p-d.chapter > .share-btn { float: right; }
-.tr-head .share-btn { margin-left: .3em; font-size: 1.33em; }
-.share-btn:hover { color: var(--color1); }
 
 /* An entry, and the markup in the dictionaries */
 p-e { display: block; }
@@ -422,8 +384,9 @@ p-e + p-e {
 	padding-top: 1em;
 	border-top: 1px solid var(--line);
 }
-p-h { /* the dictionary's name and buttons */
+p-h { /* the dictionary's name and buttons: tap it for its menu */
 	float: right;
+	cursor: pointer;
 	display: flex;
 	align-items: center;
 	gap: 2px;
@@ -497,22 +460,16 @@ p-m::before {
 }
 body:not(.show-chords) p-m::before { display: none; }
 body.show-chords p-e:has(p-m) { line-height: 2.5; } /* (just the entries with chords) */
-.chords-btn {
+.chords-btn { /* next to an entry's dictionary name */
+	float: right;
+	margin: 0 6px 0 0;
 	padding: 3px 8px;
 	border-radius: 5px;
 	font-size: 13px;
 }
 .chords-btn::after { content: "Show chords"; }
 body.show-chords .chords-btn::after { content: "Hide chords"; }
-p-d.translation h2 .translate-btn { font-size: 13px; } /* (not the heading's size) */
-.translate-btn {
-	height: 1.9em; /* (1.6em of the entry's) */
-	padding: 0 .7em;
-	font-size: .85em;
-	line-height: 1.9em;
-}
 /* A dictionary's menu (tap its name); a word's hidden entries */
-p-h { cursor: pointer; }
 /* The little menus (a dictionary's, Gloss with): over the page at the
    right of the entry (or verse, or the search's gloss), under what opened
    them, so they don't push anything down */
@@ -520,6 +477,8 @@ p-h { cursor: pointer; }
 .menu {
 	position: absolute;
 	z-index: 6;
+	overflow: hidden;
+	font-size: 14px;
 	display: flex;
 	flex-direction: column;
 	border: 1px solid var(--line);
@@ -527,7 +486,6 @@ p-h { cursor: pointer; }
 	background: var(--card-bg);
 	box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
 }
-.menu { overflow: hidden; font-size: 14px; }
 .menu button { padding: 9px 14px; border: 0; background: none; color: var(--card-text); text-align: left; }
 .menu button + button { border-top: 1px solid var(--line); }
 .see-more { display: none; margin: .5em 0 0; }
@@ -635,7 +593,6 @@ p-w:hover { text-decoration: underline dotted; }
 
 /* Bible: a verse's section (a Bible text's result) has a small
    reference, so a chapter's verses read on */
-p-d.verse > h2 { font-size: 1em; }
 p-d.verse p-e :is(h3, h4), p-d.chapter p-e :is(h3, h4) { font-size: 1.05em; color: var(--color1); }
 p-d.verse p-e :is(h3, h4) { margin: .3em 0; }
 /* A chapter: each dictionary's verses in one card, running on */
@@ -655,26 +612,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	line-height: 1;
 	vertical-align: super;
 }
-.vs-tr { /* gloss the verse */
-	margin: 0 .2em;
-	padding: 0 .45em;
-	font-weight: 700;
-	font-size: .7em;
-	line-height: 1.4;
-	vertical-align: middle;
-}
 .vs .tr-entry { margin: .3em 0 .5em; }
-.ctx-btn {
-	margin-left: .5em;
-	padding: 2px 10px;
-	font-size: 13px;
-}
-/* The Books drawer's books and chapters */
-.bk-grid button {
-	min-height: 40px;
-	background: var(--card-bg);
-	color: var(--card-text);
-}
 /* A Bible card's bar, in place of its heading: a green band at its top,
    ‹ its reference ▾ its translation ▾ ›, then Read in context and Popup
    (folded into ⋮ when they don't fit on its line). The Bible bar (at the
@@ -692,8 +630,6 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	color: #fff;
 	font-size: 15px;
 	line-height: 1.3;
-}
-.card-bar {
 	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) 14px;
 	border-radius: 8px 12px 0 0;
 }
@@ -725,7 +661,6 @@ p-d > h2 {
 /* (its space below: a clear border, not a margin, which would make it let
    go that much before the next one reaches it) */
 p-d > :is(h2, .card-bar) { margin-bottom: 0; border-bottom: 12px solid transparent; background-clip: padding-box; }
-p-d > h2 .ctx-btn { border-color: rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .14); color: #fff; }
 /* (the verse's heading: the bar has it) */
 p-d:has(> .card-bar) > h2 { display: none; }
 .cb-sel, .cb-acts { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
@@ -758,8 +693,8 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
 p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); border-color: #fff; }
-/* The popup compares: its Bible bars another color */
-#popupResults > p-d > .card-bar { background: var(--compare-bg); }
+/* Comparing (a verse's Compare, in the popup): its Bible bars another color */
+p-d[data-pop="cmp"] > .card-bar { background: var(--compare-bg); }
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
 /* Its translations (the side panel, for just it): Apply to all, at the end */
@@ -780,6 +715,9 @@ p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); bo
 .bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
 .bk-grid button {
 	min-width: 0;
+	min-height: 40px;
+	background: var(--card-bg);
+	color: var(--card-text);
 	padding: 4px 2px;
 	border: 1px solid var(--line);
 	border-radius: 8px;
