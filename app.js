@@ -941,6 +941,7 @@ if(!isDictPage){
 	const bibleMode = () => hasBible && (pParts.includes('bible') || picks.filter.some(id => id.startsWith('bible')));
 	let lastRead = ''; // The chapter read last ("joh 3.")
 	let booksPick = null; // The book whose chapters the drawer shows
+	let booksInPopup = false; // (opened from a popup's card: a chapter picked opens there)
 	const bibleBar = $('chNav');
 	function renderBibleBar(){
 		renderCardBars(); // (their translations, if they're the Bible bar's)
@@ -963,6 +964,7 @@ if(!isDictPage){
 	// The Books drawer, at the chapters of the book read
 	function openBooks(){
 		booksPick = lastRead.split(' ')[0] || null;
+		booksInPopup = false;
 		openDrawer('books');
 	}
 	function booksHTML(){
@@ -1039,15 +1041,17 @@ if(!isDictPage){
 		return c1 === c2 ? `${name} ${n(c1)}:${n(v1)}–${n(v2)}` : `${name} ${n(c1)}:${n(v1)}–${n(c2)}:${n(v2)}`;
 	}
 	// Its buttons: ‹ (a chapter's), its reference ▾ (the Books drawer; in
-	// the popup, just it), its translation ▾, › ; then Read in context (a
-	// verse's or a range's, or the popup's chapter: in the results) and
-	// Popup (a verse's or a range's, in the results: its chapter in the
+	// the popup, its chapters open there), its translation ▾, › ; then Read
+	// in context (a verse's or a range's) and Popup (its chapter in the
 	// popup). If they don't all fit on its line, those two are in a ⋮ menu.
+	// A popup's are always in its ⋮: Read in context (a verse's) and Show
+	// in the results (what the popup has: a chapter's, at its verse).
+	const fullSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg>';
 	const moreSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M12 5.5v.01M12 12v.01M12 18.5v.01" stroke-width="3.2"/></svg>';
 	function cardActs(card){
 		const ref = cardRef(card), pop = inPopup(card);
-		return [(pop || ref.kind !== 'chapter') && ['ctx', contextSVG, pop ? 'Read in context: in the results' : 'Read in context'],
-			(!pop && ref.kind !== 'chapter') && ['popup', popupSVG, 'Chapter in the popup']].filter(Boolean);
+		if (pop) return [ref.kind === 'verse' && ['ctx', contextSVG, 'Read in context'], ['full', fullSVG, 'Show in the results']].filter(Boolean);
+		return ref.kind === 'chapter' ? [] : [['ctx', contextSVG, 'Read in context'], ['popup', popupSVG, 'Chapter in the popup']];
 	}
 	function renderCardBar(card){
 		const bar = card.querySelector(':scope > .card-bar');
@@ -1058,8 +1062,7 @@ if(!isDictPage){
 		const go = (dir, label) => chapter ? `<button class="ch-go" data-go="${dir}" aria-label="${label} chapter"${nextChapter(chapter, dir) ? '' : ' disabled'}>${dir < 0 ? '‹' : '›'}</button>` : '';
 		const label = par && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation';
 		const acts = cardActs(card);
-		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}` +
-			(pop ? `<span class="cb-book cb-ref">${refLabel(ref)}</span>` : `<button class="cb-book" data-cb="book" title="Books">${refLabel(ref)} ▾</button>`) +
+		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book" data-cb="book" title="Books">${refLabel(ref)} ▾</button>` +
 			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>${go(1, 'Next')}</span>` +
 			(acts.length ? `<span class="cb-acts">${acts.map(([a, ic, t]) => `<button class="cb-act" data-cb="${a}" title="${t}" aria-label="${t}">${ic}</button>`).join('')}` +
 				`<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button></span>` : '');
@@ -1068,6 +1071,7 @@ if(!isDictPage){
 	// Folded (⋮) if its buttons, at their full width, don't fit its line
 	function fitBar(bar){
 		if (!bar.isConnected || !bar.querySelector('.cb-acts')) return;
+		if (inPopup(bar)) return bar.classList.add('folded'); // (always)
 		bar.classList.remove('folded');
 		bar.classList.add('measure');
 		const over = bar.scrollWidth > bar.clientWidth + 1;
@@ -1099,12 +1103,17 @@ if(!isDictPage){
 		}
 		if (act === 'book') {
 			booksPick = b0?.code || null;
+			booksInPopup = pop;
 			openDrawer('books');
-		} else if (act === 'ctx') { // Its chapter in the results, at its verse (the popup's: the one it's for)
+		} else if (act === 'ctx' || (act === 'full' && ref.kind === 'chapter')) { // Its chapter in the results, at its verse (the popup's chapter: the one it's for)
 			readHl = pop && popupHl && ref.kind === 'chapter' ? popupHl : `${code} ${c}.${ref.from % 1000}`;
 			if (pop) closePopup();
 			query = ''; // (searches again even if it's the chapter showing)
 			search(`${code} ${c}.`);
+		} else if (act === 'full') { // What the popup has, in the results
+			const q = popupQuery;
+			closePopup();
+			search(q);
 		} else if (act === 'popup') { // Its whole chapter, in the popup, at its (first) verse
 			openPopupSearch(`${code} ${c}-${c}`, `${code} ${c}.${ref.from % 1000}`);
 		}
@@ -1637,6 +1646,7 @@ if(!isDictPage){
 		const b = e.target.closest('button');
 		if (!b) return;
 		const {book, booksBack, all, q, rm, w, clear, open, act, par, text, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txPar, txAll} = b.dataset;
+		const drawerBooks = drawerView === 'books';
 		if (tx !== undefined || txPar || txAll) return cardTextsClick(b.dataset); // (a card's translations)
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
@@ -1684,7 +1694,9 @@ if(!isDictPage){
 			}
 		} else if (q !== undefined) {
 			closeDrawer();
-			search(q);
+			const ch = drawerBooks && booksInPopup && popupOverlay.style.display === 'block' && /^(.+) (\d+)\.$/.exec(q);
+			if (ch) openPopupSearch(`${ch[1]} ${ch[2]}-${ch[2]}`);
+			else search(q);
 		} else if (rm) {
 			setList(rm, lists[rm].items.filter(x => x.w !== w));
 		} else if (clear) {

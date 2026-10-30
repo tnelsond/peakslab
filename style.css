@@ -698,7 +698,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 #chNav .cb-sel { flex: none; }
 /* (the verse's heading: the bar has it) */
 p-d:has(> .card-bar) > h2 { display: none; }
-.cb-sel, .cb-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.cb-sel, .cb-acts { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
 .cb-sel { flex: 1 1 0; } /* (on a narrow card it wraps: ⋮ stays on the first line) */
 .cb-acts { flex: none; margin-left: auto; }
 .card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act) {
@@ -715,8 +715,7 @@ p-d:has(> .card-bar) > h2 { display: none; }
 }
 /* The reference: big (in the popup, just it: not a button) */
 .card-bar .cb-book { font-size: 1.3em; font-weight: 700; padding: 0 14px; }
-.card-bar .cb-ref { display: flex; align-items: center; border-color: transparent; background: none; padding: 0 4px; cursor: default; }
-.card-bar .cb-text { flex: 0 1 auto; min-width: 0; max-width: 14em; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.card-bar .cb-text { flex: 0 1 auto; min-width: 4.5em; max-width: 14em; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .card-bar .cb-act { width: 40px; padding: 0; line-height: 0; }
 .card-bar .cb-act svg { display: block; margin: auto; }
 .card-bar .ch-go { width: 36px; padding: 0; font-size: 1.4em; line-height: 1; }
@@ -1028,6 +1027,10 @@ p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--control-btn-
 	box-shadow: 0 20px 50px rgba(0,0,0,.7);
 }
 #popupClose, #popupFull { float: right; }
+/* Its Bible cards: their bar (its ⋮ has Show in the results) fills the
+   card; × above it */
+#popupContent:has(#popupResults > p-d > .card-bar) #popupFull { display: none; }
+#popupContent:has(#popupResults > p-d > .card-bar) #popupClose { float: none; display: block; margin: -12px 4px -10px auto; line-height: 1; }
 /* Fullscreen (the ⛶ below): it fills the window */
 body.fullscreen #popupContent {
 	position: fixed;
