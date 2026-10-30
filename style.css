@@ -1136,6 +1136,10 @@ body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results abov
 	#popupContent { padding: 20px 6px; }
 	p-d { --pd: 14px; }
 	p-e.starred { margin-left: -14px; padding-left: 10px; }
+	/* The cards (and the Bible bar) from edge to edge of the screen, square */
+	:is(#results, #translation, #popupResults) > p-d { margin-left: -6px; margin-right: -6px; border-radius: 0; }
+	:is(#results, #translation, #popupResults) > p-d > :is(h2, .card-bar) { margin-left: calc(-1 * var(--pd) - 4px); border-radius: 0; } /* (over the card's stripe too) */
+	#chNav.card-bar { margin-left: -6px; margin-right: -6px; border-radius: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
 	.drawer-panel { animation: none; }
