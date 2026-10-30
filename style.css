@@ -28,7 +28,8 @@
 	--mark-fg: #000;
 	--star: #b7790f;
 	--star-bg: #fbf0d4;
-	--head-bg: #4a5a2f; /* a card's heading and Bible bar: a forest (camo) green */
+	--head-bg: #367117; /* a card's heading and Bible bar: green (between the buttons' and a forest green) */
+	--compare-bg: #2c5d73; /* the popup's Bible bar: it compares (the gloss's translations) */
 	--pill-bg: #e6d6b6; /* a dictionary's name: tan, */
 	--pill-fg: #5a3c1e; /* dark brown */
 	--muted: #6b5d48;
@@ -62,7 +63,8 @@ body.dark-mode {
 	--mark-fg: #fff;
 	--star: #e9b64a;
 	--star-bg: #2e2510;
-	--head-bg: #3d4a27;
+	--head-bg: #2f6913;
+	--compare-bg: #244b5d;
 	--pill-bg: #4a3d29;
 	--pill-fg: #ead9b7;
 	--muted: #b3a68f;
@@ -756,6 +758,8 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
 p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); border-color: #fff; }
+/* The popup compares: its Bible bars another color */
+#popupResults > p-d > .card-bar { background: var(--compare-bg); }
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
 /* Its translations (the side panel, for just it): Apply to all, at the end */
@@ -795,22 +799,12 @@ p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); bo
 
 /* Nothing searched: the home page (recent, bookmarks); the menu's Library
    shows the library and settings instead */
-#settings:not(.library) > #listDiv, #settings:not(.library) > .prefs, #settings.library > #home { display: none; }
-#home {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-	gap: 0 16px;
-}
-#home section, .prefs, #listDiv {
-	background: var(--result-entry-bg);
-	border-radius: 12px;
-	padding: 14px 18px;
-	margin: 16px 0 0;
-	border-left: 0;
-}
-#home h2, .prefs h2, #listDiv h2 { margin: 0 0 .3em; font-size: 1.2em; color: var(--color1); }
-.prefs .pref-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: .5em 0; }
-.prefs details { margin-top: .6em; font-size: .85em; color: var(--muted); }
+/* Library and settings (a drawer): text size, the version */
+.pref-size { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-top: 1px solid var(--line); }
+.pref-size span { flex: 1; font-weight: 600; }
+.pref-size button { width: 44px; height: 36px; border: 1px solid var(--line); border-radius: 999px; background: var(--card-bg); color: var(--card-text); font: 600 15px system-ui, sans-serif; cursor: pointer; }
+.pref-size b { min-width: 2em; text-align: center; }
+.lib-ver { margin: 1em 4px; font-size: .85em; color: var(--muted); }
 /* Rows: recent searches, bookmarks, the filter's categories, languages */
 .rows { list-style: none; margin: 0; padding: 0; }
 .row, .cat-row { display: flex; align-items: stretch; }
@@ -908,7 +902,7 @@ p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); bo
 	font-weight: 600;
 	cursor: pointer;
 }
-.lib-space { margin: 0 0 .5em; font-size: .9em; font-weight: 600; }
+.lib-space { margin: 0 0 .5em; font-size: .9em; color: var(--muted); }
 .lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
 .dict-del { align-self: center; padding: 4px 6px; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: .85em; }
 /* A note on a verse: a little link; it shows in the popup */
@@ -1110,7 +1104,8 @@ body.no-scroll #controls { z-index: 3001; } /* Over a popup too */
 }
 .control-btn:hover, body.fullscreen .control-btn { opacity: 1; }
 body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscreen: just ⛶ (install's display is inline) */
-.control-btn.txt { font-size: 14px; font-weight: 600; }
+/* Fullscreen: brown, like the context menu */
+#f4 { background: var(--header-bg); opacity: .85; }
 
 /* The context menu (a tap on an entry's text, or selected text): docked
    at the bottom of the screen, over the round buttons; its icons, each
@@ -1152,6 +1147,7 @@ body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscree
 .ctx-row button[data-c="back"] { width: 44px; opacity: .8; }
 .ctx-row button[data-c="gloss"] { color: var(--tab-bg); }
 .ctx-flag { font-size: 20px; line-height: 22px; }
+.ctx-glyph { font-size: 18px; line-height: 22px; font-weight: 700; }
 .ctx-said { padding: 14px 24px; color: #fff; font: 600 14px system-ui, sans-serif; }
 body.ctx-open #controls { display: none; }
 body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results above it) */
