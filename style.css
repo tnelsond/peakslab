@@ -701,15 +701,18 @@ p-d.chapter .vs-start { white-space: nowrap; }
    the top of the screen while it's being read (under the header, when
    it's there: --stick; in the popup, at its top) */
 p-d > h2, .card-bar { position: sticky; top: var(--stick, 0px); z-index: 4; transition: top .2s; }
-body.fullscreen :is(p-d > h2, .card-bar) { top: 0; }
+body.fullscreen :is(p-d > h2, .card-bar) { position: static; } /* (fullscreen: they scroll with their card) */
 #popupContent :is(p-d > h2, .card-bar) { top: -20px; } /* (its top edge: over its padding) */
+/* A word's heading (the search's gloss's): a green band like a Bible card's */
 p-d > h2 {
-	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) .2em;
-	padding: var(--pd) var(--pd) .3em;
+	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) 14px;
+	padding: 10px 14px;
 	border-radius: 8px 12px 0 0;
-	background: var(--result-entry-bg);
-	box-shadow: 0 1px 0 var(--line);
+	background: var(--control-btn-bg);
+	color: #fff;
+	line-height: 1.4;
 }
+p-d > h2 .ctx-btn { border-color: rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .14); color: #fff; }
 /* (the verse's heading: the bar has it) */
 p-d:has(> .card-bar) > h2 { display: none; }
 .cb-sel, .cb-acts { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
