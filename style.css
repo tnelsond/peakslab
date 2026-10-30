@@ -113,7 +113,7 @@ mark {
 	background: none;
 }
 .st-share, .text-btn, .row-main, .cat-sel,
-.setting, .qk, #langBtn, .ctx-btn, .vs-tr, .bk-grid button, #chNav button {
+.setting, .qk, #langBtn, .ctx-btn, .vs-tr, .bk-grid button {
 	font: inherit;
 }
 /* Filled */
@@ -666,64 +666,71 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	padding: 2px 10px;
 	font-size: 13px;
 }
-/* The Bible bar, at the top of the results: ‹ book and chapter ▾ ›; and
-   the Books drawer's books and chapters */
-#chNav { display: flex; align-items: center; justify-content: center; gap: 8px; max-width: 640px; margin: 10px auto 4px; }
-#chNav[hidden] { display: none; }
-#chNav button, .bk-grid button {
+/* The Books drawer's books and chapters */
+.bk-grid button {
 	min-height: 40px;
 	background: var(--card-bg);
 	color: var(--card-text);
 }
-#chNav button { border: 0; border-radius: 999px; }
-#chNav .ch-go { flex: none; width: 40px; font-size: 1.5em; line-height: 1; color: var(--color1); }
-#chNav .ch-go:disabled { opacity: .35; }
-#chNav .ch-book, #chNav .ch-text { min-width: 0; padding: 0 14px; font-size: 1.15em; font-weight: 600; }
-#chNav .ch-text { font-size: .95em; color: var(--color1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* A Bible card's own bar (a verse's, under its reference; a chapter's or a
-   range's, at its top, with its Share): ‹ its book and reference ▾, its
-   translation ▾ › — the Bible bar's, so that one hides */
+/* A Bible card's bar, in place of its heading: a green band at its top,
+   ‹ its reference ▾ its translation ▾ ›, then Read in context and Popup
+   (folded into ⋮ when they don't fit on its line). The Bible bar (at the
+   top of the results, an empty page's) looks the same; a card's has it,
+   so it hides. */
 #chNav:has(~ #results .card-bar) { display: none; }
+#chNav[hidden] { display: none; }
 .card-bar {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: wrap; /* (only if it's too narrow even with ⋮) */
 	align-items: center;
-	gap: 8px 10px;
-	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) 14px;
+	gap: 8px;
 	padding: 10px 14px;
-	border-radius: 8px 12px 0 0;
 	background: var(--control-btn-bg);
 	color: #fff;
 	font-size: 15px;
 	line-height: 1.3;
 }
+.card-bar {
+	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) 14px;
+	border-radius: 8px 12px 0 0;
+}
+#chNav.card-bar { justify-content: center; max-width: 640px; margin: 10px auto 4px; border-radius: 12px; }
+#chNav .cb-sel { flex: none; }
 /* (the verse's heading: the bar has it) */
 p-d:has(> .card-bar) > h2 { display: none; }
 .cb-sel, .cb-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
-.cb-acts { margin-left: auto; }
+.cb-sel { flex: 1 1 0; } /* (on a narrow card it wraps: ⋮ stays on the first line) */
+.cb-acts { flex: none; margin-left: auto; }
 .card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act) {
+	flex: none;
 	min-height: 36px;
-	min-width: 0;
 	padding: 0 12px;
 	border: 1px solid rgba(255, 255, 255, .55);
 	border-radius: 999px;
 	background: rgba(255, 255, 255, .14);
 	color: #fff;
 	font: inherit;
+	white-space: nowrap;
 	cursor: pointer;
 }
-/* The reference: big */
+/* The reference: big (in the popup, just it: not a button) */
 .card-bar .cb-book { font-size: 1.3em; font-weight: 700; padding: 0 14px; }
-.card-bar .cb-text { max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.card-bar .cb-act { flex: none; width: 40px; min-height: 36px; padding: 0; line-height: 0; }
+.card-bar .cb-ref { display: flex; align-items: center; border-color: transparent; background: none; padding: 0 4px; cursor: default; }
+.card-bar .cb-text { flex: 0 1 auto; min-width: 0; max-width: 14em; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.card-bar .cb-act { width: 40px; padding: 0; line-height: 0; }
 .card-bar .cb-act svg { display: block; margin: auto; }
-.card-bar .ch-go { flex: none; width: 36px; padding: 0; font-size: 1.4em; line-height: 1; }
+.card-bar .ch-go { width: 36px; padding: 0; font-size: 1.4em; line-height: 1; }
 .card-bar .ch-go:disabled { opacity: .35; cursor: default; }
-.card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act):not(:disabled):hover { background: rgba(255, 255, 255, .28); }
+.card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act):is(button):not(:disabled):hover { background: rgba(255, 255, 255, .28); }
+/* Its buttons at their full width (fitBar measures them); folded: Read in
+   context and Popup in its ⋮ */
+.card-bar.measure, .card-bar.measure * { flex-wrap: nowrap !important; flex-shrink: 0 !important; flex-basis: auto !important; max-width: none !important; }
+.card-bar:not(.folded) .cb-more, .card-bar.folded .cb-act:not(.cb-more) { display: none; }
+.card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
 p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--control-btn-bg); border-color: #fff; }
-.card-bar :is(.share-btn, .bm-btn) { padding: 4px; color: #fff; line-height: 0; }
-.card-bar .bm-btn[aria-pressed="true"] { color: #fff; }
+/* The context menu's Bookmark, bookmarked: filled */
+.ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
 /* Its translations (the side panel, for just it): Apply to all, at the end */
 .tx-all {
 	width: 100%;

@@ -3,17 +3,13 @@
 // A file the service worker has (its 'status'): set on a dictionary page,
 // once its dictionaries are known
 let ack = null;
-// Reused for every bookmark button (one per result) — defined once so we're
-// not rebuilding this markup on every streamed result. CSS fills it in when
-// it's bookmarked (aria-pressed).
+// The context menu's Bookmark (CSS fills it in when it's bookmarked)
 const bookmarkSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
 const compareSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M12 6C10 4.5 7 4 3 4v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14"/></svg>'; // (a verse's compare)
 // A Bible card's Read in context (an open book, + over it) and Popup (the
 // book in a popup's two squares)
 const contextSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M12 11.5c-2-1.3-5-1.8-9-1.8v10.5c4 0 7 .5 9 1.8 2-1.3 5-1.8 9-1.8V9.7c-4 0-7 .5-9 1.8zM12 11.5v10.5M12 1.5v6M9 4.5h6"/></svg>';
 const popupSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M8 7V3.5A1.5 1.5 0 0 1 9.5 2h11A1.5 1.5 0 0 1 22 3.5v11a1.5 1.5 0 0 1-1.5 1.5H17"/><rect x="2" y="7.5" width="14.5" height="14.5" rx="1.5"/><path d="M9.25 13.2c-1.2-.8-2.7-1.1-4.5-1.1v6.4c1.8 0 3.3.3 4.5 1.1 1.2-.8 2.7-1.1 4.5-1.1v-6.4c-1.8 0-3.3.3-4.5 1.1zM9.25 13.2v6.4" stroke-width="1.6"/></svg>';
-// A bookmark: its card's headword's, or w's (a verse's: "joh 3.16")
-const bmBtnHTML = w => `<button class="bm-btn" onclick="toggleBookmark(this)"${w ? ` data-w="${escapeHTML(w)}"` : ''} title="Bookmark" aria-pressed="false">${bookmarkSVG}</button>`;
 // Remembered things (null if there's nothing, or no storage)
 const stored = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* not remembered */ } };
@@ -251,7 +247,7 @@ if(!isDictPage){
 		// A verse found by its reference ("joh 3.16", "joh 3"): the
 		// translations its card has (its own, picked in its bar, or the Bible
 		// bar's: in parallel, every one on; else the first)
-		if (!popup && isBibleText(d) && (div?.dataset.own || (!parallel && d !== readText() && nheader.startsWith(query))))
+		if (isBibleText(d) && (div?.dataset.own || (!popup && !parallel && d !== readText() && nheader.startsWith(query))))
 			return loadmore();
 		if (typeof data.body === 'string' && div?.seen.has(d + '\t' + data.body)) return popup || loadmore(); // An entry found twice (by two of the searches) shows once (and more come)
 		// Nothing goes in above the bottom of the screen (what's read, or
@@ -275,11 +271,10 @@ if(!isDictPage){
 		div.seen.add(d + '\t' + data.body);
 		if(first){
 			const ctx = isBibleText(d) && chapterOf(nheader) && chapterOf(nheader) !== query ? '<button class="ctx-btn" onclick="readInContext(this)">Read in context</button>' : '';
-			div.innerHTML = `<h2><span class="hw">${data.header}</span>${ctx}${bmBtnHTML()}</h2>` +
+			div.innerHTML = `<h2><span class="hw">${data.header}</span>${ctx}</h2>` +
 				'<button class="text-btn see-more" data-id="1e9" onclick="this.parentNode.classList.add(\'show-hidden\')">See more</button>'; // (entries go above it)
-			markBookmarks(div);
 		}
-		if(!popup && isBibleText(d) && !div.querySelector(':scope > .card-bar')) // A verse's card: its bar, under its reference
+		if(isBibleText(d) && !div.querySelector(':scope > .card-bar')) // A verse's card (the popup's too): its bar, for its reference
 			addCardBar(div, verseRef(nheader), nheader);
 		// A media file's: its details and the file; text: Gloss, the chords'
 		// show/hide button if it has any, and the text
@@ -401,7 +396,8 @@ if(!isDictPage){
 			card.innerHTML = par ? '<p-e></p-e>' : entryHTML(d);
 			const after = [...root.querySelectorAll(':scope > p-d.chapter')].find(c => +c.dataset.id > cardSort);
 			root.insertBefore(card, after || (main && loader && loader.parentNode === resultsDiv ? loader : null));
-			if (main && (par || isBibleText(d))) addCardBar(card, searchRef(), query); // (its Share goes in it)
+			if (main && (par || isBibleText(d))) addCardBar(card, searchRef(), query);
+			else if (root === popupResults && !own && (par || isBibleText(d))) addCardBar(card, popupRef(), popupQuery); // (the popup's chapter)
 		}
 		const ref = label && /(\p{Nd}+\s*[:.]\s*)(\p{Nd}+)/u.exec(label);
 		const full = ref && (own ? own.range : rangeOf(main ? query : updateQuery(popupQuery))) && (cv === 1 || !card.querySelector('.vs'));
@@ -422,8 +418,8 @@ if(!isDictPage){
 		// In parallel, in the verse's group, by verse, each text as the
 		// dictionaries go: like an entry, with its name and Gloss
 		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}` : '') +
-			`<${tag} class="vs${para ? ' para' : ''}" data-v="${v}">${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
-			(par ? `</${tag}></div>` : `${bmBtnHTML(h)}<button class="vs-cmp" onclick="compareVerse(this)" data-w="${escapeHTML(h)}" title="Compare translations" aria-label="Compare translations">${compareSVG}</button> </${tag}>`);
+			`<${tag} class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(word.length)}` +
+			(par ? `</${tag}></div>` : `<button class="vs-cmp" onclick="compareVerse(this)" data-w="${escapeHTML(h)}" title="Compare translations" aria-label="Compare translations">${compareSVG}</button> </${tag}>`);
 		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
 		if(par){
 			let group = pe.querySelector(`:scope > .pv[data-v="${v}"]`);
@@ -431,18 +427,15 @@ if(!isDictPage){
 				group = document.createElement('div');
 				group.className = 'pv';
 				group.dataset.v = v;
-				group.innerHTML = bmBtnHTML(h); // (one for the verse: the texts go after it)
 				insertSorted(pe, group, v, 'v');
-				markBookmarks(group);
 			}
 			insertSorted(group, el, sortId(d));
 		}else{
 			pe.append(vs);
-			markBookmarks(vs);
 		}
 		if(text)
 			noteLinks(vs);
-		if(root === popupResults && h === popupHl) vs.classList.add('ctx'); // (the popup's: the verse its chapter's for)
+		if(root === popupResults && h === popupHl && card.dataset.kind === 'chapter') vs.classList.add('ctx'); // (the popup's: the verse its chapter's for)
 		if(root === resultsDiv && h === readHl){ // Read in context: the verse in each card (not marked), the top one's in view
 			vs.classList.add('ctx');
 			if (main) resultsDiv.querySelector('.vs.ctx').scrollIntoView({block: 'center'});
@@ -958,8 +951,8 @@ if(!isDictPage){
 		const {b, ch} = chapterAt(lastRead);
 		const go = (dir, label) => `<button class="ch-go" data-go="${dir}" aria-label="${label} chapter"${nextChapter(lastRead, dir) ? '' : ' disabled'}>${dir < 0 ? '‹' : '›'}</button>`;
 		const texts = barTexts();
-		bibleBar.innerHTML = go(-1, 'Previous') + `<button class="ch-book">${b ? `${escapeHTML(b.name)} ${bookNum(b, ch)}` : 'Books'} ▾</button>` +
-			`<button class="ch-text" data-texts="1">${parallel && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation'} ▾</button>` + go(1, 'Next');
+		bibleBar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book">${b ? `${escapeHTML(b.name)} ${bookNum(b, ch)}` : 'Books'} ▾</button>` +
+			`<button class="cb-text" data-texts="1">${parallel && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation'} ▾</button>${go(1, 'Next')}</span>`;
 	}
 	bibleBar.addEventListener('click', e => {
 		const b = e.target.closest('button');
@@ -994,8 +987,13 @@ if(!isDictPage){
 	// bar's, and every card's.
 	// ---------------------------------------------------------------
 	const barTexts = () => dictIds.filter(d => isBibleText(d) && libOn[d] && (parallel || d === readText()));
-	const cardPar = card => card.dataset.own ? card.dataset.par === '1' : parallel;
-	const cardTexts = card => card.dataset.own ? card.dataset.texts.split(',').filter(Boolean).map(Number) : barTexts();
+	// A popup's card: the gloss's Bible texts (a chapter's card, not in
+	// parallel: its one)
+	const inPopup = card => !!card.closest('#popupResults');
+	const oneText = card => card.matches('.chapter:not(.parallel)');
+	const cardPar = card => card.dataset.own ? card.dataset.par === '1' : inPopup(card) ? !oneText(card) : parallel;
+	const cardTexts = card => card.dataset.own ? card.dataset.texts.split(',').filter(Boolean).map(Number) :
+		!inPopup(card) ? barTexts() : oneText(card) ? [+card.querySelector(':scope > p-e')?.dataset.d] : dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss'));
 	// A card's reference: {bk (its book as typed or found: "joh", "Romans"),
 	// from, to (chapter * 1000 + verse), kind (verse, chapter or range)}
 	function verseRef(h){
@@ -1011,17 +1009,21 @@ if(!isDictPage){
 		const r = rangeOf(query);
 		return r && {bk: r.book, from: r.from, to: r.to, kind: 'range'};
 	}
+	// The popup's chapter or range: a whole chapter is a chapter
+	function popupRef(){
+		const r = rangeOf(updateQuery(popupQuery));
+		return r && {bk: r.book, from: r.from, to: r.to, kind: r.from % 1000 === 1 && r.to % 1000 === 999 && r.to - r.from < 1000 ? 'chapter' : 'range'};
+	}
 	const cardRef = card => ({bk: card.dataset.bk, from: +card.dataset.from, to: +card.dataset.to, kind: card.dataset.kind});
 	const bookOf = bk => books?.find(x => x.code.toLowerCase() === bookCode(bk).toLowerCase());
 	// The bar at the top of a card, in place of its heading (a verse's
-	// stays, hidden: its headword is its bookmark's and Share's) and its
-	// Share; q, what its Popup searches
+	// stays, hidden: its headword is its bookmark's and Share's); q, what
+	// it's for
 	function addCardBar(card, ref, q){
 		if (!ref) return;
 		Object.assign(card.dataset, {bk: ref.bk, from: ref.from, to: ref.to, kind: ref.kind, q});
 		const bar = document.createElement('div');
 		bar.className = 'card-bar';
-		card.querySelector(':scope > .share-btn')?.remove();
 		card.prepend(bar);
 		renderCardBar(card);
 	}
@@ -1036,43 +1038,77 @@ if(!isDictPage){
 		if (v1 === 1 && v2 === 999) return `${name} ${n(c1)}–${n(c2)}`;
 		return c1 === c2 ? `${name} ${n(c1)}:${n(v1)}–${n(v2)}` : `${name} ${n(c1)}:${n(v1)}–${n(c2)}:${n(v2)}`;
 	}
+	// Its buttons: ‹ (a chapter's), its reference ▾ (the Books drawer; in
+	// the popup, just it), its translation ▾, › ; then Read in context (a
+	// verse's or a range's, or the popup's chapter: in the results) and
+	// Popup (a verse's or a range's, in the results: its chapter in the
+	// popup). If they don't all fit on its line, those two are in a ⋮ menu.
+	const moreSVG = '<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M12 5.5v.01M12 12v.01M12 18.5v.01" stroke-width="3.2"/></svg>';
+	function cardActs(card){
+		const ref = cardRef(card), pop = inPopup(card);
+		return [(pop || ref.kind !== 'chapter') && ['ctx', contextSVG, pop ? 'Read in context: in the results' : 'Read in context'],
+			(!pop && ref.kind !== 'chapter') && ['popup', popupSVG, 'Chapter in the popup']].filter(Boolean);
+	}
 	function renderCardBar(card){
 		const bar = card.querySelector(':scope > .card-bar');
 		if (!bar) return;
 		if (!books) loadBooks(() => renderCardBar(card)); // (its book's name in the meantime: its code)
-		const ref = cardRef(card), b = bookOf(ref.bk), texts = cardTexts(card), par = cardPar(card);
+		const ref = cardRef(card), b = bookOf(ref.bk), texts = cardTexts(card), par = cardPar(card), pop = inPopup(card);
 		const chapter = ref.kind === 'chapter' && b ? `${b.code} ${Math.floor(ref.from / 1000)}.` : '';
 		const go = (dir, label) => chapter ? `<button class="ch-go" data-go="${dir}" aria-label="${label} chapter"${nextChapter(chapter, dir) ? '' : ' disabled'}>${dir < 0 ? '‹' : '›'}</button>` : '';
 		const label = par && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation';
-		// Not a chapter (a verse, a range): no ‹ ›, but Read in context (its
-		// whole chapter) and Popup
-		const more = ref.kind === 'chapter' ? '' : `<button class="cb-act" data-cb="ctx" title="Read in context: the whole chapter, at this" aria-label="Read in context">${contextSVG}</button>` +
-			`<button class="cb-act" data-cb="popup" title="Its whole chapter, in the popup" aria-label="Its chapter in the popup">${popupSVG}</button>`;
-		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book" data-cb="book" title="Books">${refLabel(ref)} ▾</button>` +
+		const acts = cardActs(card);
+		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}` +
+			(pop ? `<span class="cb-book cb-ref">${refLabel(ref)}</span>` : `<button class="cb-book" data-cb="book" title="Books">${refLabel(ref)} ▾</button>`) +
 			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>${go(1, 'Next')}</span>` +
-			`<span class="cb-acts">${more}${ref.kind === 'verse' ? bmBtnHTML() : ''}</span>`;
-		markBookmarks(bar);
+			(acts.length ? `<span class="cb-acts">${acts.map(([a, ic, t]) => `<button class="cb-act" data-cb="${a}" title="${t}" aria-label="${t}">${ic}</button>`).join('')}` +
+				`<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button></span>` : '');
+		requestAnimationFrame(() => fitBar(bar));
 	}
-	const renderCardBars = () => resultsDiv.querySelectorAll(':scope > p-d > .card-bar').forEach(bar => renderCardBar(bar.parentNode));
-	resultsDiv.addEventListener('click', e => {
+	// Folded (⋮) if its buttons, at their full width, don't fit its line
+	function fitBar(bar){
+		if (!bar.isConnected || !bar.querySelector('.cb-acts')) return;
+		bar.classList.remove('folded');
+		bar.classList.add('measure');
+		const over = bar.scrollWidth > bar.clientWidth + 1;
+		bar.classList.remove('measure');
+		bar.classList.toggle('folded', over);
+	}
+	const cardBars = () => document.querySelectorAll('#results > p-d > .card-bar, #popupResults > p-d > .card-bar');
+	const renderCardBars = () => cardBars().forEach(bar => renderCardBar(bar.parentNode));
+	window.addEventListener('resize', debounce(() => cardBars().forEach(fitBar), 100));
+	function cardBarClick(e){
 		const b = e.target.closest('.card-bar button');
-		if (!b || b.matches('.share-btn, .bm-btn')) return;
-		const card = b.closest('p-d'), b0 = bookOf(card.dataset.bk), ref = cardRef(card);
+		if (!b) return;
+		const card = b.closest('p-d');
 		if (b.dataset.cb === 'texts') return openCardTexts(card);
+		if (b.dataset.cb === 'more') return popMenu(b, cardActs(card).map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${t}</span></button>`).join(''), a => cardAct(card, a));
 		closeMenus();
+		cardAct(card, b.dataset.cb, b.dataset.go);
+	}
+	resultsDiv.addEventListener('click', cardBarClick);
+	popupResults.addEventListener('click', cardBarClick);
+	function cardAct(card, act, go){
+		const ref = cardRef(card), b0 = bookOf(ref.bk), pop = inPopup(card);
 		const code = (b0?.code || ref.bk).toLowerCase(), c = Math.floor(ref.from / 1000);
-		if (b.dataset.go) search(nextChapter(`${b0.code} ${c}.`, +b.dataset.go));
-		else if (b.dataset.cb === 'book') {
+		if (go) { // The chapter before or after (the popup's, in it)
+			const next = b0 && nextChapter(`${b0.code} ${c}.`, +go);
+			if (!next) return;
+			const [, bk, n] = /^(.+) (\d+)\.$/.exec(next);
+			return pop ? openPopupSearch(`${bk} ${n}-${n}`) : search(next);
+		}
+		if (act === 'book') {
 			booksPick = b0?.code || null;
 			openDrawer('books');
-		} else if (b.dataset.cb === 'ctx') { // Its chapter, at its (first) verse
-			readHl = `${code} ${c}.${ref.from % 1000}`;
+		} else if (act === 'ctx') { // Its chapter in the results, at its verse (the popup's: the one it's for)
+			readHl = pop && popupHl && ref.kind === 'chapter' ? popupHl : `${code} ${c}.${ref.from % 1000}`;
+			if (pop) closePopup();
 			query = ''; // (searches again even if it's the chapter showing)
 			search(`${code} ${c}.`);
-		} else if (b.dataset.cb === 'popup') { // Its whole chapter, in the popup, at its (first) verse
+		} else if (act === 'popup') { // Its whole chapter, in the popup, at its (first) verse
 			openPopupSearch(`${code} ${c}-${c}`, `${code} ${c}.${ref.from % 1000}`);
 		}
-	});
+	}
 	// A card's translations, in the side panel (the translations drawer's,
 	// for just that card: textsCard): Parallel, and the downloaded
 	// translations (off: pick one; on: any), then Apply to all
@@ -1141,7 +1177,7 @@ if(!isDictPage){
 		card.classList.toggle('parallel', par);
 		card.insertAdjacentHTML('beforeend', par || !texts.length ? '<p-e></p-e>' : entryHTML(texts[0]));
 		if (!texts.length) return card.lastChild.insertAdjacentHTML('beforeend', '<p class="empty">No translation ticked.</p>');
-		const own = {card, par, range: ref.kind === 'range'};
+		const own = {card, par, range: ref.kind !== 'verse'};
 		// Each translation's lines, 100 at a time, in order
 		const more = (d, p) => {
 			if (p.at > p.last || !live()) return null;
@@ -1149,7 +1185,7 @@ if(!isDictPage){
 			p.at += n;
 			return askDict(d, lineMsg(p.at - n, n)).then(res => {
 				if (!live()) return;
-				res.entries.forEach(e => e && addVerse(e, updateQuery(e.header), d, resultsDiv, own));
+				res.entries.forEach(e => e && addVerse(e, updateQuery(e.header), d, card.parentNode, own));
 				return more(d, p);
 			});
 		};
@@ -1239,7 +1275,6 @@ if(!isDictPage){
 	function setList(k, items){
 		lists[k].items = items.slice(0, 200);
 		store(lists[k].key, lists[k].items);
-		markBookmarks();
 		renderHome();
 	}
 	const listHTML = (k, n) => {
@@ -1264,24 +1299,14 @@ if(!isDictPage){
 
 	const headwordOf = pd => (pd.querySelector(':scope > h2 .hw')?.textContent || '').trim();
 	const isBookmarked = w => lists.bookmarks.items.some(b => b.w === w);
-	const bmWord = b => b.dataset.w || headwordOf(b.closest('p-d'));
-	// The bookmark buttons in el, pressed if theirs is bookmarked
-	const markBookmarks = (el = document) => el.querySelectorAll('.bm-btn').forEach(b => {
-		const on = isBookmarked(bmWord(b));
-		b.setAttribute('aria-pressed', on);
-		b.title = on ? 'Remove bookmark' : 'Bookmark';
-	});
-	// A bookmark keeps the first line of its section's first entry (a
-	// verse's: its text)
-	window.toggleBookmark = btn => {
-		const pd = btn.closest('p-d'), w = bmWord(btn);
-		if (!w) return;
-		const pe = btn.dataset.w ? btn.closest('.vs, .pv') : pd.querySelector(':scope > p-e');
+	// A bookmark for w (the context menu's) on or off: it keeps the first
+	// line of its entry (pe; a verse's: its text)
+	function toggleBookmark(w, pe){
 		const g = (pe && entryText(pe).split('\n').find(isText)) || '';
 		const items = lists.bookmarks.items.filter(b => b.w !== w);
 		setList('bookmarks', isBookmarked(w) ? items : [{w, g: g.length > 120 ? g.slice(0, 119) + '…' : g, t: Date.now()}, ...items]);
-		if (pd.closest('#results')) addHistory(queryText);
-	};
+		if (pe?.closest('#results')) addHistory(queryText);
+	}
 
 	function timeAgo(t){
 		const m = Math.round((Date.now() - t) / 60000), h = Math.round(m / 60), d = Math.round(h / 24);
@@ -1883,7 +1908,7 @@ if(!isDictPage){
 		setTimeout(() => document.addEventListener('click', closePopupClick)); // A click outside closes it (after the click that opened it, if one did)
 	}
 	function closePopupClick(e){
-		if (!e.target.closest('#popupContent, #controls, #drawer, #ctxMenu')) { // (its buttons below, and the drawer it opens, are usable)
+		if (!e.composedPath().some(n => n.matches?.('#popupContent, #controls, #drawer, #ctxMenu'))) { // (its buttons below, and the drawer it opens, are usable; by where it was tapped: what's tapped can be redrawn by then)
 			document.removeEventListener('click', closePopupClick);
 			closePopup();
 		}
@@ -2385,7 +2410,8 @@ if(!isDictPage){
 	// The context menu, docked at the bottom of the screen: for a tap on
 	// an entry's text (or a verse's, a gloss's), or for selected text. Its
 	// icons: Gloss (the entry, or what's selected in it, word by word;
-	// glossed, Hide gloss), Search and Popup (what's selected), Speak (a menu
+	// glossed, or a gloss itself: Hide gloss), Search and Popup (what's
+	// selected), Bookmark (the word, the verse, what's selected), Speak (a menu
 	// of the page's languages there are voices for: speaking English text in
 	// a Khmer voice is fun) and Share (a menu: copy it, or a link to it; a
 	// verse's, or all of its card's). A tap anywhere else (or on the entry
@@ -2402,6 +2428,8 @@ if(!isDictPage){
 		copy: svg('M9 9h11v11H9zM5 15H4V4h11v1'),
 		link: svg('M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1'),
 		back: svg('M15 18l-6-6 6-6'),
+		hide: svg('M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c5 0 8.5 4.5 9.5 7a14 14 0 0 1-3 4.2M6.5 6.6A14 14 0 0 0 2.5 12c1 2.5 4.5 7 9.5 7a9.6 9.6 0 0 0 5.3-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2'),
+		bookmark: bookmarkSVG.replace('width="18" height="18"', 'width="22" height="22"'),
 	};
 	const ctxBtn = (act, label, attrs = '', ic = ICONS[act]) => `<button data-c="${act}" ${attrs}>${ic || ''}<span>${escapeHTML(label)}</span></button>`;
 	// The page's languages there are voices for (speechSynthesis), with their flags
@@ -2430,8 +2458,10 @@ if(!isDictPage){
 	// Its text: what's selected, a gloss's text, or the entry's
 	const ctxText = () => ctx.sel || ctx.el.dataset.text || entryText(ctx.el);
 	const isGloss = el => el.matches('.tr-entry, p-d.translation');
-	// A verse's reference ("joh 3.16"): its bookmark's
-	const verseOf = vs => vs.querySelector('.bm-btn[data-w]')?.dataset.w || vs.closest('.pv')?.querySelector(':scope > .bm-btn')?.dataset.w;
+	// A verse's reference ("joh 3.16")
+	const verseOf = vs => vs.dataset.h;
+	// What Bookmark is for: what's selected, a verse, or a word's card (not a gloss, or a chapter)
+	const bmTarget = () => ctx.sel || (ctx.el.matches('.vs') ? verseOf(ctx.el) : !isGloss(ctx.el) && headwordOf(ctx.el.closest('p-d')));
 	const linkTo = (text, ds = []) => location.origin + location.pathname + '?' + new URLSearchParams(ds.length ? {text, dict: ds.map(d => dicts[d].name).join()} : {text});
 	// What Share has: [label, copy or link, its text or link]
 	function shares(){
@@ -2452,9 +2482,10 @@ if(!isDictPage){
 			abbr[x.name.toLowerCase()]?.[3] ? `<span class="ctx-flag" aria-hidden="true">${abbr[x.name.toLowerCase()][3]}</span>` : ICONS.speak)).join('');
 		else if (sub === 'share') html = ctxBtn('back', 'Back') + (ctx.shares ??= shares()).map(([label, kind], i) => ctxBtn(kind, label, `data-i="${i}"`)).join('');
 		else {
-			const gloss = el && !isGloss(el), glossed = gloss && !sel && el.querySelector(':scope > .tr-entry');
-			html = (gloss ? ctxBtn('gloss', glossed ? 'Hide gloss' : 'Gloss') : '') +
+			const gloss = el && !isGloss(el), glossed = gloss && !sel && el.querySelector(':scope > .tr-entry'), w = bmTarget();
+			html = (el?.matches('.tr-entry') || glossed ? ctxBtn('hide', 'Hide gloss') : gloss ? ctxBtn('gloss', 'Gloss') : '') +
 				(sel ? ctxBtn('search', 'Search') + ctxBtn('popup', 'Popup') : '') +
+				(w ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
 				(voiceLangs().length ? ctxBtn('speak', 'Speak') : '') + ctxBtn('share', 'Share');
 		}
 		ctxMenu.innerHTML = `<div class="ctx-row">${html}</div>`;
@@ -2471,6 +2502,10 @@ if(!isDictPage){
 		const {el, sel} = ctx, act = b.dataset.c;
 		if (act === 'speak' || act === 'share') { ctx.sub = act; return renderCtx(); }
 		if (act === 'back') { ctx.sub = null; return renderCtx(); }
+		if (act === 'bookmark') { // (it stays open: tap again to undo)
+			toggleBookmark(bmTarget(), sel ? null : el.closest('.vs, p-d.verse > p-e') || el.closest('p-d')?.querySelector(':scope > p-e'));
+			return renderCtx();
+		}
 		if (act === 'say') {
 			speechSynthesis.cancel();
 			const u = new SpeechSynthesisUtterance(ctxText());
@@ -2492,11 +2527,9 @@ if(!isDictPage){
 		}
 		closeCtx();
 		getSelection().removeAllRanges();
-		if (act === 'gloss' && el?.isConnected) {
-			const shown = !sel && el.querySelector(':scope > .tr-entry');
-			if (shown) shown.remove();
-			else glossInto(el, sel || entryText(el), glossIds());
-		} else if (act === 'search') {
+		if (act === 'hide' && el?.isConnected) (el.matches('.tr-entry') ? el : el.querySelector(':scope > .tr-entry'))?.remove();
+		else if (act === 'gloss' && el?.isConnected) glossInto(el, sel || entryText(el), glossIds());
+		else if (act === 'search') {
 			setQueryText(sel);
 			startSearch();
 		} else if (act === 'popup') openPopupSearch(sel);
@@ -2519,8 +2552,8 @@ if(!isDictPage){
 		if (!text || !sel.rangeCount || sel.isCollapsed) return ctx?.sel && closeCtx();
 		if (ctx?.sel === text) return;
 		const at = sel.getRangeAt(0).commonAncestorContainer;
-		let el = (at.nodeType === 1 ? at : at.parentElement)?.closest('.vs, p-e');
-		if (el?.closest('.tr-entry')) el = null; // Not a gloss's own words
+		const from = (at.nodeType === 1 ? at : at.parentElement);
+		const el = from?.closest('.tr-entry') || from?.closest('.vs, p-e'); // (a gloss's own words: it, to hide)
 		openCtx({sel: text, el});
 	}, 120);
 	document.addEventListener('selectionchange', handleSelEnd, {passive: true});
