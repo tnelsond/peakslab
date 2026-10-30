@@ -25,11 +25,11 @@ Current languages:
 # Using PeakSlab
 For the fullest example, try [PeakSlab.org/khmer](https://peakslab.org/khmer/) and enter something in the search bar. It'll search as you type pulling in definitions from all the dictionaries that you had enabled on the page. If you want to change the dictionaries loaded, simply clear the search bar and the Dictionary list will appear and you can enable and disable them individually.
 
-When you're searching something, e.g. `Gen 7` and you want to look up a word without losing your spot, select the word and push the *popup* button.
+Tap any entry's text (or a verse) and a menu comes up at the bottom of the screen: *Gloss* it word by word, *Speak* it (pick the language) or *Share* it (copy it, or a link to it). Select some text and the same menu can also *Search* it or look it up in the *Popup* — handy when you're reading, e.g. `Gen 7`, and want to look up a word without losing your spot.
 
-![Selection Menu](docs/selection-menu.webp)
+![Context Menu](docs/selection-menu.webp)
 
-If your system supports text to speech you'll also see options for that. The funnest thing you can do is select English text and have the Khmer TTS read it in a Khmer accent.
+If your system supports text to speech you'll also see *Speak*. The funnest thing you can do is select English text and have the Khmer TTS read it in a Khmer accent.
 
 The Khmer dictionary page is really the prototype and the reason for every other dictionary page.
 

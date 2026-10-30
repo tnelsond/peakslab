@@ -108,7 +108,7 @@ mark {
 
 /* Buttons with no box of their own */
 .st-share, .text-btn, .bm-btn, .vs-cmp, .share-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
-.tr-play, .close-btn, .head-btn, .selection-menu button {
+.tr-play, .close-btn, .head-btn {
 	border: 0;
 	background: none;
 }
@@ -139,7 +139,7 @@ mark {
 	font-weight: 600;
 }
 /* Not selected with the text around them */
-.chords-btn, .translate-btn, .ctx-btn, .setting, .control-btn, .selection-menu { -webkit-user-select: none; user-select: none; }
+.chords-btn, .translate-btn, .ctx-btn, .setting, .control-btn { -webkit-user-select: none; user-select: none; }
 /* Next to an entry's dictionary name */
 .chords-btn, .translate-btn {
 	float: right;
@@ -301,7 +301,7 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	overflow-x: auto;
 	scrollbar-width: none;
 }
-#quick::-webkit-scrollbar, .selection-menu::-webkit-scrollbar { display: none; }
+#quick::-webkit-scrollbar { display: none; }
 .qk {
 	display: inline-flex;
 	align-items: center;
@@ -355,9 +355,10 @@ body.dark-mode #status { color: var(--card-text); }
 
 /* A section: a word's entries from each dictionary */
 p-d {
+	--pd: 18px; /* (its padding: a Bible card's bar reaches its edges) */
 	display: block;
 	background: var(--result-entry-bg);
-	padding: 18px;
+	padding: var(--pd);
 	margin: 16px 0;
 	line-height: 1.8;
 	word-break: break-word;
@@ -688,7 +689,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 8px 10px;
-	margin: -18px -18px 14px -18px;
+	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) 14px;
 	padding: 10px 14px;
 	border-radius: 8px 12px 0 0;
 	background: var(--control-btn-bg);
@@ -1057,45 +1058,56 @@ body.no-scroll #controls { z-index: 3001; } /* Over a popup too */
 body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscreen: just ⛶ (install's display is inline) */
 .control-btn.txt { font-size: 14px; font-weight: 600; }
 
-/* The menu for selected text */
-.selection-menu {
-	display: none;
-	position: absolute;
+/* The context menu (a tap on an entry's text, or selected text): docked
+   at the bottom of the screen, over the round buttons; its icons, each
+   with its name */
+#ctxMenu {
+	position: fixed;
 	left: 50%;
+	bottom: calc(10px + env(safe-area-inset-bottom, 0px));
 	transform: translateX(-50%);
 	z-index: 5000;
-	max-width: 96%;
-	height: 40px;
-	border: 2px solid #642;
-	border-radius: 8px;
-	background: var(--tab-bg);
-	box-shadow: 0 4px 15px rgba(0,0,0,.4);
-	overflow-x: auto;
-	white-space: nowrap;
-	scrollbar-width: none;
+	max-width: calc(100vw - 16px);
+	padding: 4px;
+	border-radius: 16px;
+	background: var(--header-bg);
+	box-shadow: 0 4px 18px rgba(0, 0, 0, .45);
+	-webkit-user-select: none;
+	user-select: none;
 }
-.selection-menu button {
-	height: 100%;
-	padding: 10px;
-	margin: 0;
-	opacity: .9;
-	color: var(--header-text);
+#ctxMenu[hidden] { display: none; }
+.ctx-row { display: flex; overflow-x: auto; scrollbar-width: none; }
+.ctx-row::-webkit-scrollbar { display: none; }
+.ctx-row button {
+	flex: none;
+	width: 64px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 3px;
+	padding: 8px 8px 6px;
+	border: 0;
+	border-radius: 12px;
+	background: none;
+	color: #fff;
+	font: 600 12px/1.2 system-ui, sans-serif;
+	cursor: pointer;
 }
-.selection-menu .sel-gloss { background: var(--control-btn-bg); color: #fff; font-weight: 600; opacity: 1; }
-/* iOS: docked at the bottom of the screen, clear of the native menu
-   (see createSelMenu in app.js), over the round buttons */
-.selection-menu.docked {
-	position: fixed;
-	top: auto;
-	bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-	height: 48px;
-}
-body.selmenu-docked #controls { display: none; }
+.ctx-row button:hover, .ctx-row button:focus-visible { background: rgba(255, 255, 255, .14); }
+.ctx-row button span { text-align: center; } /* (a long name on two lines) */
+.ctx-row button[data-c="back"] { width: 44px; opacity: .8; }
+.ctx-row button[data-c="gloss"] { color: var(--tab-bg); }
+.ctx-flag { font-size: 20px; line-height: 22px; }
+.ctx-said { padding: 14px 24px; color: #fff; font: 600 14px system-ui, sans-serif; }
+body.ctx-open #controls { display: none; }
+body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results above it) */
+/* What it's for (a tap): marked */
+.ctx-on { background: color-mix(in srgb, var(--tab-bg) 22%, transparent); border-radius: 6px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 
 @media (max-width: 480px) {
 	#content { padding: 2px 6px; }
 	#popupContent { padding: 20px 6px; }
-	p-d { padding: 14px; }
+	p-d { --pd: 14px; }
 	p-e.starred { margin-left: -14px; padding-left: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
