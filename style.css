@@ -646,6 +646,9 @@ body.fullscreen :is(p-d > h2, .card-bar) { position: static; } /* (fullscreen: t
 #popupContent :is(p-d > h2, .card-bar) { top: 20px; } /* (under its × ⤢ bar: 40px, less its 20px padding) */
 /* A word's heading (the search's gloss's): a green band like a Bible card's */
 p-d > h2 {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) 12px;
 	padding: 9px 14px;
 	border-radius: 8px 12px 0 0;
@@ -696,6 +699,29 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
 p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); border-color: #fff; }
+/* Collapse all (the right of every heading): its button like the bar's,
+   up arrows (collapsed: down); the cards, just their headings */
+.fold-btn {
+	flex: none;
+	width: 36px;
+	height: 32px;
+	margin-left: auto;
+	padding: 0;
+	border: 1px solid rgba(255, 255, 255, .55);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, .14);
+	color: #fff;
+	line-height: 0;
+	cursor: pointer;
+}
+.fold-btn svg { display: block; margin: auto; transition: transform .2s; }
+.fold-btn:hover { background: rgba(255, 255, 255, .28); }
+.collapsed .fold-btn svg { transform: rotate(180deg); }
+.collapsed > p-d > :not(h2, .card-bar) { display: none; }
+.collapsed > p-d > h2, .collapsed > p-d > .card-bar { margin-bottom: 0; border-bottom-width: 0; }
+:is(#results, #translation, #popupResults).collapsed > p-d::after { height: 1px; } /* (a line between them) */
+/* Highlight off (Appearance): the matches not marked */
+body.no-mark mark { background: none; color: inherit; }
 /* Comparing (a verse's Compare, in the popup): its Bible bars another color */
 p-d[data-pop="cmp"] > .card-bar { background: var(--compare-bg); }
 /* The context menu's Bookmark, bookmarked: filled */
@@ -740,11 +766,7 @@ p-d[data-pop="cmp"] > .card-bar { background: var(--compare-bg); }
 
 /* Nothing searched: the home page (recent, bookmarks); the menu's Library
    shows the library and settings instead */
-/* Library and settings (a drawer): text size, the version */
-.pref-size { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-top: 1px solid var(--line); }
-.pref-size span { flex: 1; font-weight: 600; }
-.pref-size button { width: 44px; height: 36px; border: 1px solid var(--line); border-radius: 999px; background: var(--card-bg); color: var(--card-text); font: 600 15px system-ui, sans-serif; cursor: pointer; }
-.pref-size b { min-width: 2em; text-align: center; }
+/* The library's version and loading times */
 .lib-ver { margin: 1em 4px; font-size: .85em; color: var(--muted); }
 /* Rows: recent searches, bookmarks, the filter's categories, languages */
 .rows { list-style: none; margin: 0; padding: 0; }

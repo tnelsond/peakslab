@@ -145,7 +145,6 @@ if(!isDictPage){
 	queryInput.addEventListener('input', openLangs);
 }else{
 	let num = 0;
-	let mark = true;
 	let loader = null;
 	let st = 3;
 	const timingDiv  = $('timing');
@@ -270,7 +269,7 @@ if(!isDictPage){
 			div.classList.add('verse');
 		div.seen.add(d + '\t' + data.body);
 		if(first){
-			div.innerHTML = `<h2><span class="hw">${data.header}</span></h2>` +
+			div.innerHTML = `<h2><span class="hw">${data.header}</span>${foldBtnHTML}</h2>` +
 				'<button class="text-btn see-more" data-id="1e9" onclick="this.parentNode.classList.add(\'show-hidden\')">See more</button>'; // (entries go above it)
 		}
 		if(isBibleText(d) && !div.querySelector(':scope > .card-bar')) { // A verse's card (the popup's too): its bar, for its reference
@@ -281,7 +280,7 @@ if(!isDictPage){
 		// show/hide button if it has any, and the text
 		const t = document.createElement('template');
 		t.innerHTML = entryHTML(d, data.filetype ? (data.subheader ? `<p-n>${data.subheader.join(",<br>")}<br></p-n>` : '') :
-			(data.body?.includes('<p-m') ? chordsBtnHTML : '') + (mark ? highlightText(data.body, data.query) : data.body));
+			(data.body?.includes('<p-m') ? chordsBtnHTML : '') + highlightText(data.body, data.query));
 		const el = t.content.firstChild;
 		if(data.filetype)
 			el.append(mediaElement(data.filetype, data.body, data.header));
@@ -1047,6 +1046,18 @@ if(!isDictPage){
 		if (v1 === 1 && v2 === 999) return `${name} ${n(c1)}–${n(c2)}`;
 		return c1 === c2 ? `${name} ${n(c1)}:${n(v1)}–${n(v2)}` : `${name} ${n(c1)}:${n(v1)}–${n(c2)}:${n(v2)}`;
 	}
+	// Collapse (the right of every heading): every card in the results (or
+	// the popup) just its heading, to see them all; again, all of them, at
+	// the one tapped
+	const foldBtnHTML = `<button class="fold-btn" onclick="foldAll(this)" title="Collapse all" aria-label="Collapse all">${icon('M7 15l5-5 5 5M7 9l5-5 5 5')}</button>`;
+	window.foldAll = btn => {
+		const pop = btn.closest('#popupResults'), card = btn.closest('p-d');
+		const boxes = pop ? [pop] : [resultsDiv, translationDiv], on = !boxes[0].classList.contains('collapsed');
+		boxes.forEach(x => x.classList.toggle('collapsed', on));
+		document.querySelectorAll('.fold-btn').forEach(b => b.title = b.ariaLabel = b.closest('.collapsed') ? 'Expand all' : 'Collapse all');
+		card.scrollIntoView({block: 'start'});
+		if (!pop) scrollBy(0, -parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick') || 0));
+	};
 	// Its buttons: ‹ (a chapter's), its reference ▾ (the Books drawer; in
 	// the popup, its chapters open there), its translation ▾, › ; then Read
 	// in context (a verse's or a range's) and Popup (its chapter in the
@@ -1071,13 +1082,13 @@ if(!isDictPage){
 		const acts = cardActs(card);
 		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book" data-cb="book" title="Books">${ref.bk ? refLabel(ref) : 'Books'} ▾</button>` +
 			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>${go(1, 'Next')}</span>` +
-			(acts.length ? `<span class="cb-acts">${acts.map(([a, ic, t]) => `<button class="cb-act" data-cb="${a}" title="${t}" aria-label="${t}">${ic}</button>`).join('')}` +
-				`<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button></span>` : '');
+			(card === bibleBar ? '' : `<span class="cb-acts">${acts.map(([a, ic, t]) => `<button class="cb-act" data-cb="${a}" title="${t}" aria-label="${t}">${ic}</button>`).join('')}` +
+				(acts.length ? `<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>` : '') + `${foldBtnHTML}</span>`);
 		requestAnimationFrame(() => fitBar(bar));
 	}
 	// Folded (⋮) if its buttons, at their full width, don't fit its line
 	function fitBar(bar){
-		if (!bar.isConnected || !bar.querySelector('.cb-acts')) return;
+		if (!bar.isConnected || !bar.querySelector('.cb-act')) return;
 		if (inPopup(bar)) return bar.classList.add('folded'); // (always)
 		bar.classList.remove('folded');
 		bar.classList.add('measure');
@@ -1090,7 +1101,7 @@ if(!isDictPage){
 	window.addEventListener('resize', debounce(() => cardBars().forEach(fitBar), 100));
 	function cardBarClick(e){
 		const b = e.target.closest('.card-bar button');
-		if (!b) return;
+		if (!b || b.matches('.fold-btn')) return;
 		const card = b.closest('p-d') || bibleBar;
 		if (b.dataset.cb === 'texts') return openCardTexts(card === bibleBar ? null : card); // (the Bible bar's: the search's)
 		if (b.dataset.cb === 'more') return popMenu(b, cardActs(card).map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${t}</span></button>`).join(''), a => cardAct(card, a));
@@ -1475,13 +1486,8 @@ if(!isDictPage){
 			catsHTML('library') +
 			(byLang.size ? `<ul class="rows cats">${groupHTML('library:langs', groupHead('library:langs', 'Other languages', `${byLang.size} languages: add their dictionaries`),
 				() => `<ul class="rows cats">${[...byLang].sort(([a], [b]) => a.localeCompare(b)).map(lang).join('')}</ul>`)}</ul>` : '') +
-			'<h3 class="drawer-h">Settings</h3>' + prefsHTML() +
 			`<details class="lib-ver"><summary>Version ${escapeHTML($('version').textContent)} and loading times</summary><div>${$('timing').innerHTML}</div></details>`;
 	}
-	// Dark mode, highlighting and text size (the context menu's Appearance has them too)
-	const prefsHTML = () => `<ul class="rows">${rowHTML('check', `data-pref="dark" aria-pressed="${document.body.classList.contains('dark-mode')}"`, 'Dark mode', 'Light text on dark')}` +
-		rowHTML('check', `data-pref="mark" aria-pressed="${mark}"`, 'Highlight matches', 'What was searched, marked in the results') + '</ul>' +
-		`<div class="pref-size"><span>Text size</span><button data-pref="smaller" aria-label="Smaller text">A−</button><b>${fontSize}</b><button data-pref="bigger" aria-label="Bigger text">A+</button></div>`;
 	// The first time (nothing saved): which to download. A slider picks how
 	// many: Bare (priority 1), Recommended (and 0), Extra (and 2, -1), Max
 	// (and 3, -2); its dictionaries are listed, ticked, by category (the
@@ -1680,11 +1686,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txPar, txAll, pref} = b.dataset;
-		if (pref) { // Settings
-			setPref(pref);
-			return renderDrawer();
-		}
+		const {book, booksBack, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txPar, txAll} = b.dataset;
 		const drawerBooks = drawerView === 'books';
 		if (tx !== undefined || txPar || txAll) return cardTextsClick(b.dataset); // (a card's translations)
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
@@ -1913,6 +1915,7 @@ if(!isDictPage){
 		popupQuery = text;
 		popupCompare = compare;
 		cleanup(popupResults);
+		popupResults.classList.remove('collapsed');
 		const q = updateQuery(text), bt = barTexts(), mask = compare ? glossMask() : dicts.map((_, d) => isBibleText(d) ? bt.includes(d) : isOn(d, 'gloss'));
 		if (hasBible && rangeOf(q)) return popupRange(rangeOf(q), text);
 		const go = m => forWorkers(m, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
@@ -2025,7 +2028,7 @@ if(!isDictPage){
 		if (q !== query || num || !pieces.some(p => p.ds.length)) return;
 		const div = document.createElement('p-d');
 		div.className = 'translation';
-		fillGloss(div, pieces, ids, queryText, n => `<h2>${n}</h2>`);
+		fillGloss(div, pieces, ids, queryText, n => `<h2><span class="hw">${n}</span>${foldBtnHTML}</h2>`);
 		translationDiv.replaceChildren(div);
 		updateStatus('No entry for all of it, glossed word by word.', 'Word by word');
 		queryInput.classList.remove('error');
@@ -2317,6 +2320,7 @@ if(!isDictPage){
 		}
 		hideRefresh(); // (this search has every dictionary that's loaded)
 		closeCtx();
+		[resultsDiv, translationDiv].forEach(x => x.classList.remove('collapsed'));
 		translationDiv.replaceChildren();
 		window.scrollTo(0, 0);
 		updateStatus('No matches found.', 'None found');
@@ -2399,12 +2403,12 @@ if(!isDictPage){
 	};
 	setFont(fontSize);
 	document.body.classList.toggle('dark-mode', stored('darkMode') === true);
-	mark = stored('mark') !== false;
+	document.body.classList.toggle('no-mark', stored('mark') === false);
 	// A setting changed (the library's, the context menu's Appearance)
 	function setPref(p){
 		if (p === 'smaller' || p === 'bigger') setFont(fontSize + (p === 'bigger' ? 2 : -2));
 		else if (p === 'dark') store('darkMode', document.body.classList.toggle('dark-mode'));
-		else if (p === 'mark') store('mark', mark = !mark);
+		else if (p === 'mark') store('mark', !document.body.classList.toggle('no-mark'));
 	}
 
 	// The library: a drawer
@@ -2444,6 +2448,7 @@ if(!isDictPage){
 		smaller: '<span class="ctx-glyph" aria-hidden="true">A−</span>',
 		bigger: '<span class="ctx-glyph" aria-hidden="true">A+</span>',
 		dark: icon('M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z'),
+		mark: icon('M9 11l-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4'),
 	};
 	const ctxBtn = (act, label, attrs = '', ic = ICONS[act]) => `<button data-c="${act}" ${attrs}>${ic || ''}<span>${escapeHTML(label)}</span></button>`;
 	// The page's languages there are voices for (speechSynthesis), with their flags
@@ -2497,7 +2502,8 @@ if(!isDictPage){
 		if (sub === 'speak') html = ctxBtn('back', 'Back') + voiceLangs().map(x => ctxBtn('say', x.name, `data-lang="${x.val}"`,
 			abbr[x.name.toLowerCase()]?.[3] ? `<span class="ctx-flag" aria-hidden="true">${abbr[x.name.toLowerCase()][3]}</span>` : ICONS.speak)).join('');
 		else if (sub === 'look') html = ctxBtn('back', 'Back') + ctxBtn('smaller', 'Smaller') + ctxBtn('bigger', 'Bigger') +
-			ctxBtn('dark', document.body.classList.contains('dark-mode') ? 'Light mode' : 'Dark mode');
+			ctxBtn('dark', document.body.classList.contains('dark-mode') ? 'Light mode' : 'Dark mode') +
+			ctxBtn('mark', 'Highlight', `aria-pressed="${!document.body.classList.contains('no-mark')}"`);
 		else if (sub === 'share') html = ctxBtn('back', 'Back') + (ctx.shares ??= shares()).map(([label, kind], i) => ctxBtn(kind, label, `data-i="${i}"`)).join('');
 		else {
 			const gloss = el && !isGloss(el), glossed = gloss && !sel && el.querySelector(':scope > .tr-entry'), w = bmTarget();
@@ -2521,9 +2527,8 @@ if(!isDictPage){
 		const {el, sel} = ctx, act = b.dataset.c;
 		if (act === 'compare') compareOf.h = compareOf(); // (before it closes)
 		if (act === 'speak' || act === 'share' || act === 'look') { ctx.sub = act; return renderCtx(); }
-		if (act === 'smaller' || act === 'bigger' || act === 'dark') { // (it stays open: tap again for more)
+		if (act === 'smaller' || act === 'bigger' || act === 'dark' || act === 'mark') { // (it stays open: tap again for more)
 			setPref(act);
-			if (drawerView === 'library') renderDrawer();
 			return renderCtx();
 		}
 		if (act === 'back') { ctx.sub = null; return renderCtx(); }
