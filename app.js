@@ -22,23 +22,13 @@ const readList = k => { const l = stored(k); return Array.isArray(l) ? l : []; }
 const chordsBtnHTML = '<button class="chords-btn" onclick="toggleChords()" title="Show or hide chords"></button>';
 window.toggleChords = () => store('showChords', document.body.classList.toggle('show-chords'));
 document.body.classList.toggle('show-chords', stored('showChords') === true);
-// Hide a dictionary (its name's menu): its entries (data-dict) are hidden
-// everywhere in the results, and a word's card with any has See more at
-// the bottom, to show them there. Some start hidden (files.json's 7th
-// field, #collapsed in the source: Bible notes, ...); what's remembered is
-// the ones flipped from that. Done with generated CSS rules.
+// Some dictionaries' entries start hidden (files.json's 7th field,
+// #collapsed in the source: Bible notes, ...): a word's card with any has
+// See more at the bottom, to show them there. Done with a generated CSS rule.
 const hideStyle = document.head.appendChild(document.createElement('style'));
-let hiddenFlipped = readList('hiddenDicts'); // Flipped from their default
-let startHidden = new Set(); // (set once files.json is read)
-const isHidden = name => startHidden.has(name) !== hiddenFlipped.includes(name);
-const applyHidden = () => {
-	const names = [...new Set([...startHidden, ...hiddenFlipped])].filter(isHidden).map(n => `p-e[data-dict="${CSS.escape(n)}"]`).join(',');
-	hideStyle.textContent = names ? `p-d:not(.show-hidden,.chapter)>:is(${names}){display:none}p-d:not(.show-hidden,.chapter):has(>:is(${names}))>.see-more{display:block}` : '';
-};
-const toggleHidden = name => {
-	hiddenFlipped = hiddenFlipped.includes(name) ? hiddenFlipped.filter(x => x !== name) : [...hiddenFlipped, name];
-	store('hiddenDicts', hiddenFlipped);
-	applyHidden();
+const applyHidden = names => {
+	const sel = names.map(n => `p-e[data-dict="${CSS.escape(n)}"]`).join(',');
+	hideStyle.textContent = sel ? `p-d:not(.show-hidden,.chapter)>:is(${sel}){display:none}p-d:not(.show-hidden,.chapter):has(>:is(${sel}))>.see-more{display:block}` : '';
 };
 // On dictionary pages, start the workers right away, in parallel with
 // files.json instead of after it: starting a worker takes ~50 ms, and each
@@ -335,13 +325,12 @@ if(!isDictPage){
 		else m.style.right = `${p.right - a.right}px`;
 	}
 	document.addEventListener('click', e => { if (!document.querySelector('.menu')?.previousElementSibling.contains(e.target)) closeMenus(); });
-	// A dictionary's: turn it off, hide (or show) its entries, star (or unstar) it
+	// A dictionary's: turn it off, star (or unstar) it
 	window.dictMenu = h => {
 		const d = +h.parentNode.dataset.d, name = dicts[d].name;
 		popMenu(h, `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
-			`<button data-a="hide">${isHidden(name) ? 'Show' : 'Hide'} its entries</button>` +
 			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>`,
-			a => a === 'off' ? setOn([d], false) : a === 'hide' ? toggleHidden(name) : toggleStar(d));
+			a => a === 'off' ? setOn([d], false) : toggleStar(d));
 	};
 	// One more result: the count, and maybe more of them
 	function found(){
@@ -563,8 +552,7 @@ if(!isDictPage){
 	const byPaths = paths => paths.map(p => dicts.findIndex(x => x.path === p)).filter(d => d >= 0);
 
 	const sizeText = n => n < 1e6 ? `${n && Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
-	startHidden = new Set(dicts.filter(x => x.collapsed).map(x => x.name));
-	applyHidden();
+	applyHidden(dicts.filter(x => x.collapsed).map(x => x.name));
 
 	const typeOf = x => x.type ? `<span class="lib-type type-${x.type}">${escapeHTML(typeLabel(x))}</span>` : '';
 	const typeLabel = ({type, lang}) => {
@@ -1048,16 +1036,26 @@ if(!isDictPage){
 	}
 	// Collapse (the right of every heading): every card in the results (or
 	// the popup) just its heading, to see them all; again, all of them, at
-	// the one tapped
-	const foldBtnHTML = `<button class="fold-btn" onclick="foldAll(this)" title="Collapse all" aria-label="Collapse all">${icon('M7 15l5-5 5 5M7 9l5-5 5 5')}</button>`;
+	// the one tapped. A card's heading tapped (not a button in it)
+	// collapses (or opens) just it: it's the other way from the rest (flip).
+	const foldBtnHTML = `<button class="fold-btn" onclick="foldAll(this)" title="Collapse all" aria-label="Collapse all">${icon('M6 15l6-6 6 6')}</button>`;
 	window.foldAll = btn => {
 		const pop = btn.closest('#popupResults'), card = btn.closest('p-d');
 		const boxes = pop ? [pop] : [resultsDiv, translationDiv], on = !boxes[0].classList.contains('collapsed');
-		boxes.forEach(x => x.classList.toggle('collapsed', on));
+		boxes.forEach(x => {
+			x.classList.toggle('collapsed', on);
+			x.querySelectorAll(':scope > p-d.flip').forEach(c => c.classList.remove('flip'));
+		});
 		document.querySelectorAll('.fold-btn').forEach(b => b.title = b.ariaLabel = b.closest('.collapsed') ? 'Expand all' : 'Collapse all');
 		card.scrollIntoView({block: 'start'});
 		if (!pop) scrollBy(0, -parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick') || 0));
 	};
+	document.addEventListener('click', e => {
+		const card = !e.target.closest('button, a, p-a, .menu') && e.target.closest(':is(#results, #translation, #popupResults) > p-d > :is(h2, .card-bar)')?.parentNode;
+		if (!card) return;
+		card.classList.toggle('flip');
+		if (card.getBoundingClientRect().top < 0) card.scrollIntoView({block: 'start'}); // (its heading was stuck: it, at the top)
+	});
 	// Its buttons: ‹ (a chapter's), its reference ▾ (the Books drawer; in
 	// the popup, its chapters open there), its translation ▾, › ; then Read
 	// in context (a verse's or a range's) and Popup (its chapter in the
@@ -2571,7 +2569,7 @@ if(!isDictPage){
 	document.addEventListener('click', e => {
 		if (getSelection().toString().trim()) return; // (the selection's)
 		const t = e.target;
-		const el = !t.closest('a, button, input, textarea, select, audio, video, [role="button"], p-a, p-w, .tr-w, .menu, .card-bar') &&
+		const el = !t.closest('a, button, input, textarea, select, audio, video, [role="button"], p-a, p-w, .tr-w, .menu, .card-bar, p-d > h2') &&
 			t.closest('#results, #popupResults, #translation') && t.closest('.tr-entry, p-d.translation, .vs, p-e');
 		if (el && el !== ctx?.el) openCtx({el});
 		else if (ctx) closeCtx();

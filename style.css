@@ -30,6 +30,7 @@
 	--star-bg: #fbf0d4;
 	--head-bg: #367117; /* a card's heading and Bible bar: green (between the buttons' and a forest green) */
 	--compare-bg: #2c5d73; /* the popup's Bible bar: it compares (the gloss's translations) */
+	--fold-bg: #7a5b38; /* a collapsed card's heading: brown */
 	--pill-bg: #e6d6b6; /* a dictionary's name: tan, */
 	--pill-fg: #5a3c1e; /* dark brown */
 	--muted: #6b5d48;
@@ -65,6 +66,7 @@ body.dark-mode {
 	--star-bg: #2e2510;
 	--head-bg: #2f6913;
 	--compare-bg: #244b5d;
+	--fold-bg: #5e4529;
 	--pill-bg: #4a3d29;
 	--pill-fg: #ead9b7;
 	--muted: #b3a68f;
@@ -699,27 +701,28 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
 p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); border-color: #fff; }
-/* Collapse all (the right of every heading): its button like the bar's,
-   up arrows (collapsed: down); the cards, just their headings */
+/* Collapse all (the right of every heading): a small black chevron, up
+   (collapsed: down); the cards, just their headings. One whose heading
+   was tapped (flip): the other way from the rest. */
 .fold-btn {
 	flex: none;
-	width: 36px;
-	height: 32px;
+	width: 28px;
+	height: 28px;
 	margin-left: auto;
 	padding: 0;
-	border: 1px solid rgba(255, 255, 255, .55);
-	border-radius: 999px;
-	background: rgba(255, 255, 255, .14);
-	color: #fff;
+	border: 0;
+	background: none;
+	color: #000;
 	line-height: 0;
 	cursor: pointer;
 }
-.fold-btn svg { display: block; margin: auto; transition: transform .2s; }
-.fold-btn:hover { background: rgba(255, 255, 255, .28); }
-.collapsed .fold-btn svg { transform: rotate(180deg); }
-.collapsed > p-d > :not(h2, .card-bar) { display: none; }
-.collapsed > p-d > h2, .collapsed > p-d > .card-bar { margin-bottom: 0; border-bottom-width: 0; }
-:is(#results, #translation, #popupResults).collapsed > p-d::after { height: 1px; } /* (a line between them) */
+.fold-btn svg { display: block; width: 18px; height: 18px; margin: auto; stroke-width: 2.6; transition: transform .2s; }
+p-d > :is(h2, .card-bar) { cursor: pointer; }
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) .fold-btn svg { transform: rotate(180deg); }
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :not(h2, .card-bar) { display: none; }
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :is(h2, .card-bar) { margin-bottom: 0; border-bottom-width: 0; background-color: var(--fold-bg); }
+:is(#results, #translation, #popupResults):not(.collapsed) > p-d.flip::after,
+:is(#results, #translation, #popupResults).collapsed > p-d:not(.flip)::after { height: 1px; } /* (a line between them) */
 /* Highlight off (Appearance): the matches not marked */
 body.no-mark mark { background: none; color: inherit; }
 /* Comparing (a verse's Compare, in the popup): its Bible bars another color */
