@@ -347,7 +347,7 @@ if(!isDictPage){
 	function found(){
 		++num;
 		queryInput.classList.remove("error");
-		updateStatus(`Found ${num}+ matching lines.`);
+		updateStatus(`Found ${num}+ matching lines.`, `${num}+ found`);
 		loadmore();
 	}
 
@@ -736,8 +736,7 @@ if(!isDictPage){
 	}
 	setQueryText(urlParams.get('text'));
 
-	const statusDiv  = $('status');
-	const statusText = statusDiv.querySelector('.st-text');
+	const countSpan = $('count'); // How many were found: in the header's second line
 	const resultsDiv = $('results');
 	const popupOverlay = $('popupOverlay');
 	const popupResults = $('popupResults');
@@ -892,9 +891,28 @@ if(!isDictPage){
 					list[i].name = ref[1] || list[i].name;
 					list[i].zero = ref[2].codePointAt(0) - 1; // (chapter 1)
 				});
+				abbrevBooks(list);
 				books = list;
 			});
 		})).then(then);
+	}
+	// Each book's short name for the Books grid (ab): its first 3 letters
+	// if no other book's start with them, else its first 2, … and as much
+	// of its end as tells it from the others that start like it ("Ju…s",
+	// "Ju…e"; Khmer's "សាំយូ…១", "សាំយូ…២"); letters as they're written
+	// (a Khmer letter with its vowels is one), spaces left out
+	const letters = t => [...new Intl.Segmenter(undefined, {granularity: 'grapheme'}).segment(t)].map(x => x.segment);
+	function abbrevBooks(list){
+		const ls = list.map(x => letters(x.name.replace(/[\s\u200B]+/g, ''))), part = (l, a, b) => l.slice(a, b).join('');
+		list.forEach((x, i) => {
+			const l = ls[i], p3 = part(l, 0, 3), p2 = part(l, 0, 2);
+			if (l.length <= 3 || !ls.some((m, j) => j !== i && part(m, 0, 3) === p3)) return x.ab = p3;
+			for (let k = 1; k <= l.length - 2; ++k) {
+				const end = part(l, -k);
+				if (!ls.some((m, j) => j !== i && part(m, 0, 2) === p2 && part(m, -k) === end)) return x.ab = `${p2}…${end}`;
+			}
+			x.ab = l.join('');
+		});
 	}
 	const bookName = x => escapeHTML(x.name) + (x.name !== x.code ? `<small>${escapeHTML(x.code.toUpperCase())}</small>` : '');
 	const bookNum = (x, n) => String(n).replace(/\d/g, d => String.fromCodePoint(x.zero + +d)); // In the Bible's digits
@@ -975,7 +993,7 @@ if(!isDictPage){
 		const b = books.find(x => x.code === booksPick), cur = on => on ? ' aria-current="true"' : '';
 		return (b ? `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
 				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-q="${ref}"${cur(ref === lastRead)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
-			`<div class="bk-grid">${books.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}"${cur(lastRead.startsWith(x.code + ' '))}>${bookName(x)}</button>`).join('')}</div>`);
+			`<div class="bk-grid">${books.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}" title="${escapeHTML(x.name)}" aria-label="${escapeHTML(x.name)}"${cur(lastRead.startsWith(x.code + ' '))}>${escapeHTML(x.ab || x.name)}</button>`).join('')}</div>`);
 	}
 
 	// ---------------------------------------------------------------
@@ -1246,12 +1264,13 @@ if(!isDictPage){
 		const t = names(cats.filter(c => picks[view].includes(c.id))).join(' + '); // (in the filter's order)
 		return [escapeHTML(t), t];
 	}
-	// The bar: the filter's button, with what it searches, and the gloss's
+	// The bar: the filter's button, with what it searches and how many
+	// dictionaries that is (on, in what it has picked), and the gloss's
 	const quickIcons = {filter: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>', gloss: '<span aria-hidden="true">⇄</span>'};
 	function renderQuick(){
 		renderBibleBar();
-		const b = Object.keys(VIEWS).map(v => { const [html, text] = filterLabel(v);
-			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" aria-label="${VIEWS[v].title}: ${escapeHTML(text)}">${quickIcons[v]}${html}</button>`; }).join('');
+		const b = Object.keys(VIEWS).map(v => { const [html, text] = filterLabel(v), n = dictIds.filter(d => isOn(d, v)).length;
+			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" aria-label="${VIEWS[v].title}: ${escapeHTML(text)}, ${n} ${n === 1 ? 'dictionary' : 'dictionaries'}">${quickIcons[v]}${html}<span class="qk-n" aria-hidden="true">${n}</span></button>`; }).join('');
 		if (quick._html !== b) { quick._html = b; quick.innerHTML = b; } // Only when changed: keeps it tappable
 	}
 	quick.addEventListener('click', e => { const b = e.target.closest('button'); if (b) openDrawer(b.dataset.view); });
@@ -1540,6 +1559,7 @@ if(!isDictPage){
 	// Again, once (the service worker says which files it has all at once)
 	const renderListsSoon = debounce(() => {
 		renderLists();
+		renderQuick(); // (the gloss's count: a downloaded one glosses)
 		refreshUsage();
 	}, 50);
 	// The space all of PeakSlab takes (the browser's estimate: every
@@ -1753,6 +1773,7 @@ if(!isDictPage){
 		ds.forEach(d => { glossSet[dicts[d].path] = typeof on === 'function' ? on(d) : on; });
 		if (!solo.length) store(glossKey, glossSet);
 		renderLists();
+		renderQuick();
 	}
 
 	// Changes what the filter (or the gloss) has picked
@@ -1868,9 +1889,11 @@ if(!isDictPage){
 		history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
 	}
 
-	// The line above the results: how many were found, and Share
-	function updateStatus(text){ statusText.textContent = text; }
-	statusDiv.querySelector('.st-share').addEventListener('click', e => share(e.currentTarget));
+	// How many were found (short, in the header's second line; all of it, its title)
+	function updateStatus(text, short = text){
+		countSpan.textContent = short;
+		countSpan.title = text;
+	}
 
 	// A link (this page's, or a card's): the phone's share menu, or copied
 	async function share(btn, url){
@@ -1959,7 +1982,6 @@ if(!isDictPage){
 	function showSettings(){
 		loader = null;
 		updateStatus('');
-		statusDiv.classList.add('hide');
 		renderHome();
 		settings.style.display = 'block';
 		settings.classList.toggle('library', showLibrary);
@@ -2033,7 +2055,7 @@ if(!isDictPage){
 		div.className = 'translation';
 		fillGloss(div, pieces, ids, queryText, n => `<h2>${n}</h2>`);
 		translationDiv.replaceChildren(div);
-		updateStatus('No entry for all of it, glossed word by word.');
+		updateStatus('No entry for all of it, glossed word by word.', 'Word by word');
 		queryInput.classList.remove('error');
 	}
 
@@ -2317,7 +2339,6 @@ if(!isDictPage){
 		}
 		settings.style.display = 'none'; // (a translation doesn't clear it)
 		showLibrary = false;
-		statusDiv.classList.remove('hide');
 		historyTimer();
 		if(chapterOf(readHl) !== query)
 			readHl = '';
@@ -2328,7 +2349,7 @@ if(!isDictPage){
 		closeCtx();
 		translationDiv.replaceChildren();
 		window.scrollTo(0, 0);
-		updateStatus('No matches found.');
+		updateStatus('No matches found.', 'None found');
 		queryInput.classList.add("error");
 		const range = hasBible && rangeOf(query);
 		if (range) rangeSearch(range, runSearch);

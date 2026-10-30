@@ -28,6 +28,9 @@
 	--mark-fg: #000;
 	--star: #b7790f;
 	--star-bg: #fbf0d4;
+	--head-bg: #4a5a2f; /* a card's heading and Bible bar: a forest (camo) green */
+	--pill-bg: #e6d6b6; /* a dictionary's name: tan, */
+	--pill-fg: #5a3c1e; /* dark brown */
 	--muted: #6b5d48;
 	--line: #e6dcc8;
 	--type-mono: #dfe9c4;
@@ -59,6 +62,9 @@ body.dark-mode {
 	--mark-fg: #fff;
 	--star: #e9b64a;
 	--star-bg: #2e2510;
+	--head-bg: #3d4a27;
+	--pill-bg: #4a3d29;
+	--pill-fg: #ead9b7;
 	--muted: #b3a68f;
 	--line: #3a3220;
 	--type-mono: #2f3a17;
@@ -107,12 +113,12 @@ mark {
 #install-button, input[type="checkbox"] { display: none; }
 
 /* Buttons with no box of their own */
-.st-share, .text-btn, .bm-btn, .vs-cmp, .share-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
+.text-btn, .bm-btn, .vs-cmp, .share-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
 .tr-play, .close-btn, .head-btn {
 	border: 0;
 	background: none;
 }
-.st-share, .text-btn, .row-main, .cat-sel,
+.text-btn, .row-main, .cat-sel,
 .setting, .qk, #langBtn, .ctx-btn, .vs-tr, .bk-grid button {
 	font: inherit;
 }
@@ -320,27 +326,20 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 
 /* Content */
 #content {
-	margin: calc(var(--hh, 96px) + 4px) auto 0;
-	padding: 2px;
+	margin: var(--hh, 96px) auto 0;
+	padding: 0 2px 2px;
 	max-width: 1200px;
 }
 body.fullscreen #searchContainer, body.fullscreen #subbar { display: none; }
 body.fullscreen #content { margin-top: 8px; }
 
-/* The line above the results */
-#status {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	max-width: 1200px;
-	margin: 4px auto 0;
-	padding: 0 4px;
-	font-size: 14px;
-	color: var(--maintext);
-}
-body.dark-mode #status { color: var(--card-text); }
-.st-text { flex: 1; }
-.st-share, .text-btn {
+/* How many were found: at the end of the header's second line */
+#count { flex: none; max-width: 40%; margin-left: auto; padding-right: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--header-fg); opacity: .8; }
+#count:empty { display: none; }
+/* How many dictionaries the filter (the gloss) has on */
+.qk-n { min-width: 20px; padding: 0 6px; border-radius: 999px; background: rgba(255, 255, 255, .16); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; }
+.qk[aria-pressed="true"] .qk-n { background: rgba(0, 0, 0, .14); }
+.text-btn {
 	padding: 4px 6px;
 	font-size: 14px;
 	color: var(--link);
@@ -429,7 +428,8 @@ p-h { /* the dictionary's name and buttons */
 	margin: 0;
 	padding: 3px 11px;
 	border-radius: 999px;
-	background: var(--tab-bg);
+	background: var(--pill-bg);
+	color: var(--pill-fg);
 	font-size: 13px;
 	line-height: 1.6;
 	user-select: none; /* (not copied with the entries) */
@@ -686,7 +686,7 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	align-items: center;
 	gap: 8px;
 	padding: 10px 14px;
-	background: var(--control-btn-bg);
+	background: var(--head-bg);
 	color: #fff;
 	font-size: 15px;
 	line-height: 1.3;
@@ -706,9 +706,9 @@ body.fullscreen :is(p-d > h2, .card-bar) { position: static; } /* (fullscreen: t
 /* A word's heading (the search's gloss's): a green band like a Bible card's */
 p-d > h2 {
 	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) 12px;
-	padding: 6px 14px;
+	padding: 9px 14px;
 	border-radius: 8px 12px 0 0;
-	background: var(--control-btn-bg);
+	background: var(--head-bg);
 	color: #fff;
 	font-size: 1.2em;
 	line-height: 1.35;
@@ -723,7 +723,6 @@ p-d > h2 {
 /* (its space below: a clear border, not a margin, which would make it let
    go that much before the next one reaches it) */
 p-d > :is(h2, .card-bar) { margin-bottom: 0; border-bottom: 12px solid transparent; background-clip: padding-box; }
-#results { margin-top: 8px; }
 p-d > h2 .ctx-btn { border-color: rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .14); color: #fff; }
 /* (the verse's heading: the bar has it) */
 p-d:has(> .card-bar) > h2 { display: none; }
@@ -756,7 +755,7 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar:not(.folded) .cb-more, .card-bar.folded .cb-act:not(.cb-more) { display: none; }
 .card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
-p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--control-btn-bg); border-color: #fff; }
+p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); border-color: #fff; }
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
 /* Its translations (the side panel, for just it): Apply to all, at the end */
@@ -773,18 +772,22 @@ p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--control-btn-
 	cursor: pointer;
 }
 .tx-all:disabled { opacity: .45; cursor: default; }
-.bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.bk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
 .bk-grid button {
-	padding: 4px 6px;
+	min-width: 0;
+	padding: 4px 2px;
 	border: 1px solid var(--line);
 	border-radius: 8px;
 	font-size: .92em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 /* A book: a tint of its section's color (--sec, from app.js) */
 .bk-grid button[style] { background: color-mix(in srgb, var(--sec) 25%, var(--card-bg)); border-color: var(--sec); }
 .bk-grid button:hover { border-color: var(--control-btn-bg); }
-.bk-grid button[aria-current="true"] { background: var(--control-btn-bg); border-color: transparent; color: #fff; }
+.bk-grid button[aria-current="true"] { background: var(--head-bg); border-color: transparent; color: #fff; }
 /* A book's code ("GEN"), under (or after) its name in the Bible */
 .bk-grid small { display: block; font-size: .72em; color: var(--muted); }
 .bk-grid button[aria-current="true"] small { color: inherit; opacity: .85; }
@@ -1156,7 +1159,7 @@ body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results abov
 .ctx-on { background: color-mix(in srgb, var(--tab-bg) 22%, transparent); border-radius: 6px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 
 @media (max-width: 480px) {
-	#content { padding: 2px 6px; }
+	#content { padding: 0 6px 2px; }
 	#popupContent { padding: 20px 6px; }
 	p-d { --pd: 14px; }
 	p-e.starred { margin-left: -14px; padding-left: 10px; }
