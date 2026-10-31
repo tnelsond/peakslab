@@ -697,7 +697,7 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar .cb-bible:hover { background: rgba(255, 255, 255, .28); }
 :is(.card-bar, p-d > h2) :is(.cb-bible, .cb-more) svg { display: block; margin: auto; }
 /* (the card has its own translations, not the Bible bar's: a dot on it) */
-p-d[data-own] > .card-bar .cb-bible::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+p-d[data-texts] > .card-bar .cb-bible::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
 /* A verse's …: the rest of its chapter (above it, below it) */
 p-d > .vs-more {
 	display: block;
