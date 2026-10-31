@@ -95,14 +95,13 @@ body, #results, #popupResults {
 a, p-a {
 	color: var(--link);
 	text-decoration: underline;
-	cursor: pointer;
 }
 a:hover, p-a:hover {
 	color: var(--link-old);
 	text-decoration: none;
 }
 a:visited { color: var(--link-old); }
-button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button:disabled { cursor: default; }
 button:focus-visible, a:focus-visible, summary:focus-visible {
 	outline: 2px solid var(--star);
@@ -122,12 +121,8 @@ mark {
 	border: 0;
 	background: none;
 }
-.text-btn, .row-main, .cat-sel,
-.setting, .qk, #langBtn, .bk-grid button {
-	font: inherit;
-}
 /* Filled */
-.setting, .control-btn, .chords-btn {
+.setting, .control-btn, .chords-btn, .rb-go, .first-default {
 	border: 0;
 	background: var(--control-btn-bg);
 	color: #fff;
@@ -141,6 +136,7 @@ mark {
 }
 .close-btn {
 	font-size: 32px;
+	line-height: 1;
 	color: var(--card-text);
 	opacity: .7;
 }
@@ -249,8 +245,7 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 		justify-content: flex-start;
 		gap: 14px;
 		padding: 0 12px;
-		font: inherit;
-		font-size: 16px;
+			font-size: 16px;
 	}
 	.head-menu .head-btn .lbl { display: inline; }
 }
@@ -471,6 +466,7 @@ body.show-chords p-e:has(p-m) { line-height: 2.5; } /* (just the entries with ch
 	padding: 3px 8px;
 	border-radius: 5px;
 	font-size: 13px;
+	line-height: 1.6;
 }
 .chords-btn::after { content: "Show chords"; }
 body.show-chords .chords-btn::after { content: "Hide chords"; }
@@ -618,17 +614,15 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	vertical-align: super;
 }
 .vs .tr-entry { margin: .3em 0 .5em; }
-/* A Bible card's bar, in place of its heading: like a word's, its
-   reference, then at its right a Bible button (the Bible side panel:
-   translation, book and chapter) and ⋮. The Bible bar (at the top of the results, an
-   empty page's) looks the same; a card's has it, so it hides. */
-#chNav[hidden] { display: none; }
-/* A card's heading: a word's (the search's gloss's) or its Bible bar, a
-   green band at its top; it stays at the top of the screen while the
-   card's being read (under the header, when it's there: --stick; in the
-   popup, at its top). Its space below is a clear border, not a margin,
-   which would make it let go that much before the next one reaches it. */
-p-d > h2, .card-bar {
+/* A card's heading (a word's, a Bible card's, the search's gloss's) and
+   the Bible bar (Bible mode's, nothing searched): a green band at its
+   top; it stays at the top of the screen while the card's being read
+   (under the header, when it's there: --stick; in the popup, at its top).
+   Its space below is the next thing's margin, not its own, which would
+   make it let go that much before the next one reaches it. A Bible
+   card's (.card-bar): its reference, then at its right a Bible button
+   (the Bible side panel) and ⋮. */
+p-d > h2, #chNav {
 	position: sticky;
 	top: calc(var(--stick, 0px) - 1px); /* (1px under the header: no gap from rounding) */
 	z-index: 4;
@@ -636,101 +630,54 @@ p-d > h2, .card-bar {
 	align-items: center;
 	gap: 8px;
 	margin: calc(-1 * var(--pd)) calc(-1 * var(--pd)) 0;
+	padding: 9px 14px;
 	background: var(--head-bg);
 	color: #fff;
+	font-size: 1.2em;
+	font-weight: 400;
+	line-height: 1.35;
 	cursor: pointer;
 	transition: top .2s;
 }
-:is(p-d > h2, .card-bar):has(.menu) { z-index: 5; } /* (its ⋮ menu over the next card's heading) */
-/* (the space under it: what's next's, not its: a sticky heading goes
-   to its card's very end, so the next card's heading touches it) */
-p-d > :is(h2, .card-bar) + :not(h2), p-d > .card-bar + h2 + * { margin-top: 12px; }
-p-d > h2, .card-bar { padding: 9px 14px; font-size: 1.2em; font-weight: 400; line-height: 1.35; }
+#chNav { position: relative; justify-content: center; max-width: 640px; margin: 10px auto 4px; border-radius: 12px; }
+#chNav[hidden] { display: none; }
+p-d > h2:has(.menu) { z-index: 5; } /* (its ⋮ menu over the next card's heading) */
+p-d > h2 + * { margin-top: 12px; }
 .card-bar .hw-sep { opacity: .6; }
 .card-bar .hw-own { color: #ffe9a8; } /* (the book's own name and digits: a warmer white) */
 .card-bar .hw { min-width: 0; margin: -.3em 0; padding: .3em 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* (room in it for a script's marks above and below the line: Khmer's) */
-#chNav.card-bar { position: relative; justify-content: center; max-width: 640px; margin: 10px auto 4px; border: 0; border-radius: 12px; }
-body.fullscreen :is(p-d > h2, .card-bar) { position: static; } /* (fullscreen: they scroll with their card) */
-#popupContent :is(p-d > h2, .card-bar) { top: 20px; } /* (under its × ⤢ bar: 40px, less its 20px padding) */
+body.fullscreen p-d > h2 { position: static; } /* (fullscreen: they scroll with their card) */
+#popupContent p-d > h2 { top: 20px; } /* (under its × bar: 40px, less its 20px padding) */
 /* The cards one after another, no space between them: a card's heading
    stays at the top of the screen till the next one's reaches it and
    pushes it up (a sticky heading can't leave its card, so the card's
    bottom padding is its ::after, inside it) */
 :is(#results, #translation, #popupResults) > p-d { margin: 0; padding-bottom: 0; border-radius: 0; }
 :is(#results, #translation, #popupResults) > p-d::after { content: ""; display: block; height: var(--pd); }
-/* (the verse's heading: the bar has it) */
-p-d:has(> .card-bar) > h2 { display: none; }
-:is(.card-bar, p-d > h2) .menu { font-size: 15px; font-weight: 400; line-height: 1.3; }
-:is(.card-bar, p-d > h2) .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+p-d > h2 .menu { font-size: 15px; line-height: 1.3; }
+p-d > h2 .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* ⋮: white, no border, a big target (to the heading's right edge, its
    height not more than the heading's) */
-:is(.card-bar, p-d > h2) .cb-more {
-	flex: none;
-	width: 48px;
-	height: 44px;
-	margin: -8px -14px -8px auto;
-	padding: 0;
-	border: 0;
-	background: none;
-	color: #fff;
-	line-height: 0;
-	cursor: pointer;
-}
-.card-bar .cb-bible + .cb-more { margin-left: -4px; }
-/* The Bible button: a button, outlined, at the right (the Bible bar's:
-   beside its reference) */
-.card-bar .cb-bible {
-	position: relative;
-	flex: none;
-	width: 46px;
-	height: 34px;
-	margin: -4px 0 -4px auto;
-	padding: 0;
-	border: 1px solid rgba(255, 255, 255, .6);
-	border-radius: 999px;
-	background: rgba(255, 255, 255, .14);
-	color: #fff;
-	line-height: 0;
-	cursor: pointer;
-}
+.cb-more { flex: none; width: 48px; height: 44px; margin: -8px -14px -8px auto; padding: 0; border: 0; background: none; color: #fff; line-height: 0; }
+.cb-bible + .cb-more { margin-left: -4px; }
+/* The Bible button: outlined, at the right (the Bible bar's: beside its reference) */
+.cb-bible { position: relative; flex: none; width: 46px; height: 34px; margin: -4px 0 -4px auto; padding: 0; border: 1px solid rgba(255, 255, 255, .6); border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; line-height: 0; }
 #chNav .cb-bible { margin-left: 4px; }
-.card-bar .cb-bible:hover { background: rgba(255, 255, 255, .28); }
-:is(.card-bar, p-d > h2) :is(.cb-bible, .cb-more) svg { display: block; margin: auto; }
-/* (the card has its own translations, not the Bible bar's: a dot on it) */
-p-d[data-texts] > .card-bar .cb-bible::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.cb-bible:hover { background: rgba(255, 255, 255, .28); }
+:is(.cb-bible, .cb-more, .ch-go) svg { display: block; margin: auto; }
+/* (the card has its own translations, not the search's: a dot on it) */
+p-d[data-texts] .cb-bible::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
 /* A verse's …: the rest of its chapter (above it, below it) */
-p-d > .vs-more {
-	display: block;
-	width: 100%;
-	margin: 0;
-	padding: 0 0 2px;
-	border: 0;
-	background: none;
-	color: var(--color1);
-	font: 700 1.6em/1 system-ui, sans-serif;
-	letter-spacing: .1em;
-	cursor: pointer;
-}
+p-d > .vs-more { display: block; width: 100%; padding: 0 0 2px; border: 0; background: none; color: var(--color1); font: 700 1.6em/1 system-ui, sans-serif; letter-spacing: .1em; }
 p-d > .vs-more:hover { color: var(--tab-bg); }
 .vs.ctx { display: block; margin: .2em 0 .2em -10px; padding-left: 8px; border-left: 2px solid #f2c200; } /* (the verse a chapter's shown for: a yellow line at its left) */
 /* The Bible side panel: its translations, a drop-down (its list over
    what's under it); a chapter's ‹ its name › */
 .tx-dd { position: relative; margin: 6px 0 4px; }
-.tx-drop {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	width: 100%;
-	min-height: 42px;
-	padding: 0 10px 0 12px;
-	border: 1px solid var(--muted);
-	border-radius: 6px;
-	background: var(--card-bg);
-	color: var(--card-text);
-	font: inherit;
-	text-align: left;
-	cursor: pointer;
-}
+/* Outlined buttons (the Bible panel's) */
+.tx-drop, .bk-btn, .ch-go, .bk-grid button { min-width: 0; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-bg); color: var(--card-text); }
+.tx-drop, .bk-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; }
+.tx-drop { width: 100%; text-align: left; }
 .tx-drop > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tx-caret { flex: none; line-height: 0; color: var(--muted); }
 .tx-caret svg { width: 18px; height: 18px; }
@@ -751,22 +698,20 @@ p-d > .vs-more:hover { color: var(--tab-bg); }
 }
 .tx-list .cat-sel { justify-content: center; }
 .ch-nav { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
-.bk-btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--muted); border-radius: 8px; background: var(--card-bg); color: var(--card-text); font: inherit; font-size: 1.1em; font-weight: 700; cursor: pointer; }
+.bk-btn { flex: 1; font-size: 1.1em; font-weight: 700; }
 .bk-btn small { font-size: .65em; font-weight: 400; color: var(--muted); }
 .bk-btn[aria-expanded="true"] .tx-caret { transform: rotate(180deg); }
 .ch-nav + .bk-grid, .ch-nav + * { margin-top: 10px; }
 .tx-all-row { border-top: 1px solid var(--line); }
-.ch-go { flex: none; width: 44px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card-bg); color: var(--card-text); line-height: 0; cursor: pointer; }
-.ch-go svg { display: block; margin: auto; }
-.ch-go:disabled { opacity: .35; cursor: default; }
+.ch-go { flex: none; width: 44px; padding: 0; line-height: 0; }
+.ch-go:disabled { opacity: .35; }
 /* Collapsed (Collapse all, or a heading tapped: flip, the other way from
    the rest): a list of just their headings, slimmer, a hairline between
    them, no stripe at their left */
 :is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) { border-left-color: transparent; background: none; }
-:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :not(h2, .card-bar) { display: none; }
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :not(h2) { display: none; }
 :is(#results, #translation, #popupResults) > :is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip)::after { height: 0; }
-:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :is(h2, .card-bar) {
-	--bar-c: var(--fold-bg);
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > h2 {
 	margin-left: calc(-1 * var(--pd) - 4px); /* (over its stripe's room too) */
 	padding-top: 4px;
 	padding-bottom: 4px;
@@ -776,20 +721,13 @@ p-d > .vs-more:hover { color: var(--tab-bg); }
 /* Highlight off (Appearance): the matches not marked */
 body.no-mark mark { background: none; color: inherit; }
 /* Comparing (a verse's Compare, in the popup): its Bible bars another color */
-p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--compare-bg); }
+p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
 .bk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.bk-grid small { display: block; font-size: .78em; line-height: 1.1; opacity: .7; } /* (another script's: its English short name under it) */
 .bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
 .bk-grid button {
-	min-width: 0;
-	min-height: 40px;
-	background: var(--card-bg);
-	color: var(--card-text);
 	padding: 4px 2px;
-	border: 1px solid var(--line);
-	border-radius: 8px;
 	font-size: .92em;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -799,10 +737,9 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 .bk-grid button[style] { background: color-mix(in srgb, var(--sec) 25%, var(--card-bg)); border-color: var(--sec); }
 .bk-grid button:hover { border-color: var(--control-btn-bg); }
 .bk-grid button[aria-current="true"] { background: var(--head-bg); border-color: transparent; color: #fff; }
-/* A book's code ("GEN"), under (or after) its name in the Bible */
-.bk-grid small { display: block; font-size: .72em; color: var(--muted); }
+/* (another script's: its code, "GEN", under it) */
+.bk-grid small { display: block; font-size: .72em; line-height: 1.1; opacity: .7; color: var(--muted); }
 .bk-grid button[aria-current="true"] small { color: inherit; opacity: .85; }
-.bk-name small { margin-left: .5em; font-size: .8em; font-weight: normal; color: var(--muted); }
 
 /* Nothing searched: the home page (recent, bookmarks); the menu's Library
    shows the library and settings instead */
@@ -867,7 +804,7 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 .first-level { margin: .6em 0 .4em; }
 .first-level input { display: block; width: 75%; margin: 0 auto; /* (from the first mark's middle to the last's) */ accent-color: var(--color1); }
 .first-marks { display: grid; grid-template-columns: repeat(4, 1fr); }
-.first-marks button { padding: 6px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .8em; cursor: pointer; }
+.first-marks button { padding: 6px 0; border: 0; background: none; color: var(--muted); font-size: .8em; }
 .first-marks button[aria-pressed="true"] { color: var(--color1); font-weight: 700; }
 /* Dictionaries loading: how much has, behind the search bar (--load) */
 #queryInput.loading { background-image: linear-gradient(to right, var(--load-fill) var(--load, 0%), transparent var(--load, 0%)) !important; } /* (over .error too) */
@@ -891,25 +828,13 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 	font-size: 14px;
 }
 #refreshBar span { flex: 1; }
-#refreshBar .rb-go { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--control-btn-bg); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+#refreshBar .rb-go { padding: 8px 14px; border-radius: 8px; font-weight: 700; }
 #refreshBar .close-btn { font-size: 24px; padding: 0 6px; }
 /* The first time: download the ones picked */
-.first-default {
-	display: block;
-	width: 100%;
-	margin: 1em 0 .6em;
-	padding: 12px;
-	border: 0;
-	border-radius: 10px;
-	background: var(--control-btn-bg);
-	color: #fff;
-	font: inherit;
-	font-weight: 600;
-	cursor: pointer;
-}
+.first-default { display: block; width: 100%; margin: 1em 0 .6em; padding: 12px; border-radius: 10px; font-weight: 600; }
 .lib-space { margin: 0 0 .5em; font-size: .9em; color: var(--muted); }
 .lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
-.dict-del { align-self: center; padding: 4px 6px; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: .85em; }
+.dict-del { align-self: center; padding: 4px 6px; border: 0; background: none; color: var(--muted); font-size: .85em; }
 /* A note on a verse: a little link; it shows in the popup */
 .vs-note {
 	font-size: .7em;
@@ -922,7 +847,6 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 	color: var(--color1);
 	text-decoration: underline;
 	text-underline-offset: 2px;
-	cursor: pointer;
 }
 .dict-row .lib-desc { white-space: normal; }
 /* The library's: download (⬇), downloading (a circle), delete (🗑), its size under it */
@@ -940,7 +864,6 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 	background: none;
 	color: var(--control-btn-bg);
 	font-size: 16px;
-	cursor: pointer;
 }
 .dict-act.down { background: var(--control-btn-bg); color: #fff; }
 .dict-act.loading { cursor: default; }
@@ -955,14 +878,6 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 	animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* Loading (downloading): its box spins */
-.dict-on:has(.loading)::before {
-	background: none !important;
-	border-top-color: transparent;
-	border-radius: 50%;
-	animation: spin-box .8s linear infinite;
-}
-@keyframes spin-box { from { transform: translateY(-50%) rotate(0); } to { transform: translateY(-50%) rotate(360deg); } }
 /* Side panel: history, bookmarks, the filter, languages, books */
 #drawer { position: fixed; inset: 0; z-index: 3500; } /* Over a popup too (its gloss) */
 .drawer-bg { position: absolute; inset: 0; background: rgba(30,20,10,.45); }
@@ -1032,7 +947,6 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 	border-radius: 50%;
 	background: none;
 	color: var(--muted);
-	font: inherit;
 	font-size: .8em;
 }
 .gloss-rows button[aria-pressed="true"] { border-color: var(--control-btn-bg); background: var(--control-btn-bg); color: #fff; font-weight: 700; }
@@ -1057,8 +971,8 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 	overflow-y: auto;
 	box-shadow: 0 20px 50px rgba(0,0,0,.7);
 }
-/* Its ⤢ ×: a bar at its top, always there; the cards' headings stick
-   under it. (Its Bible cards' ⋮ has Show in the results: no ⤢) */
+/* Its ×: a bar at its top, always there; the cards' headings stick
+   under it. (Its cards' ⋮ has Show in the results) */
 #popupBar {
 	position: sticky;
 	top: -20px; /* (its top edge: over its padding) */
@@ -1073,7 +987,6 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 	background: var(--bg-color);
 }
 #popupBar .close-btn { padding: 0 8px; line-height: 40px; }
-#popupContent:has(#popupResults > p-d > .card-bar) #popupFull { display: none; }
 /* Fullscreen (the ⛶ below): it fills the window */
 body.fullscreen #popupContent {
 	position: fixed;
@@ -1145,7 +1058,6 @@ body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscree
 	background: none;
 	color: #fff;
 	font: 600 12px/1.2 system-ui, sans-serif;
-	cursor: pointer;
 }
 .ctx-row button:hover, .ctx-row button:focus-visible { background: rgba(255, 255, 255, .14); }
 .ctx-row button span { text-align: center; } /* (a long name on two lines) */
@@ -1166,8 +1078,8 @@ body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results abov
 	p-e.starred { margin-left: -14px; padding-left: 10px; }
 	/* The cards (and the Bible bar) from edge to edge of the screen, square */
 	:is(#results, #translation, #popupResults) > p-d { margin-left: -6px; margin-right: -6px; border-radius: 0; }
-	:is(#results, #translation, #popupResults) > p-d > :is(h2, .card-bar) { margin-left: calc(-1 * var(--pd) - 4px); border-radius: 0; } /* (over the card's stripe too) */
-	#chNav.card-bar { margin-left: -6px; margin-right: -6px; border-radius: 0; }
+	:is(#results, #translation, #popupResults) > p-d > h2 { margin-left: calc(-1 * var(--pd) - 4px); } /* (over the card's stripe too) */
+	#chNav { margin-left: -6px; margin-right: -6px; border-radius: 0; }
 	#popupBar { margin-left: -6px; margin-right: -6px; }
 }
 @media (prefers-reduced-motion: reduce) {

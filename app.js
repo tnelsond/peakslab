@@ -954,15 +954,12 @@ if(!isDictPage){
 	}
 	const cardRef = card => ({bk: card.dataset.bk, from: +card.dataset.from, to: +card.dataset.to, kind: card.dataset.kind});
 	const bookOf = bk => books?.find(x => x.code.toLowerCase() === bookCode(bk).toLowerCase());
-	// The bar at the top of a card, in place of its heading (a verse's
-	// stays, hidden: its headword is its bookmark's and Share's); q, what
-	// it's for
+	// A Bible card's heading (a verse's word card's: its h2); q, what it's
+	// for (its bookmark's and Share's)
 	function addCardBar(card, ref, q){
 		if (!ref) return;
 		Object.assign(card.dataset, {bk: ref.bk, from: ref.from, to: ref.to, kind: ref.kind, q});
-		const bar = document.createElement('div');
-		bar.className = 'card-bar';
-		card.prepend(bar);
+		(card.querySelector(':scope > h2') || card.insertAdjacentElement('afterbegin', document.createElement('h2'))).className = 'card-bar';
 		renderCardBar(card);
 	}
 	// A reference in the book's own name and digits: "John 3:16", "Romans
@@ -991,18 +988,11 @@ if(!isDictPage){
 	// results (or the popup) just its heading, to see them all; again
 	// (Expand all), all of them, at the one tapped. A card's heading tapped
 	// (not a button in it) collapses (or opens) just it: it's the other way
-	// from the rest (flip). A Bible bar's ⋮ also has its Read in context and
-	// Popup when they don't fit on its line.
+	// from the rest (flip). A popup's card's ⋮ also has Show in the results.
 	const moreSVG = icon(['M12 5.5v.01M12 12v.01M12 18.5v.01', 'stroke-width="3.2"']);
-	const foldBtnHTML = `<button class="cb-more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`;
+	const foldBtnHTML = `<button class="cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`;
 	const foldSVG = icon('M6 15l6-6 6 6'), unfoldSVG = icon('M6 9l6 6 6-6');
 	const foldItem = b => b.closest('.collapsed') ? ['unfold', unfoldSVG, 'Expand all'] : ['fold', foldSVG, 'Collapse all'];
-	document.addEventListener('click', e => {
-		const b = e.target.closest('p-d > h2 .cb-more');
-		if (!b) return;
-		const it = foldItem(b);
-		popMenu(b, `<button data-a="${it[0]}">${it[1]}<span>${it[2]}</span></button>`, () => foldAll(b));
-	});
 	const foldAll = btn => {
 		const pop = btn.closest('#popupResults'), card = btn.closest('p-d');
 		const boxes = pop ? [pop] : [resultsDiv, translationDiv], on = !boxes[0].classList.contains('collapsed');
@@ -1014,7 +1004,7 @@ if(!isDictPage){
 		if (!pop) scrollBy(0, -parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick') || 0));
 	};
 	document.addEventListener('click', e => {
-		const card = !e.target.closest('button, a, p-a, .menu') && e.target.closest(':is(#results, #translation, #popupResults) > p-d > :is(h2, .card-bar)')?.parentNode;
+		const card = !e.target.closest('button, a, p-a, .menu') && e.target.closest(':is(#results, #translation, #popupResults) > p-d > h2')?.parentNode;
 		if (!card) return;
 		card.classList.toggle('flip');
 		if (card.getBoundingClientRect().top < 0) card.scrollIntoView({block: 'start'}); // (its heading was stuck: it, at the top)
@@ -1042,7 +1032,7 @@ if(!isDictPage){
 		const ref = cardRef(card);
 		bar.innerHTML = `<span class="hw">${ref.bk ? refHeading(ref) : 'Bible'}</span>` +
 			`<button class="cb-bible" data-cb="bible" title="Translation, book and chapter" aria-label="Translation, book and chapter" aria-haspopup="dialog">${bibleSVG}</button>` +
-			(card === bibleBar ? '' : `<button class="cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`);
+			(card === bibleBar ? '' : foldBtnHTML);
 		if (card !== bibleBar) moreVerses(card, ref);
 	}
 	// … above a verse's card (verses before it in its chapter), below it (after)
@@ -1077,34 +1067,32 @@ if(!isDictPage){
 	});
 	const cardBars = () => document.querySelectorAll('#results > p-d > .card-bar, #popupResults > p-d > .card-bar');
 	const renderCardBars = () => cardBars().forEach(bar => renderCardBar(bar.parentNode));
-	function cardBarClick(e){
-		const b = e.target.closest('.card-bar button[data-cb]');
+	// A heading's buttons (a card's, the Bible bar's)
+	document.addEventListener('click', e => {
+		const b = e.target.closest('button[data-cb]'), card = b && (b.closest('p-d') || bibleBar);
 		if (!b) return;
-		const card = b.closest('p-d') || bibleBar;
 		if (b.dataset.cb === 'bible') return openBible(card);
-		if (b.dataset.cb === 'more') return popMenu(b, menuHTML([...cardActs(card), foldItem(b)]), a => /fold/.test(a) ? foldAll(b) : cardAct(card, a));
-	}
-	resultsDiv.addEventListener('click', cardBarClick);
-	bibleBar.addEventListener('click', cardBarClick);
-	popupResults.addEventListener('click', cardBarClick);
+		popMenu(b, menuHTML([...cardActs(card), foldItem(b)]), a => /fold/.test(a) ? foldAll(b) : cardAct(card, a));
+	});
 	function cardAct(card, act, go){
-		const ref = cardRef(card), b0 = bookOf(ref.bk), pop = inPopup(card);
-		const code = (b0?.code || ref.bk).toLowerCase(), c = Math.floor(ref.from / 1000);
+		const pop = inPopup(card);
+		if (act === 'full' && card.dataset.kind !== 'chapter') { // What the popup has, in the results
+			const q = popupQuery;
+			closePopup();
+			return search(q);
+		}
+		const ref = cardRef(card), b0 = bookOf(ref.bk), code = (b0?.code || ref.bk).toLowerCase(), c = Math.floor(ref.from / 1000);
 		if (go) { // The chapter before or after (the popup's, in it)
 			const next = b0 && nextChapter(`${b0.code} ${c}.`, +go);
 			if (!next) return;
 			const [, bk, n] = /^(.+) (\d+)\.$/.exec(next);
 			return pop ? openPopupSearch(`${bk} ${n}-${n}`, '', ownTexts(card), card.dataset.pop === 'cmp') : search(next);
 		}
-		if (act === 'full' && ref.kind === 'chapter') { // Its chapter in the results, at its verse (the popup's chapter: the one it's for)
+		if (act === 'full') { // Its chapter in the results, at its verse
 			readHl = card.dataset.hl || `${code} ${c}.${ref.from % 1000}`;
-			if (pop) closePopup();
+			closePopup();
 			query = ''; // (searches again even if it's the chapter showing)
 			search(`${code} ${c}.`);
-		} else if (act === 'full') { // What the popup has, in the results
-			const q = popupQuery;
-			closePopup();
-			search(q);
 		}
 	}
 	// The Bible side panel, for a card (panelCard; the Bible bar's: the
@@ -1308,7 +1296,7 @@ if(!isDictPage){
 		if (queryText.trim() && (num > 0 || translationDiv.childElementCount)) addHistory(queryText);
 	}, 1500);
 
-	const headwordOf = pd => (pd.querySelector(':scope > h2 .hw')?.textContent || '').trim();
+	const headwordOf = pd => pd.dataset.q || (pd.querySelector(':scope > h2 .hw')?.textContent || '').trim();
 	const isBookmarked = w => lists.bookmarks.items.some(b => b.w === w);
 	// A bookmark for w (the context menu's) on or off: it keeps the first
 	// line of its entry (pe; a verse's: its text)
@@ -1370,25 +1358,27 @@ if(!isDictPage){
 	// A dictionary's name, kind, size (with its state, if any) and description
 	const infoHTML = (x, size = x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') =>
 		`<span class="lib-name"><span class="row-w">${escapeHTML(x.name)}</span>${typeOf(x)}${size}</span><span class="lib-desc">${x.desc}</span>`;
-	// A dictionary: on or off, what kind it is, its size, what it is, and
-	// its star (deleting is the library's). In the library, not on or off:
-	// ⬇ (a circle while it downloads, then 🗑), its size under it. One added
-	// from another language has ✕ for 🗑 (and beside ⬇): it comes off the
-	// page, its download stays (its own language's page can delete it)
+	// A dictionary's row: its details; in a tick box (check: its
+	// attributes), or with the library's button (dl: [state, its
+	// data-attribute, what it does]: ⬇, a circle while it downloads, then
+	// 🗑), its size under it; then more (✕, ☆, Add)
 	const stateOf = d => loading.has(d) ? 'loading' : downloaded.has(d) ? 'got' : 'down';
-	// (The gloss's: on or off for glosses, no star: they're everything's)
-	// A library row: x's details, its button (state, data-attribute and
-	// what it does: its title), its size under it; then more (✕, ☆, Add)
-	const libRowHTML = (x, state, data, t, more = '', star = '') => `<li class="row dict-row${star}"><div class="row-main">${infoHTML(x, '')}</div>` +
-		`<div class="dict-acts"><button class="dict-act ${state}" ${data}${state === 'loading' ? ' disabled' : ''} title="${t}" aria-label="${t}: ${escapeHTML(x.name)}">${{down: '⬇', loading: '', got: '🗑', off: '✕'}[state]}</button>` +
-		(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') + '</div>' + more + '</li>';
+	function dictRow(x, {check, dl, more = '', star}){
+		const info = infoHTML(x, dl ? '' : undefined);
+		return `<li class="row dict-row${star ? ' starred' : ''}">` +
+			(check ? `<button class="row-main check" ${check}>${info}</button>` : `<div class="row-main">${info}</div>`) +
+			(dl ? `<div class="dict-acts"><button class="dict-act ${dl[0]}" ${dl[1]}${dl[0] === 'loading' ? ' disabled' : ''} title="${dl[2]}" aria-label="${dl[2]}: ${escapeHTML(x.name)}">${{down: '⬇', loading: '', got: '🗑'}[dl[0]]}</button>` +
+				(x.size ? `<span class="lib-size">${sizeText(x.size)}</span>` : '') + '</div>' : '') + more + '</li>';
+	}
+	// The page's: in the filter, on or off, and its star (the gloss's: on
+	// or off for glosses, no star: they're everything's); in the library,
+	// its download, and its star; one added from another language, ✕ too
+	// (it comes off the page, its download stays)
 	function dictRowHTML(d, view){
-		const x = dicts[d], state = stateOf(d), own = view === 'gloss';
-		if (view === 'library') return libRowHTML(x, x.added && state === 'got' ? 'off' : state, `data-${state !== 'got' ? 'get' : x.added ? 'unlink' : 'del'}="${d}"`,
-			{down: 'Download', loading: 'Downloading…', got: x.added ? 'Take it off this page (its download stays)' : 'Delete its download'}[state],
-			(x.added && state !== 'got' ? `<button class="dict-del" data-unlink="${d}" title="Take it off this page" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') + starBtnHTML(d), isStar(d) ? ' starred' : '');
-		return `<li class="row dict-row${isStar(d) ? ' starred' : ''}"><button class="row-main check dict-on" data-on="${d}" aria-pressed="${onIn(view)(d)}">` +
-			infoHTML(x) + '</button>' + (own ? '' : starBtnHTML(d)) + '</li>';
+		const x = dicts[d], state = stateOf(d), star = isStar(d);
+		if (view !== 'library') return dictRow(x, {check: `data-on="${d}" aria-pressed="${onIn(view)(d)}"`, more: view === 'gloss' ? '' : starBtnHTML(d), star});
+		return dictRow(x, {dl: [state, `data-${state === 'got' ? 'del' : 'get'}="${d}"`, {down: 'Download', loading: 'Downloading…', got: 'Delete its download'}[state]], star,
+			more: (x.added ? `<button class="dict-del" data-unlink="${d}" title="Take it off this page (its download stays)" aria-label="Remove ${escapeHTML(x.name)}">✕</button>` : '') + starBtnHTML(d)});
 	}
 	function rowsHTML(id, view){
 		const ds = listOf(id, view);
@@ -1433,8 +1423,7 @@ if(!isDictPage){
 		const byLang = new Map();
 		allDicts.filter(x => !dictIds.some(d => dicts[d] === x)).forEach(x => push(byLang, x.lang, x));
 		const lang = ([l, xs]) => groupHTML(`lang:${l}`, groupHead(`lang:${l}`, cap(l), `${xs.length} ${xs.length === 1 ? 'dictionary' : 'dictionaries'}`),
-			() => `<ul class="rows dict-rows">${xs.map(x => cachedPaths.has(x.path) ? libRowHTML(x, 'got', `data-delpath="${escapeHTML(x.path)}"`, 'Delete its download', addBtn(x)) :
-				`<li class="row dict-row"><div class="row-main">${infoHTML(x)}</div>${addBtn(x)}</li>`).join('')}</ul>`);
+			() => `<ul class="rows dict-rows">${xs.map(x => dictRow(x, {dl: cachedPaths.has(x.path) && ['got', `data-delpath="${escapeHTML(x.path)}"`, 'Delete its download'], more: addBtn(x)})).join('')}</ul>`);
 		const addBtn = x => `<button class="text-btn" data-add="${escapeHTML(x.path)}">Add</button>`;
 		const here = sizeOf(dictIds.filter(d => downloaded.has(d) && dicts[d].lang === curLang)); // (not other languages')
 		return '<p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
@@ -1478,7 +1467,7 @@ if(!isDictPage){
 			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
-			html += `<li class="row dict-row"><button class="row-main check" data-pick="${d}" aria-pressed="${firstPick.has(d)}">${infoHTML(x)}</button></li>`;
+			html += dictRow(x, {check: `data-pick="${d}" aria-pressed="${firstPick.has(d)}"`});
 		});
 		if (prev !== null) html += '</ul>';
 		if (!ids.length) html = '<p class="empty">These are all downloaded: slide for more.</p>';
@@ -1501,19 +1490,14 @@ if(!isDictPage){
 		markLevel(n);
 		drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
 	}
-	// The filter: of the downloaded dictionaries (it downloads none), the
-	// level's on, the rest off, once it's let go; its level now (the one
-	// picked, if it still is: two can be, with none of one's own
-	// downloaded), or -1
+	// The filter (the gloss: on for glosses): of the downloaded
+	// dictionaries (it downloads none), the level's on, the rest off, once
+	// it's let go; its level now, the first whose are just the ones on (none: -1)
 	const got = () => dictIds.filter(d => downloaded.has(d));
-	// (The gloss's: on for glosses)
-	const picked = {filter: -1, gloss: -1};
-	const isLevel = (n, view) => got().every(d => onIn(view)(d) === levelOf(dicts[d]) <= n);
-	const onLevel = view => isLevel(picked[view], view) ? picked[view] : LEVELS.findIndex((_, n) => isLevel(n, view));
+	const onLevel = view => LEVELS.findIndex((_, n) => got().every(d => onIn(view)(d) === levelOf(dicts[d]) <= n));
 	function pickLevel(n){
 		if (drawerView === 'first') return showLevel(n);
 		const view = drawerView === 'gloss' ? 'gloss' : 'filter';
-		picked[view] = n;
 		(view === 'gloss' ? setGlossOn : setOn)(got(), d => levelOf(dicts[d]) <= n);
 	}
 	drawerBody.addEventListener('input', e => { if (e.target.matches('.first-level input')) drawerView === 'first' ? showLevel(+e.target.value) : markLevel(+e.target.value); });
@@ -1914,10 +1898,6 @@ if(!isDictPage){
 		document.body.classList.remove('no-scroll');
 	}
 	$('popupClose').addEventListener('click', closePopup);
-	$('popupFull').addEventListener('click', () => {
-		closePopup();
-		search(popupQuery);
-	});
 
 	function nextst(){
 		if(!st || st == 2)
@@ -2554,7 +2534,7 @@ if(!isDictPage){
 	document.addEventListener('click', e => {
 		if (getSelection().toString().trim()) return; // (the selection's)
 		const t = e.target;
-		const el = !t.closest('a, button, input, textarea, select, audio, video, [role="button"], p-a, p-w, .tr-w, .menu, .card-bar, p-d > h2') &&
+		const el = !t.closest('a, button, input, textarea, select, audio, video, [role="button"], p-a, p-w, .tr-w, .menu, p-d > h2') &&
 			t.closest('#results, #popupResults, #translation') && t.closest('.tr-entry, p-d.translation, .vs, p-e');
 		if (el && el !== ctx?.el) openCtx({el});
 		else if (ctx) closeCtx();
