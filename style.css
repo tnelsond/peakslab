@@ -101,7 +101,8 @@ a:hover, p-a:hover {
 	text-decoration: none;
 }
 a:visited { color: var(--link-old); }
-button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* Buttons: no box of their own, the text around them's font and color */
+button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button:disabled { cursor: default; }
 button:focus-visible, a:focus-visible, summary:focus-visible {
 	outline: 2px solid var(--star);
@@ -115,15 +116,8 @@ mark {
 .no-scroll { overflow: hidden; }
 #install-button, input[type="checkbox"] { display: none; }
 
-/* Buttons with no box of their own */
-.text-btn, .star-btn, .row-main, .row-x, .cat-sel, .cat-chk, .cat-exp,
-.tr-play, .close-btn, .head-btn {
-	border: 0;
-	background: none;
-}
 /* Filled */
 .setting, .control-btn, .chords-btn, .rb-go, .first-default {
-	border: 0;
 	background: var(--control-btn-bg);
 	color: #fff;
 }
@@ -134,12 +128,7 @@ mark {
 	border-radius: 8px;
 	padding: 8px 14px;
 }
-.close-btn {
-	font-size: 32px;
-	line-height: 1;
-	color: var(--card-text);
-	opacity: .7;
-}
+.close-btn { font-size: 32px; line-height: 1; opacity: .7; }
 
 /* Header: the logo, search and the menu */
 #header {
@@ -274,7 +263,6 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	gap: 4px;
 	height: 32px;
 	padding: 0 6px 0 10px;
-	border: 0;
 	background: rgba(255,255,255,.12);
 }
 .sub-div { flex: none; width: 1px; height: 20px; background: rgba(255,255,255,.25); }
@@ -294,7 +282,6 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	height: 30px;
 	padding: 0 12px 0 9px;
 	border: 1px solid rgba(243,230,200,.35);
-	background: transparent;
 	white-space: nowrap;
 }
 .qk svg { flex: none; width: 16px; height: 16px; }
@@ -487,7 +474,7 @@ body.show-chords .chords-btn::after { content: "Hide chords"; }
 	background: var(--card-bg);
 	box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
 }
-.menu button { padding: 9px 14px; border: 0; background: none; color: var(--card-text); text-align: left; }
+.menu button { padding: 9px 14px; color: var(--card-text); text-align: left; }
 .menu button + button { border-top: 1px solid var(--line); }
 .see-more { display: none; margin: .5em 0 0; }
 
@@ -657,7 +644,7 @@ p-d > h2 .menu { font-size: 15px; line-height: 1.3; }
 p-d > h2 .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* ⋮: white, no border, a big target (to the heading's right edge, its
    height not more than the heading's) */
-.cb-more { flex: none; width: 48px; height: 44px; margin: -8px -14px -8px auto; padding: 0; border: 0; background: none; color: #fff; line-height: 0; }
+.cb-more { flex: none; width: 48px; height: 44px; margin: -8px -14px -8px auto; padding: 0; color: #fff; line-height: 0; }
 .cb-bible + .cb-more { margin-left: -4px; }
 /* The Bible button: outlined, at the right (the Bible bar's: beside its reference) */
 .cb-bible { position: relative; flex: none; width: 46px; height: 34px; margin: -4px 0 -4px auto; padding: 0; border: 1px solid rgba(255, 255, 255, .6); border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; line-height: 0; }
@@ -667,7 +654,7 @@ p-d > h2 .menu button { display: flex; align-items: center; gap: 10px; white-spa
 /* (the card has its own translations, not the search's: a dot on it) */
 p-d[data-texts] .cb-bible::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
 /* A verse's …: the rest of its chapter (above it, below it) */
-p-d > .vs-more { display: block; width: 100%; padding: 0 0 2px; border: 0; background: none; color: var(--color1); font: 700 1.6em/1 system-ui, sans-serif; letter-spacing: .1em; }
+p-d > .vs-more { display: block; width: 100%; padding: 0 0 2px; color: var(--color1); font: 700 1.6em/1 system-ui, sans-serif; letter-spacing: .1em; }
 p-d > .vs-more:hover { color: var(--tab-bg); }
 .vs.ctx { display: block; margin: .2em 0 .2em -10px; padding-left: 8px; border-left: 2px solid #f2c200; } /* (the verse a chapter's shown for: a yellow line at its left) */
 /* The Bible side panel: its translations, a drop-down (its list over
@@ -803,7 +790,7 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .first-level { margin: .6em 0 .4em; }
 .first-level input { display: block; width: 75%; margin: 0 auto; /* (from the first mark's middle to the last's) */ accent-color: var(--color1); }
 .first-marks { display: grid; grid-template-columns: repeat(4, 1fr); }
-.first-marks button { padding: 6px 0; border: 0; background: none; color: var(--muted); font-size: .8em; }
+.first-marks button { padding: 6px 0; color: var(--muted); font-size: .8em; }
 .first-marks button[aria-pressed="true"] { color: var(--color1); font-weight: 700; }
 /* Dictionaries loading: how much has, behind the search bar (--load) */
 #queryInput.loading { background-image: linear-gradient(to right, var(--load-fill) var(--load, 0%), transparent var(--load, 0%)) !important; } /* (over .error too) */
@@ -833,7 +820,7 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .first-default { display: block; width: 100%; margin: 1em 0 .6em; padding: 12px; border-radius: 10px; font-weight: 600; }
 .lib-space { margin: 0 0 .5em; font-size: .9em; color: var(--muted); }
 .lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
-.dict-del { align-self: center; padding: 4px 6px; border: 0; background: none; color: var(--muted); font-size: .85em; }
+.dict-del { align-self: center; padding: 4px 6px; color: var(--muted); font-size: .85em; }
 /* A note on a verse: a little link; it shows in the popup */
 .vs-note {
 	font-size: .7em;
@@ -841,8 +828,6 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	line-height: 1;
 	padding: 0 2px;
 	margin: 0 1px;
-	border: 0;
-	background: none;
 	color: var(--color1);
 	text-decoration: underline;
 	text-underline-offset: 2px;
@@ -860,7 +845,6 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	padding: 0;
 	border: 1px solid var(--control-btn-bg);
 	border-radius: 50%;
-	background: none;
 	color: var(--control-btn-bg);
 	font-size: 16px;
 }
@@ -903,7 +887,7 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	color: var(--header-fg);
 }
 .drawer-head h2 { margin: 0; font-size: 1.15em; }
-.drawer-head .close-btn { color: var(--header-fg); opacity: 1; }
+.drawer-head .close-btn { opacity: 1; }
 .drawer-body { flex: 1; overflow-y: auto; padding: 4px 14px 24px; }
 .drawer-h { margin: 1em 0 .1em; font-size: .95em; color: var(--muted); font-weight: 600; }
 /* The filter: pick any number of categories; open one to choose its dictionaries */
@@ -944,7 +928,6 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	padding: 0;
 	border: 1px solid var(--line);
 	border-radius: 50%;
-	background: none;
 	color: var(--muted);
 	font-size: .8em;
 }
@@ -1052,9 +1035,7 @@ body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscree
 	align-items: center;
 	gap: 3px;
 	padding: 8px 8px 6px;
-	border: 0;
 	border-radius: 12px;
-	background: none;
 	color: #fff;
 	font: 600 12px/1.2 system-ui, sans-serif;
 }

@@ -1127,7 +1127,7 @@ if(!isDictPage){
 	function fillCard(card){
 		const gen = card._gen = (card._gen || 0) + 1, r = cardRef(card), texts = cardTexts(card), par = texts.length > 1;
 		const live = () => card._gen === gen && card.isConnected, t = document.createElement('template');
-		card.querySelectorAll(':scope > p-e').forEach(pe => (!pe.dataset.d || isBibleText(+pe.dataset.d)) && pe.remove()); // (a verse's other dictionaries' stay)
+		card.querySelectorAll(':scope > p-e').forEach(pe => (!pe.dataset.d || isBibleText(+pe.dataset.d) || isNote(+pe.dataset.d)) && pe.remove()); // (its verses and notes are these; a verse's other dictionaries' stay)
 		card.classList.toggle('parallel', par);
 		t.innerHTML = par || !texts.length ? '<p-e data-id="-1e6"></p-e>' : entryHTML(texts[0]);
 		const pe = t.content.firstChild;
