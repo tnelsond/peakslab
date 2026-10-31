@@ -1396,10 +1396,10 @@ if(!isDictPage){
 		if (!firstIds.some(d => !have(d))) return '<p class="empty">The suggested dictionaries are all downloaded.</p>';
 		return '<p class="empty">Which dictionaries? They download once, then work offline.</p>' +
 			levelHTML(firstLevel) +
-			`<div class="first-list">${firstListHTML()}</div>` +
+			firstListHTML() +
 			'<p class="empty">Or <button class="text-btn" data-first="custom">choose my own in the library</button></p>';
 	}
-	// The level's dictionaries and Download: redrawn as the slider moves
+	// The level's dictionaries and Download
 	function firstListHTML(){
 		let prev = null, html = '';
 		const ids = notGot();
@@ -1418,30 +1418,18 @@ if(!isDictPage){
 	// (-1: none, the ones on are someone's own pick)
 	const levelHTML = n => `<div class="first-level"><input type="range" min="0" max="${LEVELS.length - 1}" value="${Math.max(n, 0)}" aria-label="How many dictionaries" aria-valuetext="${LEVELS[n] || 'Custom'}">` +
 		`<div class="first-marks">${LEVELS.map((l, i) => `<button data-level="${i}" aria-pressed="${i === n}">${l}</button>`).join('')}</div></div>`;
-	function markLevel(n){
-		const range = drawerBody.querySelector('.first-level input');
-		range.value = n;
-		range.setAttribute('aria-valuetext', LEVELS[n]);
-		drawerBody.querySelectorAll('[data-level]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.level === n));
-	}
-	// The prompt: the level's dictionaries, as it moves
-	function showLevel(n){
-		setLevel(n);
-		markLevel(n);
-		drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
-	}
-	// The filter (the gloss: on for glosses): of the downloaded
-	// dictionaries (it downloads none), the level's on, the rest off, once
-	// it's let go; its level now, the first whose are just the ones on (none: -1)
+	// Let go at level n: the prompt lists the level's dictionaries; the
+	// filter (the gloss: on for glosses) has, of the downloaded ones (it
+	// downloads none), the level's on, the rest off. Its level: the first
+	// whose are just the ones on (none: -1)
 	const got = () => dictIds.filter(d => downloaded.has(d));
 	const onLevel = view => LEVELS.findIndex((_, n) => got().every(d => onIn(view)(d) === levelOf(dicts[d]) <= n));
 	function pickLevel(n){
-		if (drawerView === 'first') return showLevel(n);
+		if (drawerView === 'first') return setLevel(n), renderDrawer();
 		const view = drawerView === 'gloss' ? 'gloss' : 'filter';
 		(view === 'gloss' ? setGlossOn : setOn)(got(), d => levelOf(dicts[d]) <= n);
 	}
-	drawerBody.addEventListener('input', e => { if (e.target.matches('.first-level input')) drawerView === 'first' ? showLevel(+e.target.value) : markLevel(+e.target.value); });
-	drawerBody.addEventListener('change', e => { if (e.target.matches('.first-level input') && VIEWS[drawerView]) pickLevel(+e.target.value); });
+	drawerBody.addEventListener('change', e => { if (e.target.matches('.first-level input')) pickLevel(+e.target.value); });
 	function firstAnswer(v){
 		const first = asking;
 		asking = false;
@@ -1579,7 +1567,7 @@ if(!isDictPage){
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
-			drawerBody.querySelector('.first-list').innerHTML = firstListHTML();
+			renderDrawer();
 		} else if (level) pickLevel(+level);
 		else if (first === 'again') {
 			setLevel(firstLevel); // (what's downloaded now)
