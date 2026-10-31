@@ -618,11 +618,10 @@ p-d.chapter .vs-start { white-space: nowrap; }
 	vertical-align: super;
 }
 .vs .tr-entry { margin: .3em 0 .5em; }
-/* A Bible card's bar, in place of its heading: a green band at its top,
-   ‹ its reference ▾ its translation ▾ ›, then Read in context and Popup
-   (folded into ⋮ when they don't fit on its line). The Bible bar (at the
-   top of the results, an empty page's) looks the same; a card's has it,
-   so it hides. */
+/* A Bible card's bar, in place of its heading: like a word's, its
+   reference, then a Bible button (its menu: translation, book and
+   chapter), ⋮ at its right. The Bible bar (at the top of the results, an
+   empty page's) looks the same; a card's has it, so it hides. */
 #chNav:has(~ #results .card-bar) { display: none; }
 #chNav[hidden] { display: none; }
 /* A card's heading: a word's (the search's gloss's) or its Bible bar, a
@@ -647,10 +646,9 @@ p-d > h2, .card-bar {
 /* (the space under it: what's next's, not its: a sticky heading goes
    to its card's very end, so the next card's heading touches it) */
 p-d > :is(h2, .card-bar) + :not(h2), p-d > .card-bar + h2 + * { margin-top: 12px; }
-p-d > h2 { padding: 9px 14px; font-size: 1.2em; line-height: 1.35; }
-.card-bar { flex-wrap: wrap; padding: 10px 14px; font-size: 15px; line-height: 1.3; } /* (wrapped: only if it's too narrow even with ⋮) */
-#chNav.card-bar { position: static; justify-content: center; max-width: 640px; margin: 10px auto 4px; border: 0; border-radius: 12px; }
-#chNav .cb-sel { flex: none; }
+p-d > h2, .card-bar { padding: 9px 14px; font-size: 1.2em; font-weight: 700; line-height: 1.35; }
+.card-bar .hw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#chNav.card-bar { position: relative; justify-content: center; max-width: 640px; margin: 10px auto 4px; border: 0; border-radius: 12px; }
 #chNav:has(~ #translation > p-d) { display: none; } /* (a gloss of the search: no Bible bar) */
 body.fullscreen :is(p-d > h2, .card-bar) { position: static; } /* (fullscreen: they scroll with their card) */
 #popupContent :is(p-d > h2, .card-bar) { top: 20px; } /* (under its × ⤢ bar: 40px, less its 20px padding) */
@@ -662,43 +660,15 @@ body.fullscreen :is(p-d > h2, .card-bar) { position: static; } /* (fullscreen: t
 :is(#results, #translation, #popupResults) > p-d::after { content: ""; display: block; height: var(--pd); }
 /* (the verse's heading: the bar has it) */
 p-d:has(> .card-bar) > h2 { display: none; }
-.cb-sel, .cb-acts { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
-.cb-sel { flex: 1 1 0; } /* (on a narrow card it wraps: ⋮ stays on the first line) */
-.cb-acts { flex: none; margin-left: auto; }
-.card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act) {
-	flex: none;
-	min-height: 36px;
-	padding: 0 12px;
-	border: 1px solid rgba(255, 255, 255, .55);
-	border-radius: 999px;
-	background: rgba(255, 255, 255, .14);
-	color: #fff;
-	font: inherit;
-	white-space: nowrap;
-	cursor: pointer;
-}
-/* The reference: big (in the popup, just it: not a button) */
-.card-bar .cb-book { font-size: 1.3em; font-weight: 700; padding: 0 14px; }
-.card-bar .cb-text { flex: 0 1 auto; min-width: 4.5em; max-width: 14em; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.card-bar .cb-act { width: 40px; padding: 0; line-height: 0; }
-.card-bar .cb-act svg { display: block; margin: auto; }
-.card-bar .ch-go { width: 36px; padding: 0; font-size: 1.4em; line-height: 1; }
-.card-bar .ch-go:disabled { opacity: .35; cursor: default; }
-.card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act):is(button):not(:disabled):hover { background: rgba(255, 255, 255, .28); }
-/* Its buttons at their full width (fitBar measures them); folded: Read in
-   context and Popup in its ⋮ */
-.card-bar.measure, .card-bar.measure * { flex-wrap: nowrap !important; flex-shrink: 0 !important; flex-basis: auto !important; max-width: none !important; }
-.card-bar.folded .cb-act:not(.cb-more) { display: none; }
+:is(.card-bar, p-d > h2) .menu { font-size: 15px; font-weight: 400; line-height: 1.3; }
 :is(.card-bar, p-d > h2) .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-/* The card has its own translations (not the Bible bar's) */
-p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--bar-c, var(--head-bg)); border-color: #fff; }
-/* A word's heading's ⋮ (Collapse all): white, no border, a big target
-   (to the heading's right edge, its height not more) */
-p-d > h2 .cb-more {
+/* Its buttons (the Bible one, ⋮): white, no border, big targets (⋮ to the
+   heading's right edge; their height not more than its) */
+:is(.card-bar, p-d > h2) :is(.cb-bible, .cb-more) {
 	flex: none;
-	width: 48px;
+	width: 44px;
 	height: 44px;
-	margin: -8px -14px -8px auto;
+	margin: -8px -6px;
 	padding: 0;
 	border: 0;
 	background: none;
@@ -706,8 +676,11 @@ p-d > h2 .cb-more {
 	line-height: 0;
 	cursor: pointer;
 }
-p-d > h2 .cb-more svg { display: block; margin: auto; }
-p-d > h2 .menu { font-size: 15px; font-weight: 400; line-height: 1.3; }
+:is(.card-bar, p-d > h2) .cb-more { width: 48px; margin: -8px -14px -8px auto; }
+:is(.card-bar, p-d > h2) :is(.cb-bible, .cb-more) svg { display: block; margin: auto; }
+/* (the card has its own translations, not the Bible bar's: a dot on it) */
+.cb-bible { position: relative; }
+p-d[data-own] > .card-bar .cb-bible::after { content: ""; position: absolute; top: 9px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
 /* Collapsed (Collapse all, or a heading tapped: flip, the other way from
    the rest): a list of just their headings, slimmer, a hairline between
    them, no stripe at their left */

@@ -110,7 +110,7 @@ let drawerView = null;
 function closeDrawer(){
 	drawerView = null;
 	drawer.classList.add('hide');
-	document.querySelectorAll('[data-drawer], .cb-text').forEach(b => b.setAttribute('aria-expanded', false));
+	document.querySelectorAll('[data-drawer]').forEach(b => b.setAttribute('aria-expanded', false));
 }
 drawer.querySelector('.drawer-close').addEventListener('click', closeDrawer);
 drawer.querySelector('.drawer-bg').addEventListener('click', closeDrawer);
@@ -1066,55 +1066,50 @@ if(!isDictPage){
 		card.classList.toggle('flip');
 		if (card.getBoundingClientRect().top < 0) card.scrollIntoView({block: 'start'}); // (its heading was stuck: it, at the top)
 	});
-	// Its buttons: ‹ (a chapter's), its reference ▾ (the Books drawer; in
-	// the popup, its chapters open there), its translation ▾, › ; then Read
-	// in context (a verse's or a range's) and Popup (its chapter in the
-	// popup). If they don't all fit on its line, those two are in a ⋮ menu.
-	// A popup's are always in its ⋮: Read in context (a verse's) and Show
-	// in the results (what the popup has: a chapter's, at its verse).
+	// A Bible card's heading: its reference, a Bible button, and (at its
+	// right) ⋮, like a word's. The Bible button's menu: its translations
+	// (the side panel), its book and chapter (the Books drawer; in the
+	// popup, its chapters open there), and a chapter's previous and next.
+	// Its ⋮: Read in context (a verse's or a range's) and Popup (its
+	// chapter in the popup) — a popup's: Read in context (a verse's) and
+	// Show in the results — then Collapse all. The Bible bar (an empty
+	// page's, Bible mode's) is just the reference (or Bible) and the button.
 	const fullSVG = icon('M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7');
+	const bibleSVG = icon('M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5zM5 20.5A2.5 2.5 0 0 0 7.5 23H19M12 6.5v8M9 9.5h6');
+	const textsSVG = icon('M4 5h11M9.5 3v2M6 5c1 4 4 7 8 8M13 5c-1 4-4 7-8 8M14 21l4-10 4 10M15.5 17.5h5');
+	const prevSVG = icon('M15 6l-6 6 6 6'), nextSVG = icon('M9 6l6 6-6 6');
 	function cardActs(card){
 		const ref = cardRef(card), pop = inPopup(card);
 		if (pop) return [ref.kind === 'verse' && ['ctx', contextSVG, 'Read in context'], ['full', fullSVG, 'Show in the results']].filter(Boolean);
 		return ref.kind === 'chapter' ? [] : [['ctx', contextSVG, 'Read in context'], ['popup', popupSVG, 'Chapter in the popup']];
 	}
+	function bibleActs(card){
+		const ref = cardRef(card), b = bookOf(ref.bk), texts = cardTexts(card), par = cardPar(card);
+		const chapter = ref.kind === 'chapter' && b ? `${b.code} ${Math.floor(ref.from / 1000)}.` : '';
+		const label = isCompare(card) && texts.length > 1 ? 'Compare' : par && texts.length > 1 ? `Parallel: ${names(texts)}` : texts.length ? names(texts) : 'Translation';
+		return [['texts', textsSVG, label], ['book', bibleSVG, 'Book and chapter'],
+			chapter && nextChapter(chapter, -1) && ['prev', prevSVG, 'Previous chapter'], chapter && nextChapter(chapter, 1) && ['next', nextSVG, 'Next chapter']].filter(Boolean);
+	}
+	const menuHTML = items => items.map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${escapeHTML(t)}</span></button>`).join('');
 	function renderCardBar(card){
 		const bar = card === bibleBar ? card : card.querySelector(':scope > .card-bar');
 		if (!bar) return;
 		if (!books) loadBooks(() => renderCardBar(card)); // (its book's name in the meantime: its code)
-		const ref = cardRef(card), b = bookOf(ref.bk), texts = cardTexts(card), par = cardPar(card), pop = inPopup(card);
-		const chapter = ref.kind === 'chapter' && b ? `${b.code} ${Math.floor(ref.from / 1000)}.` : '';
-		const go = (dir, label) => chapter ? `<button class="ch-go" data-go="${dir}" aria-label="${label} chapter"${nextChapter(chapter, dir) ? '' : ' disabled'}>${dir < 0 ? '‹' : '›'}</button>` : '';
-		const label = isCompare(card) && texts.length > 1 ? 'Compare' : par && texts.length > 1 ? 'Parallel' : texts.length ? names(texts) : 'Translation';
-		const acts = cardActs(card);
-		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book" data-cb="book" title="Books">${ref.bk ? refLabel(ref) : 'Books'} ▾</button>` +
-			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>${go(1, 'Next')}</span>` +
-			(card === bibleBar ? '' : `<span class="cb-acts">${acts.map(([a, ic, t]) => `<button class="cb-act" data-cb="${a}" title="${t}" aria-label="${t}">${ic}</button>`).join('')}` +
-				`<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button></span>`);
-		requestAnimationFrame(() => fitBar(bar));
-	}
-	// Folded (⋮) if its buttons, at their full width, don't fit its line
-	function fitBar(bar){
-		if (!bar.isConnected || !bar.querySelector('.cb-act')) return;
-		if (inPopup(bar)) return bar.classList.add('folded'); // (always)
-		bar.classList.remove('folded');
-		bar.classList.add('measure');
-		const over = bar.scrollWidth > bar.clientWidth + 1;
-		bar.classList.remove('measure');
-		bar.classList.toggle('folded', over);
+		const ref = cardRef(card);
+		bar.innerHTML = `<span class="hw">${ref.bk ? refLabel(ref) : 'Bible'}</span>` +
+			`<button class="cb-bible" data-cb="bible" title="Translation, book and chapter" aria-label="Translation, book and chapter" aria-haspopup="true">${bibleSVG}</button>` +
+			(card === bibleBar ? '' : `<button class="cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`);
 	}
 	const cardBars = () => document.querySelectorAll('#results > p-d > .card-bar, #popupResults > p-d > .card-bar');
 	const renderCardBars = () => cardBars().forEach(bar => renderCardBar(bar.parentNode));
-	window.addEventListener('resize', debounce(() => cardBars().forEach(fitBar), 100));
 	function cardBarClick(e){
-		const b = e.target.closest('.card-bar button');
+		const b = e.target.closest('.card-bar button[data-cb]');
 		if (!b) return;
 		const card = b.closest('p-d') || bibleBar;
-		if (b.dataset.cb === 'texts') return openCardTexts(card === bibleBar ? null : card); // (the Bible bar's: the search's)
-		if (b.dataset.cb === 'more') return popMenu(b, [...(b.closest('.folded') ? cardActs(card) : []), foldItem(b)].map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${t}</span></button>`).join(''),
-			a => /fold/.test(a) ? foldAll(b) : cardAct(card, a));
-		closeMenus();
-		cardAct(card, b.dataset.cb, b.dataset.go);
+		if (b.dataset.cb === 'bible') return popMenu(b, menuHTML(bibleActs(card)), a =>
+			a === 'texts' ? openCardTexts(card === bibleBar ? null : card) : // (the Bible bar's: the search's)
+			a === 'prev' || a === 'next' ? cardAct(card, '', a === 'prev' ? -1 : 1) : cardAct(card, a));
+		if (b.dataset.cb === 'more') return popMenu(b, menuHTML([...cardActs(card), foldItem(b)]), a => /fold/.test(a) ? foldAll(b) : cardAct(card, a));
 	}
 	resultsDiv.addEventListener('click', cardBarClick);
 	bibleBar.addEventListener('click', cardBarClick);
