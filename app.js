@@ -1303,7 +1303,7 @@ if(!isDictPage){
 	let lastY = 0;
 	const setHeader = hide => {
 		header.classList.toggle('compact', hide);
-		document.documentElement.style.setProperty('--stick', hide ? '0px' : header.offsetHeight + 'px');
+		document.documentElement.style.setProperty('--stick', hide ? '0px' : header.getBoundingClientRect().height + 'px');
 	};
 	window.addEventListener('scroll', () => {
 		const y = window.scrollY;
@@ -1313,7 +1313,7 @@ if(!isDictPage){
 	}, {passive: true});
 	// The results start below the whole header
 	new ResizeObserver(() => {
-		document.documentElement.style.setProperty('--hh', header.offsetHeight + 'px');
+		document.documentElement.style.setProperty('--hh', header.getBoundingClientRect().height + 'px');
 		setHeader(header.classList.contains('compact'));
 	}).observe(header);
 
