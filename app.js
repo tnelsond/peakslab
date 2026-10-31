@@ -981,7 +981,7 @@ if(!isDictPage){
 	function renderBibleBar(){
 		renderCardBars(); // (their translations, if they're the Bible bar's)
 		if (isChapter(query)) lastRead = query;
-		bibleBar.hidden = !bibleMode() && !isChapter(query) && ranged?.q !== query;
+		bibleBar.hidden = !bibleMode() || !!query; // (just with nothing searched: a search's Bible cards have their own)
 		if (bibleBar.hidden) return;
 		if (!books) return loadBooks(renderBibleBar); // (after it's started: not while the page is)
 		const [, bk = '', c = 0] = /^(.+) (\d+)\.$/.exec(lastRead) || [];
