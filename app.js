@@ -839,12 +839,27 @@ if(!isDictPage){
 	}
 	// In the popup: the whole range (its first 500 verses), in the search's
 	// Bible texts (comparing: each one the gloss has)
-	const popupRange = (r, text) => (popupCompare ? glossTexts() : barTexts()).forEach(d => rangeLines(d, r).then(p =>
+	// (the popup's own translations, popupOwn: its card's, filled)
+	function popupRange(r, text){
+		if (popupOwn && !popupCompare) {
+			const card = document.createElement('p-d');
+			Object.assign(card, {id: 'pch-own', className: 'chapter'});
+			card.dataset.pop = 1;
+			popupResults.append(card);
+			addCardBar(card, popupRef(), popupQuery);
+			return setCardTexts(card, popupOwn.texts, popupOwn.par).then(() => {
+				if (popupQuery !== text) return;
+				popupOpen();
+				popupResults.querySelector('.vs.ctx')?.scrollIntoView({block: 'center'});
+			});
+		}
+		(popupCompare ? glossTexts() : barTexts()).forEach(d => rangeLines(d, r).then(p =>
 		p && popupQuery === text && showLines(d, p.at, Math.min(500, p.last - p.at + 1), popupResults).then(() => {
 			if (popupQuery !== text) return;
 			popupOpen();
 			popupResults.querySelector('.vs.ctx')?.scrollIntoView({block: 'center'}); // (a card's chapter: at its verse)
 		})));
+	}
 	const search = text => { setQueryText(text); startSearch(); addHistory(queryText); };
 	let readHl = ''; // The verse to show in its chapter (Read in context)
 
@@ -1047,6 +1062,17 @@ if(!isDictPage){
 		if (v1 === 1 && v2 === 999) return `${name} ${n(c1)}–${n(c2)}`;
 		return c1 === c2 ? `${name} ${n(c1)}:${n(v1)}–${n(v2)}` : `${name} ${n(c1)}:${n(v1)}–${n(c2)}:${n(v2)}`;
 	}
+	// A heading's reference: as it's searched ("rom 1.2"), then | and the
+	// book's own ("រ៉ូម ១:២", another color)
+	function refCode({bk, from, to, kind}){
+		const code = escapeHTML((bookOf(bk)?.code || bk).toLowerCase());
+		const [c1, v1, c2, v2] = [Math.floor(from / 1000), from % 1000, Math.floor(to / 1000), to % 1000];
+		if (kind === 'verse') return `${code} ${c1}.${v1}`;
+		if (kind === 'chapter' || (v1 === 1 && v2 === 999 && c1 === c2)) return `${code} ${c1}`;
+		if (v1 === 1 && v2 === 999) return `${code} ${c1}-${c2}`;
+		return c1 === c2 ? `${code} ${c1}.${v1}-${v2}` : `${code} ${c1}.${v1}-${c2}.${v2}`;
+	}
+	const refHeading = ref => refCode(ref) + (bookOf(ref.bk) ? `<span class="hw-sep"> | </span><span class="hw-own">${refLabel(ref)}</span>` : '');
 	// Every heading's ⋮ (at its right) has Collapse all: every card in the
 	// results (or the popup) just its heading, to see them all; again
 	// (Expand all), all of them, at the one tapped. A card's heading tapped
@@ -1100,7 +1126,7 @@ if(!isDictPage){
 		if (!bar) return;
 		if (!books) loadBooks(() => renderCardBar(card)); // (its book's name in the meantime: its code)
 		const ref = cardRef(card);
-		bar.innerHTML = `<span class="hw">${ref.bk ? refLabel(ref) : 'Bible'}</span>` +
+		bar.innerHTML = `<span class="hw">${ref.bk ? refHeading(ref) : 'Bible'}</span>` +
 			`<button class="cb-bible" data-cb="bible" title="Translation, book and chapter" aria-label="Translation, book and chapter" aria-haspopup="dialog">${bibleSVG}</button>` +
 			(card === bibleBar ? '' : `<button class="cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`);
 		if (card !== bibleBar) moreVerses(card, ref);
@@ -1178,6 +1204,18 @@ if(!isDictPage){
 	// the search's; it stays ticked)
 	const allKey = `peakslab-txall-${appname}`;
 	let applyAll = stored(allKey) === true, fromCard = null;
+	// The card ‹ › and the books are for: the one it was opened from (its
+	// translations may be every card's: Apply to all), or the Bible bar's
+	const navCard = () => liveFrom() || bibleBar;
+	// (the popup's card redrawn: the panel's for its new one)
+	function liveFrom(){
+		if (fromCard && !fromCard.isConnected && booksInPopup && !comparing) {
+			const c = popupResults.querySelector(':scope > p-d[data-pop="1"]:has(> .card-bar)');
+			if (c && textsCard === fromCard) textsCard = c;
+			if (c) fromCard = c;
+		}
+		return fromCard?.isConnected ? fromCard : null;
+	}
 	function openBible(card){
 		const c = card === bibleBar ? null : card;
 		if (drawerView === 'bible' && fromCard === c) return closeDrawer();
@@ -1195,7 +1233,7 @@ if(!isDictPage){
 	// ‹ its book › (the book: the books; ‹ ›: the chapter before and after),
 	// and the book's chapters (or the books)
 	function bibleHTML(){
-		const card = textsCard || (fromCard?.isConnected ? fromCard : bibleBar), ref = cardRef(card), b = bookOf(ref.bk), empty = t => `<p class="empty">${t}</p>`;
+		const card = navCard(), ref = cardRef(card), b = bookOf(ref.bk), empty = t => `<p class="empty">${t}</p>`;
 		if (textsCard && !textsCard.isConnected && !comparing) return empty('That card is gone: search again.');
 		const texts = comparing ? glossTexts() : textsCard ? cardTexts(textsCard) : barTexts();
 		const all = dictIds.filter(d => isBibleText(d) && downloaded.has(d));
@@ -1217,6 +1255,7 @@ if(!isDictPage){
 	// closes it, as the translations drawer does)
 	// The name: just it (the list closes); its box: it too (or not)
 	function cardTextsClick({tx, txAdd, txAll}){
+		liveFrom();
 		const card = textsCard, d = +(tx ?? txAdd), add = txAdd !== undefined;
 		const next = cur => add ? (cur.includes(d) ? cur.filter(x => x !== d) : dictIds.filter(x => x === d || cur.includes(x))) : [d];
 		if (txAll) { // Apply to all cards: ticked, the card's translations every card's (and the panel's changes after)
@@ -1238,6 +1277,7 @@ if(!isDictPage){
 			owned.forEach(c => { delete c.dataset.own; });
 			setBarTexts(next(barTexts()));
 			if (owned.length) searchAgain();
+			if (applyAll) refillPopup();
 			return drawerView && renderDrawer();
 		}
 		if (!card.isConnected) return;
@@ -1247,8 +1287,9 @@ if(!isDictPage){
 	}
 	function setCardTexts(card, texts, par){
 		Object.assign(card.dataset, {own: 1, texts: texts.join(), par: par ? 1 : 0});
+		if (inPopup(card) && card.dataset.pop === '1') popupOwn = {texts, par}; // (the popup's chapter: its next one's too)
 		renderCardBar(card);
-		fillCard(card);
+		return fillCard(card);
 	}
 	// The card's verses again, from its translations: a verse's card, their
 	// entries for it (its other dictionaries' stay); a chapter's or a
@@ -1301,6 +1342,11 @@ if(!isDictPage){
 			insertSorted(card, t.content.firstChild, sortId(d));
 		}));
 	}
+	// The popup's Bible cards, in the search's translations (Apply to all)
+	function refillPopup(){
+		popupOwn = null;
+		bibleCards().filter(c => inPopup(c) && !isCompare(c)).forEach(c => { delete c.dataset.own; renderCardBar(c); fillCard(c); });
+	}
 	function applyToAll(card){
 		const texts = cardTexts(card), par = cardPar(card);
 		if (!texts.length) return;
@@ -1309,6 +1355,7 @@ if(!isDictPage){
 		resultsDiv.querySelectorAll('p-d[data-own]').forEach(c => { delete c.dataset.own; });
 		setOn(dictIds.filter(isBibleText), d => texts.includes(d));
 		searchAgain();
+		refillPopup();
 	}
 
 	// ---------------------------------------------------------------
@@ -1755,7 +1802,7 @@ if(!isDictPage){
 		}
 		if (go) {
 			closeDrawer();
-			return cardAct(textsCard || bibleBar, '', +go);
+			return cardAct(navCard(), '', +go); // (the card it's for: a popup's, the popup's chapter, even with Apply to all)
 		}
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
@@ -1990,6 +2037,7 @@ if(!isDictPage){
 	let popupQuery = '';
 	let popupHl = ''; // The verse a chapter in it is for (a Bible card's Popup)
 	let popupCompare = false;
+	let popupOwn = null; // Its card's own translations ({texts, par}): its next chapter's too, till it closes
 	function openPopupSearch(text, hl = '', compare = false){
 		popupHl = hl;
 		popupQuery = text;
@@ -2016,6 +2064,7 @@ if(!isDictPage){
 		}
 	}
 	function closePopup(){
+		popupOwn = null;
 		cleanup(popupResults);
 		popupOverlay.style.display = 'none';
 		document.body.classList.remove('no-scroll');
