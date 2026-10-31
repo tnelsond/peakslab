@@ -285,7 +285,6 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 	white-space: nowrap;
 }
 .qk svg { flex: none; width: 16px; height: 16px; }
-.qk s { opacity: .75; }
 .qk[aria-pressed="true"] { border-color: transparent; background: var(--tab-bg); color: var(--tab-fg); font-weight: 600; }
 .cat-chk { flex: none; }
 

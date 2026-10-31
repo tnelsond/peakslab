@@ -268,16 +268,10 @@ if(!isDictPage){
 			insertSorted(div, el, sortId(d));
 		}
 
-		if(!popup && isStar(d) && !fixed(focusEnd.isConnected ? focusEnd : resultsDiv) && !(div.isConnected && fixed(div))){ // Its sections go above the other dictionaries' (off the screen)
-			if(!focusEnd.isConnected)
-				resultsDiv.prepend(focusEnd);
-			if(first || focusEnd.compareDocumentPosition(div) & Node.DOCUMENT_POSITION_FOLLOWING)
-				resultsDiv.insertBefore(div, focusEnd);
-		}else if(first){
+		if(first){
 			(popup ? popupResults : resultsDiv).insertBefore(div, popup ? null : loader);
+			if (popup) popupOpen();
 		}
-		if(first && popup)
-			popupOpen();
 		if(!popup) found();
 	}
 	// Not to move: on the screen or above it (and showing), once the
@@ -585,7 +579,6 @@ if(!isDictPage){
 	const isStar = d => stars.includes(d);
 	const sortId = d => isStar(d) ? stars.indexOf(d) - 1000 : d + 1; // (starred first, then the dictionaries' order)
 	const starBtnHTML = d => `<button class="star-btn" data-d="${d}" onclick="toggleStar(${d})" aria-pressed="${isStar(d)}" title="${isStar(d) ? 'Unstar' : 'Star: show it first'}" aria-label="Star ${escapeHTML(dicts[d].name)}">${isStar(d) ? '★' : '☆'}</button>`;
-	const focusEnd = document.createElement('span'); // The starred dictionaries' sections go above this
 
 	const workers = [];
 	const workers_num = dicts.length > 1 ? 2 : 1;
@@ -1172,24 +1165,15 @@ if(!isDictPage){
 			(secs.length > 1 ? secs.map(c => langRow(`/${curLang}/${c}${qs}`, `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c, curLang)).join('') : '') + '</ul>' +
 			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
-	// What the filter searches, as HTML and as text: All; All but the
-	// categories left out (struck through), when most are picked; or the
-	// ones picked
-	function filterLabel(view){
-		if (!filtered(view)) return ['All', 'All'];
-		const left = cats.filter(c => isTop(c) && !picks[view].includes(c.id)), names = cs => cs.map(c => c.label);
-		if (selCats(view).every(isTop) && left.length < picks[view].length)
-			return [`All ${names(left).map(l => `<s>${escapeHTML(l)}</s>`).join(' ')}`, `All but ${names(left).join(', ')}`];
-		const t = names(cats.filter(c => picks[view].includes(c.id))).join(' + '); // (in the filter's order)
-		return [escapeHTML(t), t];
-	}
+	// What the filter (the gloss) has picked: All, or their names
+	const filterLabel = view => filtered(view) ? cats.filter(c => picks[view].includes(c.id)).map(c => c.label).join(' + ') : 'All';
 	// The bar: the filter's button, with what it searches and how many
 	// dictionaries that is (on, in what it has picked), and the gloss's
 	const quickIcons = {filter: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>', gloss: '<span aria-hidden="true">⇄</span>'};
 	function renderQuick(){
 		renderBibleBar();
-		const b = Object.keys(VIEWS).map(v => { const [html, text] = filterLabel(v), n = dictIds.filter(d => isOn(d, v)).length;
-			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" aria-label="${VIEWS[v].title}: ${escapeHTML(text)}, ${n} ${n === 1 ? 'dictionary' : 'dictionaries'}">${quickIcons[v]}${html}<span class="qk-n" aria-hidden="true">${n}</span></button>`; }).join('');
+		const b = Object.keys(VIEWS).map(v => { const text = escapeHTML(filterLabel(v)), n = dictIds.filter(d => isOn(d, v)).length;
+			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" aria-label="${VIEWS[v].title}: ${text}, ${n} ${n === 1 ? 'dictionary' : 'dictionaries'}">${quickIcons[v]}${text}<span class="qk-n" aria-hidden="true">${n}</span></button>`; }).join('');
 		if (quick._html !== b) { quick._html = b; quick.innerHTML = b; } // Only when changed: keeps it tappable
 	}
 	quick.addEventListener('click', e => { const b = e.target.closest('button'); if (b) openDrawer(b.dataset.view); });
