@@ -619,8 +619,8 @@ p-d.chapter .vs-start { white-space: nowrap; }
 }
 .vs .tr-entry { margin: .3em 0 .5em; }
 /* A Bible card's bar, in place of its heading: like a word's, its
-   reference, then a Bible button (its menu: translation, book and
-   chapter), ⋮ at its right. The Bible bar (at the top of the results, an
+   reference, then at its right a Bible button (the Bible side panel:
+   translation, book and chapter) and ⋮. The Bible bar (at the top of the results, an
    empty page's) looks the same; a card's has it, so it hides. */
 #chNav:has(~ #results .card-bar) { display: none; }
 #chNav[hidden] { display: none; }
@@ -647,7 +647,7 @@ p-d > h2, .card-bar {
    to its card's very end, so the next card's heading touches it) */
 p-d > :is(h2, .card-bar) + :not(h2), p-d > .card-bar + h2 + * { margin-top: 12px; }
 p-d > h2, .card-bar { padding: 9px 14px; font-size: 1.2em; font-weight: 700; line-height: 1.35; }
-.card-bar .hw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-bar .hw { min-width: 0; margin: -.3em 0; padding: .3em 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* (room in it for a script's marks above and below the line: Khmer's) */
 #chNav.card-bar { position: relative; justify-content: center; max-width: 640px; margin: 10px auto 4px; border: 0; border-radius: 12px; }
 #chNav:has(~ #translation > p-d) { display: none; } /* (a gloss of the search: no Bible bar) */
 body.fullscreen :is(p-d > h2, .card-bar) { position: static; } /* (fullscreen: they scroll with their card) */
@@ -662,13 +662,13 @@ body.fullscreen :is(p-d > h2, .card-bar) { position: static; } /* (fullscreen: t
 p-d:has(> .card-bar) > h2 { display: none; }
 :is(.card-bar, p-d > h2) .menu { font-size: 15px; font-weight: 400; line-height: 1.3; }
 :is(.card-bar, p-d > h2) .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-/* Its buttons (the Bible one, ⋮): white, no border, big targets (⋮ to the
-   heading's right edge; their height not more than its) */
-:is(.card-bar, p-d > h2) :is(.cb-bible, .cb-more) {
+/* ⋮: white, no border, a big target (to the heading's right edge, its
+   height not more than the heading's) */
+:is(.card-bar, p-d > h2) .cb-more {
 	flex: none;
-	width: 44px;
+	width: 48px;
 	height: 44px;
-	margin: -8px -6px;
+	margin: -8px -14px -8px auto;
 	padding: 0;
 	border: 0;
 	background: none;
@@ -676,11 +676,68 @@ p-d:has(> .card-bar) > h2 { display: none; }
 	line-height: 0;
 	cursor: pointer;
 }
-:is(.card-bar, p-d > h2) .cb-more { width: 48px; margin: -8px -14px -8px auto; }
+.card-bar .cb-bible + .cb-more { margin-left: -4px; }
+/* The Bible button: a button, outlined, at the right (the Bible bar's:
+   beside its reference) */
+.card-bar .cb-bible {
+	position: relative;
+	flex: none;
+	width: 46px;
+	height: 34px;
+	margin: -4px 0 -4px auto;
+	padding: 0;
+	border: 1px solid rgba(255, 255, 255, .6);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, .14);
+	color: #fff;
+	line-height: 0;
+	cursor: pointer;
+}
+#chNav .cb-bible { margin-left: 4px; }
+.card-bar .cb-bible:hover { background: rgba(255, 255, 255, .28); }
 :is(.card-bar, p-d > h2) :is(.cb-bible, .cb-more) svg { display: block; margin: auto; }
 /* (the card has its own translations, not the Bible bar's: a dot on it) */
-.cb-bible { position: relative; }
-p-d[data-own] > .card-bar .cb-bible::after { content: ""; position: absolute; top: 9px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+p-d[data-own] > .card-bar .cb-bible::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+/* A verse's …: the rest of its chapter (above it, below it) */
+p-d > .vs-more {
+	display: block;
+	width: 100%;
+	margin: 0;
+	padding: 0 0 2px;
+	border: 0;
+	background: none;
+	color: var(--color1);
+	font: 700 1.6em/1 system-ui, sans-serif;
+	letter-spacing: .1em;
+	cursor: pointer;
+}
+p-d > .vs-more:hover { color: var(--tab-bg); }
+.vs.ctx { background: color-mix(in srgb, var(--tab-bg) 16%, transparent); border-radius: 4px; -webkit-box-decoration-break: clone; box-decoration-break: clone; } /* (the verse a chapter's shown for) */
+/* The Bible side panel: its translations, a drop-down list; a chapter's ‹ › */
+.tx-drop {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	margin: 6px 0 4px;
+	padding: 10px 12px;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--card-bg);
+	color: var(--card-text);
+	font: inherit;
+	font-weight: 600;
+	text-align: left;
+	cursor: pointer;
+}
+.tx-drop span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-caret { transition: transform .2s; }
+.tx-drop[aria-expanded="true"] .tx-caret { transform: rotate(180deg); }
+.tx-list { margin: -4px 0 8px; padding: 0 10px 8px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 10px 10px; background: var(--card-bg); }
+.tx-drop[aria-expanded="true"] { border-radius: 10px 10px 0 0; }
+.drawer-body .tx-all { margin: 4px 0 8px; }
+.ch-nav { display: flex; justify-content: space-between; margin: 6px 0; }
+.ch-nav .text-btn:disabled { opacity: .4; cursor: default; }
 /* Collapsed (Collapse all, or a heading tapped: flip, the other way from
    the rest): a list of just their headings, slimmer, a hairline between
    them, no stripe at their left */
@@ -716,6 +773,7 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 }
 .tx-all:disabled { opacity: .45; cursor: default; }
 .bk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.bk-grid small { display: block; font-size: .78em; line-height: 1.1; opacity: .7; } /* (another script's: its English short name under it) */
 .bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
 .bk-grid button {
 	min-width: 0;

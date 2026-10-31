@@ -5,9 +5,7 @@
 let ack = null;
 // An icon: 24 × 24 paths (d, or [d, attributes]), drawn with currentColor (CSS)
 const icon = (...ps) => `<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22">${ps.map(p => Array.isArray(p) ? `<path d="${p[0]}" ${p[1]}/>` : `<path d="${p}"/>`).join('')}</svg>`;
-// A Bible card's Read in context (an open book, + over it) and Popup (the
-// book in a popup's two squares)
-const contextSVG = icon('M12 11.5c-2-1.3-5-1.8-9-1.8v10.5c4 0 7 .5 9 1.8 2-1.3 5-1.8 9-1.8V9.7c-4 0-7 .5-9 1.8zM12 11.5v10.5M12 1.5v6M9 4.5h6');
+// The context menu's Popup (a book in a popup's two squares)
 const popupSVG = icon('M8 7V3.5A1.5 1.5 0 0 1 9.5 2h11A1.5 1.5 0 0 1 22 3.5v11a1.5 1.5 0 0 1-1.5 1.5H17M3.5 7.5h11.5a1.5 1.5 0 0 1 1.5 1.5v11.5a1.5 1.5 0 0 1-1.5 1.5H3.5A1.5 1.5 0 0 1 2 20.5V9a1.5 1.5 0 0 1 1.5-1.5z',
 	['M9.25 13.2c-1.2-.8-2.7-1.1-4.5-1.1v6.4c1.8 0 3.3.3 4.5 1.1 1.2-.8 2.7-1.1 4.5-1.1v-6.4c-1.8 0-3.3.3-4.5 1.1zM9.25 13.2v6.4', 'stroke-width="1.6"']);
 // Remembered things (null if there's nothing, or no storage)
@@ -598,7 +596,7 @@ if(!isDictPage){
 	// The gloss's is for the popup too; the filter's searches again.
 	const VIEWS = {
 		filter: {title: 'Filter', uses: 'searches', key: `peakslab-filter-${appname}`, changed: () => searchAgain()},
-		gloss: {title: 'Gloss with', uses: 'glosses and popups', key: `peakslab-glosscats-${appname}`},
+		gloss: {title: 'Gloss with', uses: 'glosses and popups', key: `peakslab-glosscats-${appname}`, changed: () => regloss()},
 	};
 	const picks = {filter: urlParams.has('mode') ? urlParams.get('mode').split(',') : readList(VIEWS.filter.key), gloss: readList(VIEWS.gloss.key)};
 	const keepPicks = () => Object.keys(picks).forEach(v => { picks[v] = picks[v].filter(id => choice && catById(id)); });
@@ -866,9 +864,11 @@ if(!isDictPage){
 				if (!m) return;
 				if (list.at(-1)?.code !== m[1]) {
 					s = Math.max(s, sections.indexOf(m[1].toLowerCase()));
-					list.push({code: m[1], n: 0, name: m[1], zero: 48, s}); firsts.push(i);
+					list.push({code: m[1], n: 0, name: m[1], zero: 48, s, vs: []}); firsts.push(i);
 				}
-				list.at(-1).n = Math.max(list.at(-1).n, +m[2]);
+				const b = list.at(-1), v = +/\.(\d+)$/.exec(h)[1];
+				b.n = Math.max(b.n, +m[2]);
+				b.vs[m[2]] = Math.max(b.vs[m[2]] || 0, v); // (its chapters' last verses)
 			});
 			return askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}).then(r => {
 				r.entries.forEach((e, i) => {
@@ -919,7 +919,7 @@ if(!isDictPage){
 	// Parallel reading (unless it's turned off): a chapter verse by verse,
 	// each verse in every Bible text that's on, one after the other. Off,
 	// one translation: the first on (the others on, from the library, are
-	// for glosses and compare). The translations drawer (cardTextsHTML, the
+	// for glosses and compare). The translations drawer (bibleHTML, the
 	// Bible bar's) has both: Parallel, and the translations (off: pick one;
 	// on: any).
 	const moreHTML = '<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
@@ -961,13 +961,13 @@ if(!isDictPage){
 	}
 	function booksHTML(){
 		if (!books) {
-			loadBooks(() => drawerView === 'books' && renderDrawer());
+			loadBooks(() => drawerView === 'bible' && renderDrawer());
 			return '<p class="empty">Loading…</p>';
 		}
 		const b = books.find(x => x.code === booksPick), cur = on => on ? ' aria-current="true"' : '';
 		return (b ? `<button class="text-btn" data-books-back="1">‹ All books</button><h3 class="drawer-h bk-name">${bookName(b)}</h3>` +
 				`<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-q="${ref}"${cur(ref === lastRead)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
-			`<div class="bk-grid">${books.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}" title="${escapeHTML(x.name)}" aria-label="${escapeHTML(x.name)}"${cur(lastRead.startsWith(x.code + ' '))}>${escapeHTML(x.ab || x.name)}</button>`).join('')}</div>`);
+			`<div class="bk-grid">${books.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}" title="${escapeHTML(x.name)}" aria-label="${escapeHTML(x.name)}"${cur(lastRead.startsWith(x.code + ' '))}>${escapeHTML(x.ab || x.name)}${/^[\x00-\x7f]*$/.test(x.ab || x.name) ? '' : `<small>${escapeHTML(x.code)}</small>`}</button>`).join('')}</div>`);
 	}
 
 	// ---------------------------------------------------------------
@@ -1066,49 +1066,65 @@ if(!isDictPage){
 		card.classList.toggle('flip');
 		if (card.getBoundingClientRect().top < 0) card.scrollIntoView({block: 'start'}); // (its heading was stuck: it, at the top)
 	});
-	// A Bible card's heading: its reference, a Bible button, and (at its
-	// right) ⋮, like a word's. The Bible button's menu: its translations
-	// (the side panel), its book and chapter (the Books drawer; in the
-	// popup, its chapters open there), and a chapter's previous and next.
-	// Its ⋮: Read in context (a verse's or a range's) and Popup (its
-	// chapter in the popup) — a popup's: Read in context (a verse's) and
-	// Show in the results — then Collapse all. The Bible bar (an empty
-	// page's, Bible mode's) is just the reference (or Bible) and the button.
+	// A Bible card's heading: its reference, then (at its right) a Bible
+	// button and ⋮, like a word's. The Bible button opens the Bible side
+	// panel: its translations (a drop-down list), a chapter's previous and
+	// next, and the books (its book's chapters). Its ⋮: Collapse all (a
+	// popup's, Show in the results first). A verse's (or a range's) card has
+	// … above it if its chapter has verses before it, and below it if after:
+	// either shows the whole chapter in the card, at the verse (the search
+	// stays as it is). The Bible bar (an empty page's, Bible mode's) is just
+	// the reference (or Bible) and the button.
 	const fullSVG = icon('M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7');
 	const bibleSVG = icon('M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5zM5 20.5A2.5 2.5 0 0 0 7.5 23H19M12 6.5v8M9 9.5h6');
 	const textsSVG = icon('M4 5h11M9.5 3v2M6 5c1 4 4 7 8 8M13 5c-1 4-4 7-8 8M14 21l4-10 4 10M15.5 17.5h5');
-	const prevSVG = icon('M15 6l-6 6 6 6'), nextSVG = icon('M9 6l6 6-6 6');
-	function cardActs(card){
-		const ref = cardRef(card), pop = inPopup(card);
-		if (pop) return [ref.kind === 'verse' && ['ctx', contextSVG, 'Read in context'], ['full', fullSVG, 'Show in the results']].filter(Boolean);
-		return ref.kind === 'chapter' ? [] : [['ctx', contextSVG, 'Read in context'], ['popup', popupSVG, 'Chapter in the popup']];
-	}
-	function bibleActs(card){
-		const ref = cardRef(card), b = bookOf(ref.bk), texts = cardTexts(card), par = cardPar(card);
-		const chapter = ref.kind === 'chapter' && b ? `${b.code} ${Math.floor(ref.from / 1000)}.` : '';
-		const label = isCompare(card) && texts.length > 1 ? 'Compare' : par && texts.length > 1 ? `Parallel: ${names(texts)}` : texts.length ? names(texts) : 'Translation';
-		return [['texts', textsSVG, label], ['book', bibleSVG, 'Book and chapter'],
-			chapter && nextChapter(chapter, -1) && ['prev', prevSVG, 'Previous chapter'], chapter && nextChapter(chapter, 1) && ['next', nextSVG, 'Next chapter']].filter(Boolean);
-	}
+	const cardActs = card => inPopup(card) ? [['full', fullSVG, 'Show in the results']] : [];
 	const menuHTML = items => items.map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${escapeHTML(t)}</span></button>`).join('');
+	// Its translations, in a word: Compare, Parallel, or the one's name
+	const textsLabel = (texts, par, cmp) => cmp && texts.length > 1 ? 'Compare' : par && texts.length > 1 ? `Parallel: ${names(texts)}` : texts.length ? names(texts) : 'Translation';
 	function renderCardBar(card){
 		const bar = card === bibleBar ? card : card.querySelector(':scope > .card-bar');
 		if (!bar) return;
 		if (!books) loadBooks(() => renderCardBar(card)); // (its book's name in the meantime: its code)
 		const ref = cardRef(card);
 		bar.innerHTML = `<span class="hw">${ref.bk ? refLabel(ref) : 'Bible'}</span>` +
-			`<button class="cb-bible" data-cb="bible" title="Translation, book and chapter" aria-label="Translation, book and chapter" aria-haspopup="true">${bibleSVG}</button>` +
+			`<button class="cb-bible" data-cb="bible" title="Translation, book and chapter" aria-label="Translation, book and chapter" aria-haspopup="dialog">${bibleSVG}</button>` +
 			(card === bibleBar ? '' : `<button class="cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`);
+		if (card !== bibleBar) moreVerses(card, ref);
 	}
+	// … above a verse's card (verses before it in its chapter), below it (after)
+	function moreVerses(card, ref){
+		card.querySelectorAll(':scope > .vs-more').forEach(b => b.remove());
+		const b = bookOf(ref.bk), [c1, v1, c2, v2] = [Math.floor(ref.from / 1000), ref.from % 1000, Math.floor(ref.to / 1000), ref.to % 1000];
+		if (ref.kind === 'chapter' || !b) return;
+		const btn = (dir, id) => `<button class="vs-more" data-dir="${dir}" data-id="${id}" title="The whole chapter" aria-label="The whole chapter">…</button>`;
+		if (v1 > 1) card.querySelector(':scope > .card-bar').insertAdjacentHTML('afterend', btn(-1, -1e9));
+		if (v2 < (b.vs[c2] || 0)) card.insertAdjacentHTML('beforeend', btn(1, 2e9));
+	}
+	// The card's whole chapter (or chapters), at its verse: the verse (in
+	// every translation) marked, where it was on the screen
+	function wholeChapter(card, dir){
+		const ref = cardRef(card), [c1, c2] = [Math.floor(ref.from / 1000), Math.floor(ref.to / 1000)];
+		const y = (card.querySelector('.vs') || card.querySelector(':scope > p-e'))?.getBoundingClientRect().top;
+		Object.assign(card.dataset, {from: c1 * 1000 + 1, to: c2 * 1000 + 999, kind: c1 === c2 ? 'chapter' : 'range'});
+		renderCardBar(card);
+		fillCard(card).then(() => {
+			const vs = card.querySelectorAll(`.vs[data-v="${ref.from}"]`);
+			vs.forEach(v => v.classList.add('ctx'));
+			if (dir < 0 && vs[0] && y !== undefined) scrollBy(0, vs[0].getBoundingClientRect().top - y);
+		});
+	}
+	document.addEventListener('click', e => {
+		const b = e.target.closest('p-d > .vs-more');
+		if (b) wholeChapter(b.parentNode, +b.dataset.dir);
+	});
 	const cardBars = () => document.querySelectorAll('#results > p-d > .card-bar, #popupResults > p-d > .card-bar');
 	const renderCardBars = () => cardBars().forEach(bar => renderCardBar(bar.parentNode));
 	function cardBarClick(e){
 		const b = e.target.closest('.card-bar button[data-cb]');
 		if (!b) return;
 		const card = b.closest('p-d') || bibleBar;
-		if (b.dataset.cb === 'bible') return popMenu(b, menuHTML(bibleActs(card)), a =>
-			a === 'texts' ? openCardTexts(card === bibleBar ? null : card) : // (the Bible bar's: the search's)
-			a === 'prev' || a === 'next' ? cardAct(card, '', a === 'prev' ? -1 : 1) : cardAct(card, a));
+		if (b.dataset.cb === 'bible') return openBible(card);
 		if (b.dataset.cb === 'more') return popMenu(b, menuHTML([...cardActs(card), foldItem(b)]), a => /fold/.test(a) ? foldAll(b) : cardAct(card, a));
 	}
 	resultsDiv.addEventListener('click', cardBarClick);
@@ -1123,11 +1139,7 @@ if(!isDictPage){
 			const [, bk, n] = /^(.+) (\d+)\.$/.exec(next);
 			return pop ? openPopupSearch(`${bk} ${n}-${n}`, '', popupCompare) : search(next);
 		}
-		if (act === 'book') {
-			booksPick = b0?.code || null;
-			booksInPopup = pop;
-			openDrawer('books');
-		} else if (act === 'ctx' || (act === 'full' && ref.kind === 'chapter')) { // Its chapter in the results, at its verse (the popup's chapter: the one it's for)
+		if (act === 'full' && ref.kind === 'chapter') { // Its chapter in the results, at its verse (the popup's chapter: the one it's for)
 			readHl = pop && popupHl && ref.kind === 'chapter' ? popupHl : `${code} ${c}.${ref.from % 1000}`;
 			if (pop) closePopup();
 			query = ''; // (searches again even if it's the chapter showing)
@@ -1136,32 +1148,40 @@ if(!isDictPage){
 			const q = popupQuery;
 			closePopup();
 			search(q);
-		} else if (act === 'popup') { // Its whole chapter, in the popup, at its (first) verse
-			openPopupSearch(`${code} ${c}-${c}`, `${code} ${c}.${ref.from % 1000}`);
 		}
 	}
-	// A card's translations, in the side panel (the translations drawer's,
-	// for just that card: textsCard): Parallel, and the downloaded
-	// translations (off: pick one; on: any), then Apply to all
-	let textsCard = null, comparing = false; // (comparing: the popup's, the gloss's translations)
-	function openCardTexts(card){
-		if (drawerView === 'cardtexts' && textsCard === card) return closeDrawer();
-		textsCard = card;
-		comparing = !!card && isCompare(card); // (no card: the Bible bar's, the search's)
+	// The Bible side panel, for a card (textsCard; none: the Bible bar's,
+	// the search's): Parallel, its translations (a drop-down list, txOpen:
+	// the downloaded ones; off, pick one; on, any), Apply to all (a card's:
+	// its translations every card's); a chapter's ‹ ›; then the books (its
+	// book's chapters: a chapter picked is searched, or a popup's opens there)
+	let textsCard = null, comparing = false, txOpen = false; // (comparing: the popup's, the gloss's translations)
+	function openBible(card){
+		const c = card === bibleBar ? null : card;
+		if (drawerView === 'bible' && textsCard === c) return closeDrawer();
+		textsCard = c;
+		comparing = !!c && isCompare(c);
+		booksPick = bookOf(cardRef(card).bk)?.code || null;
+		booksInPopup = inPopup(card);
+		txOpen = false;
 		drawerView = null; // (opens it, even from another card's)
-		openDrawer('cardtexts');
-		renderCardBars();
+		openDrawer('bible');
 	}
-	function cardTextsHTML(){
-		const card = textsCard, all = dictIds.filter(d => isBibleText(d) && downloaded.has(d)), empty = t => `<p class="empty">${t}</p>`;
-		if (card && !card.isConnected && !comparing) return empty('That card is gone: search again.');
-		const texts = comparing ? glossTexts() : card ? cardTexts(card) : barTexts(), par = comparing || (card ? cardPar(card) : parallel);
+	function bibleHTML(){
+		const card = textsCard || bibleBar, ref = cardRef(card), b = bookOf(ref.bk), empty = t => `<p class="empty">${t}</p>`;
+		if (textsCard && !textsCard.isConnected && !comparing) return empty('That card is gone: search again.');
+		const texts = comparing ? glossTexts() : textsCard ? cardTexts(textsCard) : barTexts(), par = comparing || (textsCard ? cardPar(textsCard) : parallel);
+		const all = dictIds.filter(d => isBibleText(d) && downloaded.has(d));
+		const chapter = ref.kind === 'chapter' && b && card.isConnected ? `${b.code} ${Math.floor(ref.from / 1000)}.` : '';
+		const go = (dir, label) => `<button class="text-btn" data-go="${dir}"${nextChapter(chapter, dir) ? '' : ' disabled'}>${label}</button>`;
 		return (comparing ? empty('Comparing uses the translations the gloss has (⇄ in the header): ticking them here changes those, not the search\'s.') :
-				(card ? empty(`For ${refLabel(cardRef(card))} only. Apply to all for every card.`) : '') +
-				`<ul class="rows">${rowHTML('check', `data-tx-par="1" aria-pressed="${par}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul><h3 class="drawer-h">Translations</h3>`) +
-			(all.length ? '' : empty('None downloaded.')) + moreHTML +
-			`<ul class="rows">${all.map(d => rowHTML(par ? 'check' : 'radio', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, `${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}`, '')).join('')}</ul>` +
-			(card && !comparing ? `<button class="tx-all" data-tx-all="1"${texts.length ? '' : ' disabled'}>Apply to all</button>` : '');
+				`<ul class="rows">${rowHTML('check', `data-tx-par="1" aria-pressed="${par}"`, 'Parallel', 'Verse by verse in each translation ticked')}</ul>`) +
+			`<button class="tx-drop" data-tx-drop="1" aria-expanded="${txOpen}">${textsSVG}<span>${escapeHTML(textsLabel(texts, par, comparing))}</span><span class="tx-caret">▾</span></button>` +
+			(txOpen ? `<div class="tx-list">${all.length ? '' : empty('None downloaded.')}` +
+				`<ul class="rows">${all.map(d => rowHTML(par ? 'check' : 'radio', `data-tx="${d}" aria-pressed="${texts.includes(d)}"`, `${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}`, '')).join('')}</ul>${moreHTML}</div>` : '') +
+			(textsCard && !comparing ? `<button class="tx-all" data-tx-all="1"${texts.length ? '' : ' disabled'} title="These translations for every card">Apply to all</button>` : '') +
+			(chapter ? `<div class="ch-nav">${go(-1, '‹ Previous chapter')}${go(1, 'Next chapter ›')}</div>` : '') +
+			booksHTML();
 	}
 	// A choice in it changes just the card (picking one, not in parallel,
 	// closes it, as the translations drawer does)
@@ -1169,14 +1189,16 @@ if(!isDictPage){
 		const card = textsCard;
 		if (comparing) { // The gloss's, and the popup again
 			const d = +tx, on = !isOn(d, 'gloss');
-			setGlossOn([d], on);
+			setGlossOn([d], on); // (the popup again: regloss)
 			if (on && !inFilter(d, 'gloss')) setFilter('gloss', [...picks.gloss, cats.find(c => isTop(c) && c.members.includes(d))?.id].filter(Boolean)); // (its category picked too)
-			if (popupOverlay.style.display === 'block') openPopupSearch(popupQuery, popupHl, true);
 			return renderDrawer();
 		}
 		if (!card) { // The Bible bar's: the search's
 			if (txPar) togglePar();
-			else pickText(+tx);
+			else {
+				pickText(+tx);
+				if (!parallel) txOpen = false;
+			}
 			return drawerView && renderDrawer();
 		}
 		if (!card.isConnected) return;
@@ -1193,9 +1215,8 @@ if(!isDictPage){
 			texts = !par ? [d] : texts.includes(d) ? texts.filter(x => x !== d) : dictIds.filter(x => x === d || texts.includes(x));
 		}
 		setCardTexts(card, texts, par);
-		if (!par && tx !== undefined) closeDrawer();
-		else renderDrawer();
-		renderCardBars();
+		if (!par && tx !== undefined) txOpen = false; // (one picked: the list closes)
+		renderDrawer();
 	}
 	function setCardTexts(card, texts, par){
 		Object.assign(card.dataset, {own: 1, texts: texts.join(), par: par ? 1 : 0});
@@ -1218,10 +1239,10 @@ if(!isDictPage){
 				insertSorted(card, t.content.firstChild, sortId(d));
 			}));
 		}
-		card.querySelector(':scope > p-e')?.remove();
+		card.querySelectorAll(':scope > p-e').forEach(pe => (!pe.dataset.d || isBibleText(+pe.dataset.d)) && pe.remove()); // (a verse's other dictionaries' stay)
 		card.classList.toggle('parallel', par);
 		card.insertAdjacentHTML('beforeend', par || !texts.length ? '<p-e></p-e>' : entryHTML(texts[0]));
-		if (!texts.length) return card.lastChild.insertAdjacentHTML('beforeend', '<p class="empty">No translation ticked.</p>');
+		if (!texts.length) return Promise.resolve(card.lastChild.insertAdjacentHTML('beforeend', '<p class="empty">No translation ticked.</p>'));
 		const own = {card, par, range: ref.kind !== 'verse'};
 		// Each translation's lines, 100 at a time, in order
 		const more = (d, p) => {
@@ -1234,7 +1255,7 @@ if(!isDictPage){
 				return more(d, p);
 			});
 		};
-		texts.forEach(d => rangeLines(d, r).then(p => p && more(d, p)));
+		return Promise.all(texts.map(d => rangeLines(d, r).then(p => p && more(d, p))));
 	}
 	// The card's translations, every card's (the Bible bar's): in parallel,
 	// the ones ticked are on and the others off; else just the one picked
@@ -1369,12 +1390,12 @@ if(!isDictPage){
 	// The side panel for the whole history or all the bookmarks
 	// Each view's title and what's in it (the filter's and the gloss's: VIEWS, filterHTML)
 	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '');
-	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], books: ['Books', booksHTML], cardtexts: ['Bible translations', cardTextsHTML],
+	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], bible: ['Bible', bibleHTML],
 		library: ['Library', libraryHTML],
 		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML], about: ['About', () => $('about').innerHTML]};
 	function renderDrawer(){
 		let v = drawerView, scroll = drawerBody.scrollTop, [title, html] = drawers[v] || [VIEWS[v].title, filterHTML];
-		if (v === 'cardtexts' && comparing) title = 'Compare translations';
+		if (v === 'bible' && comparing) title = 'Compare translations';
 		drawer.querySelector('.drawer-title').textContent = title;
 		drawerBody.innerHTML = html(v);
 		drawerBody.scrollTop = scroll;
@@ -1574,7 +1595,7 @@ if(!isDictPage){
 
 	// The filter, the translations and the library, where they're showing
 	function renderLists(){
-		if (VIEWS[drawerView] || drawerView === 'cardtexts') renderDrawer();
+		if (VIEWS[drawerView] || drawerView === 'bible') renderDrawer();
 		renderLibrary();
 	}
 	// Again, once (the service worker says which files it has all at once)
@@ -1684,9 +1705,17 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, booksBack, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txPar, txAll} = b.dataset;
-		const drawerBooks = drawerView === 'books';
+		const {book, booksBack, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txPar, txAll, txDrop, go} = b.dataset;
+		const drawerBooks = drawerView === 'bible';
 		if (tx !== undefined || txPar || txAll) return cardTextsClick(b.dataset); // (a card's translations)
+		if (txDrop) {
+			txOpen = !txOpen;
+			return renderDrawer();
+		}
+		if (go) {
+			closeDrawer();
+			return cardAct(textsCard || bibleBar, '', +go);
+		}
 		const view = VIEWS[drawerView] ? drawerView : 'filter'; // (whose categories)
 		if (pick) { // The first time's choices
 			if (!firstPick.delete(+pick)) firstPick.add(+pick);
@@ -1773,6 +1802,7 @@ if(!isDictPage){
 		if (!solo.length) store(glossKey, glossSet);
 		renderLists();
 		renderQuick();
+		regloss();
 	}
 
 	// Changes what the filter (or the gloss) has picked
@@ -2013,6 +2043,15 @@ if(!isDictPage){
 	const glossMask = () => dicts.map((_, d) => isOn(d, 'gloss'));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
 
+	// The gloss's dictionaries changed: the glosses showing again, with
+	// them (none: they go), and the popup's (its search's)
+	const regloss = debounce(() => {
+		const ids = glossIds();
+		if (translationDiv.childElementCount) ids.length ? translate() : translationDiv.replaceChildren();
+		document.querySelectorAll('.tr-entry').forEach(box => !ids.length ? box.remove() :
+			box.dataset.text !== undefined && glossInto(box.parentNode, box.dataset.text, ids, true));
+		if (popupOverlay.style.display === 'block' && (popupCompare || !rangeOf(updateQuery(popupQuery)))) openPopupSearch(popupQuery, popupHl, popupCompare);
+	}, 300);
 	// The query word by word, when the search found nothing (a Bible text's
 	// headwords are its verses, so "rom 8.1 gal 1.1" links to each)
 	function translate(){
@@ -2226,14 +2265,14 @@ if(!isDictPage){
 	// The gloss of an entry's (or verse's) text, or some of it: above the
 	// text (after the entry's name and buttons), so a long one doesn't push
 	// it out of view
-	function glossInto(pe, text, ids){
+	function glossInto(pe, text, ids, again = false){
 		if (!ids.length) return;
 		pe.querySelector(':scope > .tr-entry')?.remove();
 		const box = document.createElement('div');
 		box.className = 'tr-entry';
 		const text1 = [...pe.childNodes].find(n => n.nodeType === 1 ? !n.matches('p-h, button, .menu') : n.textContent.trim());
 		pe.insertBefore(box, text1 || null);
-		box.scrollIntoView({block: 'nearest'});
+		if (!again) box.scrollIntoView({block: 'nearest'});
 		box.textContent = `Glossing with ${ids.map(d => dicts[d].name).join(' + ')}…`;
 		translateText(ids, updateQuery(text), pieces => {
 			if (box.isConnected) fillGloss(box, pieces, ids, text, n => `<div class="tr-head">${n}</div>`);
