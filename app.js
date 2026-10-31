@@ -644,7 +644,7 @@ if(!isDictPage){
 	}
 	// What a search uses: the ones on that the filter has; reading a chapter,
 	// every Bible text that's on too (the filter doesn't change them)
-	const searched = d => isOn(d) || (libOn[d] && isBibleText(d) && (parallel || d === readText()) && dictIds.some(t => isBibleText(t) && isOn(t))); // (a word's verses: the search's translations, whatever the filter's language)
+	const searched = d => isOn(d) || (libOn[d] && isBibleText(d) && dictIds.some(t => isBibleText(t) && isOn(t))); // (a word's verses: the search's translations, whatever the filter's language)
 	const searchMask = () => dicts.map((_, d) => searched(d));
 	let searching = []; // What the search showing uses (startSearch)
 
@@ -857,27 +857,10 @@ if(!isDictPage){
 		return bk ? `${bk.code} ${to < 1 ? bk.n : bk === b ? to : 1}.` : null;
 	}
 
-	// Parallel reading (unless it's turned off): a chapter verse by verse,
-	// each verse in every Bible text that's on, one after the other. Off,
-	// one translation: the first on (the others on, from the library, are
-	// for glosses and compare). The translations drawer (bibleHTML, the
-	// Bible bar's) has both: Parallel, and the translations (off: pick one;
-	// on: any).
+	// The search's translations: the Bible texts that are on; more than
+	// one, in parallel (each verse in each of them, one after the other)
 	const moreHTML = '<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
-	const parKey = `peakslab-parallel-${appname}`;
-	let parallel = stored(parKey) ?? true;
-	const readText = () => dictIds.find(d => isBibleText(d) && libOn[d]);
-	// The search's translations: these on (the other Bible texts off), in
-	// parallel if more than one
-	function setBarTexts(ts){
-		if (!ts.length) return;
-		const par = ts.length > 1, again = par !== parallel;
-		parallel = par;
-		store(parKey, parallel);
-		setOn(dictIds.filter(isBibleText), d => ts.includes(d));
-		renderBibleBar();
-		if (again && (isChapter(query) || resultsDiv.querySelector('.card-bar'))) searchAgain(); // The chapter (or verses) showing, again
-	}
+	const barTexts = () => dictIds.filter(d => isBibleText(d) && libOn[d]);
 
 	// Bible mode (a Bible category picked, or a Bible page), and reading a
 	// chapter, have the Bible bar at the top of the results: ‹ book and
@@ -912,18 +895,13 @@ if(!isDictPage){
 	}
 
 	// ---------------------------------------------------------------
-	// Each Bible card (a verse's, a chapter's, a range's) has its own bar:
-	// its book and reference ▾ (the Books drawer, at its book), its
-	// translation ▾ (its translations menu), and a chapter's ‹ ›. A card
-	// shows the Bible bar's translations (barTexts) until some are picked in
-	// its menu: then it's its own (data-texts) and its
-	// verses are read again from the ones picked (fillCard); the others stay
-	// as they are. The menu's Apply to all makes its translations the Bible
-	// bar's, and every card's.
+	// Each Bible card (a verse's, a chapter's, a range's) has its heading:
+	// its reference, the Bible button (the Bible panel: its translations,
+	// ‹ its chapter ›, the books) and ⋮. A card has the search's
+	// translations (barTexts) until some are picked in its panel: then
+	// they're its own (data-texts), and its verses are read again from
+	// them (fillCard). Apply to all makes them the search's, and every card's.
 	// ---------------------------------------------------------------
-	const barTexts = () => dictIds.filter(d => isBibleText(d) && libOn[d] && (parallel || d === readText()));
-	// A popup's card: the gloss's Bible texts (a chapter's card, not in
-	// parallel: its one)
 	const inPopup = card => !!card.dataset.pop || !!card.closest('#popupResults'); // (pop: made for it, before it's in it)
 	// A card's translations: its own (data-texts), or the search's; more
 	// than one, in parallel. Its own go with it to its next chapter
@@ -1139,7 +1117,7 @@ if(!isDictPage){
 	function setAllTexts(texts){
 		const owned = bibleCards().filter(c => c.dataset.texts);
 		owned.forEach(c => { delete c.dataset.texts; });
-		setBarTexts(texts);
+		setOn(dictIds.filter(isBibleText), d => texts.includes(d));
 		owned.forEach(c => { renderCardBar(c); fillCard(c); });
 	}
 	// The card's verses again, from its translations: a verse's card, their
