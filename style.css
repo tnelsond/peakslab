@@ -632,7 +632,7 @@ p-d > h2 + * { margin-top: 12px; }
 .card-bar .hw-own { color: #ffe9a8; } /* (the book's own name and digits: a warmer white) */
 .card-bar .hw { min-width: 0; margin: -.3em 0; padding: .3em 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; } /* (room in it for a script's marks above and below the line: Khmer's) */
 body.fullscreen p-d > h2 { position: static; } /* (fullscreen: they scroll with their card) */
-#popupContent p-d > h2 { top: 20px; } /* (under its × bar: 40px, less its 20px padding) */
+#popupContent p-d > h2 { top: 0; }
 /* The cards one after another, no space between them: a card's heading
    stays at the top of the screen till the next one's reaches it and
    pushes it up (a sticky heading can't leave its card, so the card's
@@ -939,7 +939,7 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 #popupContent {
 	background: var(--bg-color); /* the page's brown */
 	color: var(--card-text);
-	padding: 20px 2px; /* (as wide as the results: #content's) */
+	padding: 0 2px 20px; /* (as wide as the results: #content's; its first heading at its top) */
 	border-radius: 18px;
 	max-width: 1200px;
 	max-height: 80vh;
@@ -947,22 +947,6 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	overflow-y: auto;
 	box-shadow: 0 20px 50px rgba(0,0,0,.7);
 }
-/* Its ×: a bar at its top, always there; the cards' headings stick
-   under it. (Its cards' ⋮ has Show in the results) */
-#popupBar {
-	position: sticky;
-	top: -20px; /* (its top edge: over its padding) */
-	z-index: 6;
-	display: flex;
-	justify-content: flex-end;
-	align-items: center;
-	gap: 4px;
-	height: 40px;
-	margin: -20px -2px 0; /* (over its padding: as wide as it) */
-	padding: 0 8px;
-	background: var(--bg-color);
-}
-#popupBar .close-btn { padding: 0 8px; line-height: 40px; }
 /* Fullscreen (the ⛶ below): it fills the window */
 body.fullscreen #popupContent {
 	position: fixed;
@@ -971,11 +955,11 @@ body.fullscreen #popupContent {
 	max-width: none;
 	max-height: none;
 	border-radius: 0;
-	padding-top: max(20px, env(safe-area-inset-top));
+	padding-top: env(safe-area-inset-top);
 	padding-bottom: 60px; /* (its end scrolls clear of the buttons below) */
 }
 
-/* The fullscreen button */
+/* The fullscreen button, and the popup's × (while it's open) */
 #controls {
 	position: fixed;
 	bottom: 10px;
@@ -997,9 +981,11 @@ body.no-scroll #controls { z-index: 3001; } /* Over a popup too */
 	opacity: .55;
 }
 .control-btn:hover, body.fullscreen .control-btn { opacity: 1; }
-body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscreen: just ⛶ (install's display is inline) */
-/* Fullscreen: brown, like the context menu */
-#f4 { background: var(--header-bg); opacity: .85; }
+body.fullscreen .control-btn:not(#f4, #popupX) { display: none !important; } /* Fullscreen: just ⛶ (install's display is inline) */
+/* Brown, like the context menu */
+#f4, #popupX { background: var(--header-bg); opacity: .85; }
+body:not(.no-scroll) #popupX { display: none; }
+#popupX { font-size: 26px; line-height: 1; }
 
 /* The context menu (a tap on an entry's text, or selected text): docked
    at the bottom of the screen, over the round buttons; its icons, each
@@ -1047,14 +1033,13 @@ body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results abov
 
 @media (max-width: 480px) {
 	#content { padding: 0 6px 2px; }
-	#popupContent { padding: 20px 6px; }
+	#popupContent { padding: 0 6px 20px; }
 	p-d { --pd: 14px; }
 	p-e.starred { margin-left: -14px; padding-left: 10px; }
 	/* The cards (and the Bible bar) from edge to edge of the screen, square */
 	:is(#results, #translation, #popupResults) > p-d { margin-left: -6px; margin-right: -6px; border-radius: 0; }
 	:is(#results, #translation, #popupResults) > p-d > h2 { margin-left: calc(-1 * var(--pd) - 4px); } /* (over the card's stripe too) */
 	#chNav { margin-left: -6px; margin-right: -6px; border-radius: 0; }
-	#popupBar { margin-left: -6px; margin-right: -6px; }
 }
 @media (prefers-reduced-motion: reduce) {
 	.drawer-panel { animation: none; }

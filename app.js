@@ -1822,7 +1822,9 @@ if(!isDictPage){
 		popupOverlay.style.display = 'none';
 		document.body.classList.remove('no-scroll');
 	}
-	$('popupClose').addEventListener('click', closePopup);
+	// Its × (by ⛶), a tap outside it, or Escape closes it
+	$('popupX').addEventListener('click', closePopup);
+	document.addEventListener('keydown', e => { if (e.key === 'Escape' && popupOverlay.style.display === 'block' && !drawerView && !ctx) closePopup(); }, true); // (before the drawer's and the context menu's: what's over it goes first)
 
 	function nextst(){
 		if(!st || st == 2)
