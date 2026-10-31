@@ -712,32 +712,49 @@ p-d > .vs-more {
 	cursor: pointer;
 }
 p-d > .vs-more:hover { color: var(--tab-bg); }
-.vs.ctx { background: color-mix(in srgb, var(--tab-bg) 16%, transparent); border-radius: 4px; -webkit-box-decoration-break: clone; box-decoration-break: clone; } /* (the verse a chapter's shown for) */
-/* The Bible side panel: its translations, a drop-down list; a chapter's ‹ › */
+.vs.ctx { display: block; margin: .2em 0 .2em -10px; padding-left: 8px; border-left: 2px solid #f2c200; } /* (the verse a chapter's shown for: a yellow line at its left) */
+/* The Bible side panel: its translations, a drop-down (its list over
+   what's under it); a chapter's ‹ its name › */
+.tx-dd { position: relative; margin: 6px 0 4px; }
 .tx-drop {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 	width: 100%;
-	margin: 6px 0 4px;
-	padding: 10px 12px;
-	border: 1px solid var(--line);
-	border-radius: 10px;
+	min-height: 42px;
+	padding: 0 10px 0 12px;
+	border: 1px solid var(--muted);
+	border-radius: 6px;
 	background: var(--card-bg);
 	color: var(--card-text);
 	font: inherit;
-	font-weight: 600;
 	text-align: left;
 	cursor: pointer;
 }
-.tx-drop span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tx-caret { transition: transform .2s; }
-.tx-drop[aria-expanded="true"] .tx-caret { transform: rotate(180deg); }
-.tx-list { margin: -4px 0 8px; padding: 0 10px 8px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 10px 10px; background: var(--card-bg); }
-.tx-drop[aria-expanded="true"] { border-radius: 10px 10px 0 0; }
-.drawer-body .tx-all { margin: 4px 0 8px; }
-.ch-nav { display: flex; justify-content: space-between; margin: 6px 0; }
-.ch-nav .text-btn:disabled { opacity: .4; cursor: default; }
+.tx-drop > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-caret { flex: none; line-height: 0; color: var(--muted); }
+.tx-caret svg { width: 18px; height: 18px; }
+.tx-drop[aria-expanded="true"] { border-color: var(--head-bg); }
+.tx-list {
+	position: absolute;
+	z-index: 5;
+	top: calc(100% + 2px);
+	left: 0;
+	right: 0;
+	max-height: 55vh;
+	overflow-y: auto;
+	padding: 0 8px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--card-bg);
+	box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
+}
+.tx-list .cat-sel { justify-content: center; }
+.drawer-body .tx-all { display: block; margin: 4px 0 6px auto; }
+.ch-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 4px; font-weight: 600; }
+.ch-go { flex: none; width: 40px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card-bg); color: var(--card-text); line-height: 0; cursor: pointer; }
+.ch-go svg { display: block; margin: auto; }
+.ch-go:disabled { opacity: .35; cursor: default; }
 /* Collapsed (Collapse all, or a heading tapped: flip, the other way from
    the rest): a list of just their headings, slimmer, a hairline between
    them, no stripe at their left */
@@ -759,18 +776,6 @@ p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
 /* Its translations (the side panel, for just it): Apply to all, at the end */
-.tx-all {
-	width: 100%;
-	margin-top: 14px;
-	padding: 11px;
-	border: 0;
-	border-radius: 8px;
-	background: var(--control-btn-bg);
-	color: #fff;
-	font: inherit;
-	font-weight: 600;
-	cursor: pointer;
-}
 .tx-all:disabled { opacity: .45; cursor: default; }
 .bk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .bk-grid small { display: block; font-size: .78em; line-height: 1.1; opacity: .7; } /* (another script's: its English short name under it) */
