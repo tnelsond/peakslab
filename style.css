@@ -594,8 +594,7 @@ p-w:hover { text-decoration: underline dotted; }
 
 /* Bible: a verse's section (a Bible text's result) has a small
    reference, so a chapter's verses read on */
-p-d.verse p-e :is(h3, h4), p-d.chapter p-e :is(h3, h4) { font-size: 1.05em; color: var(--color1); }
-p-d.verse p-e :is(h3, h4) { margin: .3em 0; }
+p-d.chapter p-e :is(h3, h4) { font-size: 1.05em; color: var(--color1); }
 /* A chapter: each dictionary's verses in one card, running on */
 p-d.chapter p-e { line-height: 1.9; }
 p-d.chapter p-e :is(h3, h4) { display: block; margin: .8em 0 .3em; }
