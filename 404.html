@@ -650,6 +650,7 @@ p-d > h2, .card-bar {
 	cursor: pointer;
 	transition: top .2s;
 }
+:is(p-d > h2, .card-bar):has(.menu) { z-index: 5; } /* (its ⋮ menu over the next card's heading) */
 p-d > h2 { padding: 9px 14px; font-size: 1.2em; line-height: 1.35; }
 .card-bar { flex-wrap: wrap; padding: 10px 14px; font-size: 15px; line-height: 1.3; } /* (wrapped: only if it's too narrow even with ⋮) */
 #chNav.card-bar { position: static; justify-content: center; max-width: 640px; margin: 10px auto 4px; border: 0; border-radius: 12px; }
@@ -672,10 +673,10 @@ p-d:has(> .card-bar) > h2 { display: none; }
 	flex: none;
 	min-height: 36px;
 	padding: 0 12px;
-	border: 1px solid rgba(255, 255, 255, .55);
+	border: 0;
 	border-radius: 999px;
-	background: rgba(255, 255, 255, .14);
-	color: #fff;
+	background: #fff; /* (white: its text the bar's color) */
+	color: var(--bar-c, var(--head-bg));
 	font: inherit;
 	white-space: nowrap;
 	cursor: pointer;
@@ -687,22 +688,21 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar .cb-act svg { display: block; margin: auto; }
 .card-bar .ch-go { width: 36px; padding: 0; font-size: 1.4em; line-height: 1; }
 .card-bar .ch-go:disabled { opacity: .35; cursor: default; }
-.card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act):is(button):not(:disabled):hover { background: rgba(255, 255, 255, .28); }
+.card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act):is(button):not(:disabled):hover { background: #e8eee4; }
 /* Its buttons at their full width (fitBar measures them); folded: Read in
    context and Popup in its ⋮ */
 .card-bar.measure, .card-bar.measure * { flex-wrap: nowrap !important; flex-shrink: 0 !important; flex-basis: auto !important; max-width: none !important; }
-.card-bar:not(.folded) .cb-more, .card-bar.folded .cb-act:not(.cb-more) { display: none; }
-.card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.card-bar.folded .cb-act:not(.cb-more) { display: none; }
+:is(.card-bar, p-d > h2) .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
-p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); border-color: #fff; }
-/* Collapse all (the right of every heading): a small white chevron, up
-   (collapsed: down); the cards, just their headings. One whose heading
-   was tapped (flip): the other way from the rest. */
-.fold-btn {
+p-d[data-own] > .card-bar .cb-text { background: var(--pill-bg); color: var(--pill-fg); }
+/* A word's heading's ⋮ (Collapse all): white, no border, a big target
+   (to the heading's right edge, its height not more) */
+p-d > h2 .cb-more {
 	flex: none;
 	width: 48px;
 	height: 44px;
-	margin: -8px -14px -8px auto; /* (a big target: to the heading's right edge, its height not more) */
+	margin: -8px -14px -8px auto;
 	padding: 0;
 	border: 0;
 	background: none;
@@ -710,16 +710,26 @@ p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); bo
 	line-height: 0;
 	cursor: pointer;
 }
-.fold-btn svg { display: block; width: 18px; height: 18px; margin: auto; stroke-width: 2.6; transition: transform .2s; }
-:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) .fold-btn svg { transform: rotate(180deg); }
+p-d > h2 .cb-more svg { display: block; margin: auto; }
+p-d > h2 .menu { font-size: 15px; font-weight: 400; line-height: 1.3; }
+/* Collapsed (Collapse all, or a heading tapped: flip, the other way from
+   the rest): a list of just their headings, slimmer, a hairline between
+   them, no stripe at their left */
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) { border-left-color: transparent; background: none; }
 :is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :not(h2, .card-bar) { display: none; }
-:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :is(h2, .card-bar) { border-bottom-width: 0; background-color: var(--fold-bg); }
-:is(#results, #translation, #popupResults):not(.collapsed) > p-d.flip::after,
-:is(#results, #translation, #popupResults).collapsed > p-d:not(.flip)::after { height: 1px; } /* (a line between them) */
+:is(#results, #translation, #popupResults) > :is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip)::after { height: 0; }
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :is(h2, .card-bar) {
+	--bar-c: var(--fold-bg);
+	margin-left: calc(-1 * var(--pd) - 4px); /* (over its stripe's room too) */
+	padding-top: 4px;
+	padding-bottom: 4px;
+	border-bottom: 1px solid rgba(0, 0, 0, .25);
+	background: var(--fold-bg);
+}
 /* Highlight off (Appearance): the matches not marked */
 body.no-mark mark { background: none; color: inherit; }
 /* Comparing (a verse's Compare, in the popup): its Bible bars another color */
-p-d[data-pop="cmp"] > .card-bar { background: var(--compare-bg); }
+p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--compare-bg); }
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
 /* Its translations (the side panel, for just it): Apply to all, at the end */
@@ -2515,19 +2525,29 @@ if(!isDictPage){
 		if (v1 === 1 && v2 === 999) return `${name} ${n(c1)}–${n(c2)}`;
 		return c1 === c2 ? `${name} ${n(c1)}:${n(v1)}–${n(v2)}` : `${name} ${n(c1)}:${n(v1)}–${n(c2)}:${n(v2)}`;
 	}
-	// Collapse (the right of every heading): every card in the results (or
-	// the popup) just its heading, to see them all; again, all of them, at
-	// the one tapped. A card's heading tapped (not a button in it)
-	// collapses (or opens) just it: it's the other way from the rest (flip).
-	const foldBtnHTML = `<button class="fold-btn" onclick="foldAll(this)" title="Collapse all" aria-label="Collapse all">${icon('M6 15l6-6 6 6')}</button>`;
-	window.foldAll = btn => {
+	// Every heading's ⋮ (at its right) has Collapse all: every card in the
+	// results (or the popup) just its heading, to see them all; again
+	// (Expand all), all of them, at the one tapped. A card's heading tapped
+	// (not a button in it) collapses (or opens) just it: it's the other way
+	// from the rest (flip). A Bible bar's ⋮ also has its Read in context and
+	// Popup when they don't fit on its line.
+	const moreSVG = icon(['M12 5.5v.01M12 12v.01M12 18.5v.01', 'stroke-width="3.2"']);
+	const foldBtnHTML = `<button class="cb-more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`;
+	const foldSVG = icon('M6 15l6-6 6 6'), unfoldSVG = icon('M6 9l6 6 6-6');
+	const foldItem = b => b.closest('.collapsed') ? ['unfold', unfoldSVG, 'Expand all'] : ['fold', foldSVG, 'Collapse all'];
+	document.addEventListener('click', e => {
+		const b = e.target.closest('p-d > h2 .cb-more');
+		if (!b) return;
+		const it = foldItem(b);
+		popMenu(b, `<button data-a="${it[0]}">${it[1]}<span>${it[2]}</span></button>`, () => foldAll(b));
+	});
+	const foldAll = btn => {
 		const pop = btn.closest('#popupResults'), card = btn.closest('p-d');
 		const boxes = pop ? [pop] : [resultsDiv, translationDiv], on = !boxes[0].classList.contains('collapsed');
 		boxes.forEach(x => {
 			x.classList.toggle('collapsed', on);
 			x.querySelectorAll(':scope > p-d.flip').forEach(c => c.classList.remove('flip'));
 		});
-		document.querySelectorAll('.fold-btn').forEach(b => b.title = b.ariaLabel = b.closest('.collapsed') ? 'Expand all' : 'Collapse all');
 		card.scrollIntoView({block: 'start'});
 		if (!pop) scrollBy(0, -parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick') || 0));
 	};
@@ -2544,7 +2564,6 @@ if(!isDictPage){
 	// A popup's are always in its ⋮: Read in context (a verse's) and Show
 	// in the results (what the popup has: a chapter's, at its verse).
 	const fullSVG = icon('M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7');
-	const moreSVG = icon(['M12 5.5v.01M12 12v.01M12 18.5v.01', 'stroke-width="3.2"']);
 	function cardActs(card){
 		const ref = cardRef(card), pop = inPopup(card);
 		if (pop) return [ref.kind === 'verse' && ['ctx', contextSVG, 'Read in context'], ['full', fullSVG, 'Show in the results']].filter(Boolean);
@@ -2562,7 +2581,7 @@ if(!isDictPage){
 		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book" data-cb="book" title="Books">${ref.bk ? refLabel(ref) : 'Books'} ▾</button>` +
 			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>${go(1, 'Next')}</span>` +
 			(card === bibleBar ? '' : `<span class="cb-acts">${acts.map(([a, ic, t]) => `<button class="cb-act" data-cb="${a}" title="${t}" aria-label="${t}">${ic}</button>`).join('')}` +
-				(acts.length ? `<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>` : '') + `${foldBtnHTML}</span>`);
+				`<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button></span>`);
 		requestAnimationFrame(() => fitBar(bar));
 	}
 	// Folded (⋮) if its buttons, at their full width, don't fit its line
@@ -2580,10 +2599,11 @@ if(!isDictPage){
 	window.addEventListener('resize', debounce(() => cardBars().forEach(fitBar), 100));
 	function cardBarClick(e){
 		const b = e.target.closest('.card-bar button');
-		if (!b || b.matches('.fold-btn')) return;
+		if (!b) return;
 		const card = b.closest('p-d') || bibleBar;
 		if (b.dataset.cb === 'texts') return openCardTexts(card === bibleBar ? null : card); // (the Bible bar's: the search's)
-		if (b.dataset.cb === 'more') return popMenu(b, cardActs(card).map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${t}</span></button>`).join(''), a => cardAct(card, a));
+		if (b.dataset.cb === 'more') return popMenu(b, [...(b.closest('.folded') ? cardActs(card) : []), foldItem(b)].map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${t}</span></button>`).join(''),
+			a => /fold/.test(a) ? foldAll(b) : cardAct(card, a));
 		closeMenus();
 		cardAct(card, b.dataset.cb, b.dataset.go);
 	}
@@ -3984,8 +4004,8 @@ if(!isDictPage){
 			html = (el?.matches('.tr-entry') || glossed ? ctxBtn('hide', 'Hide gloss') : gloss ? ctxBtn('gloss', 'Gloss') : '') +
 				(sel ? ctxBtn('search', 'Search') + ctxBtn('popup', 'Popup') : '') +
 				(compareOf() ? ctxBtn('compare', 'Compare') : '') +
-				(w ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
-				(voiceLangs().length ? ctxBtn('speak', 'Speak') : '') + ctxBtn('share', 'Share') + ctxBtn('look', 'Appearance');
+				(w && !sel ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
+				(voiceLangs().length ? ctxBtn('speak', 'Speak') : '') + (sel ? '' : ctxBtn('share', 'Share')) + ctxBtn('look', 'Appearance');
 		}
 		ctxMenu.innerHTML = `<div class="ctx-row">${html}</div>`;
 	}

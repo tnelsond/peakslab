@@ -644,6 +644,7 @@ p-d > h2, .card-bar {
 	cursor: pointer;
 	transition: top .2s;
 }
+:is(p-d > h2, .card-bar):has(.menu) { z-index: 5; } /* (its ⋮ menu over the next card's heading) */
 p-d > h2 { padding: 9px 14px; font-size: 1.2em; line-height: 1.35; }
 .card-bar { flex-wrap: wrap; padding: 10px 14px; font-size: 15px; line-height: 1.3; } /* (wrapped: only if it's too narrow even with ⋮) */
 #chNav.card-bar { position: static; justify-content: center; max-width: 640px; margin: 10px auto 4px; border: 0; border-radius: 12px; }
@@ -666,10 +667,10 @@ p-d:has(> .card-bar) > h2 { display: none; }
 	flex: none;
 	min-height: 36px;
 	padding: 0 12px;
-	border: 1px solid rgba(255, 255, 255, .55);
+	border: 0;
 	border-radius: 999px;
-	background: rgba(255, 255, 255, .14);
-	color: #fff;
+	background: #fff; /* (white: its text the bar's color) */
+	color: var(--bar-c, var(--head-bg));
 	font: inherit;
 	white-space: nowrap;
 	cursor: pointer;
@@ -681,22 +682,21 @@ p-d:has(> .card-bar) > h2 { display: none; }
 .card-bar .cb-act svg { display: block; margin: auto; }
 .card-bar .ch-go { width: 36px; padding: 0; font-size: 1.4em; line-height: 1; }
 .card-bar .ch-go:disabled { opacity: .35; cursor: default; }
-.card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act):is(button):not(:disabled):hover { background: rgba(255, 255, 255, .28); }
+.card-bar :is(.cb-book, .cb-text, .ch-go, .cb-act):is(button):not(:disabled):hover { background: #e8eee4; }
 /* Its buttons at their full width (fitBar measures them); folded: Read in
    context and Popup in its ⋮ */
 .card-bar.measure, .card-bar.measure * { flex-wrap: nowrap !important; flex-shrink: 0 !important; flex-basis: auto !important; max-width: none !important; }
-.card-bar:not(.folded) .cb-more, .card-bar.folded .cb-act:not(.cb-more) { display: none; }
-.card-bar .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.card-bar.folded .cb-act:not(.cb-more) { display: none; }
+:is(.card-bar, p-d > h2) .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* The card has its own translations (not the Bible bar's) */
-p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); border-color: #fff; }
-/* Collapse all (the right of every heading): a small white chevron, up
-   (collapsed: down); the cards, just their headings. One whose heading
-   was tapped (flip): the other way from the rest. */
-.fold-btn {
+p-d[data-own] > .card-bar .cb-text { background: var(--pill-bg); color: var(--pill-fg); }
+/* A word's heading's ⋮ (Collapse all): white, no border, a big target
+   (to the heading's right edge, its height not more) */
+p-d > h2 .cb-more {
 	flex: none;
 	width: 48px;
 	height: 44px;
-	margin: -8px -14px -8px auto; /* (a big target: to the heading's right edge, its height not more) */
+	margin: -8px -14px -8px auto;
 	padding: 0;
 	border: 0;
 	background: none;
@@ -704,16 +704,26 @@ p-d[data-own] > .card-bar .cb-text { background: #fff; color: var(--head-bg); bo
 	line-height: 0;
 	cursor: pointer;
 }
-.fold-btn svg { display: block; width: 18px; height: 18px; margin: auto; stroke-width: 2.6; transition: transform .2s; }
-:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) .fold-btn svg { transform: rotate(180deg); }
+p-d > h2 .cb-more svg { display: block; margin: auto; }
+p-d > h2 .menu { font-size: 15px; font-weight: 400; line-height: 1.3; }
+/* Collapsed (Collapse all, or a heading tapped: flip, the other way from
+   the rest): a list of just their headings, slimmer, a hairline between
+   them, no stripe at their left */
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) { border-left-color: transparent; background: none; }
 :is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :not(h2, .card-bar) { display: none; }
-:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :is(h2, .card-bar) { border-bottom-width: 0; background-color: var(--fold-bg); }
-:is(#results, #translation, #popupResults):not(.collapsed) > p-d.flip::after,
-:is(#results, #translation, #popupResults).collapsed > p-d:not(.flip)::after { height: 1px; } /* (a line between them) */
+:is(#results, #translation, #popupResults) > :is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip)::after { height: 0; }
+:is(.collapsed > p-d:not(.flip), :not(.collapsed) > p-d.flip) > :is(h2, .card-bar) {
+	--bar-c: var(--fold-bg);
+	margin-left: calc(-1 * var(--pd) - 4px); /* (over its stripe's room too) */
+	padding-top: 4px;
+	padding-bottom: 4px;
+	border-bottom: 1px solid rgba(0, 0, 0, .25);
+	background: var(--fold-bg);
+}
 /* Highlight off (Appearance): the matches not marked */
 body.no-mark mark { background: none; color: inherit; }
 /* Comparing (a verse's Compare, in the popup): its Bible bars another color */
-p-d[data-pop="cmp"] > .card-bar { background: var(--compare-bg); }
+p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--compare-bg); }
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
 /* Its translations (the side panel, for just it): Apply to all, at the end */

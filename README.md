@@ -25,7 +25,7 @@ Current languages:
 # Using PeakSlab
 For the fullest example, try [PeakSlab.org/khmer](https://peakslab.org/khmer/) and enter something in the search bar. It'll search as you type pulling in definitions from all the dictionaries that you had enabled on the page. If you want to change the dictionaries loaded, simply clear the search bar and the Dictionary list will appear and you can enable and disable them individually.
 
-Tap any entry's text (or a verse) and a menu comes up at the bottom of the screen: *Gloss* it word by word (tap the gloss to hide it), *Compare* a verse in every translation, *Bookmark* it, *Speak* it (pick the language) or *Share* it (copy it, or a link to it). Select some text and the same menu can also *Search* it or look it up in the *Popup* — handy when you're reading, e.g. `Gen 7`, and want to look up a word without losing your spot.
+Tap any entry's text (or a verse) and a menu comes up at the bottom of the screen: *Gloss* it word by word (tap the gloss to hide it), *Compare* a verse in every translation, *Bookmark* it, *Speak* it (pick the language) or *Share* it (copy it, or a link to it). Select some text and the menu can *Gloss*, *Search* or *Speak* just that, or look it up in the *Popup* — handy when you're reading, e.g. `Gen 7`, and want to look up a word without losing your spot. Every heading's ⋮ has *Collapse all*, to see just the headings; tap a heading to open or close just that card.
 
 ![Context Menu](docs/selection-menu.webp)
 

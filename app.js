@@ -1034,19 +1034,29 @@ if(!isDictPage){
 		if (v1 === 1 && v2 === 999) return `${name} ${n(c1)}–${n(c2)}`;
 		return c1 === c2 ? `${name} ${n(c1)}:${n(v1)}–${n(v2)}` : `${name} ${n(c1)}:${n(v1)}–${n(c2)}:${n(v2)}`;
 	}
-	// Collapse (the right of every heading): every card in the results (or
-	// the popup) just its heading, to see them all; again, all of them, at
-	// the one tapped. A card's heading tapped (not a button in it)
-	// collapses (or opens) just it: it's the other way from the rest (flip).
-	const foldBtnHTML = `<button class="fold-btn" onclick="foldAll(this)" title="Collapse all" aria-label="Collapse all">${icon('M6 15l6-6 6 6')}</button>`;
-	window.foldAll = btn => {
+	// Every heading's ⋮ (at its right) has Collapse all: every card in the
+	// results (or the popup) just its heading, to see them all; again
+	// (Expand all), all of them, at the one tapped. A card's heading tapped
+	// (not a button in it) collapses (or opens) just it: it's the other way
+	// from the rest (flip). A Bible bar's ⋮ also has its Read in context and
+	// Popup when they don't fit on its line.
+	const moreSVG = icon(['M12 5.5v.01M12 12v.01M12 18.5v.01', 'stroke-width="3.2"']);
+	const foldBtnHTML = `<button class="cb-more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`;
+	const foldSVG = icon('M6 15l6-6 6 6'), unfoldSVG = icon('M6 9l6 6 6-6');
+	const foldItem = b => b.closest('.collapsed') ? ['unfold', unfoldSVG, 'Expand all'] : ['fold', foldSVG, 'Collapse all'];
+	document.addEventListener('click', e => {
+		const b = e.target.closest('p-d > h2 .cb-more');
+		if (!b) return;
+		const it = foldItem(b);
+		popMenu(b, `<button data-a="${it[0]}">${it[1]}<span>${it[2]}</span></button>`, () => foldAll(b));
+	});
+	const foldAll = btn => {
 		const pop = btn.closest('#popupResults'), card = btn.closest('p-d');
 		const boxes = pop ? [pop] : [resultsDiv, translationDiv], on = !boxes[0].classList.contains('collapsed');
 		boxes.forEach(x => {
 			x.classList.toggle('collapsed', on);
 			x.querySelectorAll(':scope > p-d.flip').forEach(c => c.classList.remove('flip'));
 		});
-		document.querySelectorAll('.fold-btn').forEach(b => b.title = b.ariaLabel = b.closest('.collapsed') ? 'Expand all' : 'Collapse all');
 		card.scrollIntoView({block: 'start'});
 		if (!pop) scrollBy(0, -parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick') || 0));
 	};
@@ -1063,7 +1073,6 @@ if(!isDictPage){
 	// A popup's are always in its ⋮: Read in context (a verse's) and Show
 	// in the results (what the popup has: a chapter's, at its verse).
 	const fullSVG = icon('M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7');
-	const moreSVG = icon(['M12 5.5v.01M12 12v.01M12 18.5v.01', 'stroke-width="3.2"']);
 	function cardActs(card){
 		const ref = cardRef(card), pop = inPopup(card);
 		if (pop) return [ref.kind === 'verse' && ['ctx', contextSVG, 'Read in context'], ['full', fullSVG, 'Show in the results']].filter(Boolean);
@@ -1081,7 +1090,7 @@ if(!isDictPage){
 		bar.innerHTML = `<span class="cb-sel">${go(-1, 'Previous')}<button class="cb-book" data-cb="book" title="Books">${ref.bk ? refLabel(ref) : 'Books'} ▾</button>` +
 			`<button class="cb-text" data-cb="texts" aria-haspopup="dialog" aria-expanded="${drawerView === 'cardtexts' && textsCard === card}" title="Translations: ${par && texts.length > 1 ? names(texts) : label}">${label} ▾</button>${go(1, 'Next')}</span>` +
 			(card === bibleBar ? '' : `<span class="cb-acts">${acts.map(([a, ic, t]) => `<button class="cb-act" data-cb="${a}" title="${t}" aria-label="${t}">${ic}</button>`).join('')}` +
-				(acts.length ? `<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>` : '') + `${foldBtnHTML}</span>`);
+				`<button class="cb-act cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button></span>`);
 		requestAnimationFrame(() => fitBar(bar));
 	}
 	// Folded (⋮) if its buttons, at their full width, don't fit its line
@@ -1099,10 +1108,11 @@ if(!isDictPage){
 	window.addEventListener('resize', debounce(() => cardBars().forEach(fitBar), 100));
 	function cardBarClick(e){
 		const b = e.target.closest('.card-bar button');
-		if (!b || b.matches('.fold-btn')) return;
+		if (!b) return;
 		const card = b.closest('p-d') || bibleBar;
 		if (b.dataset.cb === 'texts') return openCardTexts(card === bibleBar ? null : card); // (the Bible bar's: the search's)
-		if (b.dataset.cb === 'more') return popMenu(b, cardActs(card).map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${t}</span></button>`).join(''), a => cardAct(card, a));
+		if (b.dataset.cb === 'more') return popMenu(b, [...(b.closest('.folded') ? cardActs(card) : []), foldItem(b)].map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${t}</span></button>`).join(''),
+			a => /fold/.test(a) ? foldAll(b) : cardAct(card, a));
 		closeMenus();
 		cardAct(card, b.dataset.cb, b.dataset.go);
 	}
@@ -2503,8 +2513,8 @@ if(!isDictPage){
 			html = (el?.matches('.tr-entry') || glossed ? ctxBtn('hide', 'Hide gloss') : gloss ? ctxBtn('gloss', 'Gloss') : '') +
 				(sel ? ctxBtn('search', 'Search') + ctxBtn('popup', 'Popup') : '') +
 				(compareOf() ? ctxBtn('compare', 'Compare') : '') +
-				(w ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
-				(voiceLangs().length ? ctxBtn('speak', 'Speak') : '') + ctxBtn('share', 'Share') + ctxBtn('look', 'Appearance');
+				(w && !sel ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
+				(voiceLangs().length ? ctxBtn('speak', 'Speak') : '') + (sel ? '' : ctxBtn('share', 'Share')) + ctxBtn('look', 'Appearance');
 		}
 		ctxMenu.innerHTML = `<div class="ctx-row">${html}</div>`;
 	}
