@@ -2426,18 +2426,12 @@ if(!isDictPage){
 		e.stopPropagation(); // (a popup's entry: keeps the popup open)
 		const b = e.target.closest('button');
 		if (!b || !ctx) return;
-		const {el, sel} = ctx, act = b.dataset.c;
-		if (act === 'compare') compareOf.h = compareOf(); // (before it closes)
-		if (act === 'speak' || act === 'share' || act === 'look') { ctx.sub = act; return renderCtx(); }
-		if (act === 'smaller' || act === 'bigger' || act === 'dark' || act === 'mark') { // (it stays open: tap again for more)
-			setPref(act);
-			return renderCtx();
-		}
-		if (act === 'back') { ctx.sub = null; return renderCtx(); }
-		if (act === 'bookmark') { // (it stays open: tap again to undo)
-			toggleBookmark(bmTarget(), sel ? null : el.closest('.vs') || el.closest('p-d')?.querySelector(':scope > p-e'));
-			return renderCtx();
-		}
+		const {el, sel} = ctx, act = b.dataset.c, h = compareOf(); // (before it closes)
+		// A menu in it (Back: out of it), or what stays open (tap again for more, or to undo)
+		if (/^(speak|share|look|back)$/.test(act)) ctx.sub = act === 'back' ? null : act;
+		else if (/^(smaller|bigger|dark|mark)$/.test(act)) setPref(act);
+		else if (act === 'bookmark') toggleBookmark(bmTarget(), sel ? null : el.closest('.vs') || el.closest('p-d')?.querySelector(':scope > p-e'));
+		if (/^(speak|share|look|back|smaller|bigger|dark|mark|bookmark)$/.test(act)) return renderCtx();
 		if (act === 'say') {
 			speechSynthesis.cancel();
 			const u = new SpeechSynthesisUtterance(ctxText());
@@ -2465,7 +2459,7 @@ if(!isDictPage){
 			setQueryText(sel);
 			startSearch();
 		} else if (act === 'popup') openPopupSearch(sel);
-		else if (act === 'compare') openPopupSearch(`${compareOf.h}-${compareOf.h.split('.').pop()}`, '', dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss')), true); // (the verse, in every Bible text the gloss has)
+		else if (act === 'compare') openPopupSearch(`${h}-${h.split('.').pop()}`, '', dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss')), true); // (the verse, in every Bible text the gloss has)
 	});
 	document.addEventListener('keydown', e => { if (e.key === 'Escape' && ctx) closeCtx(); });
 	// A tap on an entry's text (not on a word that looks itself up, a
