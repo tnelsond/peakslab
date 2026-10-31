@@ -750,9 +750,13 @@ p-d > .vs-more:hover { color: var(--tab-bg); }
 	box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
 }
 .tx-list .cat-sel { justify-content: center; }
-.drawer-body .tx-all { display: block; margin: 4px 0 6px auto; }
-.ch-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 4px; font-weight: 600; }
-.ch-go { flex: none; width: 40px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card-bg); color: var(--card-text); line-height: 0; cursor: pointer; }
+.ch-nav { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.bk-btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--muted); border-radius: 8px; background: var(--card-bg); color: var(--card-text); font: inherit; font-size: 1.1em; font-weight: 700; cursor: pointer; }
+.bk-btn small { font-size: .65em; font-weight: 400; color: var(--muted); }
+.bk-btn[aria-expanded="true"] .tx-caret { transform: rotate(180deg); }
+.ch-nav + .bk-grid, .ch-nav + * { margin-top: 10px; }
+.tx-all-row { border-top: 1px solid var(--line); }
+.ch-go { flex: none; width: 44px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card-bg); color: var(--card-text); line-height: 0; cursor: pointer; }
 .ch-go svg { display: block; margin: auto; }
 .ch-go:disabled { opacity: .35; cursor: default; }
 /* Collapsed (Collapse all, or a heading tapped: flip, the other way from
@@ -775,8 +779,6 @@ body.no-mark mark { background: none; color: inherit; }
 p-d[data-pop="cmp"] > .card-bar { --bar-c: var(--compare-bg); background: var(--compare-bg); }
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
-/* Its translations (the side panel, for just it): Apply to all, at the end */
-.tx-all:disabled { opacity: .45; cursor: default; }
 .bk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .bk-grid small { display: block; font-size: .78em; line-height: 1.1; opacity: .7; } /* (another script's: its English short name under it) */
 .bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
