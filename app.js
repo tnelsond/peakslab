@@ -967,17 +967,15 @@ if(!isDictPage){
 		card.classList.toggle('flip');
 		if (card.getBoundingClientRect().top < 0) card.scrollIntoView({block: 'start'}); // (its heading was stuck: it, at the top)
 	});
-	// A Bible card's heading: its reference, then (at its right) a Bible
-	// button and ⋮, like a word's. The Bible button opens the Bible side
-	// panel: its translations (a drop-down list), a chapter's previous and
+	// A Bible card's heading: its reference, then (at its right) ⋮, like a
+	// word's. The reference is a button: it opens the Bible side panel: its translations (a drop-down list), a chapter's previous and
 	// next, and the books (its book's chapters). Its ⋮: Collapse all (a
 	// popup's, Show in the results first). A verse's (or a range's) card has
 	// … above it if its chapter has verses before it, and below it if after:
 	// either shows the whole chapter in the card, at the verse (the search
 	// stays as it is). The Bible bar (an empty page's, Bible mode's) is just
-	// the reference (or Bible) and the button.
+	// the reference (or Bible).
 	const fullSVG = icon('M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7');
-	const bibleSVG = icon('M6.5 3h11A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-15A1.5 1.5 0 0 1 6.5 3zM12 7v9M9 10h6');
 	const textsSVG = icon('M4 5h11M9.5 3v2M6 5c1 4 4 7 8 8M13 5c-1 4-4 7-8 8M14 21l4-10 4 10M15.5 17.5h5');
 	const cardActs = card => inPopup(card) ? [['full', fullSVG, 'Show in the results']] : [];
 	const menuHTML = items => items.map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${escapeHTML(t)}</span></button>`).join('');
@@ -988,8 +986,7 @@ if(!isDictPage){
 		if (!bar) return;
 		if (!books) loadBooks(() => renderCardBar(card)); // (its book's name in the meantime: its code)
 		const ref = cardRef(card);
-		bar.innerHTML = `<span class="hw">${ref.bk ? refHeading(ref) : 'Bible'}</span>` +
-			`<button class="cb-bible" data-cb="bible" title="Translation, book and chapter" aria-label="Translation, book and chapter" aria-haspopup="dialog">${bibleSVG}</button>` +
+		bar.innerHTML = `<button class="hw" data-cb="bible" title="Translation, book and chapter" aria-haspopup="dialog">${ref.bk ? refHeading(ref) : 'Bible'}</button>` +
 			(card === bibleBar ? '' : foldBtnHTML);
 		if (card !== bibleBar) moreVerses(card, ref);
 	}

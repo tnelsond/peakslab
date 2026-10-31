@@ -630,7 +630,7 @@ p-d > h2:has(.menu) { z-index: 5; } /* (its ⋮ menu over the next card's headin
 p-d > h2 + * { margin-top: 12px; }
 .card-bar .hw-sep { opacity: .6; }
 .card-bar .hw-own { color: #ffe9a8; } /* (the book's own name and digits: a warmer white) */
-.card-bar .hw { min-width: 0; margin: -.3em 0; padding: .3em 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* (room in it for a script's marks above and below the line: Khmer's) */
+.card-bar .hw { min-width: 0; margin: -.3em 0; padding: .3em 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; } /* (room in it for a script's marks above and below the line: Khmer's) */
 body.fullscreen p-d > h2 { position: static; } /* (fullscreen: they scroll with their card) */
 #popupContent p-d > h2 { top: 20px; } /* (under its × bar: 40px, less its 20px padding) */
 /* The cards one after another, no space between them: a card's heading
@@ -644,14 +644,9 @@ p-d > h2 .menu button { display: flex; align-items: center; gap: 10px; white-spa
 /* ⋮: white, no border, a big target (to the heading's right edge, its
    height not more than the heading's) */
 .cb-more { flex: none; width: 48px; height: 44px; margin: -8px -14px -8px auto; padding: 0; color: #fff; line-height: 0; }
-.cb-bible + .cb-more { margin-left: -4px; }
-/* The Bible button: outlined, at the right (the Bible bar's: beside its reference) */
-.cb-bible { position: relative; flex: none; width: 46px; height: 34px; margin: -4px 0 -4px auto; padding: 0; border: 1px solid rgba(255, 255, 255, .6); border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; line-height: 0; }
-#chNav .cb-bible { margin-left: 4px; }
-.cb-bible:hover { background: rgba(255, 255, 255, .28); }
-:is(.cb-bible, .cb-more, .ch-go) svg { display: block; margin: auto; }
-/* (the card has its own translations, not the search's: a dot on it) */
-p-d[data-texts] .cb-bible::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.cb-more svg, .ch-go svg { display: block; margin: auto; }
+/* (the card has its own translations, not the search's: a dot after its reference) */
+p-d[data-texts] > .card-bar .hw::after { content: " •"; }
 /* A verse's …: the rest of its chapter (above it, below it) */
 p-d > .vs-more { display: block; width: 100%; padding: 0 0 2px; color: var(--color1); font: 700 1.6em/1 system-ui, sans-serif; letter-spacing: .1em; }
 p-d > .vs-more:hover { color: var(--tab-bg); }
