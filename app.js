@@ -976,7 +976,6 @@ if(!isDictPage){
 	// stays as it is). The Bible bar (an empty page's, Bible mode's) is just
 	// the reference (or Bible).
 	const fullSVG = icon('M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7');
-	const textsSVG = icon('M4 5h11M9.5 3v2M6 5c1 4 4 7 8 8M13 5c-1 4-4 7-8 8M14 21l4-10 4 10M15.5 17.5h5');
 	const cardActs = card => inPopup(card) ? [['full', fullSVG, 'Show in the results']] : [];
 	const menuHTML = items => items.map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${escapeHTML(t)}</span></button>`).join('');
 	// Its translations: their names (none: Translation)
