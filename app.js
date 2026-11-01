@@ -220,6 +220,7 @@ if(!isDictPage){
 			return; // Sent for an earlier search (it restarts as dictionaries load)
 		if(!popup && num == 0){ // Popup results leave the main results alone
 			cleanup(resultsDiv);
+			translationDiv.replaceChildren(); // (a gloss is for no results: an earlier search's, before every dictionary had loaded)
 			if(loader)
 				resultsDiv.append(loader)
 		}
@@ -344,8 +345,9 @@ if(!isDictPage){
 	// numbered as its references have them ("យ៉ូហាន ៣:១៦"); in parallel
 	// (more than one), verse by verse. Bible notes are little links on its
 	// verses (addNote).
-	// A verse's reference as the dictionary has it (its p-n: "យ៉ូហាន ៣:១៦")
-	const refOf = body => /<p-n>@?([^<]*)<\/p-n>/.exec(body)?.[1];
+	// A verse's (or a note's) reference as the dictionary has it, its first
+	// column ("យ៉ូហាន ៣:១៦"), and its text, the rest
+	const refOf = body => body.slice(0, body.indexOf('\t')), textOf = body => body.slice(body.indexOf('\t') + 1);
 	const verseNum = h => (([c, cv]) => c * 1000 + cv)(h.split(' ').pop().split('.').map(Number)); // (by chapter, then verse)
 	// (its chapters' first verses say their chapter: "2:1")
 	function addVerse(data, h, d, card){
@@ -353,7 +355,7 @@ if(!isDictPage){
 		const ref = label && /(\p{Nd}+\s*[:.]\s*)(\p{Nd}+)/u.exec(label);
 		const full = ref && (v % 1000 === 1 || !card.querySelector('.vs'));
 		const n = ref ? (full ? ref[1] + ref[2] : ref[2]) : String(v % 1000);
-		const body = highlightText(data.body.replace(/<p-n>[\s\S]*?<\/p-n>/, '').replace(/<\/?p(?=[\s>])[^>]*>/gi, ' '), card.parentNode === resultsDiv && !card.dataset.hl && query); // (verses run on; the search's words marked)
+		const body = highlightText(textOf(data.body).replace(/<\/?p(?=[\s>])[^>]*>/gi, ' '), card.parentNode === resultsDiv && !card.dataset.hl && query); // (verses run on; the search's words marked)
 		// Its headings go above its number, which stays on the line with its
 		// first word
 		const heads = (/^\s*(?:<h\d[^>]*>[\s\S]*?<\/h\d>\s*)+/i.exec(body) || [''])[0];
@@ -409,7 +411,7 @@ if(!isDictPage){
 		const n = b.closest('p-d')._notes.get(+b.dataset.v).find(n => n.d === +b.dataset.d);
 		cleanup(popupResults);
 		popupQuery = n.e.header;
-		popupResults.innerHTML = `<p-d><h2><span class="hw">${escapeHTML(n.e.header)}</span>${foldBtnHTML}</h2>${entryHTML(n.d, n.e.body)}</p-d>`;
+		popupResults.innerHTML = `<p-d><h2><span class="hw">${escapeHTML(refOf(n.e.body))}</span>${foldBtnHTML}</h2>${entryHTML(n.d, textOf(n.e.body))}</p-d>`;
 		popupOpen();
 	};
 
@@ -800,7 +802,7 @@ if(!isDictPage){
 			});
 			return askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}).then(r => {
 				r.entries.forEach((e, i) => {
-					const ref = e && /<p-n>@?([^<]*?)\s*(\p{Nd})\s*[:.]\s*\p{Nd}+\s*<\/p-n>/u.exec(e.body);
+					const ref = e && /^(.*?)\s*(\p{Nd})\s*[:.]\s*\p{Nd}+$/u.exec(refOf(e.body));
 					if (!ref) return;
 					list[i].name = ref[1] || list[i].name;
 					list[i].zero = ref[2].codePointAt(0) - 1; // (chapter 1)
@@ -941,7 +943,7 @@ if(!isDictPage){
 		if (v1 === 1 && v2 === 999) return `${name} ${n(c1)}${dash}${n(c2)}`;
 		return `${name} ${n(c1)}${cv}${n(v1)}${dash}${c1 === c2 ? '' : n(c2) + cv}${n(v2)}`;
 	}
-	const refHeading = ref => refLabel(ref, false) + (bookOf(ref.bk) ? `<span class="hw-sep"> | </span><span class="hw-own">${refLabel(ref)}</span>` : '');
+	const refHeading = ref => refLabel(ref, false) + chevron + (bookOf(ref.bk) ? `<span class="hw-sep"> | </span><span class="hw-own">${refLabel(ref)}${chevron}</span>` : ''); // (a ▾ after each: it opens the Bible panel)
 	// Every heading's ⋮ (at its right) has Collapse all: every card in the
 	// results (or the popup) just its heading, to see them all; again
 	// (Expand all), all of them, at the one tapped. A card's heading tapped
@@ -1079,11 +1081,11 @@ if(!isDictPage){
 		const go = (dir, label, ic) => `<button class="ch-go" data-go="${dir}" title="${label}" aria-label="${label}"${chapter && nextChapter(chapter, dir) ? '' : ' disabled'}>${ic}</button>`;
 		const row = d => `<li class="row cat-row"><button class="cat-chk check" data-tx-add="${d}" aria-pressed="${texts.includes(d)}" aria-label="Also ${escapeHTML(dicts[d].name)}"></button>` +
 			`<button class="cat-sel" data-tx="${d}" title="Just this"><span class="row-w">${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}</span></button></li>`;
-		return `<div class="tx-dd"><button class="tx-drop" data-tx-drop="1" aria-haspopup="listbox" aria-expanded="${txOpen}"><span>${escapeHTML(textsLabel(texts))}</span><span class="tx-caret">${icon('M6 9l6 6 6-6')}</span></button>` +
+		return `<div class="tx-dd"><button class="tx-drop" data-tx-drop="1" aria-haspopup="listbox" aria-expanded="${txOpen}"><span>${escapeHTML(textsLabel(texts))}</span><span class="tx-caret">${chevron}</span></button>` +
 			(txOpen ? `<div class="tx-list">${all.length ? `<ul class="rows">${all.map(row).join('')}</ul>` : empty('None downloaded.')}` +
 				(card !== bibleBar ? `<ul class="rows tx-all-row">${rowHTML('check', `data-tx-all="1" aria-pressed="${applyAll}"`, 'Apply to all cards', 'And to what\'s searched next')}</ul>` : '') +
 				`${moreHTML}</div>` : '') + '</div>' +
-			(books ? `<div class="ch-nav">${go(-1, 'Previous chapter', prevSVG)}<button class="bk-btn" data-books-toggle="1" aria-expanded="${booksOpen || !pick}">${pick ? bookName(pick) : 'Books'}<span class="tx-caret">${icon('M6 9l6 6 6-6')}</span></button>${go(1, 'Next chapter', nextSVG)}</div>` : '') +
+			(books ? `<div class="ch-nav">${go(-1, 'Previous chapter', prevSVG)}<button class="bk-btn" data-books-toggle="1" aria-expanded="${booksOpen || !pick}">${pick ? bookName(pick) : 'Books'}<span class="tx-caret">${chevron}</span></button>${go(1, 'Next chapter', nextSVG)}</div>` : '') +
 			booksHTML();
 	}
 	const prevSVG = icon('M15 6l-6 6 6 6'), nextSVG = icon('M9 6l6 6-6 6');
@@ -1938,8 +1940,7 @@ if(!isDictPage){
 		while (lines.length > 1 && !/\s/.test(lines[0]) && script(lines[0]) === script(header)) lines.shift();
 		return lines.join(' ');
 	}
-	// An entry's text, without its labels (p-n: parts of speech, a verse's
-	// reference, ...)
+	// An entry's text, without its labels (p-n: parts of speech, ...)
 	function entryText(pe){
 		const c = pe.cloneNode(true);
 		c.querySelectorAll('p-h, p-n, button, .vs-n, .tr-entry, .menu').forEach(x => x.remove());
@@ -1991,7 +1992,7 @@ if(!isDictPage){
 		if (!found.length) return [];
 		return Promise.all(found.map(x => rangeLines(d, x.r).then(p => p && askDict(d, lineMsg(p.at, Math.min(20, p.last - p.at + 1))).then(res => ({
 			a: x.a, len: x.s.length, d, rank: -1, sec: 0, row: glossRow(d),
-			r: {header: x.s, body: res.entries.filter(Boolean).map(e => e.body.replace(/<p-n>[\s\S]*?<\/p-n>/, '')).join(' '), d, sec: 0}, // (rendered already)
+			r: {header: x.s, body: res.entries.filter(Boolean).map(e => textOf(e.body)).join(' '), d, sec: 0}, // (rendered already)
 		}))))).then(xs => xs.filter(Boolean));
 	}
 

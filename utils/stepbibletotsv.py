@@ -36,6 +36,9 @@ CODES = ('GEN EXO LEV NUM DEU JOS JDG RUT 1SA 2SA 1KI 2KI 1CH 2CH EZR NEH EST JO
 BOOK = dict(zip(STEP, CODES))
 BOOK.update({'Mar': 'MAR', 'Ezek': 'EZE', 'Joel': 'JOE', 'Nah': 'NAH', 'Jdgs': 'JDG', 'Song': 'SOL', 'Phil': 'PHI', 'Jam': 'JAM'})
 ORDER = {c: i for i, c in enumerate(CODES)}
+# The books' names, in their own language, for each verse's reference ("Ματθαῖος 1:1")
+NAMES = dict(zip(CODES, ('בראשית|שמות|ויקרא|במדבר|דברים|יהושע|שופטים|רות|שמואל א|שמואל ב|מלכים א|מלכים ב|דברי הימים א|דברי הימים ב|עזרא|נחמיה|אסתר|איוב|תהלים|משלי|קהלת|שיר השירים|ישעיהו|ירמיהו|איכה|יחזקאל|דניאל|הושע|יואל|עמוס|עובדיה|יונה|מיכה|נחום|חבקוק|צפניה|חגי|זכריה|מלאכי|'
+	'Ματθαῖος|Μᾶρκος|Λουκᾶς|Ἰωάννης|Πράξεις|Ῥωμαίους|Α΄ Κορινθίους|Β΄ Κορινθίους|Γαλάτας|Ἐφεσίους|Φιλιππησίους|Κολοσσαεῖς|Α΄ Θεσσαλονικεῖς|Β΄ Θεσσαλονικεῖς|Α΄ Τιμόθεον|Β΄ Τιμόθεον|Τίτον|Φιλήμονα|Ἑβραίους|Ἰακώβου|Α΄ Πέτρου|Β΄ Πέτρου|Α΄ Ἰωάννου|Β΄ Ἰωάννου|Γ΄ Ἰωάννου|Ἰούδα|Ἀποκάλυψις').split('|')))
 
 CANTILLATION = re.compile('[\u0591-\u05AF\u05BD\u05C0\u05C4\u05C5]')  # accents, meteg, paseq, upper/lower dots
 
@@ -61,9 +64,9 @@ def verse_key(code, ch, vs):
 def write_bible(path, desc, verses, rtl=False):
 	os.makedirs(os.path.dirname(path), exist_ok=True)
 	with open(path, 'w', encoding='utf-8') as out:
-		out.write(f'#desc\t{desc}\n#priority\t0\n#lang\tmono\n#no sort\n')
+		out.write(f'#desc\t{desc}\n#priority\t-1\n#lang\tmono\n#no sort\n')
 		for (b, ch, vs), words in sorted(verses.items()):
-			out.write(f'{CODES[b]} {ch}.{vs}\t<p-il{" dir=rtl" if rtl else ""}>{" ¦ ".join(words)}</p-il>\n')
+			out.write(f'{CODES[b].lower()} {ch}.{vs}\t@{NAMES[CODES[b]]} {ch}:{vs}\t<p-il{" dir=rtl" if rtl else ""}>{" ¦ ".join(words)}</p-il>\n')
 
 # ---------------------------------------------------------------- Greek NT
 def tagnt(src):

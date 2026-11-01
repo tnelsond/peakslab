@@ -629,6 +629,7 @@ p-d > h2, #chNav {
 p-d > h2:has(.menu) { z-index: 5; } /* (its ⋮ menu over the next card's heading) */
 p-d > h2 + * { margin-top: 12px; }
 .card-bar .hw-sep { opacity: .6; }
+.card-bar .hw svg { width: .75em; height: .75em; margin-left: .2em; opacity: .8; } /* (its ▾s: it opens the Bible panel) */
 .card-bar .hw-own { color: #ffe9a8; } /* (the book's own name and digits: a warmer white) */
 .card-bar .hw { min-width: 0; margin: -.3em 0; padding: .3em 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; } /* (room in it for a script's marks above and below the line: Khmer's) */
 body.fullscreen p-d > h2 { position: static; } /* (fullscreen: they scroll with their card) */
@@ -942,7 +943,7 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	padding: 0 2px 20px; /* (as wide as the results: #content's; its first heading at its top) */
 	border-radius: 18px;
 	max-width: 1200px;
-	max-height: 80vh;
+	max-height: calc(100% - 76px - env(safe-area-inset-bottom, 0px)); /* (down to the round buttons below it: 56px, and its padding) */
 	margin: 0 auto;
 	overflow-y: auto;
 	box-shadow: 0 20px 50px rgba(0,0,0,.7);
