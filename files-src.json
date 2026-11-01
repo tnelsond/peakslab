@@ -1,11 +1,10 @@
 {
   "core": [
-    ["404.html", 1793535083],
+    ["404.html", 1793536974],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
     ["khmer/battambang.woff2", 1793169367],
-    ["media.js", 1792420795],
     ["peakslab.svg", 1789218198],
     ["peak.wasm", 1793264757]
   ],
@@ -51,7 +50,7 @@
     ["khmer/bible/text/kcb.peak.zst", 1793534678, "Khmer 2012 (Khmer Christian Bible)\" Words of Life Ministries <a href=\"https://www.bible.com/bible/315/MAT.8.KCB\">bible.com</a>", 1454, 4, "mono", 0, 496878],
     ["khmer/bible/text/khmus.peak.zst", 1793534705, "Khmer 2014 (អាល់គីតាប) © 2014 United Bible Societies, UK <a href=\"https://www.bible.com/bible/2224/EXO.13.អគត\">bible.com</a>", 1670, 4, "mono", 0, 1919365],
     ["khmer/bible/text/khov2016.peak.zst", 1793534731, "Khmer (ព្រះគម្ពីរបរិសុទ្ធកែសម្រួល ២០១៦)\" status=\"© 2016 United Bible Societies\" <a href=\"https://www.bible.com/bible/2227/GEN.7.គកស១៦\">bible.com</a>", 2077, 3, "mono", 0, 1956101],
-    ["khmer/bible/text/khov.peak.zst", 1793534327, "Hammond 1954 Khmer Bible (Old Version) from <a href=\"https://ebible.org/study/content/texts/khm-h/\">eBible</a>", 1707, 2, "mono", 0, 2039104],
+    ["khmer/bible/text/khov.peak.zst", 1793536909, "Hammond 1954 Khmer Bible (Old Version) from <a href=\"https://ebible.org/study/content/texts/khm-h/\">eBible</a>", 1696, 2, "mono", 0, 2028922],
     ["khmer/bible/text/khsv.peak.zst", 1793534356, "Khmer Standard Version from <a href=\"https://ebible.org/study/content/texts/khm/\">eBible</a>", 1872, 1, "mono", 0, 2048381],
     ["khmer/bible/text/ulb.peak.zst", 1793534383, "Khmer Unlocked Literal Bible from <a href=\"https://door43.org\">Door43</a>, Wycliffe Associates", 13353, 3, "mono", 0, 1802384],
     ["khmer/dict/aakanee.peak.zst", 1792403205, "from aakanee.com (URL stopped working)", 1044, 2, "bi", 0, 135886],
@@ -102,7 +101,7 @@
     ["lao/phonetics/dict/laoipa.peak.zst", 1792418455, "Lao pronunciation (Vientiane), from <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>'s Patterson and Kerr: á high, ā mid, à low, â falling, ǎ rising, ȁ low falling", 402, 2, "phon", 0, 475255],
     ["lao/phonetics/dict/laosouth.peak.zst", 1792418458, "Southern Lao pronunciation (Pakxé), <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>'s Patterson and Kerr with Hartmann's Pakxé tones: ˦˥ high rising, ˧ mid, ˨ lower mid, ˩ low, ˨˩ low falling, ˧˩ mid falling, ̰ creaky", 440, 1, "phon", 0, 462295],
     ["lao/ref/lowiki.peak.zst", 1788857384, "<a href=\"https://lo.wikipedia.org/\">Lao Wikipedia</a>", 2480, 3, "mono", 0, 1023044],
-    ["levantine/bible/text/vandyke.peak.zst", 1793534500, "Van Dyke Levantine Arabic Bible", 908, 1, "mono", 0, 1519776],
+    ["levantine/bible/text/vandyke.peak.zst", 1793536942, "Van Dyke Levantine Arabic Bible", 908, 1, "mono", 0, 1515873],
     ["levantine/dict/livinglevantineforms.peak.zst", 1788854640, "Living Levantine Forms", 300, 1, "aux", 0, 193568],
     ["levantine/dict/livinglevantine.peak.zst", 1788854643, "Living Levantine Dictionary", 9097, 1, "bi", 0, 882609],
     ["lozi/dict/lozi.peak.zst", 1788854644, "Lozi dictionary from loziland website.", 2055, 1, "bi", 0, 399489],

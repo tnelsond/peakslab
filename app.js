@@ -336,7 +336,7 @@ if(!isDictPage){
 			el.alt = name;
 			el.style.maxWidth = '100%';
 		}
-		(audio ? audioSrc(type, bytes) : (/jbig2/i.test(type) ? media().then(m => m.jbig2toPng(bytes)) : Promise.resolve(new Blob([bytes], {type: 'image/' + type.toLowerCase()})))
+		(audio ? audioSrc(type, bytes) : (/jbig2/i.test(type) ? jbig2toPng(bytes) : Promise.resolve(new Blob([bytes], {type: 'image/' + type.toLowerCase()})))
 			.then(b => URL.createObjectURL(b))).then(u => { el.src = u; });
 		return el;
 	}
@@ -351,10 +351,8 @@ if(!isDictPage){
 	const verseNum = h => (([c, cv]) => c * 1000 + cv)(h.split(' ').pop().split('.').map(Number)); // (by chapter, then verse)
 	// (its chapters' first verses say their chapter: "2:1")
 	function addVerse(data, h, d, card){
-		const v = verseNum(h), label = refOf(data.body), par = card.matches('.parallel');
-		const ref = label && /(\p{Nd}+\s*[:.]\s*)(\p{Nd}+)/u.exec(label);
-		const full = ref && (v % 1000 === 1 || !card.querySelector('.vs'));
-		const n = ref ? (full ? ref[1] + ref[2] : ref[2]) : String(v % 1000);
+		const v = verseNum(h), par = card.matches('.parallel');
+		const [cv, , n] = /(\p{Nd}+)[:.](\p{Nd}+)$/u.exec(refOf(data.body)), full = v % 1000 === 1 || !card.querySelector('.vs');
 		const body = highlightText(textOf(data.body).replace(/<\/?p(?=[\s>])[^>]*>/gi, ' '), card.parentNode === resultsDiv && !card.dataset.hl && query); // (verses run on; the search's words marked)
 		// Its headings go above its number, which stays on the line with its
 		// first word
@@ -370,7 +368,7 @@ if(!isDictPage){
 		// In parallel, in the verse's group, by verse, each text as the
 		// dictionaries go: like an entry, with its name and Gloss
 		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}` : '') +
-			`<span class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}${lead}<span class="vs-start"><span class="vs-n">${escapeHTML(n)}</span>${word}</span>${rest.slice(lead.length + word.length)}` +
+			`<span class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}${lead}<span class="vs-start"><span class="vs-n">${full ? cv : n}</span>${word}</span>${rest.slice(lead.length + word.length)}` +
 			(par ? '</span></div>' : ' </span>');
 		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
 		if(par){
@@ -394,7 +392,7 @@ if(!isDictPage){
 	// verse (one for each, on one of a parallel verse's texts) shows it in
 	// the popup
 	function addNote(card, d, e){
-		const v = verseNum(updateQuery(e.header));
+		const v = verseNum(e.header);
 		push(card._notes, v, {d, e});
 		card.querySelectorAll(`.vs[data-v="${v}"]`).forEach(noteLinks);
 	}
@@ -659,9 +657,48 @@ if(!isDictPage){
 		return html.replace(/<[^>]+>|([^<]+)/g, (m, text) => text ? text.replace(re, '<mark>$1</mark>') : m);
 	}
 
-	// The media decoders (media.js, with jbig2.wasm and codec2.wasm), loaded
-	// when first used
-	const media = () => import('/media.js');
+	// The media decoders: JBIG2 images (sheet music) to PNG, Codec2 audio to
+	// WAV; each one's wasm loaded when first used
+	// A decoder's wasm; whatever it imports does nothing (or fails, for an
+	// exit or abort)
+	const decoders = {};
+	const decoder = name => decoders[name] ??= WebAssembly.compileStreaming(fetch(`/${name}.wasm`)).then(m => {
+		const imports = {};
+		for (const {module, name: f} of WebAssembly.Module.imports(m))
+			(imports[module] ??= {})[f] = /exit|abort|assert/.test(f) ? () => { throw new Error(`${name}.wasm: ${f}`); } : () => 0;
+		return WebAssembly.instantiate(m, imports);
+	}).then(i => i.exports);
+	// Bytes into a decoder's memory (freed by the caller)
+	function toWasm(x, bytes){
+		const p = x.malloc(bytes.length);
+		if (!p) throw new Error('malloc failed');
+		new Uint8Array(x.memory.buffer, p, bytes.length).set(bytes);
+		return p;
+	}
+
+	async function jbig2toPng(data) {
+		const x = await decoder('jbig2'), bytes = new Uint8Array(data);
+		const p = toWasm(x, bytes);
+		x.jbig2_decode_to_png(p, bytes.length);
+		x.free(p);
+		const out = new Uint8Array(x.memory.buffer, x.jbig2_get_result_ptr(), x.jbig2_get_result_size()).slice();
+		x.jbig2_free_result();
+		return new Blob([out], {type: 'image/png'});
+	}
+
+	async function codec2toWav(data) {
+		const x = await decoder('codec2'), bytes = new Uint8Array(data);
+		// 700C: 4 bytes a frame, 320 samples; a 7 byte header (c0 de c2 ...) or none
+		const header = bytes[0] === 0xc0 && bytes[1] === 0xde && bytes[2] === 0xc2 ? 7 : 0;
+		const outMax = 44 + Math.floor((bytes.length - header) / 4) * 320 * 2;
+		const p = toWasm(x, bytes), out = x.malloc(outMax);
+		const written = out ? x.decode_to_wav(p, bytes.length, out, outMax) : -1;
+		x.free(p);
+		const wav = written >= 0 && new Uint8Array(x.memory.buffer, out, written).slice();
+		if (out) x.free(out);
+		if (!wav) throw new Error('codec2: decoding failed, ' + written);
+		return new Blob([wav], {type: 'audio/wav'});
+	}
 
 	// The query, newlines and all. The one line search bar can't hold
 	// newlines, so it shows them as spaces (same length, so the positions
@@ -725,15 +762,15 @@ if(!isDictPage){
 	}
 	// Bible d's lines in range r ({d, at (the first), last}, in its order:
 	// the Bible's), or null. Its book: its code, or the name a Bible gives it.
-	const bookCode = book => (b => books?.find(x => x.code.toLowerCase() === b || x.name.toLowerCase() === b)?.code || book)(book.toLowerCase());
+	const bookCode = book => (b => books?.find(x => x.code === b || x.name.toLowerCase() === b)?.code || b)(book.toLowerCase());
+	// A Bible's (or commentary's) headwords, each [its book's code, chapter * 1000 + verse]: "gen 1.1"
 	const headsCache = {};
-	const headsOf = d => headsCache[d] ??= askDict(d, {type: 'heads'}).then(r => r.heads.map(h => h.toLowerCase()));
+	const headsOf = d => headsCache[d] ??= askDict(d, {type: 'heads'}).then(r => r.heads.map(h => (([bk, c, v]) => [bk, c * 1000 + +v])(h.split(/[ .]/))));
 	const rangeLines = (d, r) => new Promise(then => books ? then() : loadBooks(then)).then(() => headsOf(d)).then(heads => {
-		const code = bookCode(r.bk).toLowerCase();
+		const code = bookCode(r.bk);
 		let at = -1, last = -1;
-		heads.forEach((h, i) => {
-			const m = /^(.+) (\d+)\.(\d+)$/.exec(h), v = m && m[2] * 1000 + +m[3];
-			if (!m || m[1] !== code) return;
+		heads.forEach(([bk, v], i) => {
+			if (bk !== code) return;
 			if (at < 0 && v >= r.from) at = i;
 			if (v <= r.to) last = i;
 		});
@@ -786,26 +823,22 @@ if(!isDictPage){
 	function loadBooks(then){
 		const mask = searchMask();
 		const d = dictIds.filter(isBibleText).sort((a, b) => mask[b] - mask[a] || sortId(a) - sortId(b))[0];
-		(booksLoad ??= askDict(d, {type: 'heads'}).then(r => {
+		(booksLoad ??= headsOf(d).then(heads => {
 			const list = [], firsts = [];
 			let s = 0;
-			r.heads.forEach((h, i) => {
-				const m = /^(.+) (\d+)\.\d+$/.exec(h);
-				if (!m) return;
-				if (list.at(-1)?.code !== m[1]) {
-					s = Math.max(s, sections.indexOf(m[1].toLowerCase()));
-					list.push({code: m[1], n: 0, name: m[1], zero: 48, s, vs: []}); firsts.push(i);
+			heads.forEach(([code, cv], i) => {
+				if (list.at(-1)?.code !== code) {
+					s = Math.max(s, sections.indexOf(code));
+					list.push({code, n: 0, s, vs: []}); firsts.push(i);
 				}
-				const b = list.at(-1), v = +/\.(\d+)$/.exec(h)[1];
-				b.n = Math.max(b.n, +m[2]);
-				b.vs[m[2]] = Math.max(b.vs[m[2]] || 0, v); // (its chapters' last verses)
+				const b = list.at(-1), c = Math.floor(cv / 1000);
+				b.n = Math.max(b.n, c);
+				b.vs[c] = Math.max(b.vs[c] || 0, cv % 1000); // (its chapters' last verses)
 			});
 			return askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}).then(r => {
 				r.entries.forEach((e, i) => {
-					const ref = e && /^(.*?)\s*(\p{Nd})\s*[:.]\s*\p{Nd}+$/u.exec(refOf(e.body));
-					if (!ref) return;
-					list[i].name = ref[1] || list[i].name;
-					list[i].zero = ref[2].codePointAt(0) - 1; // (chapter 1)
+					const [, name, one] = /^(.*) (\p{Nd})/u.exec(refOf(e.body)); // (its first verse's: "លោកុប្បត្តិ ១:១")
+					Object.assign(list[i], {name, zero: one.codePointAt(0) - 1});
 				});
 				abbrevBooks(list);
 				books = list;
@@ -923,7 +956,7 @@ if(!isDictPage){
 		return r && {...r, kind: r.from === r.to ? 'verse' : r.from % 1000 === 1 && r.to % 1000 === 999 && r.to - r.from < 1000 ? 'chapter' : 'range'};
 	}
 	const cardRef = card => ({bk: card.dataset.bk, from: +card.dataset.from, to: +card.dataset.to, kind: card.dataset.kind});
-	const bookOf = bk => books?.find(x => x.code.toLowerCase() === bookCode(bk).toLowerCase());
+	const bookOf = bk => books?.find(x => x.code === bookCode(bk));
 	// A Bible card's heading (a verse's word card's: its h2); q, what it's
 	// for (its bookmark's and Share's)
 	function addCardBar(card, ref, q){
@@ -937,7 +970,7 @@ if(!isDictPage){
 	function refLabel({bk, from, to, kind}, own = true){
 		const b = bookOf(bk), n = x => own && b ? bookNum(b, x) : x, [cv, dash] = own ? [':', '–'] : ['.', '-'];
 		const [c1, v1, c2, v2] = [Math.floor(from / 1000), from % 1000, Math.floor(to / 1000), to % 1000];
-		const name = escapeHTML(own ? b?.name || bk.toUpperCase() : (b?.code || bk).toLowerCase());
+		const name = escapeHTML(own ? b?.name || bk.toUpperCase() : bookCode(bk));
 		if (kind === 'verse') return `${name} ${n(c1)}${cv}${n(v1)}`;
 		if (kind === 'chapter' || (v1 === 1 && v2 === 999 && c1 === c2)) return `${name} ${n(c1)}`;
 		if (v1 === 1 && v2 === 999) return `${name} ${n(c1)}${dash}${n(c2)}`;
@@ -1005,7 +1038,7 @@ if(!isDictPage){
 	function wholeChapter(card, dir){
 		const ref = cardRef(card), [c1, c2] = [Math.floor(ref.from / 1000), Math.floor(ref.to / 1000)];
 		const y = (card.querySelector('.vs') || card.querySelector(':scope > p-e'))?.getBoundingClientRect().top;
-		Object.assign(card.dataset, {from: c1 * 1000 + 1, to: c2 * 1000 + 999, kind: c1 === c2 ? 'chapter' : 'range', hl: `${(bookOf(ref.bk)?.code || ref.bk).toLowerCase()} ${c1}.${ref.from % 1000}`});
+		Object.assign(card.dataset, {from: c1 * 1000 + 1, to: c2 * 1000 + 999, kind: c1 === c2 ? 'chapter' : 'range', hl: `${bookCode(ref.bk)} ${c1}.${ref.from % 1000}`});
 		renderCardBar(card);
 		fillCard(card).then(() => {
 			const vs = card.querySelector('.vs.ctx');
@@ -1018,7 +1051,7 @@ if(!isDictPage){
 		const b = e.target.closest('p-d > .vs-more'), card = b?.parentNode;
 		if (!b) return;
 		if (inPopup(card)) return wholeChapter(card, +b.dataset.dir);
-		const ref = cardRef(card), code = (bookOf(ref.bk)?.code || ref.bk).toLowerCase(), c1 = Math.floor(ref.from / 1000), c2 = Math.floor(ref.to / 1000);
+		const ref = cardRef(card), code = bookCode(ref.bk), c1 = Math.floor(ref.from / 1000), c2 = Math.floor(ref.to / 1000);
 		openPopupSearch(`${code} ${c1}-${c2}`, `${code} ${c1}.${ref.from % 1000}`, ownTexts(card));
 	});
 	const cardBars = () => document.querySelectorAll('#results > p-d > .card-bar, #popupResults > p-d > .card-bar');
@@ -1037,7 +1070,7 @@ if(!isDictPage){
 			closePopup();
 			return search(q);
 		}
-		const ref = cardRef(card), b0 = bookOf(ref.bk), code = (b0?.code || ref.bk).toLowerCase(), c = Math.floor(ref.from / 1000);
+		const ref = cardRef(card), b0 = bookOf(ref.bk), code = bookCode(ref.bk), c = Math.floor(ref.from / 1000);
 		if (go) { // The chapter before or after (the popup's, in it)
 			const next = b0 && nextChapter(`${b0.code} ${c}.`, +go);
 			if (!next) return;
@@ -1131,7 +1164,7 @@ if(!isDictPage){
 			p.at += n;
 			return askDict(d, lineMsg(p.at - n, n)).then(res => {
 				if (!live()) return;
-				res.entries.forEach(e => e && addVerse(e, updateQuery(e.header), d, card));
+				res.entries.forEach(e => e && addVerse(e, e.header, d, card));
 				return more(d, p);
 			});
 		};
@@ -2110,7 +2143,7 @@ if(!isDictPage){
 	};
 	// A recording's URL, ready before it's played: phones play sound only
 	// right in the tap, not after something else finishes (like decoding)
-	const audioSrc = async (type, bytes) => URL.createObjectURL(/codec2|c2/i.test(type) ? await media().then(m => m.codec2toWav(bytes)) : new Blob([bytes], {type: audioType(type)}));
+	const audioSrc = async (type, bytes) => URL.createObjectURL(/codec2|c2/i.test(type) ? await codec2toWav(bytes) : new Blob([bytes], {type: audioType(type)}));
 	const audioType = t => /webm/i.test(t) ? 'audio/webm; codecs=opus' : 'audio/' + t.toLowerCase();
 
 	// The gloss of an entry's (or verse's) text, or some of it: above the

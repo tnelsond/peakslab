@@ -2,7 +2,7 @@ comma := ,
 # A language's font (dict_src/khmer/battambang.ttf): a .woff2 of just its script's
 # characters (FONT_CHARS), which the app uses on that language's pages
 FONTS := $(patsubst dict_src/%.ttf,%.woff2,$(wildcard dict_src/*/*.ttf))
-all : peakgen peakgen.wasm sw.js media.js peak.wasm peak 404.html $(FONTS) files.json
+all : peakgen peakgen.wasm sw.js peak.wasm peak 404.html $(FONTS) files.json
 
 khmer/battambang.woff2: FONT_CHARS = U+1780-17FF,U+19E0-19FF,U+200B-200D,U+25CC
 $(FONTS): %.woff2: dict_src/%.ttf
@@ -159,10 +159,6 @@ peak : peak_cli.c peak.h peak.c zstddeclib.c
 	./createmeta.sh 404.html
 	$(MAKE) filelist # (its timestamp there is what makes installed copies update)
 	cp 404.html index.html
-# The media decoders' code, loaded with their wasm when first used
-media.js : media-src.js
-	node_modules/.bin/terser media-src.js --module --compress --mangle -o media.js
-	./createmeta.sh media.js
 	$(MAKE) filelist # (its timestamp there is what makes installed copies update)
 sw.js : sw-src.js
 	node_modules/.bin/terser sw-src.js --compress passes=2 --mangle --toplevel -o sw.js
