@@ -1681,7 +1681,7 @@ if(!isDictPage){
 
 	// Turns these on or off for glosses only (the gloss's drawer)
 	function setGlossOn(ds, on){
-		ds.forEach(d => { glossSet[dicts[d].path] = typeof on === 'function' ? on(d) : on; });
+		ds.forEach(d => { glossSet[dicts[d].path] = on; });
 		if (!solo.length) store(glossKey, glossSet);
 		renderLists();
 		renderQuick();
@@ -1695,7 +1695,7 @@ if(!isDictPage){
 		picks[view] = s;
 		store(VIEWS[view].key, s);
 		updateFilterUI();
-		VIEWS[view].changed?.();
+		VIEWS[view].changed();
 	}
 	function updateFilterUI(){
 		renderLists();
@@ -1916,7 +1916,7 @@ if(!isDictPage){
 	// starred), then by priority (0, 1, 2, 3, ..., then -1, -2, ...: rank),
 	// then the dictionaries' order
 	const glossIds = () => dictIds.filter(d => isOn(d, 'gloss'))
-		.sort((a, b) => isStar(b) - isStar(a) || (isStar(a) ? sortId(a) - sortId(b) : rank(dicts[a].priority) - rank(dicts[b].priority) || a - b));
+		.sort((a, b) => isStar(a) || isStar(b) ? sortId(a) - sortId(b) : rank(dicts[a].priority) - rank(dicts[b].priority) || a - b); // (starred first)
 	const glossMask = () => dicts.map((_, d) => isOn(d, 'gloss'));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
 
@@ -2017,7 +2017,7 @@ if(!isDictPage){
 		if (!found.length) return [];
 		return Promise.all(found.map(x => rangeLines(d, x.r).then(p => p && askDict(d, lineMsg(p.at, Math.min(20, p.last - p.at + 1))).then(res => ({
 			a: x.a, len: x.s.length, d, rank: -1, sec: 0, row: glossRow(d),
-			r: {header: x.s, body: res.entries.filter(Boolean).map(e => textOf(e.body)).join(' '), d, sec: 0}, // (rendered already)
+			r: {header: x.s, body: res.entries.filter(Boolean).map(e => textOf(e.body)).join(' ')}, // (rendered already)
 		}))))).then(xs => xs.filter(Boolean));
 	}
 
@@ -2058,34 +2058,27 @@ if(!isDictPage){
 		return out;
 	}
 
-	// Each word's rows: in each, of the row's dictionaries, the best entry
-	// for exactly it (the first dictionary's: glossIds' order; its headword
-	// over a second index word), or else its parts', if they make it up
+	// Each word's rows: in each, the entry for exactly it from the row's
+	// first dictionary that has it (glossIds' order: starred first, then by
+	// priority; a headword over a second index word), as the popup has it;
+	// else its parts' entries, if they make it all up
 	function pickPieces(matches, text, done){
-		const best = (xs, p) => xs.filter(x => x.a === p.a && x.len === p.b - p.a).sort((x, y) => x.rank - y.rank || x.sec - y.sec)[0];
-		const word = x => text.slice(x.a, x.a + x.len);
-		const rows = GLOSS_ROWS.map(r => matches.filter(x => x.row === r));
 		const pieces = splitText(matches, text, 0, text.length);
 		const byDict = new Map(); // The matches each dictionary renders
 		pieces.forEach(p => {
-			p.rows = rows.map(xs => {
-				if (!p.w) return [];
-				const x = best(xs, p);
-				const parts = x ? [] : splitText(xs.filter(y => y.a >= p.a && y.a + y.len <= p.b), text, p.a, p.b);
-				return x ? [x] : parts.every(q => q.w) ? parts.map(q => q.w) : [];
+			const xs = p.w ? matches.filter(x => x.a >= p.a && x.a + x.len <= p.b).sort((x, y) => x.rank - y.rank || x.sec - y.sec) : [];
+			p.rows = GLOSS_ROWS.map(r => {
+				const x = xs.find(x => x.row === r && x.a === p.a && x.len === p.b - p.a);
+				const parts = x ? [{w: x}] : splitText(xs.filter(y => y.row === r), text, p.a, p.b);
+				return parts.every(q => q.w) ? parts.map(q => q.w) : [];
 			});
 			p.rows.flat().forEach(x => x.r || push(byDict, x.d, x)); // (a range's is rendered)
 		});
 		Promise.all([...byDict].map(([d, xs]) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}).then(r => {
-			xs.forEach((x, i) => { if (r.entries[i]) x.r = {...r.entries[i], d, sec: x.sec}; });
+			xs.forEach((x, i) => { x.r = r.entries[i]; });
 		}))).then(() => done(pieces.map(p => {
-			const xs = p.rows.map(r => r.filter(x => x.r && (x.g = glossOf(x.r, word(x))))); // (a media file with no details has no text)
-			return {
-				text: text.slice(p.a, p.b),
-				d: p.w?.d,
-				rows: xs.map(r => r.map(x => x.g).join(' ')),
-				ds: [...new Set(xs.flat().map(x => x.d))], // (the dictionaries in its rows)
-			};
+			const xs = p.rows.map(r => r.filter(x => x.r && (x.g = glossOf(x, text.slice(x.a, x.a + x.len))))); // (a media file with no details has no text)
+			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: xs.map(r => r.map(x => x.g).join(' ')), ds: [...new Set(xs.flat().map(x => x.d))]}; // ds: the dictionaries in its rows
 		})));
 	}
 
@@ -2095,7 +2088,7 @@ if(!isDictPage){
 	// the entry's other spelling); tapping the word shows what the popup
 	// search finds for it
 	const script = t => (t.match(/\p{L}/u)?.[0] ?? ' ').codePointAt(0) >> 7; // (its Unicode block, roughly)
-	const glossOf = (entry, word) => entry.sec && script(entry.header) !== script(word) ? entry.header : summary(entry.body, entry.header);
+	const glossOf = ({r, sec}, word) => sec && script(r.header) !== script(word) ? r.header : summary(r.body, r.header);
 	function translationHTML(pieces){
 		return pieces.map(p => {
 			if (p.d === undefined) // Text no dictionary has: its words dashed, the rest as is
@@ -2392,7 +2385,6 @@ if(!isDictPage){
 	// Its text: what's selected, a gloss's text, or the entry's
 	const ctxText = () => ctx.sel || ctx.el.dataset.text || entryText(ctx.el);
 	const isGloss = el => el.matches('.tr-entry, p-d.translation');
-	// A verse's reference ("joh 3.16")
 	// A Bible verse's reference, to Compare it (the popup: every Bible text the gloss has)
 	const compareOf = () => !ctx.sel && ctx.el.closest('.vs')?.dataset.h;
 	// What Bookmark is for: what's selected, a verse, or a word's card (not a gloss, or a chapter)
