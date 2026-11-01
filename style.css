@@ -655,12 +655,12 @@ p-d > .vs-more:hover { color: var(--tab-bg); }
 /* The Bible side panel: its translations, a drop-down (its list over
    what's under it); a chapter's ‹ its name › */
 .tx-dd { position: relative; margin: 6px 0 4px; }
-/* Outlined buttons (the Bible panel's) */
-.tx-drop, .bk-btn, .ch-go, .bk-grid button { min-width: 0; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-bg); color: var(--card-text); }
+/* The Bible panel's buttons: tan, like a dictionary's name */
+.tx-drop, .bk-btn, .ch-go, .bk-grid button { min-width: 0; min-height: 40px; border: 1px solid transparent; border-radius: 8px; background: var(--pill-bg); color: var(--pill-fg); }
 .tx-drop, .bk-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; }
 .tx-drop { width: 100%; text-align: left; }
 .tx-drop > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tx-caret { flex: none; line-height: 0; color: var(--muted); }
+.tx-caret { flex: none; line-height: 0; }
 .tx-caret svg { width: 18px; height: 18px; }
 .tx-drop[aria-expanded="true"] { border-color: var(--head-bg); }
 .tx-list {
@@ -680,7 +680,7 @@ p-d > .vs-more:hover { color: var(--tab-bg); }
 .tx-list .cat-sel { justify-content: center; }
 .ch-nav { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
 .bk-btn { flex: 1; font-size: 1.1em; font-weight: 700; }
-.bk-btn small { font-size: .65em; font-weight: 400; color: var(--muted); }
+.bk-btn small { font-size: .65em; font-weight: 400; }
 .bk-btn[aria-expanded="true"] .tx-caret { transform: rotate(180deg); }
 .ch-nav + .bk-grid, .ch-nav + * { margin-top: 10px; }
 .tx-all-row { border-top: 1px solid var(--line); }

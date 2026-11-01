@@ -799,7 +799,7 @@ if(!isDictPage){
 			if (gen !== searchGen) return;
 			if (!parts.some(Boolean)) return otherwise();
 			cleanup(resultsDiv);
-			lastRead = `${bookCode(ref.bk)} ${Math.floor(ref.from / 1000)}.`; // (the Bible bar's)
+			lastRead = `${bookCode(ref.bk)} ${chOf(ref.from)}.`; // (the Bible bar's)
 			renderBibleBar();
 			bibleCard(resultsDiv, ref, query, null, readHl);
 		});
@@ -831,7 +831,7 @@ if(!isDictPage){
 					s = Math.max(s, sections.indexOf(code));
 					list.push({code, n: 0, s, vs: []}); firsts.push(i);
 				}
-				const b = list.at(-1), c = Math.floor(cv / 1000);
+				const b = list.at(-1), c = chOf(cv);
 				b.n = Math.max(b.n, c);
 				b.vs[c] = Math.max(b.vs[c] || 0, cv % 1000); // (its chapters' last verses)
 			});
@@ -865,23 +865,21 @@ if(!isDictPage){
 	}
 	const bookName = x => escapeHTML(x.name) + (x.name !== x.code ? `<small>${escapeHTML(x.code.toUpperCase())}</small>` : '');
 	const bookNum = (x, n) => String(n).replace(/\d/g, d => String.fromCodePoint(x.zero + +d)); // In the Bible's digits
-	// A chapter ("joh 3."): its book and number; and the one before or
-	// after it (dir -1 or 1), across books (none at the ends)
-	const isChapter = q => !!q && chapterOf(q + '1') === q;
+	// A chapter ("joh 3."): its reference ({bk, from, to, kind}), or null
+	const chapterRef = q => (m => m && {bk: m[1], from: m[2] * 1000 + 1, to: m[2] * 1000 + 999, kind: 'chapter'})(/^(.+) (\d+)\.$/.exec(q || ''));
+	const chapterRange = q => q.replace(/ (\d+)\.$/, ' $1-$1'); // ("joh 4." as a range, "joh 4-4": the popup's)
+	const chOf = cv => Math.floor(cv / 1000); // (chapter * 1000 + verse: its chapter)
 	// A book and a number ("gen 1", "Genesis 1", "លោកុប្បត្តិ ១"): its chapter, "gen 1."
 	const digit = ch => { let k = 0; const cp = ch.codePointAt(0); while (/\p{Nd}/u.test(String.fromCodePoint(cp - k - 1))) ++k; return k % 10; };
 	function asChapter(q){
 		const m = books && /^(.*\S)\s+(\p{Nd}+)$/u.exec(q || ''), b = m && bookOf(m[1]), n = m && +[...m[2]].map(digit).join('');
 		return b && n >= 1 && n <= b.n ? `${b.code} ${n}.` : q;
 	}
-	function chapterAt(ref){
-		const [, code, c] = /^(.+) (\d+)\.$/.exec(ref) || [];
-		const i = books.findIndex(x => x.code === code);
-		return {i, b: books[i], ch: +c};
-	}
-	function nextChapter(ref, dir){
-		const {i, b, ch} = chapterAt(ref), to = ch + dir;
-		const bk = b && (to < 1 ? books[i - 1] : to > b.n ? books[i + 1] : b);
+	// The chapter before or after book b's chapter c (dir -1 or 1), across
+	// books ("joh 4."; none at the ends)
+	function nextChapter(b, c, dir){
+		const i = books.indexOf(b), to = c + dir;
+		const bk = to < 1 ? books[i - 1] : to > b.n ? books[i + 1] : b;
 		return bk ? `${bk.code} ${to < 1 ? bk.n : bk === b ? to : 1}.` : null;
 	}
 
@@ -904,12 +902,11 @@ if(!isDictPage){
 	// chapter read: Books)
 	function renderBibleBar(){
 		renderCardBars(); // (their translations, if they're the Bible bar's)
-		if (isChapter(query)) lastRead = query;
+		if (chapterRef(query)) lastRead = query;
 		bibleBar.hidden = !bibleMode() || !!query; // (just with nothing searched: a search's Bible cards have their own)
 		if (bibleBar.hidden) return;
 		if (!books) return loadBooks(renderBibleBar); // (after it's started: not while the page is)
-		const [, bk = '', c = 0] = /^(.+) (\d+)\.$/.exec(lastRead) || [];
-		Object.assign(bibleBar.dataset, {bk, from: c * 1000 + 1, to: c * 1000 + 999, kind: 'chapter'});
+		Object.assign(bibleBar.dataset, chapterRef(lastRead) || {bk: ''});
 		renderCardBar(bibleBar);
 	}
 	function booksHTML(){
@@ -943,12 +940,8 @@ if(!isDictPage){
 	}
 	// The chapter or range searched
 	function searchRef(){
-		if (isChapter(query)) {
-			const [, bk, c] = /^(.+) (\d+)\.$/.exec(query);
-			return {bk, from: c * 1000 + 1, to: c * 1000 + 999, kind: 'chapter'};
-		}
 		const r = rangeOf(query);
-		return r && {...r, kind: 'range'};
+		return chapterRef(query) || r && {...r, kind: 'range'};
 	}
 	// The popup's chapter or range: a whole chapter is a chapter
 	function popupRef(){
@@ -969,7 +962,7 @@ if(!isDictPage){
 	// (own) in the book's own name and digits ("រ៉ូម ១:២", "Romans 1:4–20")
 	function refLabel({bk, from, to, kind}, own = true){
 		const b = bookOf(bk), n = x => own && b ? bookNum(b, x) : x, [cv, dash] = own ? [':', '–'] : ['.', '-'];
-		const [c1, v1, c2, v2] = [Math.floor(from / 1000), from % 1000, Math.floor(to / 1000), to % 1000];
+		const [c1, v1, c2, v2] = [chOf(from), from % 1000, chOf(to), to % 1000];
 		const name = escapeHTML(own ? b?.name || bk.toUpperCase() : bookCode(bk));
 		if (kind === 'verse') return `${name} ${n(c1)}${cv}${n(v1)}`;
 		if (kind === 'chapter' || (v1 === 1 && v2 === 999 && c1 === c2)) return `${name} ${n(c1)}`;
@@ -1027,7 +1020,7 @@ if(!isDictPage){
 	// … above a verse's card (verses before it in its chapter), below it (after)
 	function moreVerses(card, ref){
 		card.querySelectorAll(':scope > .vs-more').forEach(b => b.remove());
-		const b = bookOf(ref.bk), [c1, v1, c2, v2] = [Math.floor(ref.from / 1000), ref.from % 1000, Math.floor(ref.to / 1000), ref.to % 1000];
+		const b = bookOf(ref.bk), [c1, v1, c2, v2] = [chOf(ref.from), ref.from % 1000, chOf(ref.to), ref.to % 1000];
 		if (ref.kind === 'chapter' || !b) return;
 		const btn = (dir, id) => `<button class="vs-more" data-dir="${dir}" data-id="${id}" title="The whole chapter" aria-label="The whole chapter">…</button>`;
 		if (v1 > 1) card.querySelector(':scope > .card-bar').insertAdjacentHTML('afterend', btn(-1, -1e9));
@@ -1036,7 +1029,7 @@ if(!isDictPage){
 	// The card's whole chapter (or chapters), at its verse: the verse (in
 	// every translation) marked, where it was on the screen
 	function wholeChapter(card, dir){
-		const ref = cardRef(card), [c1, c2] = [Math.floor(ref.from / 1000), Math.floor(ref.to / 1000)];
+		const ref = cardRef(card), [c1, c2] = [chOf(ref.from), chOf(ref.to)];
 		const y = (card.querySelector('.vs') || card.querySelector(':scope > p-e'))?.getBoundingClientRect().top;
 		Object.assign(card.dataset, {from: c1 * 1000 + 1, to: c2 * 1000 + 999, kind: c1 === c2 ? 'chapter' : 'range', hl: `${bookCode(ref.bk)} ${c1}.${ref.from % 1000}`});
 		renderCardBar(card);
@@ -1051,7 +1044,7 @@ if(!isDictPage){
 		const b = e.target.closest('p-d > .vs-more'), card = b?.parentNode;
 		if (!b) return;
 		if (inPopup(card)) return wholeChapter(card, +b.dataset.dir);
-		const ref = cardRef(card), code = bookCode(ref.bk), c1 = Math.floor(ref.from / 1000), c2 = Math.floor(ref.to / 1000);
+		const ref = cardRef(card), code = bookCode(ref.bk), c1 = chOf(ref.from), c2 = chOf(ref.to);
 		openPopupSearch(`${code} ${c1}-${c2}`, `${code} ${c1}.${ref.from % 1000}`, ownTexts(card));
 	});
 	const cardBars = () => document.querySelectorAll('#results > p-d > .card-bar, #popupResults > p-d > .card-bar');
@@ -1070,12 +1063,11 @@ if(!isDictPage){
 			closePopup();
 			return search(q);
 		}
-		const ref = cardRef(card), b0 = bookOf(ref.bk), code = bookCode(ref.bk), c = Math.floor(ref.from / 1000);
+		const ref = cardRef(card), b0 = bookOf(ref.bk), code = bookCode(ref.bk), c = chOf(ref.from);
 		if (go) { // The chapter before or after (the popup's, in it)
-			const next = b0 && nextChapter(`${b0.code} ${c}.`, +go);
+			const next = b0 && nextChapter(b0, c, +go);
 			if (!next) return;
-			const [, bk, n] = /^(.+) (\d+)\.$/.exec(next);
-			return pop ? openPopupSearch(`${bk} ${n}-${n}`, '', ownTexts(card), card.dataset.pop === 'cmp') : search(next);
+			return pop ? openPopupSearch(chapterRange(next), '', ownTexts(card), card.dataset.pop === 'cmp') : search(next);
 		}
 		if (act === 'full') { // Its chapter in the results, at its verse
 			readHl = card.dataset.hl || `${code} ${c}.${ref.from % 1000}`;
@@ -1109,9 +1101,9 @@ if(!isDictPage){
 		const card = navCard(), ref = cardRef(card), b = bookOf(ref.bk), empty = t => `<p class="empty">${t}</p>`;
 		const texts = cardTexts(card);
 		const all = dictIds.filter(d => isBibleText(d) && downloaded.has(d));
-		const c = Math.floor(ref.from / 1000), chapter = ref.kind === 'chapter' && b ? `${b.code} ${c}.` : '';
+		const c = chOf(ref.from), chapter = ref.kind === 'chapter' && b;
 		const pick = books?.find(x => x.code === booksPick);
-		const go = (dir, label, ic) => `<button class="ch-go" data-go="${dir}" title="${label}" aria-label="${label}"${chapter && nextChapter(chapter, dir) ? '' : ' disabled'}>${ic}</button>`;
+		const go = (dir, label, ic) => `<button class="ch-go" data-go="${dir}" title="${label}" aria-label="${label}"${chapter && nextChapter(b, c, dir) ? '' : ' disabled'}>${ic}</button>`;
 		const row = d => `<li class="row cat-row"><button class="cat-chk check" data-tx-add="${d}" aria-pressed="${texts.includes(d)}" aria-label="Also ${escapeHTML(dicts[d].name)}"></button>` +
 			`<button class="cat-sel" data-tx="${d}" title="Just this"><span class="row-w">${escapeHTML(dicts[d].name)} ${typeOf(dicts[d])}</span></button></li>`;
 		return `<div class="tx-dd"><button class="tx-drop" data-tx-drop="1" aria-haspopup="listbox" aria-expanded="${txOpen}"><span>${escapeHTML(textsLabel(texts))}</span><span class="tx-caret">${chevron}</span></button>` +
@@ -1637,8 +1629,8 @@ if(!isDictPage){
 			}
 		} else if (q !== undefined) {
 			closeDrawer();
-			const pc = navCard(), ch = drawerBooks && inPopup(pc) && /^(.+) (\d+)\.$/.exec(q);
-			if (ch) openPopupSearch(`${ch[1]} ${ch[2]}-${ch[2]}`, '', ownTexts(pc), pc.dataset.pop === 'cmp');
+			const pc = navCard();
+			if (drawerBooks && inPopup(pc) && chapterRef(q)) openPopupSearch(chapterRange(q), '', ownTexts(pc), pc.dataset.pop === 'cmp');
 			else search(q);
 		} else if (rm) {
 			setList(rm, lists[rm].items.filter(x => x.w !== w));
