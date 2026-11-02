@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793595655],
+    ["404.html", 1793600685],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -95,11 +95,11 @@
     ["lao/bible/text/lo_ulb.peak.zst", 1793534482, "Lao Unlocked Literal Bible from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 1466, 3, "mono", 0, 1768489],
     ["lao/dict/agrilao.peak.zst", 1788854618, "Lao Agricultural Words", 163, 2, "rbi", 0, 42758],
     ["lao/dict/csea.peak.zst", 1788854619, "Lao words count from sealang", 72, 3, "aux", 0, 90501],
-    ["lao/dict/kerr.peak.zst", 1792552018, "Lao-English Dictionary, Allen Kerr via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1887, 1, "bi", 0, 1201620],
+    ["lao/dict/kerr.peak.zst", 1793600679, "Lao-English Dictionary, Allen Kerr via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1887, 1, "bi", 0, 1201578],
     ["lao/dict/laolao.peak.zst", 1792552049, "Lao to Lao dictionary from Sealang", 2552, 2, "mono", 0, 343131],
     ["lao/dict/laotech.peak.zst", 1788854624, "Lao Technical Words", 1706, 2, "rbi", 0, 139689],
     ["lao/dict/lowiktionary.peak.zst", 1792552081, "<a href=\"https://lo.wiktionary.org/\">Lao Wiktionary</a>", 2276, 2, "mono", 0, 834259],
-    ["lao/dict/pat.peak.zst", 1792552023, "Lao-English Dictionary, William L. Patterson and Mario E. Severino (1995, Dunwoody Press) via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1991, 1, "bi", 0, 922612],
+    ["lao/dict/pat.peak.zst", 1793600681, "Lao-English Dictionary, William L. Patterson and Mario E. Severino (1995, Dunwoody Press) via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1991, 1, "bi", 0, 922535],
     ["lao/dict/thesaurus.peak.zst", 1792552045, "The Lao Thesaurus (ວັດຈະນານຸກົມລາວ) from <a href=\"https://thesaurus.la\">thesaurus.la</a>", 4564, 1, "mono", 0, 2151039],
     ["lao/media/audio.slab", 1792487651, "Contains audio from <a href=\"https://thesaurus.la\">thesaurus.la</a>", 10260, 2, "aux", 0, 31885072],
     ["lao/music/text/mekong.peak.zst", 1792452389, "<a href=\"https://www.mekongchristian.com/\">Mekong Lao Lyrics</a>", 10103, 1, "mono", 0, 53976],

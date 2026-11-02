@@ -382,9 +382,22 @@ p-h { /* the dictionary's name and buttons: tap it for its menu */
 	line-height: 1.6;
 	user-select: none; /* (not copied with the entries) */
 }
-p-l {
-	margin-bottom: .3em;
-	color: var(--alttext);
+p-l { /* a line of its own, indented */
+	display: block;
+	margin-left: 2em;
+	padding-top: 5px;
+	border-top: 2px solid purple;
+	color: green;
+}
+p-le { /* a label (a word's language: Pali) */
+	background: red;
+	color: white;
+}
+p-l + p-le { /* or, after a line, its explanation */
+	display: block;
+	margin-left: 3em;
+	background: none;
+	color: brown;
 }
 p-des { color: var(--maintext); }
 p-n {
