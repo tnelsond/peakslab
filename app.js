@@ -863,7 +863,7 @@ if(!isDictPage){
 			x.ab = l.join('');
 		});
 	}
-	const bookName = x => escapeHTML(x.name) + (x.name !== x.code ? `<small>${escapeHTML(x.code.toUpperCase())}</small>` : '');
+	const bookName = (x, n) => escapeHTML(x.name) + (n ? ' ' + bookNum(x, n) : '') + (x.name !== x.code ? `<small>${escapeHTML(x.code.toUpperCase())}</small>` : '');
 	const bookNum = (x, n) => String(n).replace(/\d/g, d => String.fromCodePoint(x.zero + +d)); // In the Bible's digits
 	// A chapter ("joh 3."): its reference ({bk, from, to, kind}), or null
 	const chapterRef = q => (m => m && {bk: m[1], from: m[2] * 1000 + 1, to: m[2] * 1000 + 999, kind: 'chapter'})(/^(.+) (\d+)\.$/.exec(q || ''));
@@ -909,14 +909,15 @@ if(!isDictPage){
 		Object.assign(bibleBar.dataset, chapterRef(lastRead) || {bk: ''});
 		renderCardBar(bibleBar);
 	}
-	function booksHTML(){
+	// (now: the chapter the panel's card is in, "joh 3.")
+	function booksHTML(now = lastRead){
 		if (!books) {
 			loadBooks(() => drawerView === 'bible' && renderDrawer());
 			return '<p class="empty">Loading…</p>';
 		}
 		const b = !booksOpen && books.find(x => x.code === booksPick), cur = on => on ? ' aria-current="true"' : '';
-		return (b ? `<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-q="${ref}"${cur(ref === lastRead)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
-			`<div class="bk-grid">${books.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}" title="${escapeHTML(x.name)}" aria-label="${escapeHTML(x.name)}"${cur(lastRead.startsWith(x.code + ' '))}>${escapeHTML(x.ab || x.name)}${/^[\x00-\x7f]*$/.test(x.ab || x.name) ? '' : `<small>${escapeHTML(x.code)}</small>`}</button>`).join('')}</div>`);
+		return (b ? `<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-q="${ref}"${cur(ref === now)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
+			`<div class="bk-grid">${books.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}" title="${escapeHTML(x.name)}" aria-label="${escapeHTML(x.name)}"${cur(now.startsWith(x.code + ' '))}>${escapeHTML(x.ab || x.name)}${/^[\x00-\x7f]*$/.test(x.ab || x.name) ? '' : `<small>${escapeHTML(x.code)}</small>`}</button>`).join('')}</div>`);
 	}
 
 	// ---------------------------------------------------------------
@@ -1101,7 +1102,7 @@ if(!isDictPage){
 		const card = navCard(), ref = cardRef(card), b = bookOf(ref.bk), empty = t => `<p class="empty">${t}</p>`;
 		const texts = cardTexts(card);
 		const all = dictIds.filter(d => isBibleText(d) && downloaded.has(d));
-		const c = chOf(ref.from), chapter = ref.kind === 'chapter' && b;
+		const c = chOf(ref.from), chapter = ref.kind === 'chapter' && b, now = b ? `${b.code} ${c}.` : '';
 		const pick = books?.find(x => x.code === booksPick);
 		const go = (dir, label, ic) => `<button class="ch-go" data-go="${dir}" title="${label}" aria-label="${label}"${chapter && nextChapter(b, c, dir) ? '' : ' disabled'}>${ic}</button>`;
 		const row = d => `<li class="row cat-row"><button class="cat-chk check" data-tx-add="${d}" aria-pressed="${texts.includes(d)}" aria-label="Also ${escapeHTML(dicts[d].name)}"></button>` +
@@ -1110,8 +1111,8 @@ if(!isDictPage){
 			(txOpen ? `<div class="tx-list">${all.length ? `<ul class="rows">${all.map(row).join('')}</ul>` : empty('None downloaded.')}` +
 				(card !== bibleBar ? `<ul class="rows tx-all-row">${rowHTML('check', `data-tx-all="1" aria-pressed="${applyAll}"`, 'Apply to all cards', 'And to what\'s searched next')}</ul>` : '') +
 				`${moreHTML}</div>` : '') + '</div>' +
-			(books ? `<div class="ch-nav">${go(-1, 'Previous chapter', prevSVG)}<button class="bk-btn" data-books-toggle="1" aria-expanded="${booksOpen || !pick}">${pick ? bookName(pick) : 'Books'}<span class="tx-caret">${chevron}</span></button>${go(1, 'Next chapter', nextSVG)}</div>` : '') +
-			booksHTML();
+			(books ? `<div class="ch-nav">${go(-1, 'Previous chapter', prevSVG)}<button class="bk-btn" data-books-toggle="1" aria-expanded="${booksOpen || !pick}">${pick ? bookName(pick, pick === b && c) : 'Books'}<span class="tx-caret">${chevron}</span></button>${go(1, 'Next chapter', nextSVG)}</div>` : '') +
+			booksHTML(now);
 	}
 	const prevSVG = icon('M15 6l-6 6 6 6'), nextSVG = icon('M9 6l6 6-6 6');
 	// The name: just it (the list closes); its box: it too (or not). The
