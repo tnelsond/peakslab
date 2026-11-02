@@ -30,7 +30,7 @@ def tidy(body):
 	body = re.sub(r'<div>\s*</div>|<(b|i)>\s*</\1>', '', body)
 	body = re.sub(r'\s*\n\s*', '', body)
 	body = re.sub(r'[ \t]{2,}', ' ', body)
-	body = re.sub(r'\s*(<br>\s*)+$', '', body.strip())
+	body = re.sub(r'^(<br>\s*)+|\s*(<br>\s*)+$', '', body.strip())
 	return body.replace('@', '@@').replace('^', '^^')  # (peakgen's marks: just text here)
 
 out, n = [f'#desc\t{DESC}\n#priority\t{PRIORITY}\n#lang\t{LANG}\n'], 0

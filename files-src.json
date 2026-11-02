@@ -10,6 +10,15 @@
     ["tnefar.wasm", 1793612265]
   ],
   "dicts": [
+    ["chinese/bible-extra/strongszh.peak.zst", 1793625937, "圣经原文编号词典 (Strong's Greek and Hebrew lexicon in Chinese), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 4155, 2, "mono", 0, 1058114],
+    ["chinese/bible/text/zh-ccb.peak.zst", 1793625504, "圣经当代译本修订版 (Chinese Contemporary Bible, Simplified) © 1979, 2005, 2007, 2011 Biblica, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 496, 3, "mono", 0, 1152519],
+    ["chinese/bible/text/zh-cunps.peak.zst", 1793625509, "新标点和合本 神版 (Chinese Union Version with New Punctuation, Simplified, Shen edition) © 1988, 1989, 1996 United Bible Societies, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 350, 1, "mono", 0, 1132498],
+    ["chinese/bible/text/zh-cuv1919t.peak.zst", 1793625514, "和合本 (Chinese Union Version 1919, Traditional), public domain, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 353, 2, "mono", 0, 1132986],
+    ["chinese/bible/text/zh-rcuvs.peak.zst", 1793625519, "和合本修订版 (Revised Chinese Union Version, Simplified) © 2006, 2010 Hong Kong Bible Society, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 398, 3, "mono", 0, 1177679],
+    ["chinese/dict/chengyu.peak.zst", 1793625964, "中華成語大詞典 (Chinese idioms, in traditional characters: their pinyin, meaning, source, an example, similar and opposite idioms, English), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 1484, 2, "mono", 0, 5960302],
+    ["chinese/dict/collins.peak.zst", 1793625966, "Collins Chinese Dictionary (2nd edition, 2006) Chinese–English: 36,000 headwords, with pinyin, examples and synonyms", 4869, 1, "bi", 0, 830787],
+    ["chinese/dict/xiandai.peak.zst", 1793625972, "现代汉语词典 第5版 (Contemporary Chinese Dictionary, 5th edition, 2005), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 1944, 2, "mono", 0, 2636251],
+    ["chinese/dict/xinhua.peak.zst", 1793625986, "超级新华字典 (Super Xinhua Dictionary): characters and words, their pinyin, meanings, sources and English, from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 9375, 1, "mono", 0, 6132511],
     ["chitonga/bible/text/toibible.peak.zst", 1793534437, "TOI Chitonga Bible", 682, 1, "mono", 0, 1554018],
     ["chitonga/dict/tnouns.peak.zst", 1788854143, "Chitonga Nouns", 2086, 1, "bi", 0, 600973],
     ["chitonga/dict/tother.peak.zst", 1788854143, "Chitonga other words", 2821, 1, "bi", 0, 47459],
@@ -140,7 +149,15 @@
     ["spanish/dict/es-kaikki.peak.zst", 1793600404, "Kaikki Spanish-English Dictionary (English Wiktionary, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/Spanish/\">kaikki.org</a>", 8847, 2, "bi", 0, 11139482],
     ["spanish/dict/es-moliner.peak.zst", 1793600150, "Diccionario de uso del español, María Moliner, from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/SPANISH\">freemdict</a>", 57421, 2, "mono", 0, 6436349],
     ["spanish/dict/esoxford.peak.zst", 1789697079, "Spanish English Oxford Dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs\">freemdict</a>", 53524, 1, "bi", 0, 7246010],
-    ["spanish/dict/es-spanishdict.peak.zst", 1793600123, "SpanishDict Spanish-English Dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/SPANISH\">freemdict</a>", 6993, 1, "bi", 0, 6128996]
+    ["spanish/dict/es-spanishdict.peak.zst", 1793600123, "SpanishDict Spanish-English Dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/SPANISH\">freemdict</a>", 6993, 1, "bi", 0, 6128996],
+    ["thai/bible/text/th1940.peak.zst", 1793625592, "พระคริสตธรรมคัมภีร์ ฉบับ 1940 (Thai 1940) © 1940 Thailand Bible Society, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 26868, 3, "mono", 0, 1986638],
+    ["thai/bible/text/th1971.peak.zst", 1793625606, "พระคัมภีร์ไทย ฉบับ 1971 (Thai Bible 1971) © Thailand Bible Society, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1407, 1, "mono", 0, 1502648],
+    ["thai/bible/text/therv.peak.zst", 1793625624, "พระคริสตธรรมคัมภีร์ ฉบับอ่านเข้าใจง่าย (Thai Easy-to-Read Version 2001) © Bible League International, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 4145, 3, "mono", 0, 1922032],
+    ["thai/bible/text/thkjv.peak.zst", 1793625640, "พระคัมภีร์ภาษาไทยฉบับ KJV (Thai KJV 2003) © 2003 Philip Pope (CC BY-NC-ND), from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1348, 3, "mono", 0, 1494244],
+    ["thai/bible/text/thsv2011.peak.zst", 1793625654, "ฉบับมาตรฐาน (Thai Standard Version 2011) © Thailand Bible Society, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1379, 2, "mono", 0, 1480617],
+    ["thai/dict/lexitron-en.peak.zst", 1793625996, "LEXiTRON English–Thai (NECTEC), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 4689, 1, "rbi", 0, 1818282],
+    ["thai/dict/lexitron-th.peak.zst", 1793626000, "LEXiTRON Thai–English (NECTEC), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 1746, 1, "bi", 0, 1042373],
+    ["thai/dict/thaienzh.peak.zst", 1793626002, "泰文释英及汉辞典: Thai to English and Chinese (its Chinese machine translated), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 1177, 3, "bi", 0, 934353]
   ],
   "abbr": {
     "khmer": ["km", "ខ", "km_KH", "🇰🇭"],
@@ -166,7 +183,7 @@
     "chords": ["crd", "Crd"],
     "sheet": ["sht", "Sht"],
     "commentary": ["com", "Com"],
-    "chinese": ["zh", "中"],
-    "thai": ["th", "ท"]
+    "chinese": ["zh", "中", "zh_CN", "🇨🇳"],
+    "thai": ["th", "ท", "th_TH", "🇹🇭"]
   }
 }

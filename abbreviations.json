@@ -22,6 +22,6 @@
   "chords": ["crd", "Crd"],
   "sheet": ["sht", "Sht"],
   "commentary": ["com", "Com"],
-  "chinese": ["zh", "中"],
-  "thai": ["th", "ท"]
+  "chinese": ["zh", "中", "zh_CN", "🇨🇳"],
+  "thai": ["th", "ท", "th_TH", "🇹🇭"]
 }
