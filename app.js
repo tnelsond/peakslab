@@ -746,7 +746,7 @@ if(!isDictPage){
 	// 1-5", "rom1-5"): its book as typed (a code, or a book's name; "Rom.")
 	// and its first and last verses as chapter * 1000 + verse (addVerse's)
 	function rangeOf(q){
-		const m = /^(.*?\D)\.? ?(\d+)(?:[.:](\d+))? ?[-–] ?(?:(\d+)[.:])?(\d+)\.?$/.exec(q || '');
+		const m = /^(.*?\D)\.? ?(\d+)(?:[.:](\d+))? ?[-–] ?(?:(\d+)[.:])?(\d+)\.?$/.exec((q || '').replace(/\p{Nd}/gu, digit)); // (in any digits: "រ៉ូម ៨:២៨-៣០")
 		if (!m) return null;
 		const [, book, c1, v1, c2, n] = m;
 		const from = c1 * 1000 + (+v1 || 1), to = v1 || c2 ? (+c2 || +c1) * 1000 + +n : n * 1000 + 999;
@@ -1183,15 +1183,22 @@ if(!isDictPage){
 			(secs.length > 1 ? secs.map(c => langRow(`/${curLang}/${c}${qs}`, `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c, curLang)).join('') : '') + '</ul>' +
 			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
-	// What the filter (the gloss) has picked: All, or their names (short: their symbols, for the bar)
-	const filterLabel = (view, short) => filtered(view) ? cats.filter(c => picks[view].includes(c.id)).map(c => short ? symbols(c.id) : c.label).join(short ? ' ' : ' + ') : 'All';
+	// What the filter (the gloss) has picked, as HTML: All, their names, or
+	// with fewer of the ones it has any of left out, All but theirs (short,
+	// for the bar: their symbols, the ones left out struck through)
+	function filterLabel(view, short){
+		if (!filtered(view)) return 'All';
+		const has = cats.filter(c => shown(c, view)), off = has.filter(c => !picks[view].includes(c.id)), but = off.length < has.length - off.length;
+		const names = cs => cs.map(c => escapeHTML(short ? symbols(c.id) : c.label)).join(short ? ' ' : ' + ');
+		return but ? (short ? `<s>${names(off)}</s>` : 'All but ' + names(off)) : names(cats.filter(c => picks[view].includes(c.id)));
+	}
 	// The bar: the filter's button, with what it searches and how many
 	// dictionaries that is (on, in what it has picked), and the gloss's
 	const quickIcons = {filter: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>', gloss: '<span aria-hidden="true">⇄</span>'};
 	function renderQuick(){
 		renderBibleBar();
-		const b = Object.keys(VIEWS).map(v => { const text = escapeHTML(filterLabel(v)), n = dictIds.filter(d => isOn(d, v)).length, all = `${VIEWS[v].title}: ${text}, ${n} ${n === 1 ? 'dictionary' : 'dictionaries'}`;
-			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" title="${all}" aria-label="${all}">${quickIcons[v]}${escapeHTML(filterLabel(v, true))}<span class="qk-n" aria-hidden="true">${n}</span></button>`; }).join('');
+		const b = Object.keys(VIEWS).map(v => { const text = filterLabel(v), n = dictIds.filter(d => isOn(d, v)).length, all = `${VIEWS[v].title}: ${text}, ${n} ${n === 1 ? 'dictionary' : 'dictionaries'}`;
+			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" title="${all}" aria-label="${all}">${quickIcons[v]}${filterLabel(v, true)}<span class="qk-n" aria-hidden="true">${n}</span></button>`; }).join('');
 		if (quick._html !== b) { quick._html = b; quick.innerHTML = b; } // Only when changed: keeps it tappable
 	}
 	quick.addEventListener('click', e => { const b = e.target.closest('button'); if (b) openDrawer(b.dataset.view); });
@@ -1996,13 +2003,18 @@ if(!isDictPage){
 	// each (first: before its parts), its gloss the start of its verses, in a
 	// Bible text that glosses; tapped, the popup has
 	// them all (popupRange)
-	const RANGES = /(^|[^\p{L}\p{N}])((?:\d ?)?\p{L}[\p{L}\p{M}]*\.? ?\d+(?:[.:]\d+)? ?[-–] ?(?:\d+[.:])?\d+)(?!\p{N})/gu;
+	// (a book's name up to four words: "Song of Songs 2:1-3"; any digits)
+	const RANGES = /(^|[^\p{L}\p{N}])((?:[\p{L}\p{M}\p{Nd}]+ ){0,3}(?:\p{Nd} ?)?\p{L}[\p{L}\p{M}]*\.? ?\p{Nd}+(?:[.:]\p{Nd}+)? ?[-–] ?(?:\p{Nd}+[.:])?\p{Nd}+)(?!\p{N})/gu;
 	function rangeMatches(ids, text){
 		const d = ids.find(isBibleText);
-		// (a number before a book may be its own: "2 rom 9.1-8" is rom 9.1-8
-		// too, after a 2; the whole text's split picks)
-		const found = d === undefined ? [] : [...text.matchAll(RANGES)].flatMap(m => [m[2], m[2].replace(/^\d ?(?=\p{L})/u, '')].map(s => ({a: m.index + m[1].length + m[2].length - s.length, s, r: rangeOf(s)})))
-			.filter((x, i, xs) => x.r && xs.findIndex(y => y.a === x.a) === i);
+		// (the words before it may be a book's name or not: "see Romans
+		// 8:28-30", "2 rom 9.1-8" are Romans 8:28-30 and rom 9.1-8 too, without
+		// the first words; the whole text's split picks, the longest that's a book)
+		const found = d === undefined ? [] : [...text.matchAll(RANGES)].flatMap(m => {
+			const vs = [m[2]];
+			while (/^\S+ ./.test(vs.at(-1))) vs.push(vs.at(-1).replace(/^\S+ /, ''));
+			return vs.filter(s => /^(\p{Nd} ?)?\p{L}/u.test(s)).map(s => ({a: m.index + m[1].length + m[2].length - s.length, s, r: rangeOf(s)}));
+		}).filter(x => x.r);
 		if (!found.length) return [];
 		return Promise.all(found.map(x => rangeLines(d, x.r).then(p => p && askDict(d, lineMsg(p.at, Math.min(20, p.last - p.at + 1))).then(res => ({
 			a: x.a, len: x.s.length, d, rank: -1, sec: 0, row: glossRow(d),
