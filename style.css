@@ -515,12 +515,6 @@ p-e.starred + p-e:not(.starred) { border-top-width: 2px; }
 	font-weight: 600;
 	text-decoration: none;
 }
-.tr-u { opacity: .6; } /* no entry of its own */
-.tr-x { /* a word no dictionary has */
-	border-style: dashed;
-	background: none;
-	opacity: .75;
-}
 .tr-w .tr-img { display: block; max-width: 96px !important; max-height: 72px; margin-top: 2px; }
 .tr-play {
 	position: absolute;

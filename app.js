@@ -1933,10 +1933,9 @@ if(!isDictPage){
 	// The query word by word, when the search found nothing (a Bible text's
 	// headwords are its verses, so "rom 8.1 gal 1.1" links to each)
 	function translate(){
-		if (globreg.test(query)) return;
-		const q = query;
+		const q = query; // (with search symbols too: "!" may be just an exclamation mark)
 		const ids = glossIds();
-		if (ids.length) translateText(ids, q, pieces => showTranslation(pieces, q, ids));
+		if (ids.length) translateText(ids, queryText, pieces => showTranslation(pieces, q, ids));
 	}
 
 	function showTranslation(pieces, q, ids){
@@ -1998,14 +1997,17 @@ if(!isDictPage){
 	// body, sec}), pron (pronunciations)}; text no dictionary has has no d
 	// (A media dictionary's headwords are words too: its entries' text is
 	// their details; its files are added to the words found, addMedia)
-	function translateText(ids, text, done){
-		text = text.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
+	// (matched in lower case; its words and the text between them shown as
+	// typed, unless lower case changes its length)
+	function translateText(ids, typed, done){
+		typed = typed.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
+		const text = typed.toLowerCase();
 		Promise.all([...ids.map((d, k) => askDict(d, {type: 'matchall', query: text}).then(r => {
 			const row = glossRow(d);
 			return r.matches
 				.filter(([a]) => !/\s/.test(text[a])) // A word doesn't start with the space before it (a second index word can)
 				.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k, row}));
-		})), rangeMatches(ids, text)]).then(all => pickPieces(all.flat(), text, done));
+		})), rangeMatches(ids, text)]).then(all => pickPieces(all.flat(), typed.length === text.length ? typed : text, done));
 	}
 	// The Bible ranges in a text ("rom 1.4-20", "Romans 8:28-30"): a word
 	// each (first: before its parts), its gloss the start of its verses, in a
@@ -2095,10 +2097,9 @@ if(!isDictPage){
 	const glossOf = ({r, sec}, word) => sec && script(r.header) !== script(word) ? r.header : summary(r.body, r.header);
 	function translationHTML(pieces){
 		return pieces.map(p => {
-			if (p.d === undefined) // Text no dictionary has: its words dashed, the rest as is
-				return p.text.split(/(\s+)/).map(t => /\p{L}/u.test(t) ? `<span class="tr-w tr-x">${escapeHTML(t)}</span>` : escapeHTML(t).replace(/\n/g, '<br>')).join('');
+			if (!p.ds.length) return escapeHTML(p.text).replace(/\n/g, '<br>'); // Nothing to gloss it with: as it is (notes between the words glossed)
 			const w = escapeHTML(p.text.trim());
-			return `<span class="tr-w${p.ds.length ? '' : ' tr-u'}" data-w="${w}" title="${names(p.ds.length ? p.ds : [p.d])}"><p-a>${w}</p-a>` +
+			return `<span class="tr-w" data-w="${w}" title="${names(p.ds)}"><p-a>${w}</p-a>` +
 				p.rows.map((t, i) => t ? `<span class="tr-r tr-r${i + 1}" title="${escapeHTML(t)}">${escapeHTML(t)}</span>` : '').join('') + '</span>';
 		}).join('');
 	}
@@ -2108,7 +2109,7 @@ if(!isDictPage){
 	// under it
 	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2/i;
 	function addMedia(box, pieces, ids){
-		const words = [...new Set(pieces.filter(p => p.d !== undefined).map(p => p.text.trim()))];
+		const words = [...new Set(pieces.filter(p => p.ds.length).map(p => p.text.trim()))]; // (the words in boxes)
 		if (!words.length) return;
 		ids.filter(d => dicts[d].media).forEach(d =>
 			askDict(d, {type: 'media', words}).then(r => r.files.forEach((f, k) => {
@@ -2147,7 +2148,7 @@ if(!isDictPage){
 		pe.insertBefore(box, text1 || null);
 		if (!again) box.scrollIntoView({block: 'nearest'});
 		box.textContent = `Glossing with ${ids.map(d => dicts[d].name).join(' + ')}…`;
-		translateText(ids, updateQuery(text), pieces => {
+		translateText(ids, text, pieces => {
 			if (box.isConnected) fillGloss(box, pieces, ids, text, n => `<div class="tr-head">${n}</div>`);
 		});
 	}
@@ -2159,7 +2160,7 @@ if(!isDictPage){
 		const ds = [...new Set(pieces.flatMap(p => p.ds))];
 		box.dataset.text = text;
 		box.dataset.ds = ds.join();
-		box.innerHTML = head(names(ds)) + (pieces.some(p => p.d !== undefined) ? translationHTML(pieces) : 'No words found.');
+		box.innerHTML = head(names(ds)) + (pieces.some(p => p.ds.length) ? translationHTML(pieces) : 'No words found.');
 		addMedia(box, pieces, ids);
 	}
 
@@ -2169,7 +2170,8 @@ if(!isDictPage){
 	// dictionaries in it (?dict=, see solo: they download without asking)
 	// ---------------------------------------------------------------
 	const visible = el => el.checkVisibility?.() ?? true; // (not a hidden dictionary's)
-	const glossText = box => [...box.querySelectorAll('.tr-w')].map(w => [w.querySelector('p-a') || w, ...w.querySelectorAll('.tr-r')].map(x => x.textContent.trim()).join(' · ')).join('\n');
+	// (a word glossed: it · its rows; text between: as it is)
+	const glossText = box => [...box.childNodes].map(n => n.matches?.('.tr-w') ? [n.querySelector('p-a'), ...n.querySelectorAll('.tr-r')].map(x => x.textContent.trim()).join(' · ') : n.matches?.('h2, .tr-head') ? '' : n.textContent.trim()).filter(Boolean).join('\n');
 	function cardText(card){
 		if (card.dataset.ds !== undefined) return `${card.dataset.text}\n\n${glossText(card)}`;
 		const pes = [...card.querySelectorAll(':scope > p-e')].filter(visible);
