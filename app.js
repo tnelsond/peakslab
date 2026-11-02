@@ -502,13 +502,10 @@ if(!isDictPage){
 	};
 
 	// The filter: categories made from the dictionaries on the page, by kind:
-	// their folders, two deep, named as they are (Dict, Bible / Text, Bible /
-	// Dict, Music / Sheet, Phonetics, ...). Pick any number of them and
-	// searches use just their dictionaries; none picked is All. Each
-	// dictionary is on or off, the same in every category.
+	// their first folder, named as it is (Bible, Dict, Ref, Music, ...). Pick
+	// any number of them and searches use just their dictionaries; none
+	// picked is All. Each dictionary is on or off, the same in every category.
 	const catLabel = c => c.split('/').map(cap).join(' / ');
-	// Short: its folders' symbols, as the app's name has them (bible/text → ✝️A)
-	const symbols = c => c.split('/').map(p => abbr[p]?.[1] || abbr[p]?.[0] || cap(p)).join('');
 	// The categories, in the order their entries come (their first
 	// dictionary's). Again when a dictionary's added or taken off. Choosing
 	// is worth it only with two or more: one category is everything.
@@ -518,7 +515,7 @@ if(!isDictPage){
 	function buildCats(){
 		cats.length = 0;
 		dictIds.forEach(d => {
-			const id = dicts[d].cat.split('/').slice(0, 2).join('/') || 'other';
+			const id = dicts[d].cat.split('/')[0] || 'other';
 			(catById(id) || cats[cats.push({id, label: catLabel(id), members: []}) - 1]).members.push(d);
 		});
 		choice = cats.length > 1;
@@ -738,7 +735,7 @@ if(!isDictPage){
 	// with every translation and note that's on (notes start collapsed).
 	// Books lists the books as a Bible has them.
 	// ---------------------------------------------------------------
-	const isBibleText = d => dicts[d].cat === 'bible/text', isNote = d => dicts[d].cat === 'bible/commentary';
+	const isBibleText = d => dicts[d].cat === 'bible/text', isNote = d => dicts[d].collapsed; // (notes: #collapsed, their entries start hidden)
 	const hasBible = dictIds.some(isBibleText);
 	// A verse's chapter: "rom 8.1" -> "rom 8.", else null
 	const chapterOf = h => (/^(.+ \d+\.)\d+$/.exec(h || '') || [])[1] || null;
@@ -1185,12 +1182,12 @@ if(!isDictPage){
 	}
 	// What the filter (the gloss) has picked, as HTML: All, their names, or
 	// with fewer of the ones it has any of left out, All but theirs (short,
-	// for the bar: their symbols, the ones left out struck through)
+	// for the bar: just theirs, struck through)
 	function filterLabel(view, short){
 		if (!filtered(view)) return 'All';
-		const has = cats.filter(c => shown(c, view)), off = has.filter(c => !picks[view].includes(c.id)), but = off.length < has.length - off.length;
-		const names = cs => cs.map(c => escapeHTML(short ? symbols(c.id) : c.label)).join(short ? ' ' : ' + ');
-		return but ? (short ? `<s>${names(off)}</s>` : 'All but ' + names(off)) : names(cats.filter(c => picks[view].includes(c.id)));
+		const has = cats.filter(c => shown(c, view)), off = has.filter(c => !picks[view].includes(c.id));
+		const names = cs => escapeHTML(cs.map(c => c.label).join(' + '));
+		return off.length >= has.length - off.length ? names(cats.filter(c => picks[view].includes(c.id))) : short ? `<s>${names(off)}</s>` : `All but ${names(off)}`;
 	}
 	// The bar: the filter's button, with what it searches and how many
 	// dictionaries that is (on, in what it has picked), and the gloss's

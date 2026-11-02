@@ -165,8 +165,8 @@ def main():
 	write_bible(f'{out}/greek/bible/text/grc-tagnt.tsv', f'Greek New Testament, word by word: Translators Amalgamated Greek NT (TAGNT, Nestlé-Aland text with the KJV’s variants marked), English glosses based on the BSB, Strong’s numbers and grammar. {cc}', nt)
 	ot, otforms = tahot(src)
 	write_bible(f'{out}/hebrew/bible/text/hbo-tahot.tsv', f'Hebrew Old Testament, word by word: Translators Amalgamated Hebrew OT (TAHOT, Leningrad Codex, cantillation left out), English glosses, Strong’s numbers and grammar. {cc}', ot, rtl=True)
-	lexicon(os.path.join(src, 'TBESG*.txt'), f'{out}/greek/bible/dict/tbesg.tsv', f'Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has. {cc}', ntforms)
-	lexicon(os.path.join(src, 'TBESH*.txt'), f'{out}/hebrew/bible/dict/tbesh.tsv', f'Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has. {cc}', otforms)
+	lexicon(os.path.join(src, 'TBESG*.txt'), f'{out}/greek/ref/bible/tbesg.tsv', f'Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has. {cc}', ntforms)
+	lexicon(os.path.join(src, 'TBESH*.txt'), f'{out}/hebrew/ref/bible/tbesh.tsv', f'Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has. {cc}', otforms)
 
 if __name__ == '__main__':
 	main()
