@@ -21,5 +21,7 @@
   "psalter": ["psa", "Psa"],
   "chords": ["crd", "Crd"],
   "sheet": ["sht", "Sht"],
-  "commentary": ["com", "Com"]
+  "commentary": ["com", "Com"],
+  "phonetics": ["pho", "ə"],
+  "tech": ["tec", "⚙️"]
 }

@@ -507,6 +507,8 @@ if(!isDictPage){
 	// searches use just their dictionaries; none picked is All. Each
 	// dictionary is on or off, the same in every category.
 	const catLabel = c => c.split('/').map(cap).join(' / ');
+	// Short: its folders' symbols, as the app's name has them (bible/text → ✝️A)
+	const symbols = c => c.split('/').map(p => abbr[p]?.[1] || abbr[p]?.[0] || cap(p)).join('');
 	// The categories, in the order their entries come (their first
 	// dictionary's). Again when a dictionary's added or taken off. Choosing
 	// is worth it only with two or more: one category is everything.
@@ -1181,15 +1183,15 @@ if(!isDictPage){
 			(secs.length > 1 ? secs.map(c => langRow(`/${curLang}/${c}${qs}`, `${cap(curLang)}: ${catLabel(c)}`, mine.filter(f => f[0].split('/')[1] === c).length, pParts[1] === c, curLang)).join('') : '') + '</ul>' +
 			'<h3 class="drawer-h">Other languages</h3>' + langRows(curLang, qs);
 	}
-	// What the filter (the gloss) has picked: All, or their names
-	const filterLabel = view => filtered(view) ? cats.filter(c => picks[view].includes(c.id)).map(c => c.label).join(' + ') : 'All';
+	// What the filter (the gloss) has picked: All, or their names (short: their symbols, for the bar)
+	const filterLabel = (view, short) => filtered(view) ? cats.filter(c => picks[view].includes(c.id)).map(c => short ? symbols(c.id) : c.label).join(short ? ' ' : ' + ') : 'All';
 	// The bar: the filter's button, with what it searches and how many
 	// dictionaries that is (on, in what it has picked), and the gloss's
 	const quickIcons = {filter: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>', gloss: '<span aria-hidden="true">⇄</span>'};
 	function renderQuick(){
 		renderBibleBar();
-		const b = Object.keys(VIEWS).map(v => { const text = escapeHTML(filterLabel(v)), n = dictIds.filter(d => isOn(d, v)).length;
-			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" aria-label="${VIEWS[v].title}: ${text}, ${n} ${n === 1 ? 'dictionary' : 'dictionaries'}">${quickIcons[v]}${text}<span class="qk-n" aria-hidden="true">${n}</span></button>`; }).join('');
+		const b = Object.keys(VIEWS).map(v => { const text = escapeHTML(filterLabel(v)), n = dictIds.filter(d => isOn(d, v)).length, all = `${VIEWS[v].title}: ${text}, ${n} ${n === 1 ? 'dictionary' : 'dictionaries'}`;
+			return `<button class="qk" data-view="${v}" aria-pressed="${filtered(v)}" title="${all}" aria-label="${all}">${quickIcons[v]}${escapeHTML(filterLabel(v, true))}<span class="qk-n" aria-hidden="true">${n}</span></button>`; }).join('');
 		if (quick._html !== b) { quick._html = b; quick.innerHTML = b; } // Only when changed: keeps it tappable
 	}
 	quick.addEventListener('click', e => { const b = e.target.closest('button'); if (b) openDrawer(b.dataset.view); });
