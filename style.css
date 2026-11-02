@@ -405,6 +405,12 @@ p-ipa {
 	font-size: 1.2em;
 	color: #303;
 }
+p-e details { font-size: .8em; color: var(--muted); } /* (a word's forms) */
+p-r { /* a romanization (after the IPA) */
+	margin-left: .5em;
+	font-size: .8em;
+	opacity: .75;
+}
 p-eg {
 	background: #ff9;
 	border: 2px solid var(--control-btn-bg);

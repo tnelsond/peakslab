@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793591267],
+    ["404.html", 1793595655],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -113,7 +113,7 @@
     ["nepali/bible-extra/biblewordne.peak.zst", 1789696811, "Nepali Bible Translation words from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 12549, 1, "mono", 0, 305648],
     ["nepali/bible/text/ne-ULB.peak.zst", 1793534523, "Nepali Unlocked Literal Bible from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 1172, 2, "mono", 0, 1545383],
     ["nepali/dict/ne-gp.peak.zst", 1789696895, "Nepali - English dictionary for Android • GreenPetals Radio Stations", 130, 1, "bi", 0, 297849],
-    ["nepali/dict/ne-kaikki.peak.zst", 1789696902, "Nepali Kaikki Dictionary", 19740, 1, "bi", 0, 637716],
+    ["nepali/dict/ne-kaikki.peak.zst", 1793595651, "Nepali Kaikki Dictionary", 9955, 1, "bi", 0, 322628],
     ["nepali/dict/ne-sabdakosh.peak.zst", 1789696954, "Nepali Brihat Sabdakosh (Nepal Academy)", 3701, 1, "mono", 0, 3852622],
     ["portuguese/bible-extra/pt_biblewords.peak.zst", 1789696955, "Portuguese Bible Translation words from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 3631, 1, "mono", 0, 248169],
     ["portuguese/bible/text/pt-b-livre.peak.zst", 1793534530, "Bíblia Livre from <a href=\"https://ebible.org\">eBible</a>", 715, 2, "mono", 0, 1421337],
