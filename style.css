@@ -389,14 +389,9 @@ p-l { /* a line of its own, indented */
 	border-top: 2px solid purple;
 	color: green;
 }
-p-le { /* a <p-l> phrase's English */
-	background: red;
-	color: white;
-}
-p-l + p-le { /* (right after it: its own line, under it) */
+p-l + p-le { /* a <p-l> phrase's English: its own line, under it (alone, just text) */
 	display: block;
 	margin-left: 3em;
-	background: none;
 	color: brown;
 }
 p-des { color: var(--maintext); }

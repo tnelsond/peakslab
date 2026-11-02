@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793602034],
+    ["404.html", 1793602913],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -100,7 +100,7 @@
     ["lao/dict/laotech.peak.zst", 1788854624, "Lao Technical Words", 1706, 2, "rbi", 0, 139689],
     ["lao/dict/lowiktionary.peak.zst", 1792552081, "<a href=\"https://lo.wiktionary.org/\">Lao Wiktionary</a>", 2276, 2, "mono", 0, 834259],
     ["lao/dict/pat.peak.zst", 1793602027, "Lao-English Dictionary, William L. Patterson and Mario E. Severino (1995, Dunwoody Press) via <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>", 1991, 1, "bi", 0, 922533],
-    ["lao/dict/thesaurus.peak.zst", 1792552045, "The Lao Thesaurus (ວັດຈະນານຸກົມລາວ) from <a href=\"https://thesaurus.la\">thesaurus.la</a>", 4564, 1, "mono", 0, 2151039],
+    ["lao/dict/thesaurus.peak.zst", 1793603046, "The Lao Thesaurus (ວັດຈະນານຸກົມລາວ) from <a href=\"https://thesaurus.la\">thesaurus.la</a>", 4573, 1, "mono", 0, 2151245],
     ["lao/media/audio.slab", 1792487651, "Contains audio from <a href=\"https://thesaurus.la\">thesaurus.la</a>", 10260, 2, "aux", 0, 31885072],
     ["lao/music/text/mekong.peak.zst", 1792452389, "<a href=\"https://www.mekongchristian.com/\">Mekong Lao Lyrics</a>", 10103, 1, "mono", 0, 53976],
     ["lao/phonetics/dict/laoipa.peak.zst", 1792418455, "Lao pronunciation (Vientiane), from <a href=\"https://sealang.net/lao/dictionary.htm\">sealang</a>'s Patterson and Kerr: á high, ā mid, à low, â falling, ǎ rising, ȁ low falling", 402, 2, "phon", 0, 475255],
