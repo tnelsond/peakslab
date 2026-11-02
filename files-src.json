@@ -66,6 +66,7 @@
     ["khmer/dict/kmwiktionary.peak.zst", 1792403314, "<a href=\"https://km.wiktionary.org/\">Khmer Wiktionary</a>", 1528, 2, "mono", 0, 1673111],
     ["khmer/dict/nath2022.peak.zst", 1792403342, "2022 version of the <a href=\"https://play.google.com/store/apps/details?id=com.optimiskh.chuonnathdictionary&hl=en-US\">Chuon Nath Digital Dictionary</a>", 9953, 1, "mono", 0, 2035262],
     ["khmer/dict/plantdict.peak.zst", 1792403300, "<a href=\"https://www.plantsdictionarykh.com/\">PlantsDictionaryKh.com</a>", 4100, 2, "bi", 0, 250000],
+    ["khmer/dict/sbbic.peak.zst", 1793605692, "SBBIC English Khmer Dictionary (GNU GPL v2): its words, theology and other terms, without its software strings, from <a href=\"https://sbbic.org/2010/05/26/sbbic-english-and-khmer-unicode-dictionary/\">sbbic.org</a>", 3315, 2, "rbi", 0, 176877],
     ["khmer/dict/seacount.peak.zst", 1792403297, "number of occurrences of Khmer words via <a href=\"https://sealang.net/khmer/dictionary.htm\">Sealang</a>", 93, 2, "aux", 0, 112554],
     ["khmer/dict/sonv.peak.zst", 1792403348, "English to Khmer Dictionary from <a href=\"https://play.google.com/store/apps/details?id=com.sonveasna.dictionary&hl=en\">English Khmer Dictionary</a> by DroidSVS", 16931, 1, "rbi", 0, 2555675],
     ["khmer/dict/tech/it.peak.zst", 1792403299, "IT dictionary", 403, null, "rbi", 0, 52502],
