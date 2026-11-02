@@ -1904,10 +1904,11 @@ if(!isDictPage){
 		if(query && loader && loader.getBoundingClientRect().top <= window.innerHeight + 400 && worker_code.includes(false))
 			getResults();
 	}
-	let lastCheck = 0;
-	const throttledCheck = () => { if (Date.now() - lastCheck >= 80) { lastCheck = Date.now(); loadmore(); } };
-	window.addEventListener('scroll', throttledCheck, { passive: true });
-	window.addEventListener('resize', throttledCheck);
+	// (once a frame, after the scroll: a fast one's end is never missed)
+	let checking = false;
+	const scrollCheck = () => checking || (checking = requestAnimationFrame(() => { checking = false; loadmore(); }));
+	window.addEventListener('scroll', scrollCheck, {passive: true});
+	window.addEventListener('resize', scrollCheck);
 
 	const globreg = /[!+*^@]/;
 
