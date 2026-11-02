@@ -382,17 +382,9 @@ p-h { /* the dictionary's name and buttons: tap it for its menu */
 	line-height: 1.6;
 	user-select: none; /* (not copied with the entries) */
 }
-p-l { /* a line of its own, indented */
-	display: block;
-	margin-left: 2em;
-	padding-top: 5px;
-	border-top: 2px solid purple;
-	color: green;
-}
-p-l + p-le { /* a <p-l> phrase's English: its own line, under it (alone, just text) */
-	display: block;
-	margin-left: 3em;
-	color: brown;
+p-l {
+	margin-bottom: .3em;
+	color: var(--alttext);
 }
 p-des { color: var(--maintext); }
 p-n {
