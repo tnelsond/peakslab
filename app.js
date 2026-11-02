@@ -83,6 +83,11 @@ function escapeHTML(text){
 	return text.replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 }
 const abbr = filesJson.abbr || {};
+// A dictionary's languages, when its type (#lang) is theirs, by their
+// abbreviations: "zh,km" Chinese to Khmer, "th,en,zh" Thai to English and
+// Chinese, "zh" just Chinese (the headword's first); else null (mono, bi, ...)
+const langByAbbr = Object.fromEntries(Object.entries(abbr).filter(([, a]) => a[2]).map(([l, a]) => [a[0], l]));
+const typeLangs = ({type}) => type && type.split(',').every(a => langByAbbr[a]) ? type.split(',').map(a => langByAbbr[a]) : null;
 const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 // A list's row: its button (class and attributes), its words and what's
@@ -459,7 +464,8 @@ if(!isDictPage){
 	// Other languages' dictionaries added in the library (their paths)
 	const addKey = `peakslab-added-${pagePath}`, addedPaths = new Set(readList(addKey));
 	allDicts.forEach(x => { x.added = !x.primary && addedPaths.has(x.path); });
-	const dicts = allDicts.filter(x => x.primary || x.added || (x.priority <= 0 && primaryCats.has(x.cat)));
+	// (and another language's for this one with priority <= 0: khmer/chinese/x on /chinese)
+	const dicts = allDicts.filter(x => x.primary || x.added || (x.priority <= 0 && (primaryCats.has(x.cat) || x.cat.split('/')[0] === curLang)));
 	const dictIds = dicts.map((_, d) => d);
 	// The download prompt's levels (firstHTML): which dictionaries each has
 	// (9: none, never suggested). On by default: Recommended's, and if none
@@ -487,7 +493,7 @@ if(!isDictPage){
 
 	// Speech synthesis (the selection menu's 🔊): the page's languages, with
 	// their locale codes, or English
-	const derivedLang = [...new Set([...pLangParts, ...dicts.map(x => x.lang)])]
+	const derivedLang = [...new Set([...pLangParts, ...dicts.flatMap(x => [x.lang, ...typeLangs(x) || []])])]
 		.filter(l => abbr[l]?.[2]).map(l => ({name: cap(l), val: abbr[l][2]}));
 	const lang = derivedLang.length ? derivedLang : [{name: 'English', val: 'en_US'}];
 
@@ -502,14 +508,19 @@ if(!isDictPage){
 	const sizeText = n => n < 1e6 ? `${n && Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
 	applyHidden(dicts.filter(x => x.collapsed).map(x => x.name));
 
-	const typeOf = x => x.type ? `<span class="lib-type type-${x.type}">${escapeHTML(typeLabel(x))}</span>` : '';
+	// (its colour: one language's, mono; from English, rbi; else bi)
+	const typeOf = x => { const ls = typeLangs(x), kind = ls ? ls.length < 2 ? 'mono' : ls[0] === 'english' ? 'rbi' : 'bi' : x.type;
+		return x.type ? `<span class="lib-type type-${kind}">${escapeHTML(typeLabel(x))}</span>` : ''; };
 	const typeLabel = ({type, lang}) => {
-		const l = cap(lang);
+		const l = cap(lang), ls = typeLangs({type});
+		if (ls) return cap(ls[0]) + (ls.length > 1 ? ' → ' + ls.slice(1).map(cap).join(', ') : '');
 		return {mono: l, bi: `${l} → English`, rbi: `English → ${l}`, phon: 'Pronunciation', aux: 'Auxiliary'}[type] || '';
 	};
 
 	// The filter: categories made from the dictionaries on the page, by kind:
-	// their first folder, named as it is (Bible, Bible extra, Dict, Ref, ...). Pick
+	// their first folder, named as it is (Bible, Bible extra, Dict, Ref, ...);
+	// another language's by its language (on /chinese: English, Khmer, ...),
+	// after the page's own. Pick
 	// any number of them and searches use just their dictionaries; none
 	// picked is All. Each dictionary is on or off, the same in every category.
 	const catLabel = c => c.split('/').map(cap).join(' / ').replaceAll('-', ' '); // ("bible-extra": Bible extra)
@@ -522,9 +533,10 @@ if(!isDictPage){
 	function buildCats(){
 		cats.length = 0;
 		dictIds.forEach(d => {
-			const id = dicts[d].cat.split('/')[0] || 'other';
-			(catById(id) || cats[cats.push({id, label: catLabel(id), members: []}) - 1]).members.push(d);
+			const x = dicts[d], id = x.primary ? x.cat.split('/')[0] || 'other' : x.lang;
+			(catById(id) || cats[cats.push({id, label: catLabel(id), own: x.primary, members: []}) - 1]).members.push(d);
 		});
+		cats.sort((a, b) => b.own - a.own);
 		choice = cats.length > 1;
 	}
 	buildCats();
@@ -1533,7 +1545,7 @@ if(!isDictPage){
 		let prev = null, html = '';
 		const ids = notGot();
 		ids.forEach(d => {
-			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.cat);
+			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : x.primary ? catLabel(x.cat) : cap(x.lang); // (another language's: its language, as the filter has it)
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
 			html += dictRow(x, {check: `data-pick="${d}" aria-pressed="${firstPick.has(d)}"`});

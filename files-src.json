@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793626817],
+    ["404.html", 1793628257],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -70,7 +70,7 @@
     ["khmer/bible/text/khov.peak.zst", 1793536909, "Hammond 1954 Khmer Bible (Old Version) from <a href=\"https://ebible.org/study/content/texts/khm-h/\">eBible</a>", 1696, 2, "mono", 0, 2028922],
     ["khmer/bible/text/khsv.peak.zst", 1793534356, "Khmer Standard Version from <a href=\"https://ebible.org/study/content/texts/khm/\">eBible</a>", 1872, 1, "mono", 0, 2048381],
     ["khmer/bible/text/ulb.peak.zst", 1793534383, "Khmer Unlocked Literal Bible from <a href=\"https://door43.org\">Door43</a>, Wycliffe Associates", 13353, 3, "mono", 0, 1802384],
-    ["khmer/chinese/chinesekhmer.peak.zst", 1793618178, "Chinese to Khmer, with pinyin (from the Khmergroup Chinese Khmer Dictionary app; its Khmer machine translated)", 887, 4, "", 0, 121401],
+    ["khmer/chinese/chinesekhmer.peak.zst", 1793628244, "Chinese to Khmer, with pinyin (from the Khmergroup Chinese Khmer Dictionary app; its Khmer machine translated)", 887, -2, "zh,km", 0, 121401],
     ["khmer/chinese/chinesekhmerwiktionary.peak.zst", 1793621524, "Chinese (Mandarin) to Khmer by sense, from English Wiktionary's translation tables (<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/English/\">kaikki.org</a>", 852, -1, "", 0, 613453],
     ["khmer/dict/aakanee.peak.zst", 1792403205, "from aakanee.com (URL stopped working)", 1044, 2, "bi", 0, 135886],
     ["khmer/dict/ant.peak.zst", 1792403257, "ANT dictionary from <a href=\"https://antkh.com\">antkh.com</a>", 3677, 3, "bi", 0, 1573503],
@@ -103,7 +103,7 @@
     ["khmer/ref/cambogeo.peak.zst", 1793606522, "Cambodian village names, augmented with the countries of the world (Khmer, English, French) and their capitals", 312483, 1, "rbi", 0, 761156],
     ["khmer/ref/choukprov.peak.zst", 1792403323, "Proverbs from <a href=\"https://choukhmer.wordpress.com/literature/descriptive-proverbs-kar/\">Chouk Khmer</a>", 12861, 2, "mono", 0, 212580],
     ["khmer/ref/kmwiki.peak.zst", 1792403368, "<a href=\"https://km.wikipedia.org/wiki/\">Khmer Wikipedia</a>", 1678, 3, "mono", 0, 2032842],
-    ["khmer/thai/thaikhmer.peak.zst", 1793618179, "Thai to Khmer, with romanization (from the Khmergroup Thai Khmer Dictionary app)", 307, 4, "", 0, 121955],
+    ["khmer/thai/thaikhmer.peak.zst", 1793628245, "Thai to Khmer, with romanization (from the Khmergroup Thai Khmer Dictionary app)", 307, -1, "th,km", 0, 121955],
     ["khmer/thai/thaikhmerwiktionary.peak.zst", 1793621516, "Thai to Khmer by sense, from English Wiktionary's translation tables (<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/English/\">kaikki.org</a>", 976, -1, "", 0, 359605],
     ["lao/bible-extra/laobiblecommentary.peak.zst", 1793534396, "Lao Bible Commentary (ຄູ່ມືອະທິບາຍພຣະຄຳພີ) by Don Fleming, Bridgeway Publications, translated by John Durdin. From <a href=\"https://laobible.net/commentary/index.html\">laobible.net</a>", 262670, 3, "mono", 1, 1919471],
     ["lao/bible-extra/laobibledict.peak.zst", 1792224346, "Lao Bible Dictionary (ຄຳສັບແລະຊື່ຕ່າງໆໃນພຣະຄຳພີ) by Don Fleming, translated by John Durdin. From <a href=\"https://laobible.net/dictionary/index.html\">laobible.net</a>", 249502, 3, "mono", 0, 3059579],
@@ -157,7 +157,7 @@
     ["thai/bible/text/thsv2011.peak.zst", 1793625654, "ฉบับมาตรฐาน (Thai Standard Version 2011) © Thailand Bible Society, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1379, 2, "mono", 0, 1480617],
     ["thai/dict/lexitron-en.peak.zst", 1793625996, "LEXiTRON English–Thai (NECTEC), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 4689, 1, "rbi", 0, 1818282],
     ["thai/dict/lexitron-th.peak.zst", 1793626000, "LEXiTRON Thai–English (NECTEC), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 1746, 1, "bi", 0, 1042373],
-    ["thai/dict/thaienzh.peak.zst", 1793626002, "泰文释英及汉辞典: Thai to English and Chinese (its Chinese machine translated), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 1177, 3, "bi", 0, 934353]
+    ["thai/dict/thaienzh.peak.zst", 1793628249, "泰文释英及汉辞典: Thai to English and Chinese (its Chinese machine translated), from <a href=\"https://downloads.freemdict.com/\">FreeMdict</a>", 1177, 3, "th,en,zh", 0, 934353]
   ],
   "abbr": {
     "khmer": ["km", "ខ", "km_KH", "🇰🇭"],

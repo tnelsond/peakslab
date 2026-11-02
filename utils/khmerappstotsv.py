@@ -17,9 +17,9 @@ still in English (the ones it didn't translate) is left out.
 import re, sys
 
 HEAD = {
-    'phrasal': ('English phrasal verbs to Khmer (from the KTD Mobile Khmer Phrasal Verbs Dictionary app)', 'rbi'),
-    'chinese': ('Chinese to Khmer, with pinyin (from the Khmergroup Chinese Khmer Dictionary app; its Khmer machine translated)', ''),
-    'thai': ('Thai to Khmer, with romanization (from the Khmergroup Thai Khmer Dictionary app)', ''),
+    'phrasal': ('English phrasal verbs to Khmer (from the KTD Mobile Khmer Phrasal Verbs Dictionary app)', 'rbi', 4),
+    'chinese': ('Chinese to Khmer, with pinyin (from the Khmergroup Chinese Khmer Dictionary app; its Khmer machine translated)', 'zh,km', -2),
+    'thai': ('Thai to Khmer, with romanization (from the Khmergroup Thai Khmer Dictionary app)', 'th,km', -1),
 }
 kind, src = sys.argv[1], sys.argv[2]
 
@@ -31,8 +31,8 @@ def glosses(s, sep):
             out.append(g)
     return out
 
-desc, lang = HEAD[kind]
-print(f'#desc\t{desc}\n#priority\t4' + (f'\n#lang\t{lang}' if lang else ''))
+desc, lang, priority = HEAD[kind]  # (negative: on the Chinese and Thai pages too)
+print(f'#desc\t{desc}\n#priority\t{priority}' + (f'\n#lang\t{lang}' if lang else ''))
 dropped = 0
 for line in open(src, encoding='utf-8'):
     if line.startswith('#') or not line.strip():

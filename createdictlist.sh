@@ -15,7 +15,9 @@
 # Dictionaries (.peak, .peak.zst, .slab, .slab.zst) go under "dicts".
 # lang (from #lang in the source) is what kind of dictionary it is: "mono"
 # (monolingual), "bi" (bilingual, to English), "rbi" (English to it), "phon"
-# (pronunciation) or "aux" (audio, images, word counts, ...); "" if not set. A missing priority is null.
+# (pronunciation) or "aux" (audio, images, word counts, ...), or its languages by
+# their abbreviations (abbreviations.json's first): "zh,km" Chinese to Khmer,
+# "th,en,zh" Thai to English and Chinese; "" if not set. A missing priority is null.
 # size is the file's size in bytes (what downloading it takes).
 # All other files go under "core" (filename + timestamp only).
 # In both arrays, timestamp is always element[1] so it can be read the same

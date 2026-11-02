@@ -32,4 +32,4 @@ python3 -I utils/tabtotsv.py $T/lexitron.txt $T/lexitron.tsv x
 python3 -I utils/freemdictfix.py lexitron $T/lexitron.tsv dict_src/thai/dict/lexitron-th.tsv dict_src/thai/dict/lexitron-en.tsv \
 	"LEXiTRON Thai–English (NECTEC), $FM" "LEXiTRON English–Thai (NECTEC), $FM" 1
 mdx $H/thai-eng-chi.mdx thaienzh
-python3 -I utils/tabtotsv.py $T/thaienzh.txt dict_src/thai/dict/thaienzh.tsv "泰文释英及汉辞典: Thai to English and Chinese (its Chinese machine translated), $FM" 3 bi
+python3 -I utils/tabtotsv.py $T/thaienzh.txt dict_src/thai/dict/thaienzh.tsv "泰文释英及汉辞典: Thai to English and Chinese (its Chinese machine translated), $FM" 3 th,en,zh
