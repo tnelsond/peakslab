@@ -2061,10 +2061,10 @@ if(!isDictPage){
 	// Each word's rows: in each, the entry for exactly it from the row's
 	// first dictionary that has it (glossIds' order: starred first, then by
 	// priority; a headword over a second index word), as the popup has it;
-	// else its parts' entries, if they make it all up. Not from media or
-	// auxiliary ones (audio, word counts): they split the text too, and add
-	// their files (addMedia), but have no gloss to give
-	const glosses = d => !dicts[d].media && dicts[d].type !== 'aux';
+	// else its parts' entries, if they make it all up. Not from auxiliary
+	// ones (audio, pictures, word counts): they split the text too, and add
+	// their files (addMedia), but have no gloss to give (music's details do)
+	const glosses = d => dicts[d].type !== 'aux';
 	function pickPieces(matches, text, done){
 		const pieces = splitText(matches, text, 0, text.length);
 		const byDict = new Map(); // The matches each dictionary renders
