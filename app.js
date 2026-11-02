@@ -501,37 +501,27 @@ if(!isDictPage){
 		return {mono: l, bi: `${l} → English`, rbi: `English → ${l}`, phon: 'Pronunciation', aux: 'Auxiliary'}[type] || '';
 	};
 
-	// The filter: categories made from the dictionaries on the page, by kind
-	// (their folders, named as they are: Bible, Dict, Bible / text, Music,
-	// Phonetics, ...), Bible first. Pick any number of them and searches use
-	// just their dictionaries; none picked is All. Each dictionary is on or
-	// off, the same in every category.
-	const catLabel = c => cap(c.replaceAll('/', ' / '));
+	// The filter: categories made from the dictionaries on the page, by kind:
+	// their folders, two deep, named as they are (Dict, Bible / Text, Bible /
+	// Dict, Music / Sheet, Phonetics, ...). Pick any number of them and
+	// searches use just their dictionaries; none picked is All. Each
+	// dictionary is on or off, the same in every category.
+	const catLabel = c => c.split('/').map(cap).join(' / ');
 	// The categories, in the order their entries come (their first
 	// dictionary's). Again when a dictionary's added or taken off. Choosing
 	// is worth it only with two or more: one category is everything.
-	const cats = []; // {id, label, sub, members: [d, ...]}
+	const cats = []; // {id, label, members: [d, ...]}
 	let choice;
+	const catById = id => cats.find(c => c.id === id);
 	function buildCats(){
 		cats.length = 0;
-		const addCat = (id, label, test, sub) => {
-			const members = dictIds.filter(d => test(dicts[d]));
-			// Not if it's empty, everything (Greek's Bible) or the same as another
-			if (members.length && members.length < dictIds.length && !cats.some(c => c.members.join() === members.join()))
-				cats.push({id, label, sub, members});
-		};
-		const xs = dictIds.map(d => dicts[d]), top = x => x.cat.split('/')[0] || 'other', two = x => x.cat.split('/').slice(0, 2).join('/');
-		[...new Set(xs.map(top))].forEach(c => {
-			addCat(c, catLabel(c), x => top(x) === c);
-			const subs = new Set(xs.filter(x => top(x) === c && x.cat.includes('/')).map(two));
-			if (subs.size > 1) subs.forEach(s => addCat(s, catLabel(s), x => two(x) === s, true));
+		dictIds.forEach(d => {
+			const id = dicts[d].cat.split('/').slice(0, 2).join('/') || 'other';
+			(catById(id) || cats[cats.push({id, label: catLabel(id), members: []}) - 1]).members.push(d);
 		});
 		choice = cats.length > 1;
 	}
 	buildCats();
-	const catById = id => cats.find(c => c.id === id);
-	// A top category (a subcategory with no category too: Greek's Bible is everything)
-	const isTop = c => !c.sub || !catById(c.id.split('/')[0]);
 	const urlParams = new URLSearchParams(window.location.search);
 	// The filter (what searches use) and the gloss (what glosses use) work
 	// the same way, with the same drawer (filterHTML): each picks categories
@@ -553,7 +543,7 @@ if(!isDictPage){
 	const GLOSS_ROWS = [1, 2, 3];
 	const rowsKey = `peakslab-glossrows-${appname}`, rowSet = {...stored(rowsKey)};
 	const catRow = id => rowSet[id] || (id.startsWith('phonetics') ? 1 : 2);
-	const glossRow = d => catRow(cats.find(c => isTop(c) && c.members.includes(d))?.id || dicts[d].cat);
+	const glossRow = d => catRow(cats.find(c => c.members.includes(d)).id);
 
 	// Stars: a starred dictionary's entries come first and stand out, in the
 	// order they were starred, and its words are the ones searched first.
@@ -714,7 +704,7 @@ if(!isDictPage){
 	const countSpan = $('count'); // How many were found: in the header's second line
 	const resultsDiv = $('results');
 	const popupOverlay = $('popupOverlay');
-	const popupResults = $('popupResults');
+	const popupResults = $('popupResults'), popupBox = $('popupContent'); // (the box that scrolls)
 
 	// Above the results: the big text box for long queries and the
 	// search's word by word gloss.
@@ -788,8 +778,10 @@ if(!isDictPage){
 		if (hl) card.dataset.hl = hl;
 		box.append(card);
 		addCardBar(card, ref, q);
-		return fillCard(card).then(() => card.querySelector('.vs.ctx')?.scrollIntoView({block: 'center'}));
+		return fillCard(card).then(() => card);
 	}
+	// At its verse (once it's showing)
+	const toHl = card => card.querySelector('.vs.ctx')?.scrollIntoView({block: 'center'});
 	// A chapter or a range searched: its card (in no Bible, searched)
 	function bibleSearch(ref, otherwise){
 		const gen = ++searchGen;
@@ -801,11 +793,11 @@ if(!isDictPage){
 			cleanup(resultsDiv);
 			lastRead = `${bookCode(ref.bk)} ${chOf(ref.from)}.`; // (the Bible bar's)
 			renderBibleBar();
-			bibleCard(resultsDiv, ref, query, null, readHl);
+			bibleCard(resultsDiv, ref, query, null, readHl).then(toHl);
 		});
 	}
 	// In the popup: the range's card
-	const popupRange = (text, texts, cmp) => bibleCard(popupResults, popupRef(), popupQuery, texts, popupHl, cmp).then(() => popupQuery === text && popupOpen());
+	const popupRange = (text, texts, cmp) => bibleCard(popupResults, popupRef(), popupQuery, texts, popupHl, cmp).then(card => popupQuery === text && (popupOpen(), toHl(card)));
 	const search = text => { setQueryText(text); startSearch(); addHistory(queryText); };
 	let readHl = ''; // The verse to show in its chapter (Read in context)
 
@@ -1036,7 +1028,7 @@ if(!isDictPage){
 		renderCardBar(card);
 		fillCard(card).then(() => {
 			const vs = card.querySelector('.vs.ctx');
-			if (dir < 0 && vs && y !== undefined) scrollBy(0, vs.getBoundingClientRect().top - y);
+			if (dir < 0 && vs && y !== undefined) (inPopup(card) ? popupBox : window).scrollBy(0, vs.getBoundingClientRect().top - y); // (the popup's box scrolls, not the page)
 		});
 	}
 	// (… in the results: the chapter in the popup, at the verse; in the
@@ -1307,16 +1299,9 @@ if(!isDictPage){
 		const ds = c.members.filter(inView(view));
 		return view === 'library' ? `${ds.filter(d => downloaded.has(d)).length} of ${ds.length} downloaded` : `${ds.filter(onIn(view)).length} of ${ds.length} on`;
 	}
-	// A category's subcategories (Bible's Bible texts, ...)
-	const subsOf = c => c.sub ? [] : cats.filter(s => s.sub && s.id.split('/')[0] === c.id);
-	// A list's dictionaries, in their order: a category's own (its id; not
-	// the ones in its subcategories), or the ones in none (''). The filter
-	// has just the downloaded ones.
-	function listOf(id, view){
-		const c = id && catById(id);
-		const ds = c ? c.members.filter(d => !subsOf(c).some(s => s.members.includes(d))) : dictIds.filter(d => !cats.some(c => c.members.includes(d)));
-		return ds.filter(inView(view));
-	}
+	// A list's dictionaries, in their order: a category's (its id), or ('')
+	// all of them. The filter has just the downloaded ones.
+	const listOf = (id, view) => (id ? catById(id).members : dictIds).filter(inView(view));
 	// A category the view has any of (the filter: any downloaded)
 	const shown = (c, view) => c.members.some(inView(view));
 	// A dictionary's name, kind, size (with its state, if any) and description
@@ -1348,27 +1333,20 @@ if(!isDictPage){
 		const ds = listOf(id, view);
 		return ds.length ? `<ul class="rows dict-rows">${ds.map(d => dictRowHTML(d, view)).join('')}</ul>` : '<p class="empty">None downloaded.</p>';
 	}
-	// The categories; opened, their own dictionaries, then each
-	// subcategory's under its heading. Then Other: the ones in none. In the
+	// The categories; opened, their dictionaries. In the
 	// filter and the gloss a category's name picks it, and 1 2 3 its row in
 	// a gloss; in the library it opens it.
 	function catsHTML(view){
 		if (!choice) return rowsHTML('', view);
-		const tops = cats.filter(c => isTop(c) && shown(c, view));
+		const tops = cats.filter(c => shown(c, view));
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => groupHTML(`${view}:${c.id}`,
 			view !== 'library' ? btn(c, 'sel', `class="cat-chk check" aria-pressed="${!filtered(view) || picks[view].includes(c.id)}" aria-label="${VIEWS[view].title}: ${escapeHTML(c.label)}"`, '') +
 				btn(c, 'only', 'class="cat-sel" title="Just this"', wordsHTML(escapeHTML(c.label), catCount(c, view))) +
 				`<span class="gloss-rows">${GLOSS_ROWS.map(n => btn(c, 'row', `data-row="${n}" aria-pressed="${catRow(c.id) === n}" title="Its words in row ${n} of a gloss"`, n)).join('')}</span>` :
 				groupHead(`${view}:${c.id}`, c.label, catCount(c, view)),
-			() => {
-				const subs = subsOf(c).filter(s => shown(s, view));
-				return (listOf(c.id, view).length || !subs.length ? rowsHTML(c.id, view) : '') +
-					subs.map(s => `<h4 class="cat-subh">${escapeHTML(s.label)}</h4>${rowsHTML(s.id, view)}`).join('');
-			});
-		const other = listOf('', view);
-		return `<ul class="rows cats">${tops.map(cat).join('')}` +
-			(other.length ? groupHTML(`${view}:`, groupHead(`${view}:`, 'Other', catCount({members: other}, view)), () => rowsHTML('', view)) : '') + '</ul>';
+			() => rowsHTML(c.id, view));
+		return `<ul class="rows cats">${tops.map(cat).join('')}</ul>`;
 	}
 	// The filter (view 'filter') and the gloss's (view 'gloss'): All (every category ticked), then the categories, with
 	// their downloaded dictionaries; untick any to search (or gloss) with
@@ -1621,7 +1599,7 @@ if(!isDictPage){
 			setFilter(view, []);
 		} else if (act) { // A category's
 			const c = catById(b.dataset.cat), s = picks[view];
-			if (act === 'sel') return setFilter(view, !filtered(view) ? cats.filter(x => isTop(x) && x !== c).map(x => x.id) : s.includes(c.id) ? s.filter(x => x !== c.id) : [...s, c.id]); // (All: all but it)
+			if (act === 'sel') return setFilter(view, !filtered(view) ? cats.filter(x => x !== c && shown(x, view)).map(x => x.id) : s.includes(c.id) ? s.filter(x => x !== c.id) : [...s, c.id]); // (All: all but it)
 			if (act === 'only') return setFilter(view, [c.id]);
 			if (act === 'row') {
 				rowSet[c.id] = +b.dataset.row;
@@ -1680,9 +1658,10 @@ if(!isDictPage){
 		if (ds.some(d => was[d] !== searched(d) && (!searched(d) || loaded.has(d)))) searchAgain();
 	}
 
-	// Turns these on or off for glosses only (the gloss's drawer)
+	// Turns these on or off for glosses only (the gloss's drawer; on: true,
+	// false, or one for each, as setOn's)
 	function setGlossOn(ds, on){
-		ds.forEach(d => { glossSet[dicts[d].path] = on; });
+		ds.forEach(d => { glossSet[dicts[d].path] = typeof on === 'function' ? on(d) : on; });
 		if (!solo.length) store(glossKey, glossSet);
 		renderLists();
 		renderQuick();
@@ -1692,7 +1671,7 @@ if(!isDictPage){
 	// Changes what the filter (or the gloss) has picked
 	function setFilter(view, ids){
 		let s = ids.filter(catById);
-		if (cats.filter(isTop).every(c => s.includes(c.id))) s = []; // Every one: All
+		if (cats.every(c => s.includes(c.id) || !shown(c, view))) s = []; // Every one (it has any of): All
 		picks[view] = s;
 		store(VIEWS[view].key, s);
 		updateFilterUI();
@@ -1827,6 +1806,7 @@ if(!isDictPage){
 		popupHl = hl;
 		popupQuery = text;
 		cleanup(popupResults);
+		popupBox.scrollTop = 0;
 		popupResults.classList.remove('collapsed');
 		const q = updateQuery(text), bt = barTexts(), mask = dicts.map((_, d) => isBibleText(d) ? bt.includes(d) : isOn(d, 'gloss'));
 		if (hasBible && rangeOf(q)) return popupRange(text, texts, cmp);
@@ -1837,7 +1817,6 @@ if(!isDictPage){
 	}
 	function popupOpen(){
 		popupOverlay.style.display = 'block';
-		popupOverlay.scrollTop = 0;
 		document.body.classList.add('no-scroll');
 		setTimeout(() => document.addEventListener('click', closePopupClick)); // A click outside closes it (after the click that opened it, if one did)
 	}
