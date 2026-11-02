@@ -502,10 +502,10 @@ if(!isDictPage){
 	};
 
 	// The filter: categories made from the dictionaries on the page, by kind:
-	// their first folder, named as it is (Bible, Dict, Ref, Music, ...). Pick
+	// their first folder, named as it is (Bible, Bible extra, Dict, Ref, ...). Pick
 	// any number of them and searches use just their dictionaries; none
 	// picked is All. Each dictionary is on or off, the same in every category.
-	const catLabel = c => c.split('/').map(cap).join(' / ');
+	const catLabel = c => c.split('/').map(cap).join(' / ').replaceAll('-', ' '); // ("bible-extra": Bible extra)
 	// The categories, in the order their entries come (their first
 	// dictionary's). Again when a dictionary's added or taken off. Choosing
 	// is worth it only with two or more: one category is everything.
@@ -751,7 +751,10 @@ if(!isDictPage){
 	}
 	// Bible d's lines in range r ({d, at (the first), last}, in its order:
 	// the Bible's), or null. Its book: its code, or the name a Bible gives it.
-	const bookCode = book => (b => books?.find(x => x.code === b || x.name.toLowerCase() === b)?.code || b)(book.toLowerCase());
+	// (names compared in lower case, without invisible spaces ("បទ​ចំរៀង"),
+	// their digits in any script: "១ កូរិនថូស" is "1 កូរិនថូស")
+	const nameKey = t => t.toLowerCase().replace(/[​⁠­﻿]/g, '').replace(/\p{Nd}/gu, digit);
+	const bookCode = book => (b => books?.find(x => x.code === b || nameKey(x.name) === b)?.code || b)(nameKey(book));
 	// A Bible's (or commentary's) headwords, each [its book's code, chapter * 1000 + verse]: "gen 1.1"
 	const headsCache = {};
 	const headsOf = d => headsCache[d] ??= askDict(d, {type: 'heads'}).then(r => r.heads.map(h => (([bk, c, v]) => [bk, c * 1000 + +v])(h.split(/[ .]/))));
@@ -884,7 +887,7 @@ if(!isDictPage){
 	// chapter ▾, translation ▾ ›. The book opens the Books drawer (the books,
 	// a book's chapters), the translation the translations drawer. The
 	// search bar's there to type in too.
-	const bibleMode = () => hasBible && (pParts.includes('bible') || picks.filter.some(id => id.startsWith('bible')));
+	const bibleMode = () => hasBible && (pParts.includes('bible') || picks.filter.includes('bible'));
 	let lastRead = ''; // The chapter read last ("joh 3.")
 	let booksPick = null; // The book whose chapters the drawer shows
 	let booksOpen = false; // (the books showing, not a book's chapters)

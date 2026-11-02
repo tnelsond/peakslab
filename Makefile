@@ -85,7 +85,7 @@ dict_src/lao/phonetics/dict/laoipa.tsv dict_src/lao/phonetics/dict/laosouth.tsv 
 # The Greek and Hebrew interlinear Bibles and their lexicons are made from
 # STEPBible's data (https://github.com/STEPBible/STEPBible-Data: the TAGNT,
 # TAHOT, TBESG and TBESH .txt files in dict_src/stepbible)
-STEP_TSV := dict_src/greek/bible/text/grc-tagnt.tsv dict_src/greek/ref/bible/tbesg.tsv dict_src/hebrew/bible/text/hbo-tahot.tsv dict_src/hebrew/ref/bible/tbesh.tsv
+STEP_TSV := dict_src/greek/bible/text/grc-tagnt.tsv dict_src/greek/bible-extra/tbesg.tsv dict_src/hebrew/bible/text/hbo-tahot.tsv dict_src/hebrew/bible-extra/tbesh.tsv
 $(STEP_TSV) &: $(wildcard dict_src/stepbible/*.txt) utils/stepbibletotsv.py
 	python3 utils/stepbibletotsv.py dict_src/stepbible dict_src
 
