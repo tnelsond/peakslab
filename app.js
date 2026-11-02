@@ -361,7 +361,7 @@ if(!isDictPage){
 		const [cv, , n] = /(\p{Nd}+)[:.](\p{Nd}+)$/u.exec(refOf(data.body)), full = v % 1000 === 1 || !card.querySelector('.vs');
 		const body = highlightText(textOf(data.body).replace(/<\/?p(?=[\s>])[^>]*>/gi, ' '), card.parentNode === resultsDiv && !card.dataset.hl && query); // (verses run on; the search's words marked)
 		// Its headings go above its number, which stays on the line with its
-		// first word
+		// first letter (CSS)
 		const heads = (/^\s*(?:<h\d[^>]*>[\s\S]*?<\/h\d>\s*)+/i.exec(body) || [''])[0];
 		let rest = body.slice(heads.length).trimStart();
 		const para = /^((?:<[^>]+>\s*)*)¶\s*/.exec(rest); // A paragraph starts with it: no ¶, a new line (CSS)
@@ -369,12 +369,12 @@ if(!isDictPage){
 			rest = para[1] + rest.slice(para[0].length);
 		// (a verse that starts with a quote, a poem's line: its number at
 		// the start of the line, not on one of its own above it)
-		const lead = /^(?:<p-q\d*>\s*)?/.exec(rest)[0], word = /^[^\s\u200B<]*/.exec(rest.slice(lead.length))[0];
+		const lead = /^(?:<p-q\d*>\s*)?/.exec(rest)[0];
 		const t = document.createElement('template');
 		// In parallel, in the verse's group, by verse, each text as the
 		// dictionaries go: like an entry, with its name and Gloss
 		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}` : '') +
-			`<span class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}${lead}<span class="vs-start"><span class="vs-n">${full ? cv : n}</span>${word}</span>${rest.slice(lead.length + word.length)}` +
+			`<span class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}${lead}<span class="vs-n">${full ? cv : n}</span>${rest.slice(lead.length)}` +
 			(par ? '</span></div>' : ' </span>');
 		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
 		if(par){
@@ -436,8 +436,9 @@ if(!isDictPage){
 	// Every dictionary on the page, from files.json's [path, timestamp,
 	// description, buflen, priority, type, collapsed, size]. Its category is
 	// its folders after the language's (a Khmer and an English Bible text
-	// are both "bible/text"). It's on the page if its path has every one of
-	// the page's segments ("primary"), or it's another language's with
+	// are both "bible/text"). It's on the page if it's the page's language's
+	// and in every one of the page's folders (/khmer/bible: khmer/bible/text/x;
+	// not khmer/chinese/x on /chinese) ("primary"), or it's another language's with
 	// priority <= 0 in a category that's on the page. Priority: 1, the
 	// language's main ones; 0, the best of the other languages' (on, like
 	// 1's); 2, 3, ... the language's others, and -1, -2, ... the other
@@ -450,7 +451,7 @@ if(!isDictPage){
 			size: size || 0, // To download
 			name: path.split('/').pop().replace(/\.(peak|slab)(\.zst)?$/, ''),
 			cat: folders.join('/'),
-			primary: pParts.every(p => path.includes(p)),
+			primary: pParts.every((p, i) => i ? folders.includes(p) : p === lang),
 			media: path.includes('.slab'),
 			on: [undefined, 1, 0].includes(priority)}; // On by default: priority 1 and 0 (and see ownLevel)
 	});
