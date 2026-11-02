@@ -19,12 +19,14 @@ LANG = sys.argv[5] if len(sys.argv) > 5 else 'mono'
 
 def tidy(body):
 	body = body.replace('\\n', '\n').replace('\\t', ' ').replace('\\\\', '\\')
+	if not re.search(r'<\w', body):  # (plain text: its lines its lines)
+		body = body.strip().replace('\n', '<br>')
 	body = re.sub(r'\\([^\w\s])', r'\1', body)  # (then a source's own escapes, DSL's: "\/", "\(", "\>")
 	body = re.sub(r'<link[^>]*>|</?idx:[^>]*>|<a id="[^"]*"\s*>\s*</a>|<img[^>]*>', '', body)
 	# A link to another entry: a word to tap; any other link, its text
 	body = re.sub(r'<a [^>]*href="(?:entry|bword)://[^"]*"[^>]*>(.*?)</a>', r'<p-a>\1</p-a>', body, flags=re.S)
 	body = re.sub(r'<a [^>]*href="(?!https?:)[^"]*"[^>]*>(.*?)</a>', r'<p-a>\1</p-a>', body, flags=re.S)
-	body = re.sub(r'</?(?:span|font)\b[^>]*>', '', body)
+	body = re.sub(r'</?(?:span|font)\b[^>]*>', '', body, flags=re.I)
 	body = re.sub(r'<(\w+)\s[^>]*?>', lambda m: m[0] if m[1] in ('a', 'audio', 'source') else f'<{m[1]}>', body)
 	body = re.sub(r'<p>', '<div>', body).replace('</p>', '</div>')
 	body = re.sub(r'<div>\s*</div>|<(b|i)>\s*</\1>', '', body)
@@ -53,10 +55,22 @@ def lines():
 				records[head].append(text)
 	for head, texts in records.items():
 		yield head, '<br>'.join(texts)
+# Keys with the same text one entry: its word the one the text names first
+# (기세【氣勢】: 기세), the others its forms (氣勢 finds it)
+entries = {}  # tidied body: [[words of a key], ...]
 for words, body in lines():
-	word, *alts = [w.replace('\\|', '|').strip() for w in re.split(r'(?<!\\)\|', words)]
-	alts = [a for a in dict.fromkeys(alts) if a and a != word and '\t' not in a]
 	body = tidy(body)
+	if body:
+		# (a homograph's number left off: Naver's "사랑 1"; and an accent's, Daijirin's "げちょう ◎")
+		entries.setdefault(body, []).append([re.sub(r'\s+(?:\d{1,2}|[◎①-⑳])+$', '', w.replace('\\|', '|').strip()) for w in re.split(r'(?<!\\)\|', words)])
+for body, keys in entries.items():
+	words = [w for w in dict.fromkeys(w for k in keys for w in k) if w and '\t' not in w]
+	if not words:
+		continue
+	text = re.sub(r'<[^>]*>', '', body)
+	word = keys[0][0] if len(keys) == 1 and keys[0][0] in words else min(words, key=lambda w: (text.find(w) < 0, text.find(w)))
+	alts = [a for a in words if a != word]
+	body = re.sub(rf'^(?:{re.escape(word)}(?:\s*\d{{1,2}})?\s*(?:<br>\s*)+)+', '', body)  # (its word again first, as a heading: Naver's)
 	if not body:
 		continue
 	cells = [word]

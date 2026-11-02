@@ -12,7 +12,7 @@ word, so its Thai and Khmer words are each other's translations, by sense:
   - its romanizations (pinyin, ...), the most common first
   - a word in its scripts (Chinese's "詞典 /词典") a headword in each
 
-Usage: kaikkitranslationstotsv.py <English.jsonl[.gz]> <from language> <to language> <out.tsv> <desc> [priority]
+Usage: kaikkitranslationstotsv.py <English.jsonl[.gz]> <from language> <to language> <out.tsv> <desc> [priority] [lang]
   languages: Kaikki's names (Thai, Lao, Khmer, "Chinese Mandarin": its "Chinese"
   is Cantonese, Hokkien, ... too)
 """
@@ -22,6 +22,7 @@ from html import escape
 
 IN, FROM, TO, OUT, DESC = sys.argv[1:6]
 PRIORITY = sys.argv[6] if len(sys.argv) > 6 else '1'
+LANG = sys.argv[7] if len(sys.argv) > 7 else ''  # (#lang: its languages, "ko,km")
 
 def e(s):
 	return escape(s, quote=False).replace('@', '@@').replace('^', '^^')  # (peakgen's marks: just text here)
@@ -57,7 +58,7 @@ with (gzip.open if IN.endswith('.gz') else open)(IN, 'rt', encoding='utf-8') as 
 				r['senses'].append((d.get('pos') or '', to, d['word'], sense))
 
 with open(OUT, 'w', encoding='utf-8') as out:
-	out.write(f'#desc\t{DESC}\n#priority\t{PRIORITY}\n')
+	out.write(f'#desc\t{DESC}\n#priority\t{PRIORITY}\n' + (f'#lang\t{LANG}\n' if LANG else ''))
 	for hw in sorted(rows):
 		r = rows[hw]
 		cells = [e(hw)]

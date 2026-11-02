@@ -23,5 +23,7 @@
   "sheet": ["sht", "Sht"],
   "commentary": ["com", "Com"],
   "chinese": ["zh", "中", "zh_CN", "🇨🇳"],
-  "thai": ["th", "ท", "th_TH", "🇹🇭"]
+  "thai": ["th", "ท", "th_TH", "🇹🇭"],
+  "korean": ["ko", "한", "ko_KR", "🇰🇷"],
+  "japanese": ["ja", "日", "ja_JP", "🇯🇵"]
 }

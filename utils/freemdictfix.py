@@ -5,6 +5,9 @@
       NECTEC's Lexitron, both ways in one: its Thai words (Thai to English)
       and its English words (English to Thai), each its own .tsv; a sense's
       [VT] a note, its S. (synonyms) and A. (antonyms) words to tap
+  split <in.tsv> <regex> <a.tsv> <b.tsv> <desc-a> <desc-b> <priority> <lang-a> <lang-b>
+      a dictionary both ways in one (Naver's Korean–English and English–
+      Korean): the words the regex matches the start of in a, the rest in b
   strongs <in.tsv> <out.tsv>
       a Chinese Strong's lexicon: just its Chinese (its English is the
       English Strong's), out of its table
@@ -37,6 +40,15 @@ if kind == 'lexitron':
 			f.write(f'#desc\t{desc}\n#priority\t{sys.argv[7] if len(sys.argv) > 7 else 1}\n#lang\t{lang}\n')
 			f.write('\n'.join(rows) + '\n')
 		print(f'{out}: {len(rows)} entries', file=sys.stderr)
+elif kind == 'split':
+	rx, a, b, da, db, pr, la, lb = sys.argv[3:11]
+	rows = ([], [])
+	for l in body:
+		rows[not re.match(rx, l)].append(l)
+	for out, rs, desc, lang in ((a, rows[0], da, la), (b, rows[1], db, lb)):
+		with open(out, 'w', encoding='utf-8') as f:
+			f.write(f'#desc\t{desc}\n#priority\t{pr}\n#lang\t{lang}\n' + '\n'.join(rs) + '\n')
+		print(f'{out}: {len(rs)} entries', file=sys.stderr)
 elif kind == 'strongs':
 	with open(sys.argv[3], 'w', encoding='utf-8') as f:
 		f.write('\n'.join(head) + '\n')
