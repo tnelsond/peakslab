@@ -122,9 +122,15 @@
     ["portuguese/dict/pt-eng.peak.zst", 1789697022, "Portuguese English Dictionary", 50225, 1, "bi", 0, 5323367],
     ["portuguese/dict/pt_oxford.peak.zst", 1789697026, "Portuguese Oxford dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs\">freemdict</a>", 16948, 1, "rbi", 0, 585080],
     ["spanish/bible-extra/es_biblewords.peak.zst", 1789697027, "Spanish Bible Translation words from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 3956, 1, "mono", 0, 262897],
+    ["spanish/bible-extra/es-biblico.peak.zst", 1793600178, "Diccionario Bíblico Arqueológico (Charles F. Pfeiffer) from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/SPANISH\">freemdict</a>", 55793, 2, "mono", 0, 644822],
     ["spanish/bible/text/es-rv1909.peak.zst", 1793593856, "Reina-Valera 1909, dominio público, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 492, 1, "mono", 0, 1386500],
     ["spanish/bible/text/esULB.peak.zst", 1793534555, "Spanish Unlocked Literal Bible from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 552, 3, "mono", 0, 1521692],
-    ["spanish/dict/esoxford.peak.zst", 1789697079, "Spanish English Oxford Dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs\">freemdict</a>", 53524, 1, "bi", 0, 7246010]
+    ["spanish/dict/es-clave.peak.zst", 1793600176, "Diccionario Clave: de uso del español actual, con sinónimos y antónimos, from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/SPANISH\">freemdict</a>", 12741, 2, "mono", 0, 4647586],
+    ["spanish/dict/es-collins.peak.zst", 1793600095, "Collins Spanish-English Dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/SPANISH\">freemdict</a>", 18426, 1, "bi", 0, 6210897],
+    ["spanish/dict/es-kaikki.peak.zst", 1793600404, "Kaikki Spanish-English Dictionary (English Wiktionary, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/Spanish/\">kaikki.org</a>", 8847, 2, "bi", 0, 11139482],
+    ["spanish/dict/es-moliner.peak.zst", 1793600150, "Diccionario de uso del español, María Moliner, from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/SPANISH\">freemdict</a>", 57421, 2, "mono", 0, 6436349],
+    ["spanish/dict/esoxford.peak.zst", 1789697079, "Spanish English Oxford Dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs\">freemdict</a>", 53524, 1, "bi", 0, 7246010],
+    ["spanish/dict/es-spanishdict.peak.zst", 1793600123, "SpanishDict Spanish-English Dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/SPANISH\">freemdict</a>", 6993, 1, "bi", 0, 6128996]
   ],
   "abbr": {
     "khmer": ["km", "ខ", "km_KH", "🇰🇭"],
