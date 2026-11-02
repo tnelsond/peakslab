@@ -34,6 +34,7 @@
 	--pill-bg: #e6d6b6; /* a dictionary's name: tan, */
 	--pill-fg: #5a3c1e; /* dark brown */
 	--muted: #6b5d48;
+	--ipa: #303;
 	--line: #e6dcc8;
 	--type-mono: #dfe9c4;
 	--type-bi: #d6e4ef;
@@ -70,6 +71,7 @@ body.dark-mode {
 	--pill-bg: #4a3d29;
 	--pill-fg: #ead9b7;
 	--muted: #b3a68f;
+	--ipa: #e2b8e2;
 	--line: #3a3220;
 	--type-mono: #2f3a17;
 	--type-bi: #1d2d3b;
@@ -403,7 +405,7 @@ p-ipa {
 	display: block;
 	clear: left;
 	font-size: 1.2em;
-	color: #303;
+	color: var(--ipa);
 }
 p-e details { font-size: .8em; color: var(--muted); } /* (a word's forms) */
 p-r { /* a romanization (after the IPA) */
