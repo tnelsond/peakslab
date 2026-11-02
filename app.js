@@ -323,7 +323,7 @@ if(!isDictPage){
 	function found(){
 		++num;
 		queryInput.classList.remove("error");
-		updateStatus(`Found ${num}+ matching lines.`, `${num}+ found`);
+		updateStatus(num, 'results loaded');
 		loadmore();
 	}
 
@@ -1802,10 +1802,11 @@ if(!isDictPage){
 		history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
 	}
 
-	// How many were found (short, in the header's second line; all of it, its title)
-	function updateStatus(text, short = text){
-		countSpan.textContent = short;
-		countSpan.title = text;
+	// How many there are, in the header's second line: results loaded, or
+	// words glossed (what, its title); none searched, nothing
+	function updateStatus(n, what = ''){
+		countSpan.textContent = n;
+		countSpan.title = what && `${n} ${what}`;
 	}
 
 
@@ -1945,7 +1946,7 @@ if(!isDictPage){
 		div.className = 'translation';
 		fillGloss(div, pieces, ids, queryText, n => `<h2><span class="hw">${n}</span>${foldBtnHTML}</h2>`);
 		translationDiv.replaceChildren(div);
-		updateStatus('No entry for all of it, glossed word by word.', 'Word by word');
+		updateStatus(pieces.filter(p => p.ds.length).length, 'words glossed');
 		queryInput.classList.remove('error');
 	}
 
@@ -2238,7 +2239,7 @@ if(!isDictPage){
 		[resultsDiv, translationDiv].forEach(x => x.classList.remove('collapsed'));
 		translationDiv.replaceChildren();
 		window.scrollTo(0, 0);
-		updateStatus('No matches found.', 'None found');
+		updateStatus(0, 'results loaded');
 		queryInput.classList.add("error");
 		const ref = hasBible && searchRef();
 		if (ref) bibleSearch(ref, runSearch);
