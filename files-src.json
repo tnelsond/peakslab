@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793590375],
+    ["404.html", 1793591267],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -34,10 +34,10 @@
     ["german/bible/text/deuSchBible.peak.zst", 1793534546, "Die Schlachter-Bibel 1951 from <a href=\"https://ebible.org/details.php?id=deu1951\">eBible</a>", 494, 1, "mono", 0, 1575613],
     ["german/dict/duden.peak.zst", 1788854274, "Duden Band 10 - Das Große Wörterbuch der deutschen Sprache - from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/GERMAN/Deu-Deu/Duden/Duden%20Band%2010%20-%20Das%20Gro%C3%9Fe%20W%C3%B6rterbuch%20der%20deutschen%20Sprache\">freemdict</a>", 38040, 1, "mono", 0, 14868652],
     ["german/dict/oxford-de.peak.zst", 1788854300, "Oxford German Dictionary from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs\">freemdict</a>", 16036, 1, "bi", 0, 4756242],
-    ["greek/bible-extra/tbesg.peak.zst", 1793534881, "Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has. CC BY 4.0, from <a href=\"https://github.com/STEPBible/STEPBible-Data\">STEPBible.org</a> (Tyndale House, Cambridge)", 6462, -1, "bi", 0, 1272500],
-    ["greek/bible/text/grc-tagnt.peak.zst", 1793534958, "Greek New Testament, word by word: Translators Amalgamated Greek NT (TAGNT, Nestlé-Aland text with the KJV’s variants marked), English glosses based on the BSB, Strong’s numbers and grammar. CC BY 4.0, from <a href=\"https://github.com/STEPBible/STEPBible-Data\">STEPBible.org</a> (Tyndale House, Cambridge)", 2328, -1, "mono", 0, 1021229],
-    ["hebrew/bible-extra/tbesh.peak.zst", 1793534887, "Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has. CC BY 4.0, from <a href=\"https://github.com/STEPBible/STEPBible-Data\">STEPBible.org</a> (Tyndale House, Cambridge)", 7548, -1, "bi", 0, 1092007],
-    ["hebrew/bible/text/hbo-tahot.peak.zst", 1793534993, "Hebrew Old Testament, word by word: Translators Amalgamated Hebrew OT (TAHOT, Leningrad Codex, cantillation left out), English glosses, Strong’s numbers and grammar. CC BY 4.0, from <a href=\"https://github.com/STEPBible/STEPBible-Data\">STEPBible.org</a> (Tyndale House, Cambridge)", 2608, -1, "mono", 0, 2635580],
+    ["greek/bible-extra/tbesg.peak.zst", 1793591332, "Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has. CC BY 4.0, from <a href=\"https://github.com/STEPBible/STEPBible-Data\">STEPBible.org</a> (Tyndale House, Cambridge)", 6462, 0, "bi", 0, 1272493],
+    ["greek/bible/text/grc-tagnt.peak.zst", 1793591347, "Greek New Testament, word by word: Translators Amalgamated Greek NT (TAGNT, Nestlé-Aland text with the KJV’s variants marked), English glosses based on the BSB, Strong’s numbers and grammar. CC BY 4.0, from <a href=\"https://github.com/STEPBible/STEPBible-Data\">STEPBible.org</a> (Tyndale House, Cambridge)", 2328, -1, "mono", 0, 1021229],
+    ["hebrew/bible-extra/tbesh.peak.zst", 1793591356, "Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has. CC BY 4.0, from <a href=\"https://github.com/STEPBible/STEPBible-Data\">STEPBible.org</a> (Tyndale House, Cambridge)", 7548, 0, "bi", 0, 1092007],
+    ["hebrew/bible/text/hbo-tahot.peak.zst", 1793591410, "Hebrew Old Testament, word by word: Translators Amalgamated Hebrew OT (TAHOT, Leningrad Codex, cantillation left out), English glosses, Strong’s numbers and grammar. CC BY 4.0, from <a href=\"https://github.com/STEPBible/STEPBible-Data\">STEPBible.org</a> (Tyndale House, Cambridge)", 2608, -1, "mono", 0, 2635580],
     ["indonesian/bible/text/indTB.peak.zst", 1793534615, "Alkitab Terjemahan Baru (TB) Indonesian Bible from <a href=\"https://biblics.com\">biblics</a>", 529, 1, "mono", 0, 1427724],
     ["indonesian/dict/ind-eng2.peak.zst", 1788854313, "Indonesian English Dictionary 2", 1194, 1, "bi", 0, 2561739],
     ["indonesian/dict/ind-eng3.peak.zst", 1788854324, "Indonesian English Dictionary 3 from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN/Ind-Eng\">freemdict</a>", 32114, 1, "bi", 0, 3179787],

@@ -409,7 +409,7 @@ if(!isDictPage){
 		const n = b.closest('p-d')._notes.get(+b.dataset.v).find(n => n.d === +b.dataset.d);
 		cleanup(popupResults);
 		popupQuery = n.e.header;
-		popupResults.innerHTML = `<p-d><h2><span class="hw">${escapeHTML(refOf(n.e.body))}</span>${foldBtnHTML}</h2>${entryHTML(n.d, textOf(n.e.body))}</p-d>`;
+		popupResults.innerHTML = `<p-d class="show-hidden"><h2><span class="hw">${escapeHTML(refOf(n.e.body))}</span>${foldBtnHTML}</h2>${entryHTML(n.d, textOf(n.e.body))}</p-d>`; // (shown: a note's dictionary's entries start hidden)
 		popupOpen();
 	};
 
