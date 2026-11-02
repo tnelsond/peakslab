@@ -2061,12 +2061,15 @@ if(!isDictPage){
 	// Each word's rows: in each, the entry for exactly it from the row's
 	// first dictionary that has it (glossIds' order: starred first, then by
 	// priority; a headword over a second index word), as the popup has it;
-	// else its parts' entries, if they make it all up
+	// else its parts' entries, if they make it all up. Not from media or
+	// auxiliary ones (audio, word counts): they split the text too, and add
+	// their files (addMedia), but have no gloss to give
+	const glosses = d => !dicts[d].media && dicts[d].type !== 'aux';
 	function pickPieces(matches, text, done){
 		const pieces = splitText(matches, text, 0, text.length);
 		const byDict = new Map(); // The matches each dictionary renders
 		pieces.forEach(p => {
-			const xs = p.w ? matches.filter(x => x.a >= p.a && x.a + x.len <= p.b).sort((x, y) => x.rank - y.rank || x.sec - y.sec) : [];
+			const xs = p.w ? matches.filter(x => x.a >= p.a && x.a + x.len <= p.b && glosses(x.d)).sort((x, y) => x.rank - y.rank || x.sec - y.sec) : [];
 			p.rows = GLOSS_ROWS.map(r => {
 				const x = xs.find(x => x.row === r && x.a === p.a && x.len === p.b - p.a);
 				const parts = x ? [{w: x}] : splitText(xs.filter(y => y.row === r), text, p.a, p.b);
