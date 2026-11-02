@@ -269,7 +269,7 @@ if(!isDictPage){
 				(data.body?.includes('<p-m') ? chordsBtnHTML : '') + highlightText(data.body, data.query));
 			const el = t.content.firstChild;
 			if(data.filetype)
-				el.append(mediaElement(data.filetype, data.body, data.header));
+				el.append(mediaElement(data.filetype, data.body, data.header, d));
 			insertSorted(div, el, sortId(d));
 		}
 
@@ -333,7 +333,9 @@ if(!isDictPage){
 
 	// A media entry: a player for a recording (audioSrc), else a picture
 	// (jbig2 decoded)
-	function mediaElement(type, bytes, name){
+	function mediaElement(type, bytes, name, d){
+		if (TNEFAR.test(type)) return tnefarButton(bytes, '🔊 Play', d); // (played as it's decoded: no file for a player)
+		if (/^voice$/i.test(type)) return document.createTextNode('The voice its tnefar recordings are decoded with');
 		const audio = AUDIO.test(type), el = document.createElement(audio ? 'audio' : 'img');
 		if (audio) el.controls = true;
 		else {
@@ -693,6 +695,98 @@ if(!isDictPage){
 		return new Blob([wav], {type: 'audio/wav'});
 	}
 
+	// tnefar speech (utils/tnefar: FARGAN, and the speaker's voice, a
+	// codebook and a postfilter: the dictionary's "tnefar" file, its
+	// tnefar.voice). Under 1 kbps. It's made a few frames at a time and each piece
+	// played (Web Audio) as soon as it's made, so it starts before it's all
+	// decoded. Once it's all there it's kept, to play again straight away.
+	const TNEFAR = /tnefar/i;
+	const tnefarDone = new WeakMap(); // a recording's bytes -> its sound (16 kHz)
+	let tnefarCtx, tnefarX, tnefarJob = 0, tnefarOn = null; // (tnefarOn: what's playing, {button, live, stop})
+	const tnefarWasm = () => tnefarX ??= decoder('tnefar').then(x => (x._initialize?.(), x));
+	// A dictionary's voice, in the wasm's memory: [where, length]
+	const tnefarVoices = {};
+	const tnefarVoice = (x, d) => tnefarVoices[d] ??= askDict(d, {type: 'media', words: ['tnefar']}).then(r => {
+		const v = r.files[0]?.[1];
+		if (!v) throw new Error(`tnefar: ${dicts[d].name} has no voice (tnefar.voice)`);
+		return [toWasm(x, v), v.length];
+	});
+	// Play a recording; tapped again while it plays, pause (⏸ while it
+	// plays, 🔊 paused or done). Called in the tap: phones start sound only
+	// there, so the audio is started first and the sound follows
+	async function tnefarPlay(bytes, d, button){
+		if (!tnefarCtx) {
+			try { navigator.audioSession.type = 'playback'; } catch (e) { /* (iOS: heard even with the ringer off, like <audio>) */ }
+			const AC = window.AudioContext || window.webkitAudioContext;
+			try { tnefarCtx = new AC({sampleRate: 16000}); } catch (e) { tnefarCtx = new AC(); }
+		}
+		const ctx = tnefarCtx;
+		if (tnefarOn?.button === button && tnefarOn.live()) { // (its own button: pause, or go on)
+			const on = ctx.state !== 'running';
+			on ? ctx.resume() : ctx.suspend(); // (the decoding waits too: it keeps just ahead of the sound)
+			return tnefarShow(button, on);
+		}
+		ctx.resume();
+		tnefarOn?.stop();
+		const job = ++tnefarJob, srcs = [];
+		let at = 0, made = true; // (when the next piece starts; made: all of it is)
+		const me = tnefarOn = {button,
+			live: () => job === tnefarJob && (!made || ctx.currentTime < at),
+			stop: () => { ++tnefarJob; srcs.forEach(s => s.stop()); tnefarShow(button, false); }};
+		tnefarShow(button, true);
+		const play = pcm => {
+			const b = ctx.createBuffer(1, pcm.length, 16000), s = ctx.createBufferSource();
+			b.copyToChannel(pcm, 0);
+			s.buffer = b;
+			s.connect(ctx.destination);
+			s.start(at = Math.max(at, ctx.currentTime + .02)); // (late: right away)
+			s.onended = () => { if (made && s === srcs.at(-1) && tnefarOn === me) tnefarShow(button, false); }; // (the end)
+			srcs.push(s);
+			at += b.duration;
+		};
+		if (tnefarDone.has(bytes)) return play(tnefarDone.get(bytes));
+		made = false;
+		const x = await tnefarWasm(), [v, vn] = await tnefarVoice(x, d), p = toWasm(x, bytes), h = x.tnefar_open(p, bytes.length, v, vn);
+		x.free(p);
+		if (h < 0) throw new Error(`tnefar: can't decode it (${h})`);
+		let parts = x.tnefar_frames(h) <= 3000 ? [] : null; // (up to 30 s: kept, to play again)
+		try {
+			for (let n = 4, k; job === tnefarJob && (k = x.tnefar_run(h, n)) > 0; n = 16) {
+				const pcm = new Float32Array(x.memory.buffer, x.tnefar_pcm(h), k).slice();
+				parts?.push(pcm);
+				play(pcm);
+				// (a long one, a chapter: made just a few seconds ahead of what's playing)
+				while (at - ctx.currentTime > 5 && job === tnefarJob) await new Promise(r => setTimeout(r, 500));
+				await new Promise(r => setTimeout(r)); // (the page stays responsive)
+			}
+		} finally { x.tnefar_close(h); made = true; }
+		if (!parts || job !== tnefarJob) return;
+		const all = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+		parts.reduce((o, p) => (all.set(p, o), o + p.length), 0);
+		tnefarDone.set(bytes, all);
+	}
+
+	// A button's look while it plays (⏸, Pause) or not (as it was: 🔊, Play)
+	function tnefarShow(b, playing){
+		const label = b._label ??= b.textContent, t = playing ? 'Pause' : 'Play';
+		b.textContent = playing ? label.replace('🔊', '⏸').replace('Play', 'Pause') : label;
+		b.title = t;
+		b.setAttribute('aria-label', t);
+		b.classList.toggle('playing', playing);
+	}
+	// A 🔊 that plays the recording
+	function tnefarButton(bytes, label, d){
+		tnefarWasm().catch(() => {}); // (loading while it's not played yet)
+		const b = document.createElement('button');
+		b.className = 'text-btn';
+		b.textContent = label;
+		b.title = 'Play';
+		b.setAttribute('aria-label', 'Play');
+		b.tnefar = [bytes, d];
+		b.onclick = () => playWord(b);
+		return b;
+	}
+
 	// The query, newlines and all. The one line search bar can't hold
 	// newlines, so it shows them as spaces (same length, so the positions
 	// match) and the big text box shows the real thing.
@@ -1015,6 +1109,25 @@ if(!isDictPage){
 		bar.innerHTML = `<button class="hw" data-cb="bible" title="Translation, book and chapter" aria-haspopup="dialog">${ref.bk ? refHeading(ref) : 'Bible'}</button>` +
 			(card === bibleBar ? '' : foldBtnHTML);
 		if (card !== bibleBar) moreVerses(card, ref);
+		chapterAudio(card, bar, ref);
+	}
+	// A chapter's recording (a media dictionary's "gen 1"): its 🔊 in the
+	// chapter's heading (a card's: before the ⋮; the Bible bar's: at its
+	// right). The same button when the heading's redrawn: it may be playing
+	function chapterAudio(card, bar, ref){
+		const c = chOf(ref.from), w = ref.bk && c === chOf(ref.to) ? bookCode(ref.bk) + ' ' + c : '';
+		const put = b => bar.insertBefore(b, bar.querySelector(':scope > .cb-more'));
+		if (card._audio?.w === w) return card._audio.b && put(card._audio.b);
+		card._audio?.b && tnefarOn?.button === card._audio.b && tnefarOn.stop(); // (another chapter now)
+		card._audio = {w};
+		if (!w) return;
+		dictIds.filter(d => libOn[d] && dicts[d].media).forEach(d => askDict(d, {type: 'media', words: [w]}).then(r => {
+			const f = r.files[0];
+			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
+			const b = card._audio.b = tnefarButton(f[1], '🔊', d);
+			b.classList.add('ch-play');
+			put(b);
+		}));
 	}
 	// … above a verse's card (verses before it in its chapter), below it (after)
 	function moreVerses(card, ref){
@@ -2107,7 +2220,7 @@ if(!isDictPage){
 	// The media dictionaries' files for the words (loading them): a
 	// recording, a 🔊 in the word's box that plays it (no player); a picture,
 	// under it
-	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2/i;
+	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2|tnefar/i;
 	function addMedia(box, pieces, ids){
 		const words = [...new Set(pieces.filter(p => p.ds.length).map(p => p.text.trim()))]; // (the words in boxes)
 		if (!words.length) return;
@@ -2117,6 +2230,7 @@ if(!isDictPage){
 				if (!box.dataset.ds.split(',').includes(String(d))) box.dataset.ds += `,${d}`;
 				const ws = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(words[k])}"]`);
 				if (!AUDIO.test(f[0])) return ws.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(f[0], f[1], words[k])).classList.add('tr-img'); });
+				if (TNEFAR.test(f[0])) return ws.forEach(w => { if (!w.querySelector('.tr-play')) w.appendChild(tnefarButton(f[1], '🔊', d)).className = 'tr-play'; });
 				const src = audioSrc(f[0], f[1]); // (one for every box with the word)
 				ws.forEach(w => {
 					if (w.querySelector('.tr-play')) return;
@@ -2127,6 +2241,7 @@ if(!isDictPage){
 			})));
 	}
 	window.playWord = b => {
+		if (b.tnefar) return tnefarPlay(...b.tnefar, b).catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
 		const a = b.lastChild;
 		a.currentTime = 0;
 		a.play().catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });

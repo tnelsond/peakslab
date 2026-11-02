@@ -26,6 +26,8 @@ for book in ET.parse(XML).getroot().iter('book'):
 	for ch in book.iter('chapter'):
 		for v in ch.iter('verse'):
 			text = re.sub(r'\s+', ' ', ''.join(v.itertext())).strip()
+			# No spaces between Chinese characters (a Bible with one after each: 起 初 神 創 造)
+			text = re.sub(r'(?<=[　-鿿＀-￯]) (?=[　-鿿＀-￯])', '', text)
 			if text:
 				verses.append((code, name, ch.get('number'), v.get('number'), text))
 
@@ -43,7 +45,7 @@ def caps(m):
 
 out = [f'#desc\t{DESC}\n#priority\t{PRIORITY}\n#lang\tmono\n#no sort\n']
 for code, name, c, v, text in verses:
-	text = re.sub(rf'^(?:{WORD} )*?{WORD}(?= {WORD}*[a-zà-ÿ])', caps, text)
+	text = re.sub(rf'^(?:{WORD} )*?{WORD}(?= [^\W\d_]*[a-zà-ÿ])', caps, text)
 	text = text.replace('@', '@@').replace('^', '^^')  # (peakgen's own marks)
 	out.append(f'{code} {c}.{v}\t@{name} {c}:{v}\t{text}\n')
 n = len(verses)

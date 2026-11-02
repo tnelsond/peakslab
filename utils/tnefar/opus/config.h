@@ -1,0 +1,6 @@
+#define OPUS_BUILD 1
+#define USE_WEIGHTS_FILE 1
+#define HAVE_LRINTF 1
+#define HAVE_LRINT 1
+#define VAR_ARRAYS 1
+#define DISABLE_DEBUG_FLOAT 1

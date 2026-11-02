@@ -1,12 +1,13 @@
 {
   "core": [
-    ["404.html", 1793604683],
+    ["404.html", 1793623450],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
     ["khmer/battambang.woff2", 1793169367],
     ["peakslab.svg", 1789218198],
-    ["peak.wasm", 1793264757]
+    ["peak.wasm", 1793264757],
+    ["tnefar.wasm", 1793612265]
   ],
   "dicts": [
     ["chitonga/bible/text/toibible.peak.zst", 1793534437, "TOI Chitonga Bible", 682, 1, "mono", 0, 1554018],
@@ -49,6 +50,7 @@
     ["indonesian/dict/ind-eng3.peak.zst", 1788854324, "Indonesian English Dictionary 3 from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN/Ind-Eng\">freemdict</a>", 32114, 1, "bi", 0, 3179787],
     ["indonesian/dict/kaikki-ind.peak.zst", 1788854337, "Kaikki Indonesian English Dictionary via <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN/Ind-Eng\">freemdict</a>", 4473, 1, "bi", 0, 3049010],
     ["indonesian/dict/KBBI_EN.peak.zst", 1788854377, "Kamus Besar Bahasa Indonesia (KBBI) from <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/INDONESIAN/Ind-Eng\">freemdict</a>", 6311, 1, "bi", 0, 10971728],
+    ["khmer/bible/audio/dpi-pentateuch.slab", 1793622127, "Audio Bible, Genesis to Deuteronomy (Khmer non-drama recording KHMDPIO1DA), tnefar codec: 700 bps", 76303, 1, "aux", 0, 6250067],
     ["khmer/bible-extra/bible.peak.zst", 1792411280, "Khmer Bible dictionary I had lying around", 907, 1, "rbi", 0, 251698],
     ["khmer/bible-extra/biblewordkm.peak.zst", 1792405440, "Translation words from <a href=\"https://door43.org/\">door43</a>", 9321, 2, "mono", 0, 278316],
     ["khmer/bible-extra/km_tn.peak.zst", 1793534666, "Khmer Translation Notes (កំណត់ចំណាំសម្រាប់អ្នកបកប្រែ) by Wycliffe Associates, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>. From <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 27848, 3, "mono", 1, 2672449],
@@ -77,6 +79,7 @@
     ["khmer/dict/tech/newlexicon.peak.zst", 1792401680, "", 1985, 3, "mono", 0, 46512],
     ["khmer/lao/laokhmerwiktionary.peak.zst", 1793621518, "Lao to Khmer by sense, from English Wiktionary's translation tables (<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/English/\">kaikki.org</a>", 885, -1, "", 0, 244104],
     ["khmer/media/audio2.slab", 1793073227, "Khmer Audio (includes bible words)", 13407, 1, "aux", 0, 6473156],
+    ["khmer/media/audio2-tnefar.slab", 1793612817, "Khmer Audio (includes bible words), tnefar codec: 700 bps", 98416, 1, "aux", 0, 352135],
     ["khmer/media/audio.slab", 1792225424, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 12916, 2, "aux", 0, 7228877],
     ["khmer/media/images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2, "aux", 0, 3272094],
     ["khmer/music/chords/chords.peak.zst", 1792403311, "<a href=\"https://www.khmerworship.com/\">Khmer Worship</a>", 10958, 1, "mono", 0, 359243],

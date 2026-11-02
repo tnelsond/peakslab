@@ -646,6 +646,10 @@ p-d > h2 .menu button { display: flex; align-items: center; gap: 10px; white-spa
    height not more than the heading's) */
 .cb-more { flex: none; width: 48px; height: 44px; margin: -8px -14px -8px auto; padding: 0; color: #fff; line-height: 0; }
 .cb-more svg, .ch-go svg { display: block; margin: auto; }
+/* a chapter's recording: 🔊 at the right, before the ⋮ */
+.ch-play { flex: none; height: 44px; margin: -8px 0 -8px auto; padding: 0 10px; font-size: 18px; line-height: 1; }
+.ch-play + .cb-more { margin-left: 0; }
+#chNav > .ch-play { position: absolute; top: 0; right: 4px; bottom: 0; height: auto; margin: 0; }
 /* (the card has its own translations, not the search's: a dot after its reference) */
 p-d[data-texts] > .card-bar .hw::after { content: " •"; }
 /* A verse's …: the rest of its chapter (above it, below it) */
