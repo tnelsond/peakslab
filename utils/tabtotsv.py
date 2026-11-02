@@ -34,10 +34,26 @@ def tidy(body):
 	return body.replace('@', '@@').replace('^', '^^')  # (peakgen's marks: just text here)
 
 out, n = [f'#desc\t{DESC}\n#priority\t{PRIORITY}\n#lang\t{LANG}\n'], 0
-for line in open(IN, encoding='utf-8'):
-	if line.startswith('##') or '\t' not in line:
-		continue
-	words, body = line.rstrip('\n').split('\t', 1)
+# A body made of records, each with its own headword (Lingoes' `1`word`2`text,
+# or `1`word<P>text`2`): the entries are those records, a word's together
+# (a source with one line per sense, or its keys not its records'), a
+# homograph's number left off (亶1, 亶2: 亶)
+records = {}
+def lines():
+	for line in open(IN, encoding='utf-8'):
+		if line.startswith('##') or '\t' not in line:
+			continue
+		words, body = line.rstrip('\n').split('\t', 1)
+		if '`1`' not in body:
+			yield words, body
+			continue
+		for head, text in re.findall(r'`1`(.*?)(?:<P>|`2`)(.*?)(?:`2`)?(?=(?:\\n)?\s*`1`|$)', body):
+			head = re.sub(r'(?<=\D)\d+$', '', head.strip())
+			if head and text.strip() and text not in records.setdefault(head, []):
+				records[head].append(text)
+	for head, texts in records.items():
+		yield head, '<br>'.join(texts)
+for words, body in lines():
 	word, *alts = [w.replace('\\|', '|').strip() for w in re.split(r'(?<!\\)\|', words)]
 	alts = [a for a in dict.fromkeys(alts) if a and a != word and '\t' not in a]
 	body = tidy(body)
