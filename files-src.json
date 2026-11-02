@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793603617],
+    ["404.html", 1793604683],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -31,6 +31,7 @@
     ["english/bible/text/eng-nkjv.peak.zst", 1793534530, "New King James Version bible from <a href=\"https://beblia.com\">beblia</a>", 480, 0, "mono", 0, 1377840],
     ["english/bible/text/engULB.peak.zst", 1793534538, "English Unlocked Literal Bible from <a href=\"https://door43.org\">Door43</a>, Wycliffe Associates", 790, 4, "mono", 0, 1437299],
     ["english/bible/text/eng-ylt.peak.zst", 1793593537, "Young's Literal Translation (1898), public domain, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 571, 3, "mono", 0, 1371616],
+    ["english/dict/oewn.peak.zst", 1793604521, "Open English WordNet 2025 (<a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>), from <a href=\"https://github.com/globalwordnet/english-wordnet\">globalwordnet</a> via <a href=\"https://cloud.freemdict.com/index.php/s/pgKcDcbSDTCzXCs?dir=/ENGLISH/Eng-Eng/WordNet\">freemdict</a>", 10262, 2, "mono", 0, 5498900],
     ["english/dict/opted.peak.zst", 1788854202, "Online Plain Text English dictionary from Australian National University by Ralph S. Sutherland accessed via <a href=\"https://github.com/benjihillard/English-Dictionary-Database/\">Benjihillard</a>", 2196, 1, "mono", 0, 4611196],
     ["english/dict/oxforden.peak.zst", 1792121213, "Oxford English dictionary from <a href=\"https://dic.1963.ru\">https://dic.1963.ru</a>", 31671, 2, "mono", 0, 9293646],
     ["english/dict/ox-img.slab", 1788856873, "Images for the Oxford English Dictionary", 118397, 2, "aux", 0, 3834366],

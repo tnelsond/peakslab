@@ -134,7 +134,11 @@ if(!isDictPage){
 }else{
 	let num = 0;
 	let loader = null;
-	let st = 3;
+	// A search's stages, as peak.c's searchtype: the exact words (headwords,
+	// then second index words: "ran", run's form), then the words that start
+	// with it, then anywhere in the text; with search symbols, just the last
+	const STAGES = [1, 2, 3, 4, 5, 0];
+	let st = 1;
 	const timingDiv  = $('timing');
 
 	// Only when a worker has no current cached copy ('needwasm'): fetched
@@ -1843,11 +1847,9 @@ if(!isDictPage){
 	document.addEventListener('keydown', e => { if (e.key === 'Escape' && popupOverlay.style.display === 'block' && !drawerView && !ctx) closePopup(); }, true); // (before the drawer's and the context menu's: what's over it goes first)
 
 	function nextst(){
-		if(!st || st == 2)
-			return false;
-		++st;
-		if(st > 5)
-			st = 0;
+		const i = STAGES.indexOf(st);
+		if (i < 0 || i == STAGES.length - 1) return false;
+		st = STAGES[i + 1];
 		return true;
 	}
 
@@ -2243,7 +2245,7 @@ if(!isDictPage){
 	}
 	function runSearch(){
 		worker_code.fill(false);
-		st = globreg.test(query) ? 0 : 3;
+		st = globreg.test(query) ? 0 : STAGES[0];
 		searching = searchMask(); // (the workers skip the ones not loaded)
 		newLoader();
 		searchStage(true);
