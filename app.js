@@ -1997,7 +1997,10 @@ if(!isDictPage){
 	const RANGES = /(^|[^\p{L}\p{N}])((?:\d ?)?\p{L}[\p{L}\p{M}]*\.? ?\d+(?:[.:]\d+)? ?[-–] ?(?:\d+[.:])?\d+)(?!\p{N})/gu;
 	function rangeMatches(ids, text){
 		const d = ids.find(isBibleText);
-		const found = d === undefined ? [] : [...text.matchAll(RANGES)].map(m => ({a: m.index + m[1].length, s: m[2], r: rangeOf(m[2])})).filter(x => x.r);
+		// (a number before a book may be its own: "2 rom 9.1-8" is rom 9.1-8
+		// too, after a 2; the whole text's split picks)
+		const found = d === undefined ? [] : [...text.matchAll(RANGES)].flatMap(m => [m[2], m[2].replace(/^\d ?(?=\p{L})/u, '')].map(s => ({a: m.index + m[1].length + m[2].length - s.length, s, r: rangeOf(s)})))
+			.filter((x, i, xs) => x.r && xs.findIndex(y => y.a === x.a) === i);
 		if (!found.length) return [];
 		return Promise.all(found.map(x => rangeLines(d, x.r).then(p => p && askDict(d, lineMsg(p.at, Math.min(20, p.last - p.at + 1))).then(res => ({
 			a: x.a, len: x.s.length, d, rank: -1, sec: 0, row: glossRow(d),
