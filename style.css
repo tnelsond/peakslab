@@ -408,11 +408,11 @@ p-ipa {
 	color: var(--ipa);
 }
 p-e details { font-size: .8em; color: var(--muted); } /* (a word's forms) */
-/* Words by sense only with another language's for them (its menu's
+/* Aligned ones only with another language's for the same key (its menu's
    option): a card's lone one hidden, and a card of only that
    (not one of nothing: the loader's, or a search runs on, its end in sight) */
-body.wikt-pairs p-d:not(:has(> p-e[data-sense] ~ p-e[data-sense])) > p-e[data-sense],
-body.wikt-pairs p-d:has(> p-e[data-sense]):not(:has(> p-e:not([data-sense]))):not(:has(> p-e[data-sense] ~ p-e[data-sense])) { display: none; }
+body.wikt-pairs p-d:not(:has(> p-e[data-aligned] ~ p-e[data-aligned])) > p-e[data-aligned],
+body.wikt-pairs p-d:has(> p-e[data-aligned]):not(:has(> p-e:not([data-aligned]))):not(:has(> p-e[data-aligned] ~ p-e[data-aligned])) { display: none; }
 p-r { /* a romanization (after the IPA) */
 	margin-left: .5em;
 	font-size: .8em;

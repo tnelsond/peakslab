@@ -69,7 +69,7 @@ for l, (ab, *_) in LANGS.items():
 		o.write(f'#desc\t{name} words by English sense, from English Wiktionary\'s translation tables '
 			'(<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>), from '
 			'<a href="https://kaikki.org/dictionary/English/">kaikki.org</a>: with another language\'s on, '
-			f'a dictionary between them\n#priority\t{-1 if l == "english" else -2}\n#lang\tsense,{ab}\n')
+			f'a dictionary between them\n#priority\t{-1 if l == "english" else -2}\n#lang\t{ab},aligned\n')
 		n = 0
 		for hw in sorted(rows[l]):
 			lines = [(f'<p-n>{e(pos)}</p-n>\t' if pos else '') + '\t'.join('@' + e(w) + (f'\t<p-ipa>{e(r)}</p-ipa>' if r else '') for w, r in ws)

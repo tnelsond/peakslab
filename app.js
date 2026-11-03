@@ -86,11 +86,12 @@ const abbr = filesJson.abbr || {};
 // A dictionary's languages, when its type (#lang) is theirs, by their
 // abbreviations: "zh,km" Chinese to Khmer, "th,en,zh" Thai to English and
 // Chinese, "zh" just Chinese (the headword's first); else null (mono, bi, ...).
-// "sense,km": words by sense, its headwords English senses ("god (deity)"),
-// its text their Khmer words; any two such a dictionary between them
-const langByAbbr = Object.fromEntries(Object.entries(abbr).filter(([, a]) => a[2]).map(([l, a]) => [a[0], l]).concat([['sense', 'english']]));
-const isSense = x => x.type.startsWith('sense,');
-const typeLangs = ({type}) => type && type.split(',').every(a => langByAbbr[a]) ? type.split(',').map(a => langByAbbr[a]) : null;
+// "km,aligned": aligned with the other aligned ones in its category, their
+// headwords the same keys (Wiktionary's English senses, "god (deity)"), so
+// any two are a dictionary between them
+const langByAbbr = Object.fromEntries(Object.entries(abbr).filter(([, a]) => a[2]).map(([l, a]) => [a[0], l]));
+const isAligned = x => x.type.split(',').includes('aligned');
+const typeLangs = ({type}, ls = type.split(',').filter(a => a !== 'aligned')) => type && ls.every(a => langByAbbr[a]) ? ls.map(a => langByAbbr[a]) : null;
 const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 // A list's row: its button (class and attributes), its words and what's
@@ -294,7 +295,7 @@ if(!isDictPage){
 	const insertSorted = (parent, el, n, key = 'id') => parent.insertBefore(el, [...parent.children].find(c => +c.dataset[key] > n) || null);
 	// An entry of dictionary d (starred: they come first, and stand out),
 	// its name first, then html
-	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}"${isSense(dicts[d]) ? ' data-sense' : ''}${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
+	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}"${isAligned(dicts[d]) ? ' data-aligned' : ''}${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
 	// A dictionary's name above its entry (★ if starred): tap it for its menu
 	const entryHeadHTML = d => `<p-h role="button" tabindex="0" title="${escapeHTML(typeLabel(dicts[d]))}" onclick="dictMenu(this)">${isStar(d) ? '★ ' : ''}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
 	// The little menus (a dictionary's, Share's): one at a time, right
@@ -330,14 +331,14 @@ if(!isDictPage){
 		const d = +h.parentNode.dataset.d, name = dicts[d].name, pairs = document.body.classList.contains('wikt-pairs');
 		popMenu(h, `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
 			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>` +
-			(isSense(dicts[d]) ? `<button data-a="pairs">${pairs ? 'Every sense' : 'Only senses another language has too'}</button>` : ''),
+			(isAligned(dicts[d]) ? `<button data-a="pairs">${pairs ? 'Every sense' : 'Only senses another language has too'}</button>` : ''),
 			a => a === 'off' ? setOn([d], false) : a === 'star' ? toggleStar(d) : setWiktPairs(!pairs));
 	};
-	// Words by sense only with another language's for the same sense (style.css
+	// Aligned ones only with another language's for the same key (style.css
 	// hides the rest: a card's lone one, and a card of nothing
 	// else): with two or more of them searched, unless its menu said
 	// otherwise (remembered while it's not what they'd have)
-	const wiktAuto = () => dicts.filter((x, d) => isSense(x) && searched(d)).length > 1;
+	const wiktAuto = () => dicts.filter((x, d) => isAligned(x) && searched(d)).length > 1;
 	const applyWiktPairs = () => document.body.classList.toggle('wikt-pairs', stored('wiktPairs') ?? wiktAuto());
 	const setWiktPairs = on => { store('wiktPairs', on === wiktAuto() ? null : on); applyWiktPairs(); };
 	// One more result: the count, and maybe more of them
@@ -583,12 +584,15 @@ if(!isDictPage){
 	const catOf = d => catId(dicts[d]);
 	// What a dictionary's word glosses it with is in: a second index
 	// word's, its headword's language (that's its gloss); a headword's, its
-	// text's.
+	// text's (an aligned one's headwords are keys, in no language).
 	const langsOf = x => { const [head, body = head] = typeLangs(x) || {mono: [x.lang], bi: [x.lang, 'english'], rbi: ['english', x.lang]}[x.type] || []; return [head, body]; };
-	const outLang = ({d, sec}) => langsOf(dicts[d])[sec ? 0 : 1];
-	// A word fits a row in its category and language, or (a sense's) with
-	// the row language's words for the sense (via)
-	const fits = (row, x) => row && (!row.cat || catOf(x.d) === row.cat) && (!row.lang || outLang(x) === row.lang || !!x.via?.[row.lang]);
+	const outLang = ({d, sec}) => sec && isAligned(dicts[d]) ? null : langsOf(dicts[d])[sec ? 0 : 1];
+	// A word fits a row in its category and language (it goes in the first
+	// it fits); an aligned one's is in every row of another language too
+	// that has words for its key (via: [them, their dictionary])
+	const catFits = (row, x) => !row.cat || catOf(x.d) === row.cat;
+	const fits = (row, x) => row && catFits(row, x) && (!row.lang || outLang(x) === row.lang);
+	const viaOf = (row, x) => row?.lang && catFits(row, x) && outLang(x) !== row.lang && x.via?.[row.lang];
 
 	// Stars: a starred dictionary's entries come first and stand out, in the
 	// order they were starred, and its words are the ones searched first.
@@ -1522,7 +1526,7 @@ if(!isDictPage){
 	const pickHTML = (i, k, cur, opts) => `<select data-row="${i}" data-k="${k}" aria-label="Row ${i + 1}: ${k === 'cat' ? 'category' : 'language'}">` +
 		opts.map(([v, t]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(t)}</option>`).join('') + '</select>';
 	function glossRowsHTML(){
-		const ls = [...new Set([...got().flatMap(d => langsOf(dicts[d])), ...allDicts.filter(isSense).map(x => langsOf(x)[1])].filter(Boolean))].sort(); // (and every language's words by sense: picked, they're added)
+		const ls = [...new Set([...got().flatMap(d => langsOf(dicts[d])), ...allDicts.filter(isAligned).map(x => langsOf(x)[0])].filter(Boolean))].sort(); // (and every aligned one's: picked, it's added)
 		return '<div class="gloss-rows">' + glossRows.map((r, i) => `<div><span>${i + 1}</span>` +
 			pickHTML(i, 'cat', r ? r.cat || '' : '-', [['-', 'Off'], ['', 'Any category'], ...cats.filter(c => shown(c, 'gloss')).map(c => [c.id, c.label])]) +
 			(r ? pickHTML(i, 'lang', r.lang || '', [['', 'Any language'], ...ls.map(l => [l, cap(l)])]) : '') + '</div>').join('') + '</div>';
@@ -1853,17 +1857,17 @@ if(!isDictPage){
 	}
 
 	// A row picked turns on for glosses what it takes: the page's
-	// dictionaries in its category and language, and words by sense in the
-	// page's language and in its (another language's added; words by sense
-	// not downloaded turned on: they download), their categories picked too
+	// dictionaries in its category and language, and the aligned ones in
+	// the page's language and in its (another language's added; an aligned
+	// one not downloaded turned on: it downloads), their categories picked too
 	function rowOn({cat, lang}){
 		if (!cat && !lang) return;
-		const want = x => !lang || langsOf(x).includes(lang) || isSense(x) && langsOf(x)[1] === curLang;
-		const xs = allDicts.filter(x => (!cat || catId(x) === cat) && (dicts.includes(x) ? want(x) : isSense(x) && lang && langsOf(x)[1] === lang));
+		const want = x => !lang || langsOf(x).includes(lang) || isAligned(x) && langsOf(x)[0] === curLang;
+		const xs = allDicts.filter(x => (!cat || catId(x) === cat) && (dicts.includes(x) ? want(x) : isAligned(x) && lang && langsOf(x)[0] === lang));
 		xs.forEach(x => dicts.includes(x) || addDict(x.path));
 		const ds = xs.map(x => dicts.indexOf(x));
 		setGlossOn(ds, true);
-		setOn(ds.filter(d => isSense(dicts[d]) && !libOn[d] && !downloaded.has(d)), true);
+		setOn(ds.filter(d => isAligned(dicts[d]) && !libOn[d] && !downloaded.has(d)), true);
 		if (filtered('gloss')) setFilter('gloss', [...new Set([...picks.gloss, ...ds.map(catOf)])]);
 	}
 
@@ -2255,12 +2259,12 @@ if(!isDictPage){
 	const glosses = d => dicts[d].type !== 'aux';
 	const render = (d, xs) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}).then(r => xs.forEach((x, i) => { x.r = r.entries[i]; }));
 	const renderAll = xs => { const by = new Map(); xs.forEach(x => x.r || push(by, x.d, x)); return Promise.all([...by].map(([d, xs]) => render(d, xs))); }; // (a range's is rendered)
-	// The rows' languages' words for the senses matched (x.via[lang]: [its
-	// words, the dictionary]): their words by sense's entry (isSense) for
-	// each sense
+	// The rows' languages' words for the aligned ones' keys matched
+	// (x.via[lang]: [its words, the dictionary]): the entry for the key in
+	// that language's aligned one in the same category
 	function senseWords(xs, ids){
-		const ts = ids.filter(t => isSense(dicts[t]) && glossRows.some(r => r?.lang === outLang({d: t})));
-		const ss = xs.filter(x => isSense(dicts[x.d]) && x.sec);
+		const ts = ids.filter(t => isAligned(dicts[t]) && glossRows.some(r => r?.lang === outLang({d: t})));
+		const ss = xs.filter(x => isAligned(dicts[x.d]) && x.sec);
 		if (!ts.length || !ss.length) return Promise.resolve();
 		return renderAll(ss).then(() => Promise.all(ts.map(t => {
 			const heads = [...new Set(ss.map(x => x.r?.header.toLowerCase()).filter(Boolean))], at = new Map();
@@ -2268,7 +2272,7 @@ if(!isDictPage){
 			return askDict(t, {type: 'matchall', query: heads.join('\n')}).then(r => {
 				const ys = r.matches.filter(([a, len, , , sec]) => !sec && at.get(a)?.length === len).map(([a, , m, ix]) => ({d: t, m, ix, h: at.get(a)}));
 				return render(t, ys).then(() => ys.forEach(y => y.r && ss.forEach(x => {
-					if (x.r?.header.toLowerCase() === y.h) (x.via ||= {})[outLang({d: t})] ||= [textLines(y.r.body.replace(/<p-(n|ipa)>[^]*?<\/p-\1>/g, '')).filter(Boolean).join(', '), t];
+					if (x.r?.header.toLowerCase() === y.h && catOf(x.d) === catOf(t)) (x.via ||= {})[outLang({d: t})] ||= [textLines(y.r.body.replace(/<p-(n|ipa)>[^]*?<\/p-\1>/g, '')).filter(Boolean).join(', '), t];
 				})));
 			});
 		})));
@@ -2278,18 +2282,16 @@ if(!isDictPage){
 		pieces.forEach(p => { p.xs = p.w ? matches.filter(x => x.a >= p.a && x.a + x.len <= p.b && glosses(x.d)).sort((x, y) => x.rank - y.rank || x.sec - y.sec) : []; });
 		senseWords(pieces.flatMap(p => p.xs), ids).then(() => pieces.forEach(p => {
 			const xs = p.xs;
-			xs.forEach(x => { // (its row, and in another language than it's in, that language's words for it)
-				const l = glossRows[x.row = glossRows.findIndex(r => fits(r, x))]?.lang;
-				x.by = l && outLang(x) !== l && x.via[l];
-			});
-			p.rows = glossRows.map((_, r) => {
-				const x = xs.find(x => x.row === r && x.a === p.a && x.len === p.b - p.a);
-				const parts = x ? [{w: x}] : splitText(xs.filter(y => y.row === r), text, p.a, p.b);
+			xs.forEach(x => { x.row = glossRows.findIndex(r => fits(r, x)); });
+			p.rows = glossRows.map((row, r) => {
+				const ys = xs.filter(x => x.row === r || viaOf(row, x)), x = ys.find(x => x.a === p.a && x.len === p.b - p.a);
+				const parts = x ? [{w: x}] : splitText(ys, text, p.a, p.b);
 				return parts.every(q => q.w) ? parts.map(q => q.w) : [];
 			});
 		})).then(() => renderAll(pieces.flatMap(p => p.rows.flat()))).then(() => done(pieces.map(p => {
-			const xs = p.rows.map(r => r.filter(x => x.r && (x.g = glossOf(x, text.slice(x.a, x.a + x.len))))); // (a media file with no details has no text)
-			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: xs.map(r => r.map(x => x.g).join(' ')), ds: [...new Set(xs.flat().flatMap(x => x.by ? [x.d, x.by[1]] : x.d))]}; // ds: the dictionaries in its rows
+			const gs = p.rows.map((xs, r) => xs.map(x => x.r && glossOf(x, text.slice(x.a, x.a + x.len), glossRows[r])).filter(Boolean)); // (a media file with no details has no text)
+			const ds = p.rows.flatMap((xs, r) => xs.flatMap(x => [x.d, viaOf(glossRows[r], x)?.[1]])).filter(d => d !== undefined);
+			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: gs.map(g => g.join(' ')), ds: [...new Set(ds)]}; // ds: the dictionaries in its rows
 		})));
 	}
 
@@ -2300,7 +2302,7 @@ if(!isDictPage){
 	// search finds for it
 	const script = t => (t.match(/\p{L}/u)?.[0] ?? ' ').codePointAt(0) >> 7; // (its Unicode block, roughly)
 	// (in a row's language, that language's: its words for a sense)
-	const glossOf = (x, word) => x.by ? x.by[0] : x.sec && (glossRows[x.row].lang || script(x.r.header) !== script(word)) ? x.r.header : summary(x.r.body, x.r.header);
+	const glossOf = (x, word, row) => viaOf(row, x)?.[0] ?? (x.sec && (row.lang || script(x.r.header) !== script(word)) ? x.r.header : summary(x.r.body, x.r.header));
 	function translationHTML(pieces){
 		return pieces.map(p => {
 			if (!p.ds.length) return escapeHTML(p.text).replace(/\n/g, '<br>'); // Nothing to gloss it with: as it is (notes between the words glossed)
