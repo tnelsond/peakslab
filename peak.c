@@ -728,6 +728,8 @@ int translate_next(){
 // The page goes through the text and picks between the dictionaries.
 static int32_t m_match = -1;
 static int m_index = INDEX1;
+static uint8_t *m_word; // (what it matched: m_len bytes)
+static uint32_t m_len;
 
 // The longest match in index st at text+pos (text[len] is '\0' here), no
 // longer than maxk bytes (0: any), or 0.
@@ -760,6 +762,8 @@ static int m_longest(enum searchtype st, int n, uint8_t *text, uint32_t len, uin
 		if(found >= 0){
 			m_match = found;
 			m_index = st;
+			m_word = s;
+			m_len = k;
 			return k;
 		}
 	}
@@ -799,6 +803,20 @@ int last_match(){
 EMSCRIPTEN_KEEPALIVE
 int last_index(){
 	return m_index;
+}
+
+// The next entry with the same word as the last match (a word in more than
+// one: 不 in "not (...)" and "no (...)"): 1, and last_match() is it; else 0.
+// Its text is still match_at()'s.
+EMSCRIPTEN_KEEPALIVE
+int next_match(){
+	int n = m_index == INDEX2 ? ps_h->idx2_len : ps_h->line_idx_len - 1;
+	if(m_match < 0 || m_match + 1 >= n) return 0;
+	uint8_t c = m_word[m_len];
+	m_word[m_len] = '\0';
+	int same = !ps_cmpe(p_linetostr(m_match + 1, m_index), m_word);
+	m_word[m_len] = c;
+	return same ? (++m_match, 1) : 0;
 }
 
 // Writes the entry a match (in index st, from last_index()) is in into the

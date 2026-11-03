@@ -21,7 +21,7 @@ const cachedWasm = cached('peak.wasm').then(async r => r && {ts: tsOf(r), module
 // Everything used below. A cached peak.wasm missing some of these is an old
 // build saved under a newer timestamp (downloaded while a deploy was still
 // reaching the CDN): drop it everywhere so a fresh copy gets fetched.
-const wasmExports = ['memory', 'malloc', 'free', 'load_peak', 'free_peak', 'peak_init', 'init_search', 'continue_search', 'get_result', 'switchstate', 'match_at', 'last_match', 'last_index', 'render_match', 'head_at'];
+const wasmExports = ['memory', 'malloc', 'free', 'load_peak', 'free_peak', 'peak_init', 'init_search', 'continue_search', 'get_result', 'switchstate', 'match_at', 'last_match', 'last_index', 'next_match', 'render_match', 'head_at'];
 const hasExports = m => { const have = WebAssembly.Module.exports(m).map(x => x.name); return wasmExports.every(n => have.includes(n)); };
 let wasmModuleResolve;
 const wasmModule = new Promise(resolve => { wasmModuleResolve = resolve; });
@@ -128,7 +128,7 @@ self.onmessage = async ({data}) => {
 				if ((bytes[p] & 0xC0) === 0x80) continue; // Inside a character
 				for (const second of [0, 1])
 					for (let k = x.match_at(t, bytes.length, p, 0, second); k > 0; k = k > 1 ? x.match_at(t, bytes.length, p, k - 1, second) : 0)
-						matches.push([u16[p], u16[p + k] - u16[p], x.last_match(), x.last_index(), second]);
+						do matches.push([u16[p], u16[p + k] - u16[p], x.last_match(), x.last_index(), second]); while (x.next_match()); // (every entry it's in)
 			}
 			x.free(t);
 		}

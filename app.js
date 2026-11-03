@@ -546,10 +546,11 @@ if(!isDictPage){
 	const cats = []; // {id, label, members: [d, ...]}
 	let choice;
 	const catById = id => cats.find(c => c.id === id);
+	const catId = x => x.folder.split('/')[0] || 'other';
 	function buildCats(){
 		cats.length = 0;
 		dictIds.forEach(d => {
-			const x = dicts[d], id = x.folder.split('/')[0] || 'other', c = catById(id) || cats[cats.push({id, label: catLabel(id), own: false, members: []}) - 1];
+			const x = dicts[d], id = catId(x), c = catById(id) || cats[cats.push({id, label: catLabel(id), own: false, members: []}) - 1];
 			c.members.push(d);
 			c.own ||= x.primary;
 		});
@@ -579,15 +580,12 @@ if(!isDictPage){
 	// first row it fits.
 	const rowsKey = `peakslab-glossrows-${appname}`;
 	const glossRows = (r => Array.isArray(r) && r.length === 3 ? r : [catById('phonetics') && {cat: 'phonetics'}, {}, null])(stored(rowsKey));
-	const catOf = d => cats.find(c => c.members.includes(d)).id;
+	const catOf = d => catId(dicts[d]);
 	// What a dictionary's word glosses it with is in: a second index
 	// word's, its headword's language (that's its gloss); a headword's, its
 	// text's.
-	function outLang({d, sec}){
-		const x = dicts[d], ls = typeLangs(x);
-		const [head, body = head] = ls || {mono: [x.lang], bi: [x.lang, 'english'], rbi: ['english', x.lang]}[x.type] || [];
-		return sec ? head : body;
-	}
+	const langsOf = x => { const [head, body = head] = typeLangs(x) || {mono: [x.lang], bi: [x.lang, 'english'], rbi: ['english', x.lang]}[x.type] || []; return [head, body]; };
+	const outLang = ({d, sec}) => langsOf(dicts[d])[sec ? 0 : 1];
 	// A word fits a row in its category and language, or (a sense's) with
 	// the row language's words for the sense (via)
 	const fits = (row, x) => row && (!row.cat || catOf(x.d) === row.cat) && (!row.lang || outLang(x) === row.lang || !!x.via?.[row.lang]);
@@ -1524,7 +1522,7 @@ if(!isDictPage){
 	const pickHTML = (i, k, cur, opts) => `<select data-row="${i}" data-k="${k}" aria-label="Row ${i + 1}: ${k === 'cat' ? 'category' : 'language'}">` +
 		opts.map(([v, t]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(t)}</option>`).join('') + '</select>';
 	function glossRowsHTML(){
-		const ls = [...new Set(got().flatMap(d => [outLang({d, sec: 1}), outLang({d})]).filter(Boolean))].sort();
+		const ls = [...new Set([...got().flatMap(d => langsOf(dicts[d])), ...allDicts.filter(isSense).map(x => langsOf(x)[1])].filter(Boolean))].sort(); // (and every language's words by sense: picked, they're added)
 		return '<div class="gloss-rows">' + glossRows.map((r, i) => `<div><span>${i + 1}</span>` +
 			pickHTML(i, 'cat', r ? r.cat || '' : '-', [['-', 'Off'], ['', 'Any category'], ...cats.filter(c => shown(c, 'gloss')).map(c => [c.id, c.label])]) +
 			(r ? pickHTML(i, 'lang', r.lang || '', [['', 'Any language'], ...ls.map(l => [l, cap(l)])]) : '') + '</div>').join('') + '</div>';
@@ -1618,6 +1616,7 @@ if(!isDictPage){
 		else if (row) { // A gloss's row
 			glossRows[row] = v === '-' ? null : {...glossRows[row], [k]: v};
 			store(rowsKey, glossRows);
+			rowOn(glossRows[row] || {});
 			renderDrawer();
 			regloss();
 		}
@@ -1851,6 +1850,21 @@ if(!isDictPage){
 		renderLists();
 		renderQuick();
 		regloss();
+	}
+
+	// A row picked turns on for glosses what it takes: the page's
+	// dictionaries in its category and language, and words by sense in the
+	// page's language and in its (another language's added; words by sense
+	// not downloaded turned on: they download), their categories picked too
+	function rowOn({cat, lang}){
+		if (!cat && !lang) return;
+		const want = x => !lang || langsOf(x).includes(lang) || isSense(x) && langsOf(x)[1] === curLang;
+		const xs = allDicts.filter(x => (!cat || catId(x) === cat) && (dicts.includes(x) ? want(x) : isSense(x) && lang && langsOf(x)[1] === lang));
+		xs.forEach(x => dicts.includes(x) || addDict(x.path));
+		const ds = xs.map(x => dicts.indexOf(x));
+		setGlossOn(ds, true);
+		setOn(ds.filter(d => isSense(dicts[d]) && !libOn[d] && !downloaded.has(d)), true);
+		if (filtered('gloss')) setFilter('gloss', [...new Set([...picks.gloss, ...ds.map(catOf)])]);
 	}
 
 	// Changes what the filter (or the gloss) has picked

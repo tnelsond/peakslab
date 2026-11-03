@@ -125,7 +125,7 @@ peakgen.wasm : peakgen.c peak.h zstd.o.wasm
 # loop (ZSTD_HOT_INLINE), so dictionaries load only ~5% slower.
 CLANG ?= clang
 WASM_OPT ?= $(shell command -v wasm-opt 2>/dev/null)
-PEAK_EXPORTS = load_peak peak_init init_search continue_search get_result free_peak malloc free switchstate match_at last_match last_index render_match head_at
+PEAK_EXPORTS = load_peak peak_init init_search continue_search get_result free_peak malloc free switchstate match_at last_match last_index next_match render_match head_at
 peak.wasm : peak.c zstddeclib.c peak.h utils/walloc-master/walloc.c $(wildcard utils/minilibc/*)
 	$(CLANG) --target=wasm32 -Oz -flto -nostdlib -isystem utils/minilibc \
 	-mbulk-memory -msimd128 -Wno-pointer-sign \
