@@ -115,7 +115,7 @@
     ["khmer/dict/tech/lexiconkh.peak.zst", 1792403322, "Lexicon KH (សទ្ទានុក្រមបច្ចេកសព្ទ) Khmer–English–French technical terms from the National Council of Khmer Language, Royal Academy of Cambodia (<a href=\"https://nckl.rac.gov.kh\">nckl.rac.gov.kh</a>)", 11724, 3, "bi", 0, 493975],
     ["khmer/dict/tech/newlexicon.peak.zst", 1792401680, "", 1985, 3, "mono", 0, 46512],
     ["khmer/media/audio2.slab", 1793073227, "Khmer Audio (includes bible words)", 13407, 1, "aux", 0, 6473156],
-    ["khmer/media/audio2-tnefar.slab", 1793612817, "Khmer Audio (includes bible words), tnefar codec: 700 bps", 98416, 1, "aux", 0, 352135],
+    ["khmer/media/audio2-tnefar.slab", 1793698097, "Khmer Audio (includes bible words), tnefar codec: 700 bps", 288624, 1, "aux", 0, 542343],
     ["khmer/media/audio.slab", 1792225424, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 12916, 2, "aux", 0, 7228877],
     ["khmer/media/images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2, "aux", 0, 3272094],
     ["khmer/music/chords/chords.peak.zst", 1792403311, "<a href=\"https://www.khmerworship.com/\">Khmer Worship</a>", 10958, 1, "mono", 0, 359243],
