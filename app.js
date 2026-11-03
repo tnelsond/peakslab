@@ -470,6 +470,9 @@ if(!isDictPage){
 			on: [undefined, 1, 0].includes(priority)}; // On by default: priority 1 and 0 (and see ownLevel)
 	});
 	const primaryCats = new Set(allDicts.filter(x => x.primary).map(x => x.cat));
+	// Its folder here: its category's; another language's dictionaries for
+	// this one, a dictionary (khmer/chinese/x on /chinese: dict)
+	allDicts.forEach(x => { x.folder = x.primary ? x.cat : x.cat.replace(/^[^/]*/, f => abbr[f]?.[2] ? 'dict' : f); });
 	// Other languages' dictionaries added in the library (their paths)
 	const addKey = `peakslab-added-${pagePath}`, addedPaths = new Set(readList(addKey));
 	allDicts.forEach(x => { x.added = !x.primary && addedPaths.has(x.path); });
@@ -487,7 +490,8 @@ if(!isDictPage){
 	// Used by a search (view 'filter') or a gloss ('gloss'): on (a gloss's:
 	// on for glosses, glossOn), and in what that view has picked (all of it:
 	// none picked; a link's: just its)
-	const isOn = (d, view = 'filter') => onIn(view)(d) && (solo.length > 0 || inFilter(d, view));
+	// (and its language not off: the filter's language buttons)
+	const isOn = (d, view = 'filter') => onIn(view)(d) && !langsOff.has(dicts[d].lang) && (solo.length > 0 || inFilter(d, view));
 
 	// Order: categories with the most priority-1 dictionaries first, then within
 	// a category this page's language first, then by priority (0, 1, 2, 3,
@@ -495,9 +499,9 @@ if(!isDictPage){
 	// Search results list each word's entries in this same order.
 	const rank = p => p == null ? 1 : p >= 0 ? p : 100 - p;
 	const mainCount = {};
-	dicts.forEach(x => { if (x.primary && rank(x.priority) <= 1) mainCount[x.cat] = (mainCount[x.cat] || 0) + 1; });
+	dicts.forEach(x => { if (x.primary && rank(x.priority) <= 1) mainCount[x.folder] = (mainCount[x.folder] || 0) + 1; });
 	dicts.sort((a, b) =>
-		(mainCount[b.cat] || 0) - (mainCount[a.cat] || 0) || a.cat.localeCompare(b.cat) || b.primary - a.primary ||
+		(mainCount[b.folder] || 0) - (mainCount[a.folder] || 0) || a.folder.localeCompare(b.folder) || b.primary - a.primary ||
 		rank(a.priority) - rank(b.priority) || a.lang.localeCompare(b.lang) || a.path.localeCompare(b.path));
 
 	// Speech synthesis (the selection menu's 🔊): the page's languages, with
@@ -527,9 +531,10 @@ if(!isDictPage){
 	};
 
 	// The filter: categories made from the dictionaries on the page, by kind:
-	// their first folder, named as it is (Bible, Bible extra, Dict, Ref, ...);
-	// another language's by its language (on /chinese: English, Khmer, ...),
-	// after the page's own. Pick
+	// their first folder, named as it is (Bible, Bible extra, Dict, Ref, ...),
+	// other languages' in theirs after the page's own (on /chinese, the
+	// English Bibles at the bottom of Bible); a category of only theirs
+	// after the page's. Pick
 	// any number of them and searches use just their dictionaries; none
 	// picked is All. Each dictionary is on or off, the same in every category.
 	const catLabel = c => c.split('/').map(cap).join(' / ').replaceAll('-', ' '); // ("bible-extra": Bible extra)
@@ -542,9 +547,11 @@ if(!isDictPage){
 	function buildCats(){
 		cats.length = 0;
 		dictIds.forEach(d => {
-			const x = dicts[d], id = x.primary ? x.cat.split('/')[0] || 'other' : x.lang;
-			(catById(id) || cats[cats.push({id, label: catLabel(id), own: x.primary, members: []}) - 1]).members.push(d);
+			const x = dicts[d], id = x.folder.split('/')[0] || 'other', c = catById(id) || cats[cats.push({id, label: catLabel(id), own: false, members: []}) - 1];
+			c.members.push(d);
+			c.own ||= x.primary;
 		});
+		cats.forEach(c => c.members.sort((a, b) => dicts[b].primary - dicts[a].primary || a - b));
 		cats.sort((a, b) => b.own - a.own);
 		choice = cats.length > 1;
 	}
@@ -592,6 +599,9 @@ if(!isDictPage){
 	const glossOn = d => glossSet[dicts[d].path] ?? libOn[d] ? libOn[d] || downloaded.has(d) : false;
 	const onIn = view => view === 'gloss' ? glossOn : d => libOn[d];
 	const starKey = `peakslab-stars-${appname}`;
+	// Languages turned off (the filter's language buttons): their dictionaries
+	// not searched or glossed, each still on or off as it was
+	const langsKey = `peakslab-langsoff-${appname}`, langsOff = new Set(solo.length ? [] : readList(langsKey));
 	let stars = byPaths(readList(starKey));
 	const isStar = d => stars.includes(d);
 	const sortId = d => isStar(d) ? stars.indexOf(d) - 1000 : d + 1; // (starred first, then the dictionaries' order)
@@ -1499,8 +1509,15 @@ if(!isDictPage){
 	// The filter (view 'filter') and the gloss's (view 'gloss'): All (every category ticked), then the categories, with
 	// their downloaded dictionaries; untick any to search (or gloss) with
 	// just the rest, or tap one's name for just it
+	// The languages of the dictionaries the view has, the page's first: each a
+	// button to turn all of its off (or on again, as they were), whatever
+	// their folders
+	function langsHTML(view){
+		const ls = [...new Set(dictIds.filter(inView(view)).sort((a, b) => dicts[b].primary - dicts[a].primary).map(d => dicts[d].lang))];
+		return ls.length < 2 ? '' : `<div class="lang-btns">${ls.map(l => `<button data-lang-off="${escapeHTML(l)}" aria-pressed="${!langsOff.has(l)}">${abbr[l]?.[3] || ''} ${escapeHTML(cap(l))}</button>`).join('')}</div>`;
+	}
 	function filterHTML(view){
-		return levelHTML(onLevel(view)) +
+		return langsHTML(view) + levelHTML(onLevel(view)) +
 			(choice ? `<ul class="rows">${rowHTML('radio', `data-all="1" aria-pressed="${!filtered(view)}"`, 'All', catCount({members: dictIds}, view))}</ul>` : '') +
 			catsHTML(view) +
 			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on${view === 'gloss' ? ' here (just for glosses and popups: searches don\'t change)' : ''}. 1, 2, 3: the row of a gloss's word boxes their words go in.${view === 'gloss' ? '' : ' Star a dictionary (☆) for its entries to come first.'}</p>` + moreHTML;
@@ -1552,9 +1569,12 @@ if(!isDictPage){
 	// The level's dictionaries and Download
 	function firstListHTML(){
 		let prev = null, html = '';
-		const ids = notGot();
+		// (by folder, as the filter has them: another language's at the bottom of its)
+		const label = d => dicts[d].cat === 'media' ? cap(dicts[d].name) : catLabel(dicts[d].folder);
+		const labels = [...new Set(dictIds.map(label))];
+		const ids = notGot().sort((a, b) => labels.indexOf(label(a)) - labels.indexOf(label(b)) || dicts[b].primary - dicts[a].primary || a - b);
 		ids.forEach(d => {
-			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : x.primary ? catLabel(x.cat) : cap(x.lang); // (another language's: its language, as the filter has it)
+			const x = dicts[d], label = x.cat === 'media' ? cap(x.name) : catLabel(x.folder);
 			if (label !== prev) html += `${prev === null ? '' : '</ul>'}<h4 class="cat-subh">${escapeHTML(label)}</h4><ul class="rows dict-rows">`;
 			prev = label;
 			html += dictRow(x, {check: `data-pick="${d}" aria-pressed="${firstPick.has(d)}"`});
@@ -1703,7 +1723,15 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txAll, txDrop, go} = b.dataset;
+		const {book, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txAll, txDrop, go, langOff} = b.dataset;
+		if (langOff) { // A language off, or on again
+			if (!langsOff.delete(langOff)) langsOff.add(langOff);
+			if (!solo.length) store(langsKey, [...langsOff]);
+			renderDrawer();
+			updateFilterUI();
+			regloss();
+			return searchAgain();
+		}
 		const drawerBooks = drawerView === 'bible';
 		if (tx !== undefined || txAdd !== undefined || txAll) return cardTextsClick(b.dataset); // (a card's translations)
 		if (txDrop) {

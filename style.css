@@ -785,6 +785,10 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	color: var(--card-text);
 	white-space: nowrap;
 }
+/* The filter's language buttons: each language's dictionaries off or on */
+.lang-btns { display: flex; flex-wrap: wrap; gap: .4em; margin: .5em 0; }
+.lang-btns button { padding: .3em .7em; border: 1px solid var(--muted); border-radius: 1em; background: none; color: inherit; font: inherit; opacity: .55; text-decoration: line-through; }
+.lang-btns button[aria-pressed="true"] { opacity: 1; text-decoration: none; background: var(--type-bi); }
 .type-mono { background: var(--type-mono); }
 .type-bi { background: var(--type-bi); }
 .type-rbi { background: var(--type-rbi); }
