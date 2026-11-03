@@ -20,8 +20,8 @@ lexicons' references become links.
 
 Usage: stepbibletotsv.py SRCDIR OUTDIR
 SRCDIR has the STEPBible files (TAGNT*.txt, TAHOT*.txt, TBESG*.txt, TBESH*.txt);
-writes OUTDIR/greek/bible/{text/grc-tagnt,dict/tbesg}.tsv and
-OUTDIR/hebrew/bible/{text/hbo-tahot,dict/tbesh}.tsv
+writes OUTDIR/ancient-greek/bible/{text/grc-tagnt,dict/tbesg}.tsv and
+OUTDIR/biblical-hebrew/bible/{text/hbo-tahot,dict/tbesh}.tsv
 """
 import glob, os, re, sys, unicodedata
 from collections import defaultdict
@@ -162,11 +162,11 @@ def main():
 	src, out = sys.argv[1], sys.argv[2]
 	cc = 'CC BY 4.0, from <a href="https://github.com/STEPBible/STEPBible-Data">STEPBible.org</a> (Tyndale House, Cambridge)'
 	nt, ntforms = tagnt(src)
-	write_bible(f'{out}/greek/bible/text/grc-tagnt.tsv', f'Greek New Testament, word by word: Translators Amalgamated Greek NT (TAGNT, Nestlé-Aland text with the KJV’s variants marked), English glosses based on the BSB, Strong’s numbers and grammar. {cc}', nt)
+	write_bible(f'{out}/ancient-greek/bible/text/grc-tagnt.tsv', f'Greek New Testament, word by word: Translators Amalgamated Greek NT (TAGNT, Nestlé-Aland text with the KJV’s variants marked), English glosses based on the BSB, Strong’s numbers and grammar. {cc}', nt)
 	ot, otforms = tahot(src)
-	write_bible(f'{out}/hebrew/bible/text/hbo-tahot.tsv', f'Hebrew Old Testament, word by word: Translators Amalgamated Hebrew OT (TAHOT, Leningrad Codex, cantillation left out), English glosses, Strong’s numbers and grammar. {cc}', ot, rtl=True)
-	lexicon(os.path.join(src, 'TBESG*.txt'), f'{out}/greek/bible-extra/tbesg.tsv', f'Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has. {cc}', ntforms)
-	lexicon(os.path.join(src, 'TBESH*.txt'), f'{out}/hebrew/bible-extra/tbesh.tsv', f'Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has. {cc}', otforms)
+	write_bible(f'{out}/biblical-hebrew/bible/text/hbo-tahot.tsv', f'Hebrew Old Testament, word by word: Translators Amalgamated Hebrew OT (TAHOT, Leningrad Codex, cantillation left out), English glosses, Strong’s numbers and grammar. {cc}', ot, rtl=True)
+	lexicon(os.path.join(src, 'TBESG*.txt'), f'{out}/ancient-greek/bible-extra/tbesg.tsv', f'Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has. {cc}', ntforms)
+	lexicon(os.path.join(src, 'TBESH*.txt'), f'{out}/biblical-hebrew/bible-extra/tbesh.tsv', f'Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has. {cc}', otforms)
 
 if __name__ == '__main__':
 	main()

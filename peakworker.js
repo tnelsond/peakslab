@@ -217,8 +217,10 @@ class Dic{
 			x.peak_init(this.q[0], QMAX, this.q[1], QMAX, this.rptr, this.bufmax - QMAX * 2);
 			this.x = x;
 			self.postMessage({type: 'loaded', id, did: this.did, msg: `${this.name} ${Math.round(end - start)}ms`});
-		} catch (err) {
+		} catch (err) { // (its glosses go on without it; asked again, it loads again)
 			console.error(err);
+			dicts[this.did] = null;
+			self.postMessage({type: 'loadfailed', id, did: this.did});
 		}
 	}
 	str(ptr, len){

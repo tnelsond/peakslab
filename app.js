@@ -92,7 +92,7 @@ const abbr = filesJson.abbr || {};
 const langByAbbr = Object.fromEntries(Object.entries(abbr).filter(([, a]) => a[2]).map(([l, a]) => [a[0], l]));
 const isAligned = x => x.type.split(',').includes('aligned');
 const typeLangs = ({type}, ls = type.split(',').filter(a => a !== 'aligned')) => type && ls.every(a => langByAbbr[a]) ? ls.map(a => langByAbbr[a]) : null;
-const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+const cap = t => t && t.replace(/(^|-)(.)/g, (_, h, c) => (h && ' ') + c.toUpperCase()); // (ancient-greek: Ancient Greek)
 const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 // A list's row: its button (class and attributes), its words and what's
 // under them
@@ -184,14 +184,16 @@ if(!isDictPage){
 						w.postMessage({type: 'bytes', did: m.did, buf: null});
 					});
 				break;
+			case 'loadfailed': // (what waits for it goes on without it: no words from it)
 			case 'loaded':
-				loaded.add(d);
+				if (m.type === 'loaded') loaded.add(d);
 				if (loading.delete(d)) loadDone += dicts[d].size || 1;
 				showLoad();
-				if(!libOn[d] && !asked.has(d)) // Turned off while it loaded
+				if(loaded.has(d) && !libOn[d] && !asked.has(d)) // Turned off while it loaded
 					unloadDict(d);
 				(pendingLoad.get(d) || []).forEach(f => f());
 				pendingLoad.delete(d);
+				if (!loaded.has(d)) break;
 				downloaded.add(d);
 				renderListsSoon();
 				timingDiv.insertAdjacentHTML("beforeend", `${Math.round(performance.now())}ms ${m.msg}<br>`);
@@ -336,9 +338,9 @@ if(!isDictPage){
 	};
 	// Aligned ones only with another language's for the same key (style.css
 	// hides the rest: a card's lone one, and a card of nothing
-	// else): with two or more of them searched, unless its menu said
+	// else): with two or more of them searched in a category, unless its menu said
 	// otherwise (remembered while it's not what they'd have)
-	const wiktAuto = () => dicts.filter((x, d) => isAligned(x) && searched(d)).length > 1;
+	const wiktAuto = () => (cs => cs.length > new Set(cs).size)(dicts.filter((x, d) => isAligned(x) && searched(d)).map(catId)); // (two in a category)
 	const applyWiktPairs = () => document.body.classList.toggle('wikt-pairs', stored('wiktPairs') ?? wiktAuto());
 	const setWiktPairs = on => { store('wiktPairs', on === wiktAuto() ? null : on); applyWiktPairs(); };
 	// One more result: the count, and maybe more of them
@@ -540,7 +542,7 @@ if(!isDictPage){
 	// after the page's. Pick
 	// any number of them and searches use just their dictionaries; none
 	// picked is All. Each dictionary is on or off, the same in every category.
-	const catLabel = c => c.split('/').map(cap).join(' / ').replaceAll('-', ' '); // ("bible-extra": Bible extra)
+	const catLabel = c => c.split('/').map(cap).join(' / '); // ("bible-extra": Bible Extra)
 	// The categories, in the order their entries come (their first
 	// dictionary's). Again when a dictionary's added or taken off. Choosing
 	// is worth it only with two or more: one category is everything.

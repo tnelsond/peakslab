@@ -14,11 +14,11 @@ other (the app shows the other dictionaries' entries for a headword found):
   - a word's romanization (pinyin, ...) after it
   - English's its own words (love)
 
-Usage: kaikkisensestotsv.py <English.jsonl[.gz]> <dict_src dir>
+Usage: kaikkisensestotsv.py <English.jsonl[.gz]> <dict_src dir> [language ...]
   (into <dict_src>/<language>/wiktionary/<abbreviation>senses.tsv, its languages
   LANGS below)
 """
-import gzip, json, sys
+import gzip, json, os, sys
 from html import escape
 
 IN, SRC = sys.argv[1:3]
@@ -28,10 +28,17 @@ LANGS = {
 	'chinese': ('zh', 'Chinese Mandarin'), 'korean': ('ko', 'Korean'), 'japanese': ('ja', 'Japanese'),
 	'indonesian': ('id', 'Indonesian'), 'nepali': ('ne', 'Nepali'), 'english': ('en', 'English'),
 	'german': ('de', 'German'), 'portuguese': ('pt', 'Portuguese'), 'spanish': ('es', 'Spanish'),
-	'greek': ('el', 'Ancient Greek'), 'hebrew': ('he', 'Hebrew'),
+	'ancient-greek': ('grc', 'Ancient Greek'), 'hebrew': ('he', 'Hebrew'),
 	'levantine': ('lb', 'Levantine Arabic', 'South Levantine Arabic', 'North Levantine Arabic'),
 	'chitonga': ('toi', 'Tonga (Zambia)'), 'lozi': ('loz', 'Lozi'),
+	'amharic': ('am', 'Amharic'), 'arabic': ('ar', 'Arabic'), 'assamese': ('as', 'Assamese'), 'bengali': ('bn', 'Bengali'),
+	'burmese': ('my', 'Burmese'), 'cebuano': ('ceb', 'Cebuano'), 'french': ('fr', 'French'), 'gujarati': ('gu', 'Gujarati'),
+	'hausa': ('ha', 'Hausa'), 'hindi': ('hi', 'Hindi'), 'ilocano': ('ilo', 'Ilocano', 'Ilokano'), 'kannada': ('kn', 'Kannada'),
+	'malagasy': ('mg', 'Malagasy'), 'malayalam': ('ml', 'Malayalam'), 'marathi': ('mr', 'Marathi'), 'odia': ('or', 'Odia', 'Oriya'),
+	'punjabi': ('pa', 'Punjabi'), 'russian': ('ru', 'Russian'), 'swahili': ('sw', 'Swahili'), 'tagalog': ('tl', 'Tagalog'),
+	'tamil': ('ta', 'Tamil'), 'telugu': ('te', 'Telugu'), 'urdu': ('ur', 'Urdu'), 'vietnamese': ('vi', 'Vietnamese'),
 }
+ONLY = set(sys.argv[3:])  # (just these languages' files written: the rest stay as they are)
 LANG_OF = {n: l for l, (_, *ns) in LANGS.items() for n in ns}
 
 def e(s):
@@ -63,6 +70,9 @@ with (gzip.open if IN.endswith('.gz') else open)(IN, 'rt', encoding='utf-8') as 
 			rows['english'].setdefault(f'{en} ({sense})' if sense else en, {}).setdefault(pos, [(en, '')])
 
 for l, (ab, *_) in LANGS.items():
+	if ONLY and l not in ONLY:
+		continue
+	os.makedirs(f'{SRC}/{l}/wiktionary', exist_ok=True)
 	out = f'{SRC}/{l}/wiktionary/{ab}senses.tsv'
 	name = LANGS[l][1].replace('Chinese Mandarin', 'Chinese (Mandarin)')
 	with open(out, 'w', encoding='utf-8') as o:
