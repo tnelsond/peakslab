@@ -660,7 +660,7 @@ if(!isDictPage){
 	}
 	// What a search uses: the ones on that the filter has; reading a chapter,
 	// every Bible text that's on too (the filter doesn't change them)
-	const searched = d => isOn(d) || (libOn[d] && isBibleText(d) && dictIds.some(t => isBibleText(t) && isOn(t))); // (a word's verses: the search's translations, whatever the filter's language)
+	const searched = d => isOn(d);
 	const searchMask = () => dicts.map((_, d) => searched(d));
 	let searching = []; // What the search showing uses (startSearch)
 
@@ -1006,7 +1006,7 @@ if(!isDictPage){
 	// The search's translations: the Bible texts that are on; more than
 	// one, in parallel (each verse in each of them, one after the other)
 	const moreHTML = '<p class="empty">Want more? <button class="text-btn" data-library="1">Go to the library</button></p>';
-	const barTexts = () => dictIds.filter(d => isBibleText(d) && libOn[d]);
+	const barTexts = () => dictIds.filter(d => isBibleText(d) && isOn(d)); // (in the filter: Bible unticked, none)
 
 	// Bible mode (a Bible category picked, or a Bible page), and reading a
 	// chapter, have the Bible bar at the top of the results: ‹ book and
@@ -1049,9 +1049,10 @@ if(!isDictPage){
 	// them (fillCard). Apply to all makes them the search's, and every card's.
 	// ---------------------------------------------------------------
 	const inPopup = card => !!card.dataset.pop || !!card.closest('#popupResults'); // (pop: made for it, before it's in it)
-	// A card's translations: its own (data-texts), or the search's; more
-	// than one, in parallel. Its own go with it to its next chapter
-	const cardTexts = card => card.dataset.texts ? card.dataset.texts.split(',').map(Number) : barTexts();
+	// A card's translations: its own (data-texts), or the search's (a
+	// popup's: the gloss's); more than one, in parallel. Its own go with it
+	// to its next chapter
+	const cardTexts = card => card.dataset.texts ? card.dataset.texts.split(',').map(Number) : inPopup(card) ? dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss')) : barTexts();
 	const ownTexts = card => card.dataset.texts ? cardTexts(card) : null;
 	// A card's reference: {bk (its book as typed or found: "joh", "Romans"),
 	// from, to (chapter * 1000 + verse), kind (verse, chapter or range)}
@@ -1970,7 +1971,7 @@ if(!isDictPage){
 
 
 	// What the popup shows (its ⤢ searches it in the results): what the
-	// gloss has, but of the Bible texts the search's; a range, its card
+	// gloss has, its Bible texts too; a range, its card
 	// (Compare's: the verse in every one the gloss has, its bars blue)
 	let popupQuery = '';
 	let popupHl = ''; // The verse a chapter in it is for (a Bible card's Popup)
@@ -1981,7 +1982,7 @@ if(!isDictPage){
 		cleanup(popupResults);
 		popupBox.scrollTop = 0;
 		popupResults.classList.remove('collapsed');
-		const q = updateQuery(text), bt = barTexts(), mask = dicts.map((_, d) => isBibleText(d) ? bt.includes(d) : isOn(d, 'gloss'));
+		const q = updateQuery(text), mask = glossMask();
 		if (hasBible && rangeOf(q)) return popupRange(text, texts, cmp);
 		const go = m => forWorkers(m, (w, code) => [1, 2].forEach(st => w.postMessage({type: "tempsearch", st, query: q, dest: "popup", dicts: code})));
 		go(mask);
