@@ -409,9 +409,10 @@ p-ipa {
 }
 p-e details { font-size: .8em; color: var(--muted); } /* (a word's forms) */
 /* Wiktionary's senses only with another language's for them (its menu's
-   option): a card's lone Wiktionary entry hidden, and a card of only that */
+   option): a card's lone Wiktionary entry hidden, and a card of only that
+   (not one of nothing: the loader's, or a search runs on, its end in sight) */
 body.wikt-pairs p-d:not(:has(> p-e[data-cat=wiktionary] ~ p-e[data-cat=wiktionary])) > p-e[data-cat=wiktionary],
-body.wikt-pairs p-d:not(:has(> p-e:not([data-cat=wiktionary]))):not(:has(> p-e[data-cat=wiktionary] ~ p-e[data-cat=wiktionary])) { display: none; }
+body.wikt-pairs p-d:has(> p-e[data-cat=wiktionary]):not(:has(> p-e:not([data-cat=wiktionary]))):not(:has(> p-e[data-cat=wiktionary] ~ p-e[data-cat=wiktionary])) { display: none; }
 p-r { /* a romanization (after the IPA) */
 	margin-left: .5em;
 	font-size: .8em;
