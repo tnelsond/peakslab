@@ -871,7 +871,8 @@ size_t encode_at(const Codebook *cb, const float *x, int N, const encparams_t *e
   return n;
 }
 
-/* Quality knob = target bitrate. Searches stage counts and bisects lambda. */
+/* Quality knob = target bitrate. Searches stage counts and bisects lambda.
+ * target_bps <= 0: constant quality instead, at base->lambda (the bitrate follows the content). */
 int encode_target(const Codebook *cb, const float *x, int N, double target_bps,
                   const encparams_t *base, int fix_ks, int fix_ds,
                   uint8_t **out, size_t *len, float *recon_out, encstats_t *st_out,
@@ -914,6 +915,15 @@ int encode_target(const Codebook *cb, const float *x, int N, double target_bps,
     /* Safeguarded secant on (ln lambda, ln bps): bps grows smoothly with lambda (~lambda^0.5).
      * Keeps the bracket [lo: bps <= target, hi: bps > target]; stops once the best in-budget
      * encode is within tol of the target. */
+    if (target_bps <= 0) {   /* constant quality: this lambda, the plan with the lowest lambda*D + R */
+      ep.lambda = base->lambda;
+      uint8_t *buf; encstats_t st;
+      size_t n = encode_at_pc(cb, x, N, &ep, fw, &pc, &buf, scr, &st, NULL);
+      P->buf = buf; P->len = n; P->dist = ep.lambda * st.dist + 8.0 * n;
+      P->st = st; P->ep = ep; memcpy(P->rec, scr, rn); P->have = 1;
+      free(scr);
+      continue;
+    }
     double tol = 0.001 * target_bps; if (tol < 12.0 / dur) tol = 12.0 / dur;
     double lt = log(target_bps), ll = 0, fl = 0, lh = 0, fh = 0; int hl = 0, hh = 0;
     double l = log(3.0);

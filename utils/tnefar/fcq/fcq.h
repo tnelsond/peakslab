@@ -151,6 +151,9 @@ typedef struct nnf nnf_t;
 nnf_t *nnf_load(const char *path);
 void nnf_free(nnf_t *n);
 void nnf_apply(const nnf_t *n, float *feat, const uint8_t *coded, int N);
+/* streaming: frames t0..t0+T-1 of what nnf_apply would make, into out (T x NFEAT), from the unfiltered
+ * in (N x NFEAT); only frames within the filter's reach are read. -1: not a single conv filter (use nnf_apply) */
+int nnf_apply_range(const nnf_t *n, const float *in, const uint8_t *coded, int N, int t0, int T, float *out);
 
 /* ---------------- trainer ---------------- */
 typedef struct {

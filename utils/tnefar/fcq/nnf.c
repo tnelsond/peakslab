@@ -103,3 +103,33 @@ void nnf_apply(const nnf_t *n, float *feat, const uint8_t *coded, int N) {
   for (int t = 0; t < N; t++) for (int j = 0; j < NFEAT - 1; j++) feat[(size_t)t * NFEAT + j] += delta[(size_t)t * (NFEAT - 1) + j];
   free(norm); free(pa); free(na); free(x); free(h1); free(h2); free(o); free(delta);
 }
+
+int nnf_apply_range(const nnf_t *n, const float *in, const uint8_t *coded, int N, int t0, int T, float *out) {
+  if (n->npf != 1) return -1;
+  if (T <= 0) return 0;
+  const pf_model *m = n->pf[0];
+  int R = m->R, s = t0 - R - 16, e = t0 + T + R + 16;   /* (+16: the anchor distances the inputs carry) */
+  if (s < 0) s = 0;
+  if (e > N) e = N;
+  float *inp = (float *)malloc(sizeof(float) * (size_t)(e - s) * PF_NIN);
+  pf_inputs(m, in + (size_t)s * NFEAT, coded + s, e - s, inp);
+  float *blk = (float *)malloc(sizeof(float) * (size_t)(T + 2 * R) * PF_NIN);
+  for (int t = 0; t < T + 2 * R; t++) {
+    int j = t0 + t - R; if (j < 0) j = 0; if (j > N - 1) j = N - 1;
+    memcpy(blk + (size_t)t * PF_NIN, inp + (size_t)(j - s) * PF_NIN, sizeof(float) * PF_NIN);
+  }
+  pf_ws ws; pf_ws_init(&ws, m, T + 2 * R);
+  pf_forward(m, &ws, blk, T + 2 * R);
+  const float *o = ws.a[m->nl];
+  for (int t = 0; t < T; t++) {
+    const float *x = in + (size_t)(t0 + t) * NFEAT; float *y = out + (size_t)t * NFEAT;
+    memcpy(y, x, sizeof(float) * NFEAT);
+    for (int j = 0; j < PF_NOUT; j++) {
+      float d = o[(size_t)t * PF_NOUT + j] * m->esd[j] * m->keep[j];
+      if (j == 18 && !(x[19] > 0)) d = 0;   /* pitch only where decoded voiced */
+      y[j] += d;
+    }
+  }
+  pf_ws_free(&ws); free(blk); free(inp);
+  return 0;
+}

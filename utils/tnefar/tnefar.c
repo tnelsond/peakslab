@@ -28,9 +28,11 @@ static const unsigned char fargan_blob[] __attribute__((aligned(64))) = {
 #embed "fargan.bin"
 };
 
-/* The voice last given to tnefar_open, loaded (the caller passes the same one each time) */
-static const uint8_t *voice; static int voice_len;
-static Codebook *cb; static nnf_t *pf;
+/* Voices loaded (by where the caller keeps them: it passes the same one each time). A stream holds its
+ * voice (users) so another voice loading can't free a filter it's still using (a paused chapter). */
+typedef struct { const uint8_t *v; int len, users; Codebook *cb; nnf_t *pf; } voice_t;
+#define NVOICE 4
+static voice_t voices[NVOICE];
 static const uint8_t *part; static size_t part_len;   /* what tnefar_fopen opens */
 
 FILE *tnefar_fopen(const char *path, const char *mode) {
@@ -40,17 +42,25 @@ FILE *tnefar_fopen(const char *path, const char *mode) {
 /* the codec's debugging switches (FCQ_* environment variables) are all off */
 char *tnefar_getenv(const char *name) { (void)name; return NULL; }
 
-static int load_voice(const uint8_t *v, int len) {
-  if (v == voice && len == voice_len && cb) return 0;
-  if (cb) codebook_free(cb);
-  if (pf) nnf_free(pf);
-  cb = NULL; pf = NULL; voice = v; voice_len = len;
-  if (!v || len < 4) return -1;
+static voice_t *load_voice(const uint8_t *v, int len) {
+  voice_t *free_slot = NULL;
+  for (int i = 0; i < NVOICE; i++) {
+    if (voices[i].cb && voices[i].v == v && voices[i].len == len) return &voices[i];
+    if (!voices[i].users && (!free_slot || !voices[i].cb)) free_slot = &voices[i];
+  }
+  if (!free_slot || !v || len < 4) return NULL;
+  voice_t *o = free_slot;
+  if (o->cb) codebook_free(o->cb);
+  if (o->pf) nnf_free(o->pf);
+  memset(o, 0, sizeof *o);
   uint32_t n = v[0] | v[1] << 8 | v[2] << 16 | (uint32_t)v[3] << 24;
-  if (n > (uint32_t)len - 4) return -1;
-  part = v + 4; part_len = n; cb = codebook_load("codebook");
-  part = v + 4 + n; part_len = len - 4 - n; pf = nnf_load("postfilter");   /* (none: no postfilter) */
-  return cb ? 0 : -1;
+  if (n > (uint32_t)len - 4) return NULL;
+  part = v + 4; part_len = n; o->cb = codebook_load("codebook");
+  part = v + 4 + n; part_len = len - 4 - n; o->pf = part_len ? nnf_load("postfilter") : NULL;   /* (none: no postfilter) */
+  part_len = 0;
+  if (!o->cb) { if (o->pf) nnf_free(o->pf); o->pf = NULL; return NULL; }
+  o->v = v; o->len = len;
+  return o;
 }
 
 static FARGAN g_model;          /* FARGAN's layers (pointers into fargan_blob), shared by every stream */
@@ -66,29 +76,49 @@ static int init(void) {
 
 typedef struct tnefar {
   FARGANState fg;
-  float *feat;                  /* N x NFEAT decoded (and postfiltered) features */
-  int N, t, stop, skip;
+  voice_t *voice;
+  float *feat;                  /* N x NFEAT features: decoded, then postfiltered up to frame done */
+  float *raw; uint8_t *mask;    /* (with a postfilter) the decoded features and their anchors */
+  int N, t, stop, skip, done;
   float out[CHUNK_MAX * FRAME];
 } tnefar_t;
 
+/* postfilter frames up to (not including) upto: a block at a time, just ahead of FARGAN */
+static void filter_to(tnefar_t *d, int upto) {
+  if (upto > d->N) upto = d->N;
+  while (d->done < upto) {
+    int T = d->done ? 256 : 32;   /* (a small first block: the sound starts sooner) */
+    if (T > d->N - d->done) T = d->N - d->done;
+    nnf_apply_range(d->voice->pf, d->raw, d->mask, d->N, d->done, T, d->feat + (size_t)d->done * NFEAT);
+    d->done += T;
+  }
+}
+
 /* A stream for one file in the voice v (its slab's tnefar.voice, which must stay where it is while
- * it's used). <0 on error: -1 no FARGAN, -2 not the voice's file (or no voice), -3 bad file */
+ * it's used). <0 on error: -1 no FARGAN (or memory), -2 not the voice's file (or no voice), -3 bad file */
 __attribute__((used)) intptr_t tnefar_open(const uint8_t *buf, int len, const uint8_t *v, int vlen) {
   if (init() < 0) return -1;
-  if (load_voice(v, vlen)) return -2;
+  voice_t *vo = load_voice(v, vlen);
+  if (!vo) return -2;
   float *feat; int N; uint8_t *mask = NULL;
-  int r = decode_stream_ex(cb, buf, (size_t)len, &feat, &N, &mask);
+  int r = decode_stream_ex(vo->cb, buf, (size_t)len, &feat, &N, &mask);
   if (r) return r == -2 ? -2 : -3;
-  if (pf) nnf_apply(pf, feat, mask, N);
-  free(mask);
   tnefar_t *d = (tnefar_t *)calloc(1, sizeof *d);
-  if (!d) { free(feat); return -1; }
-  d->feat = feat; d->N = N; d->t = 1; d->skip = FRAME / 2;
+  if (!d) { free(feat); free(mask); return -1; }
+  d->voice = vo; vo->users++;
+  d->N = N; d->t = 1; d->skip = FRAME / 2;
+  if (vo->pf && nnf_apply_range(vo->pf, feat, mask, N, 0, 0, feat) == 0) {   /* streaming filter */
+    d->raw = feat; d->mask = mask; d->feat = (float *)malloc(sizeof(float) * (size_t)N * NFEAT);
+    filter_to(d, 1);
+  } else {
+    if (vo->pf) nnf_apply(vo->pf, feat, mask, N);   /* (an old-style filter: all of it now) */
+    free(mask); d->feat = feat; d->done = N;
+  }
   /* as opus' fargan_demo: FARGAN continues from silence, primed with the first frame */
   fargan_init(&d->fg);
   d->fg.model = g_model;
   float f5[5 * NB_FEATURES], zeros[FARGAN_CONT_SAMPLES] = {0};
-  for (int i = 0; i < 5; i++) memcpy(f5 + i * NB_FEATURES, feat, sizeof(float) * NB_FEATURES);
+  for (int i = 0; i < 5; i++) memcpy(f5 + i * NB_FEATURES, d->feat, sizeof(float) * NB_FEATURES);
   fargan_cont(&d->fg, zeros, f5);
   return (intptr_t)d;
 }
@@ -101,7 +131,9 @@ __attribute__((used)) int tnefar_run(tnefar_t *d, int n) {
   int k = 0;
   if (n > CHUNK_MAX) n = CHUNK_MAX;
   for (int i = 0; i < n && d->stop < 2; i++) {
-    const float *f = d->feat + (size_t)(d->t < d->N ? d->t : d->N - 1) * NFEAT;
+    int fi = d->t < d->N ? d->t : d->N - 1;
+    filter_to(d, fi + 1);
+    const float *f = d->feat + (size_t)fi * NFEAT;
     if (d->t < d->N) d->t++; else d->stop++;
     float pcm[FRAME];
     fargan_synthesize(&d->fg, pcm, f);
@@ -112,6 +144,10 @@ __attribute__((used)) int tnefar_run(tnefar_t *d, int n) {
   return k;
 }
 /* (testing: the decoded features, N x 20) */
-__attribute__((used)) float *tnefar_feat(tnefar_t *d) { return d->feat; }
+__attribute__((used)) float *tnefar_feat(tnefar_t *d) { filter_to(d, d->N); return d->feat; }
 __attribute__((used)) float *tnefar_pcm(tnefar_t *d) { return d->out; }
-__attribute__((used)) void tnefar_close(tnefar_t *d) { if (d) { free(d->feat); free(d); } }
+__attribute__((used)) void tnefar_close(tnefar_t *d) {
+  if (!d) return;
+  d->voice->users--;
+  free(d->feat); free(d->raw); free(d->mask); free(d);
+}
