@@ -291,7 +291,7 @@ if(!isDictPage){
 	const insertSorted = (parent, el, n, key = 'id') => parent.insertBefore(el, [...parent.children].find(c => +c.dataset[key] > n) || null);
 	// An entry of dictionary d (starred: they come first, and stand out),
 	// its name first, then html
-	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}"${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
+	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}" data-cat="${escapeHTML(dicts[d].cat)}"${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
 	// A dictionary's name above its entry (★ if starred): tap it for its menu
 	const entryHeadHTML = d => `<p-h role="button" tabindex="0" title="${escapeHTML(typeLabel(dicts[d]))}" onclick="dictMenu(this)">${isStar(d) ? '★ ' : ''}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
 	// The little menus (a dictionary's, Share's): one at a time, right
@@ -322,12 +322,21 @@ if(!isDictPage){
 	}
 	document.addEventListener('click', e => { if (!document.querySelector('.menu')?.previousElementSibling.contains(e.target)) closeMenus(); });
 	// A dictionary's: turn it off, star (or unstar) it
+	// (a Wiktionary's: its senses only with another language's for them, or all)
 	window.dictMenu = h => {
-		const d = +h.parentNode.dataset.d, name = dicts[d].name;
+		const d = +h.parentNode.dataset.d, name = dicts[d].name, pairs = document.body.classList.contains('wikt-pairs');
 		popMenu(h, `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
-			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>`,
-			a => a === 'off' ? setOn([d], false) : toggleStar(d));
+			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>` +
+			(dicts[d].cat === 'wiktionary' ? `<button data-a="pairs">${pairs ? 'Wiktionary: every sense' : 'Wiktionary: only senses another language has too'}</button>` : ''),
+			a => a === 'off' ? setOn([d], false) : a === 'star' ? toggleStar(d) : setWiktPairs(!pairs));
 	};
+	// Wiktionary's senses only with another one's for the same sense (style.css
+	// hides the rest: a card's lone Wiktionary entry, and a card of nothing
+	// else): with two or more Wiktionaries searched, unless its menu said
+	// otherwise (remembered while it's not what they'd have)
+	const wiktAuto = () => dicts.filter((x, d) => x.cat === 'wiktionary' && searched(d)).length > 1;
+	const applyWiktPairs = () => document.body.classList.toggle('wikt-pairs', stored('wiktPairs') ?? wiktAuto());
+	const setWiktPairs = on => { store('wiktPairs', on === wiktAuto() ? null : on); applyWiktPairs(); };
 	// One more result: the count, and maybe more of them
 	function found(){
 		++num;
@@ -2002,6 +2011,7 @@ if(!isDictPage){
 	// worker i is done
 	function searchStage(start){
 		if (start) {
+			applyWiktPairs();
 			num = 0;
 			++searchGen;
 			searchAt = performance.now();
