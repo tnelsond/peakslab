@@ -490,8 +490,7 @@ if(!isDictPage){
 	// Used by a search (view 'filter') or a gloss ('gloss'): on (a gloss's:
 	// on for glosses, glossOn), and in what that view has picked (all of it:
 	// none picked; a link's: just its)
-	// (and its language not off: the filter's language buttons)
-	const isOn = (d, view = 'filter') => onIn(view)(d) && !langsOff.has(dicts[d].lang) && (solo.length > 0 || inFilter(d, view));
+	const isOn = (d, view = 'filter') => onIn(view)(d) && (solo.length > 0 || inFilter(d, view));
 
 	// Order: categories with the most priority-1 dictionaries first, then within
 	// a category this page's language first, then by priority (0, 1, 2, 3,
@@ -599,9 +598,6 @@ if(!isDictPage){
 	const glossOn = d => glossSet[dicts[d].path] ?? libOn[d] ? libOn[d] || downloaded.has(d) : false;
 	const onIn = view => view === 'gloss' ? glossOn : d => libOn[d];
 	const starKey = `peakslab-stars-${appname}`;
-	// Languages turned off (the filter's language buttons): their dictionaries
-	// not searched or glossed, each still on or off as it was
-	const langsKey = `peakslab-langsoff-${appname}`, langsOff = new Set(solo.length ? [] : readList(langsKey));
 	let stars = byPaths(readList(starKey));
 	const isStar = d => stars.includes(d);
 	const sortId = d => isStar(d) ? stars.indexOf(d) - 1000 : d + 1; // (starred first, then the dictionaries' order)
@@ -1510,11 +1506,12 @@ if(!isDictPage){
 	// their downloaded dictionaries; untick any to search (or gloss) with
 	// just the rest, or tap one's name for just it
 	// The languages of the dictionaries the view has, the page's first: each a
-	// button to turn all of its off (or on again, as they were), whatever
-	// their folders
+	// shortcut to turn all of its on or off in the view (its own: the filter's
+	// or the gloss's), whatever their folders; the categories picked stay
+	const langDicts = (l, view) => dictIds.filter(d => inView(view)(d) && dicts[d].lang === l);
 	function langsHTML(view){
 		const ls = [...new Set(dictIds.filter(inView(view)).sort((a, b) => dicts[b].primary - dicts[a].primary).map(d => dicts[d].lang))];
-		return ls.length < 2 ? '' : `<div class="lang-btns">${ls.map(l => `<button data-lang-off="${escapeHTML(l)}" aria-pressed="${!langsOff.has(l)}">${abbr[l]?.[3] || ''} ${escapeHTML(cap(l))}</button>`).join('')}</div>`;
+		return ls.length < 2 ? '' : `<div class="lang-btns">${ls.map(l => `<button data-lang="${escapeHTML(l)}" aria-pressed="${langDicts(l, view).some(onIn(view))}" title="Turn its dictionaries on or off">${abbr[l]?.[3] || ''} ${escapeHTML(cap(l))}</button>`).join('')}</div>`;
 	}
 	function filterHTML(view){
 		return langsHTML(view) + levelHTML(onLevel(view)) +
@@ -1723,14 +1720,14 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txAll, txDrop, go, langOff} = b.dataset;
-		if (langOff) { // A language off, or on again
-			if (!langsOff.delete(langOff)) langsOff.add(langOff);
-			if (!solo.length) store(langsKey, [...langsOff]);
-			renderDrawer();
-			updateFilterUI();
-			regloss();
-			return searchAgain();
+		const {book, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txAll, txDrop, go, lang} = b.dataset;
+		if (lang) { // A language's dictionaries the view has: all off if any's on, else all on
+			const gloss = drawerView === 'gloss', ds = langDicts(lang, gloss ? 'gloss' : 'filter'), on = !ds.some(onIn(gloss ? 'gloss' : 'filter'));
+			if (!gloss) { // (the gloss's as they are: the filter's don't change them)
+				ds.forEach(d => { glossSet[dicts[d].path] ??= glossOn(d); });
+				if (!solo.length) store(glossKey, glossSet);
+			}
+			return (gloss ? setGlossOn : setOn)(ds, on);
 		}
 		const drawerBooks = drawerView === 'bible';
 		if (tx !== undefined || txAdd !== undefined || txAll) return cardTextsClick(b.dataset); // (a card's translations)
