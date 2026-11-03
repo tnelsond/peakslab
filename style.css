@@ -408,11 +408,11 @@ p-ipa {
 	color: var(--ipa);
 }
 p-e details { font-size: .8em; color: var(--muted); } /* (a word's forms) */
-/* Wiktionary's senses only with another language's for them (its menu's
-   option): a card's lone Wiktionary entry hidden, and a card of only that
+/* Words by sense only with another language's for them (its menu's
+   option): a card's lone one hidden, and a card of only that
    (not one of nothing: the loader's, or a search runs on, its end in sight) */
-body.wikt-pairs p-d:not(:has(> p-e[data-cat=wiktionary] ~ p-e[data-cat=wiktionary])) > p-e[data-cat=wiktionary],
-body.wikt-pairs p-d:has(> p-e[data-cat=wiktionary]):not(:has(> p-e:not([data-cat=wiktionary]))):not(:has(> p-e[data-cat=wiktionary] ~ p-e[data-cat=wiktionary])) { display: none; }
+body.wikt-pairs p-d:not(:has(> p-e[data-sense] ~ p-e[data-sense])) > p-e[data-sense],
+body.wikt-pairs p-d:has(> p-e[data-sense]):not(:has(> p-e:not([data-sense]))):not(:has(> p-e[data-sense] ~ p-e[data-sense])) { display: none; }
 p-r { /* a romanization (after the IPA) */
 	margin-left: .5em;
 	font-size: .8em;
@@ -786,10 +786,6 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	color: var(--card-text);
 	white-space: nowrap;
 }
-/* The filter's and the gloss's language buttons: shortcuts, a language's dictionaries on or off */
-.lang-btns { display: flex; flex-wrap: wrap; gap: .3em; margin: .4em 0; }
-.lang-btns button { padding: .1em .5em; border: 1px solid var(--muted); border-radius: 1em; background: none; color: inherit; font: inherit; font-size: .75em; opacity: .55; text-decoration: line-through; }
-.lang-btns button[aria-pressed="true"] { opacity: 1; text-decoration: none; background: var(--type-bi); }
 .type-mono { background: var(--type-mono); }
 .type-bi { background: var(--type-bi); }
 .type-rbi { background: var(--type-rbi); }
@@ -932,18 +928,11 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	transition: transform .15s;
 }
 .cat-exp[aria-expanded="true"] { transform: rotate(90deg); }
-/* A category's row in a gloss: 1 2 3, one picked */
-.gloss-rows { flex: none; display: flex; align-items: center; gap: 2px; }
-.gloss-rows button {
-	width: 26px;
-	height: 26px;
-	padding: 0;
-	border: 1px solid var(--line);
-	border-radius: 50%;
-	color: var(--muted);
-	font-size: .8em;
-}
-.gloss-rows button[aria-pressed="true"] { border-color: var(--control-btn-bg); background: var(--control-btn-bg); color: #fff; font-weight: 700; }
+/* The gloss's rows: each one's category and language */
+.gloss-rows { display: grid; gap: 6px; margin: .4em 0 .8em; }
+.gloss-rows div { display: flex; align-items: center; gap: 6px; }
+.gloss-rows span { width: 1.2em; color: var(--muted); font-weight: 700; }
+.gloss-rows select { flex: 1; min-width: 0; padding: .3em; border: 1px solid var(--line); border-radius: 6px; background: var(--card-bg); color: inherit; font: inherit; font-size: .9em; }
 .cat-body { margin: 0 0 8px 34px; padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
 
 /* A word's entries over the page */

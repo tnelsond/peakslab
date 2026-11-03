@@ -85,8 +85,11 @@ function escapeHTML(text){
 const abbr = filesJson.abbr || {};
 // A dictionary's languages, when its type (#lang) is theirs, by their
 // abbreviations: "zh,km" Chinese to Khmer, "th,en,zh" Thai to English and
-// Chinese, "zh" just Chinese (the headword's first); else null (mono, bi, ...)
-const langByAbbr = Object.fromEntries(Object.entries(abbr).filter(([, a]) => a[2]).map(([l, a]) => [a[0], l]));
+// Chinese, "zh" just Chinese (the headword's first); else null (mono, bi, ...).
+// "sense,km": words by sense, its headwords English senses ("god (deity)"),
+// its text their Khmer words; any two such a dictionary between them
+const langByAbbr = Object.fromEntries(Object.entries(abbr).filter(([, a]) => a[2]).map(([l, a]) => [a[0], l]).concat([['sense', 'english']]));
+const isSense = x => x.type.startsWith('sense,');
 const typeLangs = ({type}) => type && type.split(',').every(a => langByAbbr[a]) ? type.split(',').map(a => langByAbbr[a]) : null;
 const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
@@ -291,7 +294,7 @@ if(!isDictPage){
 	const insertSorted = (parent, el, n, key = 'id') => parent.insertBefore(el, [...parent.children].find(c => +c.dataset[key] > n) || null);
 	// An entry of dictionary d (starred: they come first, and stand out),
 	// its name first, then html
-	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}" data-cat="${escapeHTML(dicts[d].cat)}"${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
+	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}"${isSense(dicts[d]) ? ' data-sense' : ''}${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
 	// A dictionary's name above its entry (★ if starred): tap it for its menu
 	const entryHeadHTML = d => `<p-h role="button" tabindex="0" title="${escapeHTML(typeLabel(dicts[d]))}" onclick="dictMenu(this)">${isStar(d) ? '★ ' : ''}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
 	// The little menus (a dictionary's, Share's): one at a time, right
@@ -322,19 +325,19 @@ if(!isDictPage){
 	}
 	document.addEventListener('click', e => { if (!document.querySelector('.menu')?.previousElementSibling.contains(e.target)) closeMenus(); });
 	// A dictionary's: turn it off, star (or unstar) it
-	// (a Wiktionary's: its senses only with another language's for them, or all)
+	// (words by sense: its senses only with another language's for them, or all)
 	window.dictMenu = h => {
 		const d = +h.parentNode.dataset.d, name = dicts[d].name, pairs = document.body.classList.contains('wikt-pairs');
 		popMenu(h, `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
 			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>` +
-			(dicts[d].cat === 'wiktionary' ? `<button data-a="pairs">${pairs ? 'Wiktionary: every sense' : 'Wiktionary: only senses another language has too'}</button>` : ''),
+			(isSense(dicts[d]) ? `<button data-a="pairs">${pairs ? 'Every sense' : 'Only senses another language has too'}</button>` : ''),
 			a => a === 'off' ? setOn([d], false) : a === 'star' ? toggleStar(d) : setWiktPairs(!pairs));
 	};
-	// Wiktionary's senses only with another one's for the same sense (style.css
-	// hides the rest: a card's lone Wiktionary entry, and a card of nothing
-	// else): with two or more Wiktionaries searched, unless its menu said
+	// Words by sense only with another language's for the same sense (style.css
+	// hides the rest: a card's lone one, and a card of nothing
+	// else): with two or more of them searched, unless its menu said
 	// otherwise (remembered while it's not what they'd have)
-	const wiktAuto = () => dicts.filter((x, d) => x.cat === 'wiktionary' && searched(d)).length > 1;
+	const wiktAuto = () => dicts.filter((x, d) => isSense(x) && searched(d)).length > 1;
 	const applyWiktPairs = () => document.body.classList.toggle('wikt-pairs', stored('wiktPairs') ?? wiktAuto());
 	const setWiktPairs = on => { store('wiktPairs', on === wiktAuto() ? null : on); applyWiktPairs(); };
 	// One more result: the count, and maybe more of them
@@ -570,13 +573,24 @@ if(!isDictPage){
 	const filtered = (view = 'filter') => picks[view].length > 0;
 	const selCats = (view = 'filter') => picks[view].map(catById);
 	const inFilter = (d, view = 'filter') => !filtered(view) || selCats(view).some(c => c.members.includes(d));
-	// The row of a gloss's word boxes each category's dictionaries go in
-	// (1, 2 or 3; the filter and the gloss pick it): pronunciation 1, the
-	// rest 2. A dictionary's is its top category's (or its own folder's).
-	const GLOSS_ROWS = [1, 2, 3];
-	const rowsKey = `peakslab-glossrows-${appname}`, rowSet = {...stored(rowsKey)};
-	const catRow = id => rowSet[id] || (id.startsWith('phonetics') ? 1 : 2);
-	const glossRow = d => catRow(cats.find(c => c.members.includes(d)).id);
+	// A gloss's word boxes have three rows, each for a category's words, a
+	// language's, or both ({cat, lang}, '' any; null: off; the gloss's
+	// drawer picks): pronunciation, then the rest. A word goes in the
+	// first row it fits.
+	const rowsKey = `peakslab-glossrows-${appname}`;
+	const glossRows = (r => Array.isArray(r) && r.length === 3 ? r : [catById('phonetics') && {cat: 'phonetics'}, {}, null])(stored(rowsKey));
+	const catOf = d => cats.find(c => c.members.includes(d)).id;
+	// What a dictionary's word glosses it with is in: a second index
+	// word's, its headword's language (that's its gloss); a headword's, its
+	// text's.
+	function outLang({d, sec}){
+		const x = dicts[d], ls = typeLangs(x);
+		const [head, body = head] = ls || {mono: [x.lang], bi: [x.lang, 'english'], rbi: ['english', x.lang]}[x.type] || [];
+		return sec ? head : body;
+	}
+	// A word fits a row in its category and language, or (a sense's) with
+	// the row language's words for the sense (via)
+	const fits = (row, x) => row && (!row.cat || catOf(x.d) === row.cat) && (!row.lang || outLang(x) === row.lang || !!x.via?.[row.lang]);
 
 	// Stars: a starred dictionary's entries come first and stand out, in the
 	// order they were starred, and its words are the ones searched first.
@@ -1489,16 +1503,15 @@ if(!isDictPage){
 		return ds.length ? `<ul class="rows dict-rows">${ds.map(d => dictRowHTML(d, view)).join('')}</ul>` : '<p class="empty">None downloaded.</p>';
 	}
 	// The categories; opened, their dictionaries. In the
-	// filter and the gloss a category's name picks it, and 1 2 3 its row in
-	// a gloss; in the library it opens it.
+	// filter and the gloss a category's name picks it; in the library it
+	// opens it.
 	function catsHTML(view){
 		if (!choice) return rowsHTML('', view);
 		const tops = cats.filter(c => shown(c, view));
 		const btn = (c, act, attrs, html) => `<button data-cat="${c.id}" data-act="${act}" ${attrs}>${html}</button>`;
 		const cat = c => groupHTML(`${view}:${c.id}`,
 			view !== 'library' ? btn(c, 'sel', `class="cat-chk check" aria-pressed="${!filtered(view) || picks[view].includes(c.id)}" aria-label="${VIEWS[view].title}: ${escapeHTML(c.label)}"`, '') +
-				btn(c, 'only', 'class="cat-sel" title="Just this"', wordsHTML(escapeHTML(c.label), catCount(c, view))) +
-				`<span class="gloss-rows">${GLOSS_ROWS.map(n => btn(c, 'row', `data-row="${n}" aria-pressed="${catRow(c.id) === n}" title="Its words in row ${n} of a gloss"`, n)).join('')}</span>` :
+				btn(c, 'only', 'class="cat-sel" title="Just this"', wordsHTML(escapeHTML(c.label), catCount(c, view))) :
 				groupHead(`${view}:${c.id}`, c.label, catCount(c, view)),
 			() => rowsHTML(c.id, view));
 		return `<ul class="rows cats">${tops.map(cat).join('')}</ul>`;
@@ -1506,19 +1519,21 @@ if(!isDictPage){
 	// The filter (view 'filter') and the gloss's (view 'gloss'): All (every category ticked), then the categories, with
 	// their downloaded dictionaries; untick any to search (or gloss) with
 	// just the rest, or tap one's name for just it
-	// The languages of the dictionaries the view has, the page's first: each a
-	// shortcut to turn all of its on or off in the view (its own: the filter's
-	// or the gloss's), whatever their folders; the categories picked stay
-	const langDicts = (l, view) => dictIds.filter(d => inView(view)(d) && dicts[d].lang === l);
-	function langsHTML(view){
-		const ls = [...new Set(dictIds.filter(inView(view)).sort((a, b) => dicts[b].primary - dicts[a].primary).map(d => dicts[d].lang))];
-		return ls.length < 2 ? '' : `<div class="lang-btns">${ls.map(l => `<button data-lang="${escapeHTML(l)}" aria-pressed="${langDicts(l, view).some(onIn(view))}" title="Turn its dictionaries on or off">${abbr[l]?.[3] || ''} ${escapeHTML(cap(l))}</button>`).join('')}</div>`;
+	// The gloss's rows: each one's category (or off) and language, of the
+	// ones its downloaded dictionaries have
+	const pickHTML = (i, k, cur, opts) => `<select data-row="${i}" data-k="${k}" aria-label="Row ${i + 1}: ${k === 'cat' ? 'category' : 'language'}">` +
+		opts.map(([v, t]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(t)}</option>`).join('') + '</select>';
+	function glossRowsHTML(){
+		const ls = [...new Set(got().flatMap(d => [outLang({d, sec: 1}), outLang({d})]).filter(Boolean))].sort();
+		return '<div class="gloss-rows">' + glossRows.map((r, i) => `<div><span>${i + 1}</span>` +
+			pickHTML(i, 'cat', r ? r.cat || '' : '-', [['-', 'Off'], ['', 'Any category'], ...cats.filter(c => shown(c, 'gloss')).map(c => [c.id, c.label])]) +
+			(r ? pickHTML(i, 'lang', r.lang || '', [['', 'Any language'], ...ls.map(l => [l, cap(l)])]) : '') + '</div>').join('') + '</div>';
 	}
 	function filterHTML(view){
-		return langsHTML(view) + levelHTML(onLevel(view)) +
+		return (view === 'gloss' ? glossRowsHTML() : '') + levelHTML(onLevel(view)) +
 			(choice ? `<ul class="rows">${rowHTML('radio', `data-all="1" aria-pressed="${!filtered(view)}"`, 'All', catCount({members: dictIds}, view))}</ul>` : '') +
 			catsHTML(view) +
-			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on${view === 'gloss' ? ' here (just for glosses and popups: searches don\'t change)' : ''}. 1, 2, 3: the row of a gloss's word boxes their words go in.${view === 'gloss' ? '' : ' Star a dictionary (☆) for its entries to come first.'}</p>` + moreHTML;
+			`<p class="empty">Tick as many as you like, or tap a name for just it: ${VIEWS[view].uses} use their dictionaries that are on${view === 'gloss' ? ' here (just for glosses and popups: searches don\'t change). 1, 2, 3: what each row of a word\'s box has; a language\'s words by sense give its words for another\'s senses.' : ' Star a dictionary (☆) for its entries to come first.'}</p>` + moreHTML;
 	}
 	const renderLibrary = () => { if (drawerView === 'library') renderDrawer(); };
 	// The library (the menu's, a drawer): every dictionary on the
@@ -1597,7 +1612,16 @@ if(!isDictPage){
 		const view = drawerView === 'gloss' ? 'gloss' : 'filter';
 		(view === 'gloss' ? setGlossOn : setOn)(got(), d => levelOf(dicts[d]) <= n);
 	}
-	drawerBody.addEventListener('change', e => { if (e.target.matches('.first-level input')) pickLevel(+e.target.value); });
+	drawerBody.addEventListener('change', e => {
+		const {row, k} = e.target.dataset, v = e.target.value;
+		if (e.target.matches('.first-level input')) pickLevel(+v);
+		else if (row) { // A gloss's row
+			glossRows[row] = v === '-' ? null : {...glossRows[row], [k]: v};
+			store(rowsKey, glossRows);
+			renderDrawer();
+			regloss();
+		}
+	});
 	function firstAnswer(v){
 		const first = asking;
 		asking = false;
@@ -1721,15 +1745,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txAll, txDrop, go, lang} = b.dataset;
-		if (lang) { // A language's dictionaries the view has: all off if any's on, else all on
-			const gloss = drawerView === 'gloss', ds = langDicts(lang, gloss ? 'gloss' : 'filter'), on = !ds.some(onIn(gloss ? 'gloss' : 'filter'));
-			if (!gloss) { // (the gloss's as they are: the filter's don't change them)
-				ds.forEach(d => { glossSet[dicts[d].path] ??= glossOn(d); });
-				if (!solo.length) store(glossKey, glossSet);
-			}
-			return (gloss ? setGlossOn : setOn)(ds, on);
-		}
+		const {book, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txAll, txDrop, go} = b.dataset;
 		const drawerBooks = drawerView === 'bible';
 		if (tx !== undefined || txAdd !== undefined || txAll) return cardTextsClick(b.dataset); // (a card's translations)
 		if (txDrop) {
@@ -1775,11 +1791,6 @@ if(!isDictPage){
 			const c = catById(b.dataset.cat), s = picks[view];
 			if (act === 'sel') return setFilter(view, !filtered(view) ? cats.filter(x => x !== c && shown(x, view)).map(x => x.id) : s.includes(c.id) ? s.filter(x => x !== c.id) : [...s, c.id]); // (All: all but it)
 			if (act === 'only') return setFilter(view, [c.id]);
-			if (act === 'row') {
-				rowSet[c.id] = +b.dataset.row;
-				store(rowsKey, rowSet);
-				return renderDrawer();
-			}
 		} else if (q !== undefined) {
 			closeDrawer();
 			const pc = navCard();
@@ -2067,7 +2078,7 @@ if(!isDictPage){
 
 	// Glosses use the dictionaries that are on (a link's: just its) in the
 	// categories the gloss has picked, each word's box with a row for each
-	// row's (glossRow). The ones first win a word: starred (in the order
+	// row's (glossRows). The ones first win a word: starred (in the order
 	// starred), then by priority (0, 1, 2, 3, ..., then -1, -2, ...: rank),
 	// then the dictionaries' order
 	const glossIds = () => dictIds.filter(d => isOn(d, 'gloss'))
@@ -2156,12 +2167,10 @@ if(!isDictPage){
 	function translateText(ids, typed, done){
 		typed = typed.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
 		const text = typed.toLowerCase();
-		Promise.all([...ids.map((d, k) => askDict(d, {type: 'matchall', query: text}).then(r => {
-			const row = glossRow(d);
-			return r.matches
-				.filter(([a]) => !/\s/.test(text[a])) // A word doesn't start with the space before it (a second index word can)
-				.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k, row}));
-		})), rangeMatches(ids, text)]).then(all => pickPieces(all.flat(), typed.length === text.length ? typed : text, done));
+		Promise.all([...ids.map((d, k) => askDict(d, {type: 'matchall', query: text}).then(r => r.matches
+			.filter(([a]) => !/\s/.test(text[a])) // A word doesn't start with the space before it (a second index word can)
+			.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k})))), rangeMatches(ids, text)])
+			.then(all => pickPieces(all.flat(), typed.length === text.length ? typed : text, ids, done));
 	}
 	// The Bible ranges in a text ("rom 1.4-20", "Romans 8:28-30"): a word
 	// each (first: before its parts), its gloss the start of its verses, in a
@@ -2181,7 +2190,7 @@ if(!isDictPage){
 		}).filter(x => x.r);
 		if (!found.length) return [];
 		return Promise.all(found.map(x => rangeLines(d, x.r).then(p => p && askDict(d, lineMsg(p.at, Math.min(20, p.last - p.at + 1))).then(res => ({
-			a: x.a, len: x.s.length, d, rank: -1, sec: 0, row: glossRow(d),
+			a: x.a, len: x.s.length, d, rank: -1, sec: 0,
 			r: {header: x.s, body: res.entries.filter(Boolean).map(e => textOf(e.body)).join(' ')}, // (rendered already)
 		}))))).then(xs => xs.filter(Boolean));
 	}
@@ -2230,23 +2239,43 @@ if(!isDictPage){
 	// ones (audio, pictures, word counts): they split the text too, and add
 	// their files (addMedia), but have no gloss to give (music's details do)
 	const glosses = d => dicts[d].type !== 'aux';
-	function pickPieces(matches, text, done){
+	const render = (d, xs) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}).then(r => xs.forEach((x, i) => { x.r = r.entries[i]; }));
+	const renderAll = xs => { const by = new Map(); xs.forEach(x => x.r || push(by, x.d, x)); return Promise.all([...by].map(([d, xs]) => render(d, xs))); }; // (a range's is rendered)
+	// The rows' languages' words for the senses matched (x.via[lang]: [its
+	// words, the dictionary]): their words by sense's entry (isSense) for
+	// each sense
+	function senseWords(xs, ids){
+		const ts = ids.filter(t => isSense(dicts[t]) && glossRows.some(r => r?.lang === outLang({d: t})));
+		const ss = xs.filter(x => isSense(dicts[x.d]) && x.sec);
+		if (!ts.length || !ss.length) return Promise.resolve();
+		return renderAll(ss).then(() => Promise.all(ts.map(t => {
+			const heads = [...new Set(ss.map(x => x.r?.header.toLowerCase()).filter(Boolean))], at = new Map();
+			heads.reduce((a, h) => (at.set(a, h), a + h.length + 1), 0);
+			return askDict(t, {type: 'matchall', query: heads.join('\n')}).then(r => {
+				const ys = r.matches.filter(([a, len, , , sec]) => !sec && at.get(a)?.length === len).map(([a, , m, ix]) => ({d: t, m, ix, h: at.get(a)}));
+				return render(t, ys).then(() => ys.forEach(y => y.r && ss.forEach(x => {
+					if (x.r?.header.toLowerCase() === y.h) (x.via ||= {})[outLang({d: t})] ||= [textLines(y.r.body.replace(/<p-(n|ipa)>[^]*?<\/p-\1>/g, '')).filter(Boolean).join(', '), t];
+				})));
+			});
+		})));
+	}
+	function pickPieces(matches, text, ids, done){
 		const pieces = splitText(matches, text, 0, text.length);
-		const byDict = new Map(); // The matches each dictionary renders
-		pieces.forEach(p => {
-			const xs = p.w ? matches.filter(x => x.a >= p.a && x.a + x.len <= p.b && glosses(x.d)).sort((x, y) => x.rank - y.rank || x.sec - y.sec) : [];
-			p.rows = GLOSS_ROWS.map(r => {
+		pieces.forEach(p => { p.xs = p.w ? matches.filter(x => x.a >= p.a && x.a + x.len <= p.b && glosses(x.d)).sort((x, y) => x.rank - y.rank || x.sec - y.sec) : []; });
+		senseWords(pieces.flatMap(p => p.xs), ids).then(() => pieces.forEach(p => {
+			const xs = p.xs;
+			xs.forEach(x => { // (its row, and in another language than it's in, that language's words for it)
+				const l = glossRows[x.row = glossRows.findIndex(r => fits(r, x))]?.lang;
+				x.by = l && outLang(x) !== l && x.via[l];
+			});
+			p.rows = glossRows.map((_, r) => {
 				const x = xs.find(x => x.row === r && x.a === p.a && x.len === p.b - p.a);
 				const parts = x ? [{w: x}] : splitText(xs.filter(y => y.row === r), text, p.a, p.b);
 				return parts.every(q => q.w) ? parts.map(q => q.w) : [];
 			});
-			p.rows.flat().forEach(x => x.r || push(byDict, x.d, x)); // (a range's is rendered)
-		});
-		Promise.all([...byDict].map(([d, xs]) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}).then(r => {
-			xs.forEach((x, i) => { x.r = r.entries[i]; });
-		}))).then(() => done(pieces.map(p => {
+		})).then(() => renderAll(pieces.flatMap(p => p.rows.flat()))).then(() => done(pieces.map(p => {
 			const xs = p.rows.map(r => r.filter(x => x.r && (x.g = glossOf(x, text.slice(x.a, x.a + x.len))))); // (a media file with no details has no text)
-			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: xs.map(r => r.map(x => x.g).join(' ')), ds: [...new Set(xs.flat().map(x => x.d))]}; // ds: the dictionaries in its rows
+			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: xs.map(r => r.map(x => x.g).join(' ')), ds: [...new Set(xs.flat().flatMap(x => x.by ? [x.d, x.by[1]] : x.d))]}; // ds: the dictionaries in its rows
 		})));
 	}
 
@@ -2256,7 +2285,8 @@ if(!isDictPage){
 	// the entry's other spelling); tapping the word shows what the popup
 	// search finds for it
 	const script = t => (t.match(/\p{L}/u)?.[0] ?? ' ').codePointAt(0) >> 7; // (its Unicode block, roughly)
-	const glossOf = ({r, sec}, word) => sec && script(r.header) !== script(word) ? r.header : summary(r.body, r.header);
+	// (in a row's language, that language's: its words for a sense)
+	const glossOf = (x, word) => x.by ? x.by[0] : x.sec && (glossRows[x.row].lang || script(x.r.header) !== script(word)) ? x.r.header : summary(x.r.body, x.r.header);
 	function translationHTML(pieces){
 		return pieces.map(p => {
 			if (!p.ds.length) return escapeHTML(p.text).replace(/\n/g, '<br>'); // Nothing to gloss it with: as it is (notes between the words glossed)
