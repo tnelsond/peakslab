@@ -949,9 +949,11 @@ int get_result(int skip){
 			}
 			if(match){
 				int ret = p_render(g_result_loc, g_result_max, tline);
+				uint8_t *z = (uint8_t*)sz_find_byte((const char *)start, len, "\0");
+				len -= z - start; // (from the 0 after its header: the file, not the next entry's first bytes too)
+				start = z;
 				if(len > g_result_max-ret)
 					len = g_result_max-ret;
-				start = (uint8_t*)sz_find_byte((const char *)start, len, "\0");
 				memcpy(g_result_loc+ret, start, len);
 				return len + ret;
 			}
