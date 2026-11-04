@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Each language's words by WordNet sense (Open Multilingual Wordnet 1.4's
 wordnets, Open English WordNet 2025's), and its names for each emoji (Unicode
-CLDR's annotations), into a peakslab .tsv for each language: its headwords the
-senses, the same in every language's (aligned, as kaikkisensestotsv.py's), so
-two of them on together are a dictionary of one to the other:
+CLDR's annotations), into peakslab .tsvs for each language (a wordnet one and
+an emoji one): their headwords the senses or emoji, the same in every
+language's (aligned, as kaikkisensestotsv.py's), so two of them on together are a dictionary of one to the other:
 
   dog (a member of the genus Canis ... domesticated by man since prehistoric times)	<p-n>noun</p-n>	@สุนัข	@หมา
-  🐕 dog	<p-n>emoji</p-n>	@ឆ្កែ	@សត្វចិញ្ចឹម	@សុនខ
+  🐕 dog	@ឆ្កែ	@សត្វចិញ្ចឹម	@សុនខ
 
   - a sense's headword: OEWN's first word for it and its definition (up to a
     ";", at most 80 characters), the wordnets' synsets joined to OEWN's by their ILI
@@ -18,7 +18,8 @@ two of them on together are a dictionary of one to the other:
 Usage: omwtotsv.py <english-wordnet-2025.xml[.gz]> <omw-1.4 dir> <cldr dir> <dict_src dir> [language ...]
   (cldr dir: annotations/<code>.json and annotations-derived/<code>.json, from
   cldr-json's cldr-annotations-full and cldr-annotations-derived-full; into
-  <dict_src>/<language>/wordnet/<abbreviation>wn.tsv)
+  <dict_src>/<language>/wordnet/<abbreviation>wn.tsv and
+  <dict_src>/<language>/emoji/<abbreviation>emoji.tsv)
 """
 import gzip, json, os, re, sys
 import xml.etree.ElementTree as ET
@@ -111,9 +112,20 @@ def cldr(code):
 	return out
 en_emoji = cldr('en')
 
+def write(l, folder, file, desc, priority, rows):
+	os.makedirs(f'{SRC}/{l}/{folder}', exist_ok=True)
+	out = f'{SRC}/{l}/{folder}/{file}.tsv'
+	with open(out, 'w', encoding='utf-8') as o:
+		o.write(f'#desc\t{desc}, the same in every language\'s, so with another language\'s on, a dictionary between them\n'
+			f'#priority\t{priority}\n#lang\t{LANGS[l][0]},aligned\n')
+		for k in sorted(rows):
+			o.write(e(k) + '\t' + rows[k] + '\n')
+	print(f'{out}: {len(rows)}', file=sys.stderr)
+
 for l, (ab, name, wn, loc) in LANGS.items():
 	if ONLY and l not in ONLY:
 		continue
+	pr = -1 if l == 'english' else -2
 	rows = {}
 	syn = en if l == 'english' else wordnet(f'{OMW}/omw-{wn}/omw-{wn}.xml') if wn else {}
 	for ili, (pos, ws, ds, xs) in syn.items():
@@ -124,23 +136,13 @@ for l, (ab, name, wn, loc) in LANGS.items():
 			ds = [d for d in ds if f'({d})' not in key[ili]]
 		extra = ''.join(f'<p>{e(d)}</p>' for d in ds) + (f'<ul>{"".join(f"<li><i>{e(x)}</i></li>" for x in xs)}</ul>' if xs else '')
 		rows[key[ili]] = '\t'.join(cells) + ('\t' + extra if extra else '')
-	nsyn = len(rows)
-	for em, ws in cldr(loc).items():
-		if em in en_emoji:
-			rows[f'{em} {en_emoji[em][0]}'] = '<p-n>emoji</p-n>\t' + '\t'.join('@' + e(w) for w in ws)
-	if nsyn == 0 and len(rows) < 500:  # (CLDR's Cebuano: 20 emoji)
-		continue
-	src = ('Open English WordNet 2025 (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, '
-		'<a href="https://github.com/globalwordnet/english-wordnet">globalwordnet</a>)' if l == 'english' else
-		f'{CREDIT[wn]}, from the <a href="https://github.com/omwn/omw-data">Open Multilingual Wordnet</a>' if wn else '')
-	what = f'{name} words by WordNet sense, from {src}, and its' if src else f'{name}'
-	keys = 'the senses (Open English WordNet\'s word and definition) and emoji' if src else 'the emoji (and their English names)'
-	os.makedirs(f'{SRC}/{l}/wordnet', exist_ok=True)
-	out = f'{SRC}/{l}/wordnet/{ab}wn.tsv'
-	with open(out, 'w', encoding='utf-8') as o:
-		o.write(f'#desc\t{what} names for the emoji, from <a href="https://cldr.unicode.org/">Unicode CLDR</a> '
-			'(<a href="https://www.unicode.org/license.txt">Unicode license</a>): its headwords '
-			f'{keys}, the same in every language\'s, so with another language\'s on, a dictionary between them\n#priority\t{-1 if l == "english" else -2}\n#lang\t{ab},aligned\n')
-		for k in sorted(rows):
-			o.write(e(k) + '\t' + rows[k] + '\n')
-	print(f'{out}: {nsyn} senses, {len(rows) - nsyn} emoji', file=sys.stderr)
+	if rows:
+		src = ('Open English WordNet 2025 (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, '
+			'<a href="https://github.com/globalwordnet/english-wordnet">globalwordnet</a>)' if l == 'english' else
+			f'{CREDIT[wn]}, from the <a href="https://github.com/omwn/omw-data">Open Multilingual Wordnet</a>')
+		write(l, 'wordnet', f'{ab}wn', f'{name} words by WordNet sense, from {src}: its headwords the senses '
+			'(Open English WordNet\'s word and definition)', pr, rows)
+	emoji = {f'{em} {en_emoji[em][0]}': '\t'.join('@' + e(w) for w in ws) for em, ws in cldr(loc).items() if em in en_emoji}
+	if len(emoji) >= 500:  # (CLDR's Cebuano: 20)
+		write(l, 'emoji', f'{ab}emoji', f'{name} names for the emoji, from <a href="https://cldr.unicode.org/">Unicode CLDR</a> '
+			'(<a href="https://www.unicode.org/license.txt">Unicode license</a>): its headwords the emoji and their English names', pr, emoji)

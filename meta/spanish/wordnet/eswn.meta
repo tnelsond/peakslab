@@ -1,6 +1,6 @@
-#d	Spanish words by WordNet sense, from the Multilingual Central Repository 3.0's Spanish WordNet (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), from the <a href="https://github.com/omwn/omw-data">Open Multilingual Wordnet</a>, and its names for the emoji, from <a href="https://cldr.unicode.org/">Unicode CLDR</a> (<a href="https://www.unicode.org/license.txt">Unicode license</a>): its headwords the senses (Open English WordNet's word and definition) and emoji, the same in every language's, so with another language's on, a dictionary between them
+#d	Spanish words by WordNet sense, from the Multilingual Central Repository 3.0's Spanish WordNet (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), from the <a href="https://github.com/omwn/omw-data">Open Multilingual Wordnet</a>: its headwords the senses (Open English WordNet's word and definition), the same in every language's, so with another language's on, a dictionary between them
 #p	-2
 #l	es,aligned
 #f	spanish/wordnet/eswn.peak.zst
-#t	1793717019
+#t	1793754811
 #b	337
