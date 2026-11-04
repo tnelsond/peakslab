@@ -1207,7 +1207,11 @@ if(!isDictPage){
 	function chapterAudio(card, bar, ref){
 		const c = chOf(ref.from), w = ref.bk && c === chOf(ref.to) ? bookCode(ref.bk) + ' ' + c : '';
 		const put = b => bar.insertBefore(b, bar.querySelector(':scope > .cb-more'));
-		if (card._audio?.w === w) return card._audio.b && put(card._audio.b);
+		if (card._audio?.w === w) {
+			const b = card._audio.b;
+			if (b) { b.ref = ref; playSpan(b); put(b); }
+			return;
+		}
 		card._audio?.b && tnefarOn?.button === card._audio.b && tnefarOn.stop(); // (another chapter now)
 		card._audio = {w};
 		if (!w) return;
@@ -1225,7 +1229,9 @@ if(!isDictPage){
 				openCtx({el: b, chapter: true});
 			};
 			put(b);
+			b.ref = ref;
 			if (i >= 0) readAlong(w, b, ts[i], ms[i][1]);
+			playSpan(b);
 		}));
 	}
 	// A chapter's read-along: its "gen 1 khsv.times" (times.py, in tnefar-work) says
@@ -1247,10 +1253,22 @@ if(!isDictPage){
 		first.push(starts.length);
 		return {first, starts, ends};
 	}
+	// Where a word ends (and a bit, as a word's recording); a timed chapter's
+	// 🔊 on a card of some of its verses plays those (b.from, b.to: frames)
+	const wordEnd = (r, i) => (r.ends[i] || r.starts[i + 1] || r.starts[i] + 100) + 3;
+	function playSpan(b){
+		const r = b.reader, {kind, from, to} = b.ref, n = r ? r.first.length - 1 : 0, some = r && kind !== 'chapter' && from % 1000 <= n;
+		const at = some ? r.starts[r.first[from % 1000 - 1]] : 0, end = some ? wordEnd(r, r.first[Math.min(to % 1000, n)] - 1) : 0;
+		if (at !== b.from || end !== b.to) {
+			b.at = 0;
+			if (tnefarOn?.button === b) tnefarOn.stop(); // (the card's another size now)
+		}
+		Object.assign(b, {from: at, to: end});
+	}
 	const readers = new Map(); // (a chapter ("gen 1"): {b, text, on, words, ...readTimes})
 	const chapterVerses = w => document.querySelectorAll(`.vs[data-h^="${w}."]`);
 	function readAlong(w, b, text, bytes){
-		const r = readers.get(w) ?? {w, text, words: [], i: -1, ...readTimes(bytes)};
+		const r = readers.get(w) ?? {w, text, i: -1, ...readTimes(bytes)};
 		readers.set(w, r);
 		if (!r.b?.isConnected) r.b = b; // (cards of a chapter share it: the one played is its button)
 		b.reader = r;
@@ -1275,7 +1293,6 @@ if(!isDictPage){
 			rg.surroundContents(s);
 			s.className = 'w';
 			s.dataset.i = at + j;
-			r.words[at + j] = s;
 		}
 		vs.classList.toggle('reading', !!r.on);
 	}
@@ -1289,10 +1306,11 @@ if(!isDictPage){
 			while (a < z) { const m = a + z >> 1; r.starts[m] <= f ? a = m + 1 : z = m; }
 			const i = a && (!r.ends[a - 1] || f < r.ends[a - 1]) ? a - 1 : -1;
 			if (i !== r.i) {
-				const was = r.words[r.i], now = r.words[i], seen = was?.getBoundingClientRect().bottom < innerHeight;
-				was?.classList.remove('said');
-				now?.classList.add('said');
-				if (seen && now?.getBoundingClientRect().bottom > innerHeight - 40) now.scrollIntoView({block: 'center', behavior: 'smooth'}); // (it keeps up, unless they've looked elsewhere)
+				const copies = n => [...document.querySelectorAll(`.vs[data-h^="${r.w}."] .w[data-i="${n}"]`)]; // (a card's, a popup's)
+				const was = copies(r.i), now = copies(i), seen = was.at(-1)?.getBoundingClientRect().bottom < innerHeight;
+				was.forEach(x => x.classList.remove('said'));
+				now.forEach(x => x.classList.add('said'));
+				if (seen && now.at(-1)?.getBoundingClientRect().bottom > innerHeight - 40) now.at(-1).scrollIntoView({block: 'center', behavior: 'smooth'}); // (it keeps up, unless they've looked elsewhere)
 				r.i = i;
 			}
 			if (on) requestAnimationFrame(go);
@@ -1313,7 +1331,7 @@ if(!isDictPage){
 	}
 	function goTo(b, frame){
 		if (tnefarOn?.button === b && tnefarOn.live()) tnefarOn.stop();
-		b.at = Math.max(0, frame);
+		b.at = Math.max(b.from || 0, b.to ? Math.min(frame, b.to - 1) : frame);
 		playWord(b);
 	}
 	const skip = (b, by) => goTo(b, (tnefarOn?.button === b && tnefarOn.live() && !tnefarOn.word ? tnefarOn.frame() : b.at || 0) + by);
@@ -1322,7 +1340,7 @@ if(!isDictPage){
 		if (!live) b.back = false;
 		else if (!o.word) { b.at = o.frame(); b.back = tnefarCtx.state === 'running'; }
 		if (live) o.stop();
-		soundPlay(...b.sound, b, r.starts[i], (r.ends[i] || r.starts[i + 1] || r.starts[i] + 100) + 3, () => b.back && playWord(b)).catch(soundError(b));
+		soundPlay(...b.sound, b, r.starts[i], wordEnd(r, i), () => b.back && playWord(b)).catch(soundError(b));
 		tnefarOn.word = true;
 	}
 	document.addEventListener('click', e => {
@@ -2498,7 +2516,7 @@ if(!isDictPage){
 	const soundError = b => e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; };
 	window.playWord = b => {
 		if (b.voices && !(tnefarOn?.button === b && tnefarOn.live())) voiced(b, (b.sound = b.voices[b.turn++ % b.voices.length])[1]); // (playing: it pauses)
-		soundPlay(...b.sound, b, b.at, 0, () => { b.at = 0; }).catch(soundError(b));
+		soundPlay(...b.sound, b, b.at || b.from, b.to, () => { b.at = 0; }).catch(soundError(b));
 	};
 
 	// The gloss of an entry's (or verse's) text, or some of it: above the
