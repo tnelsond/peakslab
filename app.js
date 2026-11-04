@@ -354,7 +354,7 @@ if(!isDictPage){
 	// A media entry: a player for a recording (audioSrc), else a picture
 	// (jbig2 decoded)
 	function mediaElement(type, bytes, name, d){
-		if (TNEFAR.test(type)) return tnefarButton(bytes, '🔊 Play', d); // (played as it's decoded: no file for a player)
+		if (TNEFAR.test(type)) return tnefarButton([bytes], '🔊 Play', d); // (played as it's decoded: no file for a player)
 		if (/^voice$/i.test(type)) return document.createTextNode('The voice its tnefar recordings are decoded with');
 		const audio = AUDIO.test(type), el = document.createElement(audio ? 'audio' : 'img');
 		if (audio) el.controls = true;
@@ -757,10 +757,10 @@ if(!isDictPage){
 		if (!v) throw new Error(`tnefar: ${dicts[d].name} has no voice (tnefar.voice)`);
 		return [toWasm(x, v), v.length];
 	});
-	// Play a recording; tapped again while it plays, pause (⏸ while it
+	// Play recordings (a compound's parts': one after another); tapped again while it plays, pause (⏸ while it
 	// plays, 🔊 paused or done). Called in the tap: phones start sound only
 	// there, so the audio is started first and the sound follows
-	async function tnefarPlay(bytes, d, button){
+	async function tnefarPlay(recs, d, button){
 		if (!tnefarCtx) {
 			try { navigator.audioSession.type = 'playback'; } catch (e) { /* (iOS: heard even with the ringer off, like <audio>) */ }
 			const AC = window.AudioContext || window.webkitAudioContext;
@@ -790,23 +790,29 @@ if(!isDictPage){
 			srcs.push(s);
 			at += b.duration;
 		};
-		if (tnefarDone.has(bytes)) return play(tnefarDone.get(bytes));
 		made = false;
+		try { for (const bytes of recs) if (job === tnefarJob) await tnefarMake(bytes, d, play, () => job === tnefarJob && at - ctx.currentTime); }
+		finally { made = true; }
+	}
+	// A recording's sound to play(), a piece at a time (ahead(): how far
+	// it's ahead of what's playing, or false: stop)
+	async function tnefarMake(bytes, d, play, ahead){
+		if (tnefarDone.has(bytes)) return play(tnefarDone.get(bytes));
 		const x = await tnefarWasm(), [v, vn] = await tnefarVoice(x, d), p = toWasm(x, bytes), h = x.tnefar_open(p, bytes.length, v, vn);
 		x.free(p);
 		if (h < 0) throw new Error(`tnefar: can't decode it (${h})`);
 		let parts = x.tnefar_frames(h) <= 3000 ? [] : null; // (up to 30 s: kept, to play again)
 		try {
-			for (let n = 4, k; job === tnefarJob && (k = x.tnefar_run(h, n)) > 0; n = 16) {
+			for (let n = 4, k; ahead() !== false && (k = x.tnefar_run(h, n)) > 0; n = 16) {
 				const pcm = new Float32Array(x.memory.buffer, x.tnefar_pcm(h), k).slice();
 				parts?.push(pcm);
 				play(pcm);
 				// (a long one, a chapter: made just a few seconds ahead of what's playing)
-				while (at - ctx.currentTime > 5 && job === tnefarJob) await new Promise(r => setTimeout(r, 500));
+				while (ahead() > 5) await new Promise(r => setTimeout(r, 500));
 				await new Promise(r => setTimeout(r)); // (the page stays responsive)
 			}
-		} finally { x.tnefar_close(h); made = true; }
-		if (!parts || job !== tnefarJob) return;
+		} finally { x.tnefar_close(h); }
+		if (!parts || ahead() === false) return;
 		const all = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
 		parts.reduce((o, p) => (all.set(p, o), o + p.length), 0);
 		tnefarDone.set(bytes, all);
@@ -820,15 +826,15 @@ if(!isDictPage){
 		b.setAttribute('aria-label', t);
 		b.classList.toggle('playing', playing);
 	}
-	// A 🔊 that plays the recording
-	function tnefarButton(bytes, label, d){
+	// A 🔊 that plays the recordings (a compound's parts')
+	function tnefarButton(recs, label, d){
 		tnefarWasm().catch(() => {}); // (loading while it's not played yet)
 		const b = document.createElement('button');
 		b.className = 'text-btn';
 		b.textContent = label;
 		b.title = 'Play';
 		b.setAttribute('aria-label', 'Play');
-		b.tnefar = [bytes, d];
+		b.tnefar = [recs, d];
 		b.onclick = () => playWord(b);
 		return b;
 	}
@@ -1171,7 +1177,7 @@ if(!isDictPage){
 		dictIds.filter(d => libOn[d] && dicts[d].media).forEach(d => askDict(d, {type: 'media', words: [w]}).then(r => {
 			const f = r.files[0];
 			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
-			const b = card._audio.b = tnefarButton(f[1], '🔊', d);
+			const b = card._audio.b = tnefarButton([f[1]], '🔊', d);
 			b.classList.add('ch-play');
 			put(b);
 		}));
@@ -2282,18 +2288,18 @@ if(!isDictPage){
 	function pickPieces(matches, text, ids, done){
 		const pieces = splitText(matches, text, 0, text.length);
 		pieces.forEach(p => { p.xs = p.w ? matches.filter(x => x.a >= p.a && x.a + x.len <= p.b && glosses(x.d)).sort((x, y) => x.rank - y.rank || x.sec - y.sec) : []; });
+		// (a piece's entries in ys: the one for all of it, else its parts', if they make it all up)
+		const cover = (p, ys) => { const x = ys.find(x => x.a === p.a && x.len === p.b - p.a), parts = x ? [{w: x}] : splitText(ys, text, p.a, p.b); return parts.every(q => q.w) ? parts.map(q => q.w) : []; };
 		senseWords(pieces.flatMap(p => p.xs), ids).then(() => pieces.forEach(p => {
 			const xs = p.xs;
 			xs.forEach(x => { x.row = glossRows.findIndex(r => fits(r, x)); });
-			p.rows = glossRows.map((row, r) => {
-				const ys = xs.filter(x => x.row === r || viaOf(row, x)), x = ys.find(x => x.a === p.a && x.len === p.b - p.a);
-				const parts = x ? [{w: x}] : splitText(ys, text, p.a, p.b);
-				return parts.every(q => q.w) ? parts.map(q => q.w) : [];
-			});
+			p.rows = glossRows.map((row, r) => cover(p, xs.filter(x => x.row === r || viaOf(row, x))));
 		})).then(() => renderAll(pieces.flatMap(p => p.rows.flat()))).then(() => done(pieces.map(p => {
 			const gs = p.rows.map((xs, r) => xs.map(x => x.r && glossOf(x, text.slice(x.a, x.a + x.len), glossRows[r])).filter(Boolean)); // (a media file with no details has no text)
-			const ds = p.rows.flatMap((xs, r) => xs.flatMap(x => [x.d, viaOf(glossRows[r], x)?.[1]])).filter(d => d !== undefined);
-			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: gs.map(g => g.join(' ')), ds: [...new Set(ds)]}; // ds: the dictionaries in its rows
+			// (each media dictionary's files for it, like a row: its own, else its parts' (a compound's recordings, one after another))
+			const media = !p.w ? [] : ids.filter(d => dicts[d].media).map(d => [d, cover(p, matches.filter(x => x.d === d && x.a >= p.a && x.a + x.len <= p.b)).map(x => text.slice(x.a, x.a + x.len))]).filter(([, ws]) => ws.length);
+			const ds = p.rows.flatMap((xs, r) => xs.flatMap(x => [x.d, viaOf(glossRows[r], x)?.[1]])).filter(d => d !== undefined).concat(media.map(([d]) => d));
+			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: gs.map(g => g.join(' ')), media, ds: [...new Set(ds)]}; // ds: the dictionaries in its rows, and its media's
 		})));
 	}
 
@@ -2314,34 +2320,44 @@ if(!isDictPage){
 		}).join('');
 	}
 
-	// The media dictionaries' files for the words (loading them): a
-	// recording, a 🔊 in the word's box that plays it (no player); a picture,
-	// under it
+	// The media dictionaries' files for the words (loading them; a
+	// compound's, its parts', p.media): a recording, a 🔊 in the word's box
+	// that plays it (no player), a compound's its parts' one after another; a
+	// picture (of all of it, not a part's), under it
 	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2|tnefar/i;
-	function addMedia(box, pieces, ids){
-		const words = [...new Set(pieces.filter(p => p.ds.length).map(p => p.text.trim()))]; // (the words in boxes)
-		if (!words.length) return;
-		ids.filter(d => dicts[d].media).forEach(d =>
-			askDict(d, {type: 'media', words}).then(r => r.files.forEach((f, k) => {
-				if (!f || !f[1]) return;
+	function addMedia(box, pieces){
+		const by = new Map(); // (a dictionary's: word -> its files' words)
+		pieces.forEach(p => p.media.forEach(([d, ws]) => (by.get(d) ?? by.set(d, new Map()).get(d)).set(p.text.trim(), ws)));
+		by.forEach((of, d) => {
+			const words = [...new Set([...of.values()].flat())];
+			askDict(d, {type: 'media', words}).then(r => of.forEach((ws, word) => {
+				const fs = ws.map(w => r.files[words.indexOf(w)]);
+				if (!fs.every(f => f?.[1]) || !AUDIO.test(fs[0][0]) && fs.length > 1) return;
 				if (!box.dataset.ds.split(',').includes(String(d))) box.dataset.ds += `,${d}`;
-				const ws = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(words[k])}"]`);
-				if (!AUDIO.test(f[0])) return ws.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(f[0], f[1], words[k])).classList.add('tr-img'); });
-				if (TNEFAR.test(f[0])) return ws.forEach(w => { if (!w.querySelector('.tr-play')) w.appendChild(tnefarButton(f[1], '🔊', d)).className = 'tr-play'; });
-				const src = audioSrc(f[0], f[1]); // (one for every box with the word)
-				ws.forEach(w => {
+				const bs = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(word)}"]`), [type, bytes] = fs[0];
+				if (!AUDIO.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(type, bytes, word)).classList.add('tr-img'); });
+				if (TNEFAR.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-play')) w.appendChild(tnefarButton(fs.map(f => f[1]), '🔊', d)).className = 'tr-play'; });
+				const srcs = Promise.all(fs.map(f => audioSrc(...f))); // (one for every box with the word)
+				bs.forEach(w => {
 					if (w.querySelector('.tr-play')) return;
 					w.insertAdjacentHTML('beforeend', '<button class="tr-play" onclick="playWord(this)" title="Play" aria-label="Play">🔊<audio></audio></button>');
-					const a = w.lastChild.lastChild;
-					src.then(u => { a.src = u; });
+					const b = w.lastChild;
+					srcs.then(us => { b.srcs = us; b.lastChild.src = us[0]; });
 				});
-			})));
+			}));
+		});
 	}
+	// (a compound's: its recordings one after another, in the one <audio>
+	// the tap started: a phone may not let another start without a tap)
 	window.playWord = b => {
-		if (b.tnefar) return tnefarPlay(...b.tnefar, b).catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
-		const a = b.lastChild;
+		const no = e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; };
+		if (b.tnefar) return tnefarPlay(...b.tnefar, b).catch(no);
+		const a = b.lastChild, us = b.srcs || [];
+		let i = 0;
+		a.onended = () => { if (++i < us.length) { a.src = us[i]; a.play().catch(no); } };
+		if (us.length > 1) a.src = us[0];
 		a.currentTime = 0;
-		a.play().catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
+		a.play().catch(no);
 	};
 	// A recording's URL, ready before it's played: phones play sound only
 	// right in the tap, not after something else finishes (like decoding)
@@ -2373,7 +2389,7 @@ if(!isDictPage){
 		box.dataset.text = text;
 		box.dataset.ds = ds.join();
 		box.innerHTML = head(names(ds)) + (pieces.some(p => p.ds.length) ? translationHTML(pieces) : 'No words found.');
-		addMedia(box, pieces, ids);
+		addMedia(box, pieces);
 	}
 
 	// ---------------------------------------------------------------
