@@ -1040,6 +1040,7 @@ body:not(.no-scroll) #popupX { display: none; }
 }
 .ctx-row button:hover, .ctx-row button:focus-visible { background: rgba(255, 255, 255, .14); }
 .ctx-row button span { text-align: center; } /* (a long name on two lines) */
+.ctx-row button b { font-size: 20px; line-height: 24px; }
 .ctx-row button[data-c="back"] { width: 44px; opacity: .8; }
 .ctx-row button[data-c="gloss"] { color: var(--tab-bg); }
 .ctx-flag { font-size: 20px; line-height: 22px; }

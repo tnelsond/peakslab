@@ -1217,6 +1217,10 @@ if(!isDictPage){
 			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
 			const b = card._audio.b = soundButton([f], d);
 			b.classList.add('ch-play');
+			b.onclick = e => {
+				e.stopPropagation(); // (a tap on a button closes the menu)
+				openCtx({el: b, chapter: true});
+			};
 			put(b);
 			if (i >= 0) readAlong(w, b, ts[i], ms[i][1]);
 		}));
@@ -1247,11 +1251,6 @@ if(!isDictPage){
 		readers.set(w, r);
 		if (!r.b?.isConnected) r.b = b; // (cards of a chapter share it: the one played is its button)
 		b.reader = r;
-		b.onclick = e => {
-			if (tnefarOn?.button === b && tnefarOn.live() && tnefarCtx.state === 'running') return playWord(b);
-			e.stopPropagation(); // (a tap on a button closes the menu)
-			openCtx({el: b, chapter: true});
-		};
 		chapterVerses(w).forEach(vs => wordSpans(vs, +(vs.closest('.pv-t')?.dataset.d ?? text)));
 	}
 	// A timed verse's words, spans (as times.py counts them; split where a
@@ -1298,16 +1297,23 @@ if(!isDictPage){
 		};
 		requestAnimationFrame(go);
 	}
-	// Its 🔊, paused or stopped: Play, or Play word: then a tap on a word says
-	// it, and the reading goes on from where it was (if it was going), and a
-	// tap on a verse's number reads from there
+	// Its menu (its 🔊): Play; Play word: a tap on a word says it, and the
+	// reading goes on from where it was (if it was going); Jump: a tap on a
+	// word reads from it; with either, a tap on a verse's number reads from it
 	function wordTaps(b, on){
 		const r = b.reader;
+		if (!r) return;
 		r.on = on;
 		r.b = b;
-		b.classList.toggle('words', on);
-		chapterVerses(r.w).forEach(vs => vs.classList.toggle('reading', on));
+		b.classList.toggle('words', !!on);
+		chapterVerses(r.w).forEach(vs => vs.classList.toggle('reading', !!on));
 	}
+	function goTo(b, frame){
+		if (tnefarOn?.button === b && tnefarOn.live()) tnefarOn.stop();
+		b.at = Math.max(0, frame);
+		playWord(b);
+	}
+	const skip = (b, by) => goTo(b, (tnefarOn?.button === b && tnefarOn.live() && !tnefarOn.word ? tnefarOn.frame() : b.at || 0) + by);
 	function sayWord(r, i){
 		const {b} = r, o = tnefarOn, live = o?.button === b && o.live();
 		if (!live) b.back = false;
@@ -1316,16 +1322,10 @@ if(!isDictPage){
 		soundPlay(...b.sound, b, r.starts[i], (r.ends[i] || r.starts[i + 1] || r.starts[i] + 100) + 3, () => b.back && playWord(b)).catch(soundError(b));
 		tnefarOn.word = true;
 	}
-	function readFrom(r, i){
-		const o = tnefarOn;
-		if (o?.button === r.b && o.live()) o.stop();
-		r.b.at = r.starts[i];
-		playWord(r.b);
-	}
 	document.addEventListener('click', e => {
 		const vs = !getSelection().toString().trim() && e.target.closest('.reading'), r = vs && readerOf(vs), w = e.target.closest('.w');
-		if (w && r) sayWord(r, +w.dataset.i);
-		else if (r && e.target.closest('.vs-n')) readFrom(r, r.first[vs.dataset.v % 1000 - 1]);
+		if (w && r) r.on === 'jump' ? goTo(r.b, r.starts[w.dataset.i]) : sayWord(r, +w.dataset.i);
+		else if (r && e.target.closest('.vs-n')) goTo(r.b, r.starts[r.first[vs.dataset.v % 1000 - 1]]);
 	});
 	// … above a verse's card (verses before it in its chapter), below it (after)
 	function moreVerses(card, ref){
@@ -2745,6 +2745,10 @@ if(!isDictPage){
 		if (!c.sel) c.el.classList.add('ctx-on');
 		renderCtx();
 		ctxMenu.hidden = false;
+		if (c.chapter) { // (by its button)
+			const r = c.el.getBoundingClientRect(), w = ctxMenu.offsetWidth;
+			ctxMenu.style.cssText = `top:${r.bottom + 6}px;bottom:auto;left:${Math.max(8, Math.min(r.right, innerWidth - 8) - w)}px;right:auto;transform:none`;
+		}
 		document.body.classList.add('ctx-open'); // (hides the round buttons it would cover)
 	}
 	function closeCtx(){
@@ -2752,6 +2756,7 @@ if(!isDictPage){
 		ctx?.el?.classList.remove('ctx-on');
 		ctx = null;
 		ctxMenu.hidden = true;
+		ctxMenu.style.cssText = '';
 		document.body.classList.remove('ctx-open');
 	}
 	// Its text: what's selected, a gloss's text, or the entry's
@@ -2777,7 +2782,8 @@ if(!isDictPage){
 	function renderCtx(){
 		const {el, sel, sub} = ctx;
 		let html;
-		if (ctx.chapter) html = ctxBtn('play', 'Play', '', ICONS.speak) + ctxBtn('words', 'Play word', `aria-pressed="${!!el.reader.on}"`, ICONS.speak);
+		if (ctx.chapter) html = ctxBtn('rew', 'Rewind', '', '<b>⏪&#xFE0E;</b>') + ctxBtn('play', 'Play', '', '<b>▶&#xFE0E;</b>') + ctxBtn('ffw', 'Forward', '', '<b>⏩&#xFE0E;</b>') +
+			(el.reader ? ctxBtn('words', 'Play word', `aria-pressed="${el.reader.on === 'words'}"`, ICONS.speak) + ctxBtn('jump', 'Jump', `aria-pressed="${el.reader.on === 'jump'}"`, '<b>⤵&#xFE0E;</b>') : '');
 		else if (sub === 'speak') html = ctxBtn('back', 'Back') + voiceLangs().map(x => ctxBtn('say', x.name, `data-lang="${x.val}"`,
 			abbr[x.name.toLowerCase()]?.[3] ? `<span class="ctx-flag" aria-hidden="true">${abbr[x.name.toLowerCase()][3]}</span>` : ICONS.speak)).join('');
 		else if (sub === 'look') html = ctxBtn('back', 'Back') + ctxBtn('smaller', 'Smaller') + ctxBtn('bigger', 'Bigger') +
@@ -2804,9 +2810,10 @@ if(!isDictPage){
 		const b = e.target.closest('button');
 		if (!b || !ctx) return;
 		const {el, sel} = ctx, act = b.dataset.c, h = compareOf(); // (before it closes)
-		if (ctx.chapter) {
+		if (ctx.chapter) { // (Rewind, Forward: 10 s, and it's left open to go further)
+			if (act === 'rew' || act === 'ffw') return skip(el, act === 'rew' ? -1000 : 1000);
 			closeCtx();
-			wordTaps(el, act === 'words');
+			wordTaps(el, act !== 'play' && act);
 			return act === 'play' && playWord(el);
 		}
 		// A menu in it (Back: out of it), or what stays open (tap again for more, or to undo)
