@@ -2336,7 +2336,8 @@ if(!isDictPage){
 	// The media dictionaries' files for the words (loading them; a
 	// compound's, its parts', p.media): a recording, a 🔊 in the word's box
 	// that plays it (no player), a compound's its parts' one after another; a
-	// picture (of all of it, not a part's), under it
+	// picture (of all of it, not a part's), under it. Each dictionary with the
+	// word is a voice: the one 🔊 goes through them a tap at a time, by priority
 	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2|tnefar/i;
 	function addMedia(box, pieces){
 		const by = new Map(); // (a dictionary's: word -> its files' words)
@@ -2349,11 +2350,19 @@ if(!isDictPage){
 				if (!box.dataset.ds.split(',').includes(String(d))) box.dataset.ds += `,${d}`;
 				const bs = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(word)}"]`), [type, bytes] = fs[0];
 				if (!AUDIO.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(type, bytes, word)).classList.add('tr-img'); });
-				bs.forEach(w => { if (!w.querySelector('.tr-play')) w.appendChild(soundButton(fs, '🔊', d)).className = 'tr-play'; });
+				bs.forEach(w => {
+					const b = w.querySelector('.tr-play') ?? Object.assign(w.appendChild(soundButton(fs, '🔊', d)), {className: 'tr-play', voices: [], turn: 0});
+					b.voices.push([fs, d]);
+					b.voices.sort((x, y) => rank(dicts[x[1]].priority) - rank(dicts[y[1]].priority));
+					if (b.voices.length > 1) b.dataset.n = b.voices.length;
+				});
 			}));
 		});
 	}
-	window.playWord = b => soundPlay(...b.sound, b).catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
+	window.playWord = b => {
+		if (b.voices && !(tnefarOn?.button === b && tnefarOn.live())) b.sound = b.voices[b.turn++ % b.voices.length]; // (playing: it pauses)
+		soundPlay(...b.sound, b).catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
+	};
 	// A recording's URL, ready before it's played: phones play sound only
 	// right in the tap, not after something else finishes (like decoding)
 	const audioSrc = async (type, bytes) => URL.createObjectURL(/codec2|c2/i.test(type) ? await codec2toWav(bytes) : new Blob([bytes], {type: audioType(type)}));

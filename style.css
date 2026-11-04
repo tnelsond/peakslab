@@ -523,6 +523,7 @@ p-e.starred + p-e:not(.starred) { border-top-width: 2px; }
 .tr-w:has(.tr-play) { padding-right: 1.9em; }
 .tr-w:has(p-a) { cursor: pointer; }
 .tr-play audio { display: none; }
+.tr-play[data-n]::after { content: attr(data-n); font-size: .7em; vertical-align: super; }
 .tr-w p-a {
 	color: var(--tr-link);
 	font-weight: 600;
