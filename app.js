@@ -354,7 +354,7 @@ if(!isDictPage){
 	// A media entry: a player for a recording (audioSrc), else a picture
 	// (jbig2 decoded)
 	function mediaElement(type, bytes, name, d){
-		if (TNEFAR.test(type)) return tnefarButton([bytes], '🔊 Play', d); // (played as it's decoded: no file for a player)
+		if (TNEFAR.test(type)) return soundButton([[type, bytes]], '🔊 Play', d); // (played as it's decoded: no file for a player)
 		if (/^voice$/i.test(type)) return document.createTextNode('The voice its tnefar recordings are decoded with');
 		const audio = AUDIO.test(type), el = document.createElement(audio ? 'audio' : 'img');
 		if (audio) el.controls = true;
@@ -747,7 +747,7 @@ if(!isDictPage){
 	// played (Web Audio) as soon as it's made, so it starts before it's all
 	// decoded. Once it's all there it's kept, to play again straight away.
 	const TNEFAR = /tnefar/i;
-	const tnefarDone = new WeakMap(); // a recording's bytes -> its sound (16 kHz)
+	const tnefarDone = new WeakMap(); // a recording's bytes -> its sound ([samples, rate]: 16 kHz, tnefar's)
 	let tnefarCtx, tnefarX, tnefarJob = 0, tnefarOn = null; // (tnefarOn: what's playing, {button, live, stop})
 	const tnefarWasm = () => tnefarX ??= decoder('tnefar').then(x => (x._initialize?.(), x));
 	// A dictionary's voice, in the wasm's memory: [where, length]
@@ -757,10 +757,13 @@ if(!isDictPage){
 		if (!v) throw new Error(`tnefar: ${dicts[d].name} has no voice (tnefar.voice)`);
 		return [toWasm(x, v), v.length];
 	});
-	// Play recordings (a compound's parts': one after another); tapped again while it plays, pause (⏸ while it
-	// plays, 🔊 paused or done). Called in the tap: phones start sound only
-	// there, so the audio is started first and the sound follows
-	async function tnefarPlay(recs, d, button){
+	// Play recordings ([type, bytes]: tnefar's, and the others' (webm, ...),
+	// decoded; a compound's parts', one after another), all in the one Web
+	// Audio context; tapped again while it plays, pause (⏸ while it plays,
+	// 🔊 paused or done). Called in the tap: phones start sound only there
+	// (an <audio> started when another ends isn't), so the audio is started
+	// first and the sound follows
+	async function soundPlay(recs, d, button){
 		if (!tnefarCtx) {
 			try { navigator.audioSession.type = 'playback'; } catch (e) { /* (iOS: heard even with the ringer off, like <audio>) */ }
 			const AC = window.AudioContext || window.webkitAudioContext;
@@ -780,8 +783,8 @@ if(!isDictPage){
 			live: () => job === tnefarJob && (!made || ctx.currentTime < at),
 			stop: () => { ++tnefarJob; srcs.forEach(s => s.stop()); tnefarShow(button, false); }};
 		tnefarShow(button, true);
-		const play = pcm => {
-			const b = ctx.createBuffer(1, pcm.length, 16000), s = ctx.createBufferSource();
+		const play = (pcm, rate = 16000) => {
+			const b = ctx.createBuffer(1, pcm.length, rate), s = ctx.createBufferSource();
 			b.copyToChannel(pcm, 0);
 			s.buffer = b;
 			s.connect(ctx.destination);
@@ -791,13 +794,23 @@ if(!isDictPage){
 			at += b.duration;
 		};
 		made = false;
-		try { for (const bytes of recs) if (job === tnefarJob) await tnefarMake(bytes, d, play, () => job === tnefarJob && at - ctx.currentTime); }
+		const ahead = () => job === tnefarJob && at - ctx.currentTime;
+		try { for (const [type, bytes] of recs) if (job === tnefarJob) await (TNEFAR.test(type) ? tnefarMake(bytes, d, play, ahead) : soundMake(type, bytes, ctx, play)); }
 		finally { made = true; }
+	}
+	// Another recording's sound (webm, codec2, ...: the browser decodes it)
+	async function soundMake(type, bytes, ctx, play){
+		if (!tnefarDone.has(bytes)) {
+			const data = /codec2|c2/i.test(type) ? await (await codec2toWav(bytes)).arrayBuffer() : bytes.slice().buffer; // (a copy: decoding takes it)
+			const b = await new Promise((ok, no) => ctx.decodeAudioData(data, ok, no));
+			tnefarDone.set(bytes, [b.getChannelData(0), b.sampleRate]);
+		}
+		play(...tnefarDone.get(bytes));
 	}
 	// A recording's sound to play(), a piece at a time (ahead(): how far
 	// it's ahead of what's playing, or false: stop)
 	async function tnefarMake(bytes, d, play, ahead){
-		if (tnefarDone.has(bytes)) return play(tnefarDone.get(bytes));
+		if (tnefarDone.has(bytes)) return play(...tnefarDone.get(bytes));
 		const x = await tnefarWasm(), [v, vn] = await tnefarVoice(x, d), p = toWasm(x, bytes), h = x.tnefar_open(p, bytes.length, v, vn);
 		x.free(p);
 		if (h < 0) throw new Error(`tnefar: can't decode it (${h})`);
@@ -815,7 +828,7 @@ if(!isDictPage){
 		if (!parts || ahead() === false) return;
 		const all = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
 		parts.reduce((o, p) => (all.set(p, o), o + p.length), 0);
-		tnefarDone.set(bytes, all);
+		tnefarDone.set(bytes, [all, 16000]);
 	}
 
 	// A button's look while it plays (⏸, Pause) or not (as it was: 🔊, Play)
@@ -826,15 +839,15 @@ if(!isDictPage){
 		b.setAttribute('aria-label', t);
 		b.classList.toggle('playing', playing);
 	}
-	// A 🔊 that plays the recordings (a compound's parts')
-	function tnefarButton(recs, label, d){
-		tnefarWasm().catch(() => {}); // (loading while it's not played yet)
+	// A 🔊 that plays the recordings ([type, bytes]: a compound's parts')
+	function soundButton(recs, label, d){
+		if (recs.some(([t]) => TNEFAR.test(t))) tnefarWasm().catch(() => {}); // (loading while it's not played yet)
 		const b = document.createElement('button');
 		b.className = 'text-btn';
 		b.textContent = label;
 		b.title = 'Play';
 		b.setAttribute('aria-label', 'Play');
-		b.tnefar = [recs, d];
+		b.sound = [recs, d];
 		b.onclick = () => playWord(b);
 		return b;
 	}
@@ -1177,7 +1190,7 @@ if(!isDictPage){
 		dictIds.filter(d => libOn[d] && dicts[d].media).forEach(d => askDict(d, {type: 'media', words: [w]}).then(r => {
 			const f = r.files[0];
 			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
-			const b = card._audio.b = tnefarButton([f[1]], '🔊', d);
+			const b = card._audio.b = soundButton([f], '🔊', d);
 			b.classList.add('ch-play');
 			put(b);
 		}));
@@ -2336,29 +2349,11 @@ if(!isDictPage){
 				if (!box.dataset.ds.split(',').includes(String(d))) box.dataset.ds += `,${d}`;
 				const bs = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(word)}"]`), [type, bytes] = fs[0];
 				if (!AUDIO.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(type, bytes, word)).classList.add('tr-img'); });
-				if (TNEFAR.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-play')) w.appendChild(tnefarButton(fs.map(f => f[1]), '🔊', d)).className = 'tr-play'; });
-				const srcs = Promise.all(fs.map(f => audioSrc(...f))); // (one for every box with the word)
-				bs.forEach(w => {
-					if (w.querySelector('.tr-play')) return;
-					w.insertAdjacentHTML('beforeend', '<button class="tr-play" onclick="playWord(this)" title="Play" aria-label="Play">🔊<audio></audio></button>');
-					const b = w.lastChild;
-					srcs.then(us => { b.srcs = us; b.lastChild.src = us[0]; });
-				});
+				bs.forEach(w => { if (!w.querySelector('.tr-play')) w.appendChild(soundButton(fs, '🔊', d)).className = 'tr-play'; });
 			}));
 		});
 	}
-	// (a compound's: its recordings one after another, in the one <audio>
-	// the tap started: a phone may not let another start without a tap)
-	window.playWord = b => {
-		const no = e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; };
-		if (b.tnefar) return tnefarPlay(...b.tnefar, b).catch(no);
-		const a = b.lastChild, us = b.srcs || [];
-		let i = 0;
-		a.onended = () => { if (++i < us.length) { a.src = us[i]; a.play().catch(no); } };
-		if (us.length > 1) a.src = us[0];
-		a.currentTime = 0;
-		a.play().catch(no);
-	};
+	window.playWord = b => soundPlay(...b.sound, b).catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
 	// A recording's URL, ready before it's played: phones play sound only
 	// right in the tap, not after something else finishes (like decoding)
 	const audioSrc = async (type, bytes) => URL.createObjectURL(/codec2|c2/i.test(type) ? await codec2toWav(bytes) : new Blob([bytes], {type: audioType(type)}));
