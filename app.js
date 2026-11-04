@@ -858,7 +858,7 @@ if(!isDictPage){
 		b.title = t;
 		b.setAttribute('aria-label', t);
 		b.classList.toggle('playing', playing);
-		if (b.reader) reading(b, playing);
+		if (playing && b.reader) follow(Object.assign(b.reader, {b}));
 	}
 	// A 🔊 that plays the recordings ([type, bytes]: a compound's parts')
 	// A dictionary's colour, from its name (a speaker's, on their 🔊): a hue
@@ -1245,7 +1245,7 @@ if(!isDictPage){
 	function readAlong(w, b, text, bytes){
 		const r = readers.get(w) ?? {w, text, words: [], i: -1, ...readTimes(bytes)};
 		readers.set(w, r);
-		if (!r.b?.isConnected) Object.assign(r, {b, on: false}); // (cards of a chapter share it: the one played is its button)
+		if (!r.b?.isConnected) r.b = b; // (cards of a chapter share it: the one played is its button)
 		b.reader = r;
 		chapterVerses(w).forEach(vs => wordSpans(vs, +(vs.closest('.pv-t')?.dataset.d ?? text)));
 	}
@@ -1270,15 +1270,7 @@ if(!isDictPage){
 			s.dataset.i = at + j;
 			r.words[at + j] = s;
 		}
-		vs.classList.toggle('reading', r.on);
-	}
-	// While it's playing a tap on a word says it (paused or stopped, a tap on
-	// a verse is its menu, with Hear word and Read here)
-	function reading(b, on){
-		const r = b.reader;
-		r.on = on;
-		if (on) { r.b = b; follow(r); }
-		chapterVerses(r.w).forEach(vs => vs.classList.toggle('reading', on));
+		vs.classList.add('reading');
 	}
 	// The word being said, marked, till it's not playing
 	function follow(r){
@@ -1301,8 +1293,9 @@ if(!isDictPage){
 		};
 		requestAnimationFrame(go);
 	}
-	// A word said, and the reading goes on from where it was (if it was
-	// going). readFrom: from a word; a tap on a verse's number, from there
+	// A tap on a word: it's said, and the reading goes on from where it was
+	// (if it was going). On a verse's number: from there. A long press is
+	// the verse's menu, a tap on it being the word's
 	function sayWord(r, i){
 		const {b} = r, o = tnefarOn, live = o?.button === b && o.live();
 		if (!live) b.back = false;
@@ -1317,6 +1310,25 @@ if(!isDictPage){
 		r.b.at = r.starts[i];
 		playWord(r.b);
 	}
+	let press, pressed;
+	const unpress = () => { clearTimeout(press?.t); press = null; };
+	document.addEventListener('pointerdown', e => {
+		const vs = e.target.closest?.('.reading');
+		unpress();
+		pressed = false;
+		if (vs && !e.button) press = {x: e.clientX, y: e.clientY, t: setTimeout(() => { // (before a phone's own long press, which would select)
+			pressed = true;
+			getSelection().removeAllRanges();
+			openCtx({el: vs});
+		}, 350)};
+	});
+	document.addEventListener('pointermove', e => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) unpress(); }); // (scrolling, selecting)
+	['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, unpress));
+	['selectstart', 'contextmenu'].forEach(t => document.addEventListener(t, e => { if (pressed) e.preventDefault(); }));
+	document.addEventListener('click', e => { // (the press's own click)
+		if (pressed) e.stopPropagation();
+		pressed = false;
+	}, true);
 	document.addEventListener('click', e => {
 		const vs = !getSelection().toString().trim() && e.target.closest('.reading'), r = vs && readerOf(vs), w = e.target.closest('.w');
 		if (w && r) sayWord(r, +w.dataset.i);
@@ -2776,8 +2788,7 @@ if(!isDictPage){
 		else if (sub === 'share') html = ctxBtn('back', 'Back') + (ctx.shares ??= shares()).map(([label, kind], i) => ctxBtn(kind, label, `data-i="${i}"`)).join('');
 		else {
 			const gloss = el && !isGloss(el), glossed = gloss && !sel && el.querySelector(':scope > .tr-entry'), w = bmTarget();
-			html = (ctx.word ? ctxBtn('hear', 'Hear word', '', ICONS.speak) + ctxBtn('read', 'Read here', '', ICONS.speak) : '') +
-				(el?.matches('.tr-entry') || glossed ? ctxBtn('hide', 'Hide gloss') : gloss ? ctxBtn('gloss', 'Gloss') : '') +
+			html = (el?.matches('.tr-entry') || glossed ? ctxBtn('hide', 'Hide gloss') : gloss ? ctxBtn('gloss', 'Gloss') : '') +
 				(sel ? ctxBtn('search', 'Search') + ctxBtn('popup', 'Popup') : '') +
 				(compareOf() ? ctxBtn('compare', 'Compare') : '') +
 				(w && !sel ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
@@ -2800,11 +2811,6 @@ if(!isDictPage){
 		else if (/^(smaller|bigger|dark|mark)$/.test(act)) setPref(act);
 		else if (act === 'bookmark') toggleBookmark(bmTarget(), sel ? null : el.closest('.vs') || el.closest('p-d')?.querySelector(':scope > p-e'));
 		if (/^(speak|share|look|back|smaller|bigger|dark|mark|bookmark)$/.test(act)) return renderCtx();
-		if (act === 'hear' || act === 'read') {
-			const w = ctx.word;
-			closeCtx();
-			return (act === 'hear' ? sayWord : readFrom)(readerOf(w.closest('.vs')), +w.dataset.i);
-		}
 		if (act === 'say') {
 			speechSynthesis.cancel();
 			const u = new SpeechSynthesisUtterance(ctxText());
@@ -2842,7 +2848,7 @@ if(!isDictPage){
 		const t = e.target;
 		const el = !t.closest('a, button, input, textarea, select, audio, video, [role="button"], p-a, p-w, .tr-w, .menu, p-d > h2, .reading .w, .reading .vs-n') &&
 			t.closest('#results, #popupResults, #translation') && t.closest('.tr-entry, p-d.translation, .vs, p-e');
-		if (el && el !== ctx?.el) openCtx({el, word: t.closest('.w')});
+		if (el && el !== ctx?.el) openCtx({el});
 		else if (ctx) closeCtx();
 	});
 	// Selected text: its menu, once the selection settles (iOS needs the

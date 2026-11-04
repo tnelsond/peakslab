@@ -607,6 +607,7 @@ p-d.chapter p-e :is(h3, h4) { display: block; margin: .8em 0 .3em; }
 /* (a word joiner after it: it stays on the line with the verse's first
    letter, in any script; no word to keep whole, as Chinese has none) */
 /* A chapter being read: the word being said; a tap says a word, reads from a verse */
+.reading { -webkit-touch-callout: none; }
 .reading .w, .reading .vs-n { cursor: pointer; }
 .w.said { border-radius: 3px; background: rgba(242, 194, 0, .45); }
 .vs-n::after { content: "\2060"; }
