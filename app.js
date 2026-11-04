@@ -1247,6 +1247,11 @@ if(!isDictPage){
 		readers.set(w, r);
 		if (!r.b?.isConnected) r.b = b; // (cards of a chapter share it: the one played is its button)
 		b.reader = r;
+		b.onclick = e => {
+			if (tnefarOn?.button === b && tnefarOn.live() && tnefarCtx.state === 'running') return playWord(b);
+			e.stopPropagation(); // (a tap on a button closes the menu)
+			openCtx({el: b, chapter: true});
+		};
 		chapterVerses(w).forEach(vs => wordSpans(vs, +(vs.closest('.pv-t')?.dataset.d ?? text)));
 	}
 	// A timed verse's words, spans (as times.py counts them; split where a
@@ -1270,7 +1275,7 @@ if(!isDictPage){
 			s.dataset.i = at + j;
 			r.words[at + j] = s;
 		}
-		vs.classList.add('reading');
+		vs.classList.toggle('reading', !!r.on);
 	}
 	// The word being said, marked, till it's not playing
 	function follow(r){
@@ -1293,9 +1298,16 @@ if(!isDictPage){
 		};
 		requestAnimationFrame(go);
 	}
-	// A tap on a word: it's said, and the reading goes on from where it was
-	// (if it was going). On a verse's number: from there. A long press is
-	// the verse's menu, a tap on it being the word's
+	// Its 🔊, paused or stopped: Play, or Play word: then a tap on a word says
+	// it, and the reading goes on from where it was (if it was going), and a
+	// tap on a verse's number reads from there
+	function wordTaps(b, on){
+		const r = b.reader;
+		r.on = on;
+		r.b = b;
+		b.classList.toggle('words', on);
+		chapterVerses(r.w).forEach(vs => vs.classList.toggle('reading', on));
+	}
 	function sayWord(r, i){
 		const {b} = r, o = tnefarOn, live = o?.button === b && o.live();
 		if (!live) b.back = false;
@@ -1310,25 +1322,6 @@ if(!isDictPage){
 		r.b.at = r.starts[i];
 		playWord(r.b);
 	}
-	let press, pressed;
-	const unpress = () => { clearTimeout(press?.t); press = null; };
-	document.addEventListener('pointerdown', e => {
-		const vs = e.target.closest?.('.reading');
-		unpress();
-		pressed = false;
-		if (vs && !e.button) press = {x: e.clientX, y: e.clientY, t: setTimeout(() => { // (before a phone's own long press, which would select)
-			pressed = true;
-			getSelection().removeAllRanges();
-			openCtx({el: vs});
-		}, 350)};
-	});
-	document.addEventListener('pointermove', e => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) unpress(); }); // (scrolling, selecting)
-	['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, unpress));
-	['selectstart', 'contextmenu'].forEach(t => document.addEventListener(t, e => { if (pressed) e.preventDefault(); }));
-	document.addEventListener('click', e => { // (the press's own click)
-		if (pressed) e.stopPropagation();
-		pressed = false;
-	}, true);
 	document.addEventListener('click', e => {
 		const vs = !getSelection().toString().trim() && e.target.closest('.reading'), r = vs && readerOf(vs), w = e.target.closest('.w');
 		if (w && r) sayWord(r, +w.dataset.i);
@@ -2744,6 +2737,10 @@ if(!isDictPage){
 	let ctxTimer = 0;
 	function openCtx(c){
 		closeCtx();
+		if (tnefarOn?.live() && tnefarCtx.state === 'running') { // (it pauses for a menu; its 🔊 goes on)
+			tnefarCtx.suspend();
+			tnefarShow(tnefarOn.button, false);
+		}
 		ctx = c;
 		if (!c.sel) c.el.classList.add('ctx-on');
 		renderCtx();
@@ -2780,7 +2777,8 @@ if(!isDictPage){
 	function renderCtx(){
 		const {el, sel, sub} = ctx;
 		let html;
-		if (sub === 'speak') html = ctxBtn('back', 'Back') + voiceLangs().map(x => ctxBtn('say', x.name, `data-lang="${x.val}"`,
+		if (ctx.chapter) html = ctxBtn('play', 'Play', '', ICONS.speak) + ctxBtn('words', 'Play word', `aria-pressed="${!!el.reader.on}"`, ICONS.speak);
+		else if (sub === 'speak') html = ctxBtn('back', 'Back') + voiceLangs().map(x => ctxBtn('say', x.name, `data-lang="${x.val}"`,
 			abbr[x.name.toLowerCase()]?.[3] ? `<span class="ctx-flag" aria-hidden="true">${abbr[x.name.toLowerCase()][3]}</span>` : ICONS.speak)).join('');
 		else if (sub === 'look') html = ctxBtn('back', 'Back') + ctxBtn('smaller', 'Smaller') + ctxBtn('bigger', 'Bigger') +
 			ctxBtn('dark', document.body.classList.contains('dark-mode') ? 'Light mode' : 'Dark mode') +
@@ -2806,6 +2804,11 @@ if(!isDictPage){
 		const b = e.target.closest('button');
 		if (!b || !ctx) return;
 		const {el, sel} = ctx, act = b.dataset.c, h = compareOf(); // (before it closes)
+		if (ctx.chapter) {
+			closeCtx();
+			wordTaps(el, act === 'words');
+			return act === 'play' && playWord(el);
+		}
 		// A menu in it (Back: out of it), or what stays open (tap again for more, or to undo)
 		if (/^(speak|share|look|back)$/.test(act)) ctx.sub = act === 'back' ? null : act;
 		else if (/^(smaller|bigger|dark|mark)$/.test(act)) setPref(act);
