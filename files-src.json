@@ -163,7 +163,7 @@
     ["khmer/dict/tech/newlexicon.peak.zst", 1792401680, "", 1985, 3, "mono", 0, 46512],
     ["khmer/media/audio2-tnefar.slab", 1793698097, "Khmer Audio (includes bible words), tnefar codec: 700 bps", 288624, 1, "aux", 0, 542343],
     ["khmer/media/audio.slab", 1792225424, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 12916, 2, "aux", 0, 7228877],
-    ["khmer/media/bible-history-tnefar.slab", 1793784534, "Bible Words, Joshua to Esther (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713794, 2, "aux", 0, 895577],
+    ["khmer/media/bible-history-tnefar.slab", 1793784891, "Bible Words, Joshua to Esther (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713794, 2, "aux", 0, 900886],
     ["khmer/media/images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2, "aux", 0, 3272094],
     ["khmer/music/chords/chords.peak.zst", 1792403311, "<a href=\"https://www.khmerworship.com/\">Khmer Worship</a>", 10958, 1, "mono", 0, 359243],
     ["khmer/music/sheet/kora-misc.slab", 1789366310, "Remaining songs from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 22316, 3, "mono", 0, 4557782],
