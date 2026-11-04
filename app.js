@@ -355,6 +355,7 @@ if(!isDictPage){
 	function mediaElement(type, bytes, name, d){
 		if (AUDIO.test(type)) return soundButton([[type, bytes]], d);
 		if (/^voice$/i.test(type)) return document.createTextNode('The voice its tnefar recordings are decoded with');
+		if (/^times$/i.test(type)) return document.createTextNode('When each word of a chapter is said');
 		const el = document.createElement('img');
 		el.alt = name;
 		el.style.maxWidth = '100%';
@@ -406,6 +407,7 @@ if(!isDictPage){
 			pe.append(vs);
 		}
 		noteLinks(vs);
+		wordSpans(vs, d);
 		if (h === card.dataset.hl) vs.classList.add('ctx'); // (the verse it's for)
 		if (card.parentNode === resultsDiv) found();
 	}
@@ -744,7 +746,7 @@ if(!isDictPage){
 	// decoded. Once it's all there it's kept, to play again straight away.
 	const TNEFAR = /tnefar/i;
 	const tnefarDone = new WeakMap(); // a recording's bytes -> its sound ([samples, rate]: 16 kHz, tnefar's)
-	let tnefarCtx, tnefarX, tnefarJob = 0, tnefarOn = null; // (tnefarOn: what's playing, {button, live, stop})
+	let tnefarCtx, tnefarX, tnefarHeld, tnefarJob = 0, tnefarOn = null; // (tnefarOn: what's playing, {button, live, stop, frame})
 	const tnefarWasm = () => tnefarX ??= decoder('tnefar').then(x => (x._initialize?.(), x));
 	// A dictionary's voice, in the wasm's memory: [where, length]
 	const tnefarVoices = {};
@@ -759,7 +761,8 @@ if(!isDictPage){
 	// 🔊 paused or done). Called in the tap: phones start sound only there
 	// (an <audio> started when another ends isn't), so the audio is started
 	// first and the sound follows
-	async function soundPlay(recs, d, button){
+	// (from, to: just those frames of a recording; then: called at its end)
+	async function soundPlay(recs, d, button, from = 0, to = 0, then){
 		if (!tnefarCtx) {
 			try { navigator.audioSession.type = 'playback'; } catch (e) { /* (iOS: heard even with the ringer off, like <audio>) */ }
 			const AC = window.AudioContext || window.webkitAudioContext;
@@ -774,9 +777,10 @@ if(!isDictPage){
 		ctx.resume();
 		tnefarOn?.stop();
 		const job = ++tnefarJob, srcs = [];
-		let at = 0, made = true; // (when the next piece starts; made: all of it is)
+		let at = 0, first, made = true; // (when the next piece starts, and the sound would have; made: all of it is)
 		const me = tnefarOn = {button,
 			live: () => job === tnefarJob && (!made || ctx.currentTime < at),
+			frame: () => from + Math.max(0, ctx.currentTime - (ctx.outputLatency || 0) - (first ?? Infinity)) * 100, // (the frame being heard)
 			stop: () => { ++tnefarJob; srcs.forEach(s => s.stop()); tnefarShow(button, false); }};
 		tnefarShow(button, true);
 		const play = (pcm, rate = 16000) => {
@@ -784,14 +788,21 @@ if(!isDictPage){
 			b.copyToChannel(pcm, 0);
 			s.buffer = b;
 			s.connect(ctx.destination);
-			s.start(at = Math.max(at, ctx.currentTime + .02)); // (late: right away)
-			s.onended = () => { if (made && s === srcs.at(-1) && tnefarOn === me) tnefarShow(button, false); }; // (the end)
+			const late = Math.max(at, ctx.currentTime + .02); // (late: right away)
+			first = (first ?? late) + (srcs.length ? late - at : 0);
+			s.start(at = late);
+			s.onended = () => { // (the end)
+				if (!made || s !== srcs.at(-1) || tnefarOn !== me) return;
+				const done = job === tnefarJob;
+				tnefarShow(button, false);
+				if (done) then?.();
+			};
 			srcs.push(s);
 			at += b.duration;
 		};
 		made = false;
 		const ahead = () => job === tnefarJob && at - ctx.currentTime;
-		try { for (const [type, bytes] of recs) if (job === tnefarJob) await (TNEFAR.test(type) ? tnefarMake(bytes, d, play, ahead) : soundMake(type, bytes, ctx, play)); }
+		try { for (const [type, bytes] of recs) if (job === tnefarJob) await (TNEFAR.test(type) ? tnefarMake(bytes, d, play, ahead, from, to) : soundMake(type, bytes, ctx, play)); }
 		finally { made = true; }
 	}
 	// Another recording's sound (webm, codec2, ...: the browser decodes it)
@@ -805,22 +816,35 @@ if(!isDictPage){
 	}
 	// A recording's sound to play(), a piece at a time (ahead(): how far
 	// it's ahead of what's playing, or false: stop)
-	async function tnefarMake(bytes, d, play, ahead){
-		if (tnefarDone.has(bytes)) return play(...tnefarDone.get(bytes));
-		const x = await tnefarWasm(), [v, vn] = await tnefarVoice(x, d), p = toWasm(x, bytes), h = x.tnefar_open(p, bytes.length, v, vn);
-		x.free(p);
-		if (h < 0) throw new Error(`tnefar: can't decode it (${h})`);
-		let parts = x.tnefar_frames(h) <= 3000 ? [] : null; // (up to 30 s: kept, to play again)
+	async function tnefarMake(bytes, d, play, ahead, from, to){
+		if (!to && !from && tnefarDone.has(bytes)) return play(...tnefarDone.get(bytes));
+		const x = await tnefarWasm(), [v, vn] = await tnefarVoice(x, d), held = tnefarHeld?.bytes === bytes;
+		let h = tnefarHeld?.h;
+		if (!held) {
+			const p = toWasm(x, bytes);
+			h = x.tnefar_open(p, bytes.length, v, vn);
+			x.free(p);
+			if (h < 0) throw new Error(`tnefar: can't decode it (${h})`);
+		}
+		const short = x.tnefar_frames(h) <= 3000; // (up to 30 s: kept, to play again; longer, a chapter: left open, to go to its words)
+		if (!short && !held) {
+			if (tnefarHeld) x.tnefar_close(tnefarHeld.h);
+			tnefarHeld = {bytes, h};
+		}
+		if (held || from) x.tnefar_seek(h, from);
+		let parts = short && !to && !from ? [] : null, left = to ? (to - from) * 160 : Infinity;
 		try {
-			for (let n = 4, k; ahead() !== false && (k = x.tnefar_run(h, n)) > 0; n = 16) {
-				const pcm = new Float32Array(x.memory.buffer, x.tnefar_pcm(h), k).slice();
+			for (let n = 4, k; left > 0 && ahead() !== false && (k = x.tnefar_run(h, n)) > 0; n = 16) {
+				const pcm = new Float32Array(x.memory.buffer, x.tnefar_pcm(h), Math.min(k, left)).slice();
+				left -= pcm.length;
+				if (!left) for (let i = 0, m = Math.min(480, pcm.length); i < m; i++) pcm[pcm.length - 1 - i] *= i / m; // (30 ms: no click)
 				parts?.push(pcm);
 				play(pcm);
 				// (a long one, a chapter: made just a few seconds ahead of what's playing)
 				while (ahead() > 5) await new Promise(r => setTimeout(r, 500));
 				await new Promise(r => setTimeout(r)); // (the page stays responsive)
 			}
-		} finally { x.tnefar_close(h); }
+		} finally { if (short) x.tnefar_close(h); }
 		if (!parts || ahead() === false) return;
 		const all = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
 		parts.reduce((o, p) => (all.set(p, o), o + p.length), 0);
@@ -834,6 +858,7 @@ if(!isDictPage){
 		b.title = t;
 		b.setAttribute('aria-label', t);
 		b.classList.toggle('playing', playing);
+		if (playing) b.reader && follow(b.reader);
 	}
 	// A 🔊 that plays the recordings ([type, bytes]: a compound's parts')
 	// A dictionary's colour, from its name (a speaker's, on their 🔊): a hue
@@ -1186,14 +1211,113 @@ if(!isDictPage){
 		card._audio?.b && tnefarOn?.button === card._audio.b && tnefarOn.stop(); // (another chapter now)
 		card._audio = {w};
 		if (!w) return;
-		dictIds.filter(d => libOn[d] && dicts[d].media).forEach(d => askDict(d, {type: 'media', words: [w]}).then(r => {
-			const f = r.files[0];
+		const ts = dictIds.filter(isBibleText); // (a recording's words have a text's timing: "gen 1 khsv")
+		dictIds.filter(d => libOn[d] && dicts[d].media).forEach(d => askDict(d, {type: 'media', words: [w, ...ts.map(t => `${w} ${dicts[t].name}`)]}).then(r => {
+			const [f, ...ms] = r.files, i = ms.findIndex(m => m?.[1]);
 			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
 			const b = card._audio.b = soundButton([f], d);
 			b.classList.add('ch-play');
 			put(b);
+			if (i >= 0) readAlong(w, b, ts[i], ms[i][1]);
 		}));
 	}
+	// A chapter's read-along: its "gen 1 khsv.times" (times.py, in tnefar-work) says
+	// when each word of that text is said. Varints, for each verse (from
+	// verse 1) its number of words, then for each word its start after the
+	// last's, in 20 ms units, and, if it doesn't run on to the next word (a 0,
+	// no start being 0 after the last's), a 0 and its length. In frames here
+	function readTimes(bytes){
+		const first = [], starts = [], ends = [];
+		let at = 0, t = 0;
+		const num = () => { let n = 0, s = 0, c; do { c = bytes[at++]; n |= (c & 127) << s; s += 7; } while (c > 127); return n; };
+		while (at < bytes.length) {
+			first.push(starts.length);
+			for (let n = num(); n--;) {
+				starts.push(t += num() * 2);
+				ends.push(bytes[at] ? 0 : (at++, t + num() * 2));
+			}
+		}
+		first.push(starts.length);
+		return {first, starts, ends};
+	}
+	const readers = new Map(); // (a chapter ("gen 1"): {b, text, on, words, ...readTimes})
+	const chapterVerses = w => document.querySelectorAll(`.vs[data-h^="${w}."]`);
+	function readAlong(w, b, text, bytes){
+		const r = readers.get(w) ?? {text, words: [], i: -1, ...readTimes(bytes)};
+		readers.set(w, r);
+		if (!r.b?.isConnected) Object.assign(r, {b, on: false}); // (cards of a chapter share it: the one played is its button)
+		b.reader = r;
+		b.addEventListener('click', () => { // (till it's played, a tap on a verse is its menu)
+			r.b = b;
+			r.on = true;
+			chapterVerses(w).forEach(vs => vs.classList.add('reading'));
+		});
+		chapterVerses(w).forEach(vs => wordSpans(vs, +(vs.closest('.pv-t')?.dataset.d ?? text)));
+	}
+	// A timed verse's words, spans (as times.py counts them; split where a
+	// tag is, and a verse that doesn't count up stays as it is)
+	function wordSpans(vs, d){
+		const r = readers.get(vs.dataset.h.replace(/\.\d+$/, ''));
+		if (r?.text !== d || vs.querySelector('.w')) return;
+		const v = vs.dataset.v % 1000, at = r.first[v - 1], n = r.first[v] - at, toks = [];
+		vs.querySelectorAll('mark').forEach(m => m.replaceWith(...m.childNodes)); // (a search's: inside a word)
+		vs.normalize();
+		const walk = document.createTreeWalker(vs, NodeFilter.SHOW_TEXT, {acceptNode: t => t.parentElement.closest('.vs-n, .vs-note, h1, h2, h3, h4, h5, h6') ? 2 : 1});
+		for (let t; t = walk.nextNode();) for (const m of t.data.matchAll(/[^\s\u200b]+/g)) if (/[\u1780-\u17d3]/.test(m[0])) toks.push([t, m.index, m[0].length]);
+		if (toks.length !== n) return;
+		for (let j = n; j--;) { // (from the last: the text before it stays where it was)
+			const [t, a, len] = toks[j], rg = document.createRange(), s = document.createElement('span');
+			rg.setStart(t, a);
+			rg.setEnd(t, a + len);
+			rg.surroundContents(s);
+			s.className = 'w';
+			s.dataset.i = at + j;
+			r.words[at + j] = s;
+		}
+		vs.classList.toggle('reading', r.on);
+	}
+	// The word being said, marked, till it's not playing
+	function follow(r){
+		if (r.going) return;
+		r.going = true;
+		const go = () => {
+			const on = tnefarOn?.button === r.b && tnefarOn.live();
+			let f = on ? tnefarOn.frame() : -1, a = 0, z = r.starts.length;
+			while (a < z) { const m = a + z >> 1; r.starts[m] <= f ? a = m + 1 : z = m; }
+			const i = a && (!r.ends[a - 1] || f < r.ends[a - 1]) ? a - 1 : -1;
+			if (i !== r.i) {
+				const was = r.words[r.i], now = r.words[i], seen = was?.getBoundingClientRect().bottom < innerHeight;
+				was?.classList.remove('said');
+				now?.classList.add('said');
+				if (seen && now?.getBoundingClientRect().bottom > innerHeight - 40) now.scrollIntoView({block: 'center', behavior: 'smooth'}); // (it keeps up, unless they've looked elsewhere)
+				r.i = i;
+			}
+			if (on) requestAnimationFrame(go);
+			else r.going = false;
+		};
+		requestAnimationFrame(go);
+	}
+	// A tap on a word while reading: it's said, and the reading goes on from
+	// where it was (if it was going). On a verse's number: from there
+	function sayWord(r, i){
+		const {b} = r, o = tnefarOn, live = o?.button === b && o.live();
+		if (!live) b.back = false;
+		else if (!o.word) { b.at = o.frame(); b.back = tnefarCtx.state === 'running'; }
+		if (live) o.stop();
+		soundPlay(...b.sound, b, r.starts[i], (r.ends[i] || r.starts[i + 1] || r.starts[i] + 100) + 3, () => b.back && playWord(b)).catch(soundError(b));
+		tnefarOn.word = true;
+	}
+	function readFrom(r, v){
+		const o = tnefarOn;
+		if (o?.button === r.b && o.live()) o.stop();
+		r.b.at = r.starts[r.first[v - 1]];
+		playWord(r.b);
+	}
+	document.addEventListener('click', e => {
+		const vs = !getSelection().toString().trim() && e.target.closest('.reading'), r = vs && readers.get(vs.dataset.h.replace(/\.\d+$/, '')), w = e.target.closest('.w');
+		if (w && r) sayWord(r, +w.dataset.i);
+		else if (r && e.target.closest('.vs-n')) readFrom(r, vs.dataset.v % 1000);
+	});
 	// … above a verse's card (verses before it in its chapter), below it (after)
 	function moreVerses(card, ref){
 		card.querySelectorAll(':scope > .vs-more').forEach(b => b.remove());
@@ -2359,9 +2483,10 @@ if(!isDictPage){
 			}));
 		});
 	}
+	const soundError = b => e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; };
 	window.playWord = b => {
 		if (b.voices && !(tnefarOn?.button === b && tnefarOn.live())) voiced(b, (b.sound = b.voices[b.turn++ % b.voices.length])[1]); // (playing: it pauses)
-		soundPlay(...b.sound, b).catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
+		soundPlay(...b.sound, b, b.at, 0, () => { b.at = 0; }).catch(soundError(b));
 	};
 
 	// The gloss of an entry's (or verse's) text, or some of it: above the
@@ -2705,7 +2830,7 @@ if(!isDictPage){
 	document.addEventListener('click', e => {
 		if (getSelection().toString().trim()) return; // (the selection's)
 		const t = e.target;
-		const el = !t.closest('a, button, input, textarea, select, audio, video, [role="button"], p-a, p-w, .tr-w, .menu, p-d > h2') &&
+		const el = !t.closest('a, button, input, textarea, select, audio, video, [role="button"], p-a, p-w, .tr-w, .menu, p-d > h2, .reading .w, .reading .vs-n') &&
 			t.closest('#results, #popupResults, #translation') && t.closest('.tr-entry, p-d.translation, .vs, p-e');
 		if (el && el !== ctx?.el) openCtx({el});
 		else if (ctx) closeCtx();

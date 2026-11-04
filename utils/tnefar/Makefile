@@ -12,7 +12,7 @@ DEPS = $(SRC) fargan.bin $(wildcard fcq/*.h opus/*.h)
 # The codec's loaders read the voice in memory (tnefar_fopen); NDEBUG drops opus' asserts.
 # -ffp-contract=off: the decoder's predictions must round exactly as the encoder's did.
 CFLAGS = -DHAVE_CONFIG_H -DNDEBUG -Dfopen=tnefar_fopen -Dgetenv=tnefar_getenv -Iopus -I. -Wno-c23-extensions -ffp-contract=off
-EXPORTS = tnefar_open tnefar_frames tnefar_run tnefar_feat tnefar_pcm tnefar_close malloc free
+EXPORTS = tnefar_open tnefar_frames tnefar_seek tnefar_run tnefar_feat tnefar_pcm tnefar_close malloc free
 WASM_FLAGS = -O3 -flto -msimd128 -msse4.2 -fno-exceptions -fno-stack-protector \
 	--no-entry -s STANDALONE_WASM=1 -s FILESYSTEM=0 -s ASSERTIONS=0 -s ENVIRONMENT=web \
 	-s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=4MB -s STACK_SIZE=256KB \

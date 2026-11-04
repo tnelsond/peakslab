@@ -79,7 +79,7 @@ typedef struct tnefar {
   voice_t *voice;
   float *feat;                  /* N x NFEAT features: decoded, then postfiltered up to frame done */
   float *raw; uint8_t *mask;    /* (with a postfilter) the decoded features and their anchors */
-  int N, t, stop, skip, done;
+  int N, t, stop, skip, done, small;
   float out[CHUNK_MAX * FRAME];
 } tnefar_t;
 
@@ -87,11 +87,23 @@ typedef struct tnefar {
 static void filter_to(tnefar_t *d, int upto) {
   if (upto > d->N) upto = d->N;
   while (d->done < upto) {
-    int T = d->done ? 256 : 32;   /* (a small first block: the sound starts sooner) */
+    int T = d->small ? 32 : 256;   /* (a small first block: the sound starts sooner) */
     if (T > d->N - d->done) T = d->N - d->done;
+    d->small = 0;
     nnf_apply_range(d->voice->pf, d->raw, d->mask, d->N, d->done, T, d->feat + (size_t)d->done * NFEAT);
     d->done += T;
   }
+}
+
+/* As opus' fargan_demo: FARGAN continues from silence, primed with 5 frames from f (at the very
+ * start, the first one 5 times) */
+static void prime(tnefar_t *d, int f) {
+  filter_to(d, f + 5);
+  fargan_init(&d->fg);
+  d->fg.model = g_model;
+  float f5[5 * NB_FEATURES], zeros[FARGAN_CONT_SAMPLES] = {0};
+  for (int i = 0; i < 5; i++) memcpy(f5 + i * NB_FEATURES, d->feat + (size_t)(f ? f + i : 0) * NFEAT, sizeof(float) * NB_FEATURES);
+  fargan_cont(&d->fg, zeros, f5);
 }
 
 /* A stream for one file in the voice v (its slab's tnefar.voice, which must stay where it is while
@@ -106,7 +118,7 @@ __attribute__((used)) intptr_t tnefar_open(const uint8_t *buf, int len, const ui
   tnefar_t *d = (tnefar_t *)calloc(1, sizeof *d);
   if (!d) { free(feat); free(mask); return -1; }
   d->voice = vo; vo->users++;
-  d->N = N; d->t = 1; d->skip = FRAME / 2;
+  d->N = N; d->t = 1; d->skip = FRAME / 2; d->small = 1;
   if (vo->pf && nnf_apply_range(vo->pf, feat, mask, N, 0, 0, feat) == 0) {   /* streaming filter */
     d->raw = feat; d->mask = mask; d->feat = (float *)malloc(sizeof(float) * (size_t)N * NFEAT);
     filter_to(d, 1);
@@ -114,13 +126,23 @@ __attribute__((used)) intptr_t tnefar_open(const uint8_t *buf, int len, const ui
     if (vo->pf) nnf_apply(vo->pf, feat, mask, N);   /* (an old-style filter: all of it now) */
     free(mask); d->feat = feat; d->done = N;
   }
-  /* as opus' fargan_demo: FARGAN continues from silence, primed with the first frame */
-  fargan_init(&d->fg);
-  d->fg.model = g_model;
-  float f5[5 * NB_FEATURES], zeros[FARGAN_CONT_SAMPLES] = {0};
-  for (int i = 0; i < 5; i++) memcpy(f5 + i * NB_FEATURES, d->feat, sizeof(float) * NB_FEATURES);
-  fargan_cont(&d->fg, zeros, f5);
+  prime(d, 0);
   return (intptr_t)d;
+}
+
+/* The next sound is from frame's start (a word's in a chapter; all the features are there from
+ * tnefar_open, so it's only FARGAN that starts again, on the frames before it) */
+__attribute__((used)) void tnefar_seek(tnefar_t *d, int frame) {
+  enum { LEAD = 8 };   /* (frames of FARGAN to settle in, not heard) */
+  if (frame < 0) frame = 0;
+  if (frame > d->N - 1) frame = d->N - 1;
+  int t = frame - LEAD > 1 ? frame - LEAD : 1;
+  int f = t > 5 ? t - 5 : 0;
+  if (d->raw) { d->done = f; d->small = 1; }
+  prime(d, f);
+  float pcm[FRAME];
+  for (; t <= frame; t++) { filter_to(d, t + 1); fargan_synthesize(&d->fg, pcm, d->feat + (size_t)t * NFEAT); }
+  d->t = t; d->stop = 0; d->skip = FRAME / 2;
 }
 
 /* Frames in the file (100 a second): its length is tnefar_frames * 160 samples at 16 kHz */

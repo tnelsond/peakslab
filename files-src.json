@@ -1,13 +1,13 @@
 {
   "core": [
-    ["404.html", 1793797797],
+    ["404.html", 1793799537],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
     ["khmer/battambang.woff2", 1793169367],
     ["peakslab.svg", 1789218198],
     ["peak.wasm", 1793706555],
-    ["tnefar.wasm", 1793688477]
+    ["tnefar.wasm", 1793798838]
   ],
   "dicts": [
     ["amharic/bible/text/am-1954.peak.zst", 1793713533, "Amharic Bible (መጽሐፍ ቅዱስ (የብሉይና የሐዲስ ኪዳን መጻሕፍት)), from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1307, 1, "mono", 0, 1310002],
@@ -128,13 +128,13 @@
     ["kannada/wiktionary/knsenses.peak.zst", 1793714403, "Kannada words by English sense, from English Wiktionary's translation tables (<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/English/\">kaikki.org</a>: with another language's on, a dictionary between them", 438, -2, "kn,aligned", 0, 102616],
     ["khmer/bible/audio/dpi-acts-1ti-3jo.slab", 1793690514, "Audio Bible, Acts, 1 Timothy, 2 Timothy, 1 Peter to 3 John (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713740, 3, "aux", 0, 2343778],
     ["khmer/bible/audio/dpi-gal-2th-heb-jud.slab", 1793690519, "Audio Bible, Galatians to 2 Thessalonians, Hebrews, James, Jude (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713740, 3, "aux", 0, 2001775],
-    ["khmer/bible/audio/dpi-gospels-rev.slab", 1793690523, "Audio Bible, Matthew to John, Revelation (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713740, 3, "aux", 0, 4900026],
-    ["khmer/bible/audio/dpi-history.slab", 1793690525, "Audio Bible, Joshua to Esther (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713740, 3, "aux", 0, 9565341],
+    ["khmer/bible/audio/dpi-gospels-rev.slab", 1793798975, "Audio Bible, Matthew to John, Revelation (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713743, 3, "aux", 0, 4901232],
+    ["khmer/bible/audio/dpi-history.slab", 1793798972, "Audio Bible, Joshua to Esther (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713744, 3, "aux", 0, 9600723],
     ["khmer/bible/audio/dpi-minor-prophets.slab", 1793690518, "Audio Bible, Hosea to Malachi (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713740, 3, "aux", 0, 2155339],
-    ["khmer/bible/audio/dpi-pentateuch.slab", 1793690521, "Audio Bible, Genesis to Deuteronomy (Khmer non-drama recording KHMDPIO1DA), tnefar codec: 700 bps", 713740, 3, "aux", 0, 6933483],
-    ["khmer/bible/audio/dpi-prophets.slab", 1793690516, "Audio Bible, Isaiah to Daniel (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713740, 3, "aux", 0, 6297059],
-    ["khmer/bible/audio/dpi-rom-2co-tit-phm.slab", 1793690527, "Audio Bible, Romans to 2 Corinthians, Titus, Philemon (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713740, 3, "aux", 0, 2053439],
-    ["khmer/bible/audio/dpi-wisdom.slab", 1793690513, "Audio Bible, Job to Song of Songs (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713741, 3, "aux", 0, 4770413],
+    ["khmer/bible/audio/dpi-pentateuch.slab", 1793798973, "Audio Bible, Genesis to Deuteronomy (Khmer non-drama recording KHMDPIO1DA), tnefar codec: 700 bps", 713743, 3, "aux", 0, 6937180],
+    ["khmer/bible/audio/dpi-prophets.slab", 1793798974, "Audio Bible, Isaiah to Daniel (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713744, 3, "aux", 0, 6297431],
+    ["khmer/bible/audio/dpi-rom-2co-tit-phm.slab", 1793798976, "Audio Bible, Romans to 2 Corinthians, Titus, Philemon (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713744, 3, "aux", 0, 2054348],
+    ["khmer/bible/audio/dpi-wisdom.slab", 1793798976, "Audio Bible, Job to Song of Songs (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713745, 3, "aux", 0, 4771700],
     ["khmer/bible-extra/bible.peak.zst", 1792411280, "Khmer Bible dictionary I had lying around", 907, 1, "rbi", 0, 251698],
     ["khmer/bible-extra/biblewordkm.peak.zst", 1792405440, "Translation words from <a href=\"https://door43.org/\">door43</a>", 9321, 2, "mono", 0, 278316],
     ["khmer/bible-extra/km_tn.peak.zst", 1793534666, "Khmer Translation Notes (កំណត់ចំណាំសម្រាប់អ្នកបកប្រែ) by Wycliffe Associates, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>. From <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 27848, 3, "mono", 1, 2672449],
