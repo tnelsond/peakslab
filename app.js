@@ -858,7 +858,7 @@ if(!isDictPage){
 		b.title = t;
 		b.setAttribute('aria-label', t);
 		b.classList.toggle('playing', playing);
-		if (playing) b.reader && follow(b.reader);
+		if (b.reader) reading(b, playing);
 	}
 	// A 🔊 that plays the recordings ([type, bytes]: a compound's parts')
 	// A dictionary's colour, from its name (a speaker's, on their 🔊): a hue
@@ -1243,21 +1243,17 @@ if(!isDictPage){
 	const readers = new Map(); // (a chapter ("gen 1"): {b, text, on, words, ...readTimes})
 	const chapterVerses = w => document.querySelectorAll(`.vs[data-h^="${w}."]`);
 	function readAlong(w, b, text, bytes){
-		const r = readers.get(w) ?? {text, words: [], i: -1, ...readTimes(bytes)};
+		const r = readers.get(w) ?? {w, text, words: [], i: -1, ...readTimes(bytes)};
 		readers.set(w, r);
 		if (!r.b?.isConnected) Object.assign(r, {b, on: false}); // (cards of a chapter share it: the one played is its button)
 		b.reader = r;
-		b.addEventListener('click', () => { // (till it's played, a tap on a verse is its menu)
-			r.b = b;
-			r.on = true;
-			chapterVerses(w).forEach(vs => vs.classList.add('reading'));
-		});
 		chapterVerses(w).forEach(vs => wordSpans(vs, +(vs.closest('.pv-t')?.dataset.d ?? text)));
 	}
 	// A timed verse's words, spans (as times.py counts them; split where a
 	// tag is, and a verse that doesn't count up stays as it is)
+	const readerOf = vs => readers.get(vs.dataset.h.replace(/\.\d+$/, ''));
 	function wordSpans(vs, d){
-		const r = readers.get(vs.dataset.h.replace(/\.\d+$/, ''));
+		const r = readerOf(vs);
 		if (r?.text !== d || vs.querySelector('.w')) return;
 		const v = vs.dataset.v % 1000, at = r.first[v - 1], n = r.first[v] - at, toks = [];
 		vs.querySelectorAll('mark').forEach(m => m.replaceWith(...m.childNodes)); // (a search's: inside a word)
@@ -1275,6 +1271,14 @@ if(!isDictPage){
 			r.words[at + j] = s;
 		}
 		vs.classList.toggle('reading', r.on);
+	}
+	// While it's playing a tap on a word says it (paused or stopped, a tap on
+	// a verse is its menu, with Hear word and Read here)
+	function reading(b, on){
+		const r = b.reader;
+		r.on = on;
+		if (on) { r.b = b; follow(r); }
+		chapterVerses(r.w).forEach(vs => vs.classList.toggle('reading', on));
 	}
 	// The word being said, marked, till it's not playing
 	function follow(r){
@@ -1297,8 +1301,8 @@ if(!isDictPage){
 		};
 		requestAnimationFrame(go);
 	}
-	// A tap on a word while reading: it's said, and the reading goes on from
-	// where it was (if it was going). On a verse's number: from there
+	// A word said, and the reading goes on from where it was (if it was
+	// going). readFrom: from a word; a tap on a verse's number, from there
 	function sayWord(r, i){
 		const {b} = r, o = tnefarOn, live = o?.button === b && o.live();
 		if (!live) b.back = false;
@@ -1307,16 +1311,16 @@ if(!isDictPage){
 		soundPlay(...b.sound, b, r.starts[i], (r.ends[i] || r.starts[i + 1] || r.starts[i] + 100) + 3, () => b.back && playWord(b)).catch(soundError(b));
 		tnefarOn.word = true;
 	}
-	function readFrom(r, v){
+	function readFrom(r, i){
 		const o = tnefarOn;
 		if (o?.button === r.b && o.live()) o.stop();
-		r.b.at = r.starts[r.first[v - 1]];
+		r.b.at = r.starts[i];
 		playWord(r.b);
 	}
 	document.addEventListener('click', e => {
-		const vs = !getSelection().toString().trim() && e.target.closest('.reading'), r = vs && readers.get(vs.dataset.h.replace(/\.\d+$/, '')), w = e.target.closest('.w');
+		const vs = !getSelection().toString().trim() && e.target.closest('.reading'), r = vs && readerOf(vs), w = e.target.closest('.w');
 		if (w && r) sayWord(r, +w.dataset.i);
-		else if (r && e.target.closest('.vs-n')) readFrom(r, vs.dataset.v % 1000);
+		else if (r && e.target.closest('.vs-n')) readFrom(r, r.first[vs.dataset.v % 1000 - 1]);
 	});
 	// … above a verse's card (verses before it in its chapter), below it (after)
 	function moreVerses(card, ref){
@@ -2772,7 +2776,8 @@ if(!isDictPage){
 		else if (sub === 'share') html = ctxBtn('back', 'Back') + (ctx.shares ??= shares()).map(([label, kind], i) => ctxBtn(kind, label, `data-i="${i}"`)).join('');
 		else {
 			const gloss = el && !isGloss(el), glossed = gloss && !sel && el.querySelector(':scope > .tr-entry'), w = bmTarget();
-			html = (el?.matches('.tr-entry') || glossed ? ctxBtn('hide', 'Hide gloss') : gloss ? ctxBtn('gloss', 'Gloss') : '') +
+			html = (ctx.word ? ctxBtn('hear', 'Hear word', '', ICONS.speak) + ctxBtn('read', 'Read here', '', ICONS.speak) : '') +
+				(el?.matches('.tr-entry') || glossed ? ctxBtn('hide', 'Hide gloss') : gloss ? ctxBtn('gloss', 'Gloss') : '') +
 				(sel ? ctxBtn('search', 'Search') + ctxBtn('popup', 'Popup') : '') +
 				(compareOf() ? ctxBtn('compare', 'Compare') : '') +
 				(w && !sel ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
@@ -2795,6 +2800,11 @@ if(!isDictPage){
 		else if (/^(smaller|bigger|dark|mark)$/.test(act)) setPref(act);
 		else if (act === 'bookmark') toggleBookmark(bmTarget(), sel ? null : el.closest('.vs') || el.closest('p-d')?.querySelector(':scope > p-e'));
 		if (/^(speak|share|look|back|smaller|bigger|dark|mark|bookmark)$/.test(act)) return renderCtx();
+		if (act === 'hear' || act === 'read') {
+			const w = ctx.word;
+			closeCtx();
+			return (act === 'hear' ? sayWord : readFrom)(readerOf(w.closest('.vs')), +w.dataset.i);
+		}
 		if (act === 'say') {
 			speechSynthesis.cancel();
 			const u = new SpeechSynthesisUtterance(ctxText());
@@ -2832,7 +2842,7 @@ if(!isDictPage){
 		const t = e.target;
 		const el = !t.closest('a, button, input, textarea, select, audio, video, [role="button"], p-a, p-w, .tr-w, .menu, p-d > h2, .reading .w, .reading .vs-n') &&
 			t.closest('#results, #popupResults, #translation') && t.closest('.tr-entry, p-d.translation, .vs, p-e');
-		if (el && el !== ctx?.el) openCtx({el});
+		if (el && el !== ctx?.el) openCtx({el, word: t.closest('.w')});
 		else if (ctx) closeCtx();
 	});
 	// Selected text: its menu, once the selection settles (iOS needs the
