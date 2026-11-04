@@ -1217,7 +1217,10 @@ if(!isDictPage){
 			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
 			const b = card._audio.b = soundButton([f], d);
 			b.classList.add('ch-play');
-			b.onclick = e => {
+			b.onclick = e => { // (playing, or Play word or Jump on: that stops; else its menu)
+				const playing = tnefarOn?.button === b && tnefarOn.live() && tnefarCtx.state === 'running';
+				if (playing) playWord(b);
+				if (playing || b.reader?.on) return wordTaps(b, false);
 				e.stopPropagation(); // (a tap on a button closes the menu)
 				openCtx({el: b, chapter: true});
 			};
