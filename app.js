@@ -351,19 +351,15 @@ if(!isDictPage){
 		loadmore();
 	}
 
-	// A media entry: a player for a recording (audioSrc), else a picture
-	// (jbig2 decoded)
+	// A media entry: a 🔊 for a recording, else a picture (jbig2 decoded)
 	function mediaElement(type, bytes, name, d){
-		if (TNEFAR.test(type)) return soundButton([[type, bytes]], '🔊 Play', d); // (played as it's decoded: no file for a player)
+		if (AUDIO.test(type)) return soundButton([[type, bytes]], d);
 		if (/^voice$/i.test(type)) return document.createTextNode('The voice its tnefar recordings are decoded with');
-		const audio = AUDIO.test(type), el = document.createElement(audio ? 'audio' : 'img');
-		if (audio) el.controls = true;
-		else {
-			el.alt = name;
-			el.style.maxWidth = '100%';
-		}
-		(audio ? audioSrc(type, bytes) : (/jbig2/i.test(type) ? jbig2toPng(bytes) : Promise.resolve(new Blob([bytes], {type: 'image/' + type.toLowerCase()})))
-			.then(b => URL.createObjectURL(b))).then(u => { el.src = u; });
+		const el = document.createElement('img');
+		el.alt = name;
+		el.style.maxWidth = '100%';
+		(/jbig2/i.test(type) ? jbig2toPng(bytes) : Promise.resolve(new Blob([bytes], {type: 'image/' + type.toLowerCase()})))
+			.then(b => { el.src = URL.createObjectURL(b); });
 		return el;
 	}
 
@@ -833,18 +829,21 @@ if(!isDictPage){
 
 	// A button's look while it plays (⏸, Pause) or not (as it was: 🔊, Play)
 	function tnefarShow(b, playing){
-		const label = b._label ??= b.textContent, t = playing ? 'Pause' : 'Play';
-		b.textContent = playing ? label.replace('🔊', '⏸').replace('Play', 'Pause') : label;
+		const t = playing ? 'Pause' : 'Play';
+		b.textContent = playing ? '⏸' : '🔊';
 		b.title = t;
 		b.setAttribute('aria-label', t);
 		b.classList.toggle('playing', playing);
 	}
 	// A 🔊 that plays the recordings ([type, bytes]: a compound's parts')
-	function soundButton(recs, label, d){
+	// A dictionary's colour, from its name (a speaker's, on their 🔊): a hue
+	const voiced = (b, d) => b.style.setProperty('--voice', [...dicts[d].path].reduce((h, c) => h * 33 + c.charCodeAt(0) >>> 0, 7) % 360);
+	function soundButton(recs, d){
 		if (recs.some(([t]) => TNEFAR.test(t))) tnefarWasm().catch(() => {}); // (loading while it's not played yet)
 		const b = document.createElement('button');
-		b.className = 'text-btn';
-		b.textContent = label;
+		b.className = 'sound';
+		b.textContent = '🔊';
+		voiced(b, d);
 		b.title = 'Play';
 		b.setAttribute('aria-label', 'Play');
 		b.sound = [recs, d];
@@ -1190,7 +1189,7 @@ if(!isDictPage){
 		dictIds.filter(d => libOn[d] && dicts[d].media).forEach(d => askDict(d, {type: 'media', words: [w]}).then(r => {
 			const f = r.files[0];
 			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
-			const b = card._audio.b = soundButton([f], '🔊', d);
+			const b = card._audio.b = soundButton([f], d);
 			b.classList.add('ch-play');
 			put(b);
 		}));
@@ -2351,22 +2350,19 @@ if(!isDictPage){
 				const bs = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(word)}"]`), [type, bytes] = fs[0];
 				if (!AUDIO.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(type, bytes, word)).classList.add('tr-img'); });
 				bs.forEach(w => {
-					const b = w.querySelector('.tr-play') ?? Object.assign(w.appendChild(soundButton(fs, '🔊', d)), {className: 'tr-play', voices: [], turn: 0});
+					const b = w.querySelector('.tr-play') ?? Object.assign(w.appendChild(soundButton(fs, d)), {className: 'sound tr-play', voices: [], turn: 0});
 					b.voices.push([fs, d]);
 					b.voices.sort((x, y) => rank(dicts[x[1]].priority) - rank(dicts[y[1]].priority));
 					if (b.voices.length > 1) b.dataset.n = b.voices.length;
+					if (!b.turn) voiced(b, b.voices[0][1]);
 				});
 			}));
 		});
 	}
 	window.playWord = b => {
-		if (b.voices && !(tnefarOn?.button === b && tnefarOn.live())) b.sound = b.voices[b.turn++ % b.voices.length]; // (playing: it pauses)
+		if (b.voices && !(tnefarOn?.button === b && tnefarOn.live())) voiced(b, (b.sound = b.voices[b.turn++ % b.voices.length])[1]); // (playing: it pauses)
 		soundPlay(...b.sound, b).catch(e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; });
 	};
-	// A recording's URL, ready before it's played: phones play sound only
-	// right in the tap, not after something else finishes (like decoding)
-	const audioSrc = async (type, bytes) => URL.createObjectURL(/codec2|c2/i.test(type) ? await codec2toWav(bytes) : new Blob([bytes], {type: audioType(type)}));
-	const audioType = t => /webm/i.test(t) ? 'audio/webm; codecs=opus' : 'audio/' + t.toLowerCase();
 
 	// The gloss of an entry's (or verse's) text, or some of it: above the
 	// text (after the entry's name and buttons), so a long one doesn't push
