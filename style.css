@@ -730,6 +730,7 @@ body.no-mark mark { background: none; color: inherit; }
 p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 /* The context menu's Bookmark, bookmarked: filled */
 .ctx-row button[aria-pressed="true"] svg { fill: currentColor; }
+.ctx-row button[data-c="loop"][aria-pressed="true"] { background: rgba(255, 255, 255, .22); }
 .bk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .bk-grid.ch { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
 .bk-grid button {

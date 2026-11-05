@@ -1221,10 +1221,10 @@ if(!isDictPage){
 			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
 			const b = card._audio.b = soundButton([f], d);
 			b.classList.add('ch-play');
-			b.onclick = e => { // (playing, or Play word or Jump on: that stops; else its menu)
+			b.onclick = e => { // (playing, or Play word on: that stops; else its menu)
 				const playing = tnefarOn?.button === b && tnefarOn.live() && tnefarCtx.state === 'running';
 				if (playing) playWord(b);
-				if (playing || b.reader?.on) return wordTaps(b, false);
+				if (playing || b.reader?.on === 'words') return wordTaps(b, false);
 				e.stopPropagation(); // (a tap on a button closes the menu)
 				openCtx({el: b, chapter: true});
 			};
@@ -1274,8 +1274,9 @@ if(!isDictPage){
 		b.reader = r;
 		chapterVerses(w).forEach(vs => wordSpans(vs, +(vs.closest('.pv-t')?.dataset.d ?? text)));
 	}
-	// A timed verse's words, spans (as times.py counts them; split where a
-	// tag is, and a verse that doesn't count up stays as it is)
+	// A timed verse's words, its headings' too, spans (as times.py counts
+	// them; split where a tag is, and a verse that doesn't count up stays as
+	// it is)
 	const readerOf = vs => readers.get(vs.dataset.h.replace(/\.\d+$/, ''));
 	function wordSpans(vs, d){
 		const r = readerOf(vs);
@@ -1283,7 +1284,7 @@ if(!isDictPage){
 		const v = vs.dataset.v % 1000, at = r.first[v - 1], n = r.first[v] - at, toks = [];
 		vs.querySelectorAll('mark').forEach(m => m.replaceWith(...m.childNodes)); // (a search's: inside a word)
 		vs.normalize();
-		const walk = document.createTreeWalker(vs, NodeFilter.SHOW_TEXT, {acceptNode: t => t.parentElement.closest('.vs-n, .vs-note, h1, h2, h3, h4, h5, h6') ? 2 : 1});
+		const walk = document.createTreeWalker(vs, NodeFilter.SHOW_TEXT, {acceptNode: t => t.parentElement.closest('.vs-n, .vs-note') ? 2 : 1});
 		for (let t; t = walk.nextNode();) for (const m of t.data.matchAll(/[^\s\u200b]+/g)) if (/[\u1780-\u17d3]/.test(m[0])) toks.push([t, m.index, m[0].length]);
 		if (toks.length !== n) return;
 		for (let j = n; j--;) { // (from the last: the text before it stays where it was)
@@ -1318,20 +1319,23 @@ if(!isDictPage){
 		};
 		requestAnimationFrame(go);
 	}
-	// Its menu (its 🔊): Play; Play word: a tap on a word says it, and the
-	// reading goes on from where it was (if it was going); Jump: a tap on a
-	// word reads from it; with either, a tap on a verse's number reads from it
+	// Its menu (its 🔊): Loop: at the end it reads again what it's reading
+	// (its verses, or the chapter); Play: while it's reading, a tap on a word reads from
+	// it; Play word: a tap on a word says it, and the reading goes on from
+	// where it was (if it was going); with either, a tap on a verse's number
+	// reads from it
 	function wordTaps(b, on){
 		const r = b.reader;
 		if (!r) return;
 		r.on = on;
 		r.b = b;
-		b.classList.toggle('words', !!on);
+		b.classList.toggle('words', on === 'words');
 		chapterVerses(r.w).forEach(vs => vs.classList.toggle('reading', !!on));
 	}
 	function goTo(b, frame){
 		if (tnefarOn?.button === b && tnefarOn.live()) tnefarOn.stop();
 		b.at = Math.max(b.from || 0, b.to ? Math.min(frame, b.to - 1) : frame);
+		if (!b.reader?.on) wordTaps(b, 'play');
 		playWord(b);
 	}
 	const skip = (b, by) => goTo(b, (tnefarOn?.button === b && tnefarOn.live() && !tnefarOn.word ? tnefarOn.frame() : b.at || 0) + by);
@@ -1345,7 +1349,7 @@ if(!isDictPage){
 	}
 	document.addEventListener('click', e => {
 		const vs = !getSelection().toString().trim() && e.target.closest('.reading'), r = vs && readerOf(vs), w = e.target.closest('.w');
-		if (w && r) r.on === 'jump' ? goTo(r.b, r.starts[w.dataset.i]) : sayWord(r, +w.dataset.i);
+		if (w && r) r.on === 'words' ? sayWord(r, +w.dataset.i) : goTo(r.b, r.starts[w.dataset.i]);
 		else if (r && e.target.closest('.vs-n')) goTo(r.b, r.starts[r.first[vs.dataset.v % 1000 - 1]]);
 	});
 	// … above a verse's card (verses before it in its chapter), below it (after)
@@ -2516,7 +2520,11 @@ if(!isDictPage){
 	const soundError = b => e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; };
 	window.playWord = b => {
 		if (b.voices && !(tnefarOn?.button === b && tnefarOn.live())) voiced(b, (b.sound = b.voices[b.turn++ % b.voices.length])[1]); // (playing: it pauses)
-		soundPlay(...b.sound, b, b.at || b.from, b.to, () => { b.at = 0; }).catch(soundError(b));
+		soundPlay(...b.sound, b, b.at || b.from, b.to, () => {
+			b.at = 0;
+			if (b.loop) return playWord(b);
+			if (b.reader?.on === 'play') wordTaps(b, false);
+		}).catch(soundError(b));
 	};
 
 	// The gloss of an entry's (or verse's) text, or some of it: above the
@@ -2804,7 +2812,8 @@ if(!isDictPage){
 		const {el, sel, sub} = ctx;
 		let html;
 		if (ctx.chapter) html = ctxBtn('rew', 'Rewind', '', '<b>⏪&#xFE0E;</b>') + ctxBtn('play', 'Play', '', '<b>▶&#xFE0E;</b>') + ctxBtn('ffw', 'Forward', '', '<b>⏩&#xFE0E;</b>') +
-			(el.reader ? ctxBtn('words', 'Play word', `aria-pressed="${el.reader.on === 'words'}"`, ICONS.speak) + ctxBtn('jump', 'Jump', `aria-pressed="${el.reader.on === 'jump'}"`, '<b>⤵&#xFE0E;</b>') : '');
+			ctxBtn('loop', 'Loop', `aria-pressed="${!!el.loop}"`, '<b>🔁&#xFE0E;</b>') +
+			(el.reader ? ctxBtn('words', 'Play word', `aria-pressed="${el.reader.on === 'words'}"`, ICONS.speak) : '');
 		else if (sub === 'speak') html = ctxBtn('back', 'Back') + voiceLangs().map(x => ctxBtn('say', x.name, `data-lang="${x.val}"`,
 			abbr[x.name.toLowerCase()]?.[3] ? `<span class="ctx-flag" aria-hidden="true">${abbr[x.name.toLowerCase()][3]}</span>` : ICONS.speak)).join('');
 		else if (sub === 'look') html = ctxBtn('back', 'Back') + ctxBtn('smaller', 'Smaller') + ctxBtn('bigger', 'Bigger') +
@@ -2831,10 +2840,11 @@ if(!isDictPage){
 		const b = e.target.closest('button');
 		if (!b || !ctx) return;
 		const {el, sel} = ctx, act = b.dataset.c, h = compareOf(); // (before it closes)
-		if (ctx.chapter) { // (Rewind, Forward: 10 s, and it's left open to go further)
+		if (ctx.chapter) { // (Rewind, Forward: 10 s, and it's left open to go further; Loop: on or off, left open)
 			if (act === 'rew' || act === 'ffw') return skip(el, act === 'rew' ? -1000 : 1000);
+			if (act === 'loop') { el.loop = !el.loop; return renderCtx(); }
 			closeCtx();
-			wordTaps(el, act !== 'play' && act);
+			wordTaps(el, act);
 			return act === 'play' && playWord(el);
 		}
 		// A menu in it (Back: out of it), or what stays open (tap again for more, or to undo)
