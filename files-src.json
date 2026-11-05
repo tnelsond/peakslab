@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793883204],
+    ["404.html", 1793884448],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -164,6 +164,7 @@
     ["khmer/media/audio2-tnefar.slab", 1793698097, "Khmer Audio (includes bible words), tnefar codec: 700 bps", 288624, 1, "aux", 0, 542343],
     ["khmer/media/audio.slab", 1792225424, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 12916, 2, "aux", 0, 7228877],
     ["khmer/media/images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2, "aux", 0, 3272094],
+    ["khmer/media/kheng.slab", 1793884444, "Khmer Audio from <a href=\"kheng.info\">kheng.info</a>, three speakers, tnefar codec: 700 bps", 288706, 2, "aux", 0, 1248007],
     ["khmer/media/khsv-1.slab", 1793878522, "Bible Words, Genesis, Matthew and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713815, 2, "aux", 0, 1072342],
     ["khmer/media/khsv-2.slab", 1793878550, "Bible Words, Joshua to Esther and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713818, 2, "aux", 0, 1157199],
     ["khmer/media/khsv-3.slab", 1793878565, "Bible Words, Job to Song of Songs and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713812, 2, "aux", 0, 1046987],

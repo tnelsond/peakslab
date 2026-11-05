@@ -48,3 +48,5 @@ Needs `fcq` and `fargan_demo` (opus2/zclaude). For dictworking/khmer/rithaudio:
 
 A new speaker needs their own voice (codebook + postfilter, ~30 min of their speech is plenty):
 add it to `voices[]` in tnefar.c. Files name their voice by the codebook's id byte.
+Several speakers in one slab: `tnefar1.voice`, `tnefar2.voice`, ... and each recording `word<tab>1.tnefar`, so its
+index entry is filename, voice number, extension (`dict_src/khmer/media/kheng`).

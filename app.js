@@ -280,7 +280,7 @@ if(!isDictPage){
 				(data.body?.includes('<p-m') ? chordsBtnHTML : '') + highlightText(data.body, data.query));
 			const el = t.content.firstChild;
 			if(data.filetype)
-				el.append(mediaElement(data.filetype, data.body, data.header, d));
+				el.append(mediaElement(data.filetype, data.body, data.header, d, data.subheader.join()));
 			// (recordings: their 🔊s together on the card's first line, their dictionaries under them)
 			if (AUDIO.test(data.filetype)) {
 				const box = div.querySelector(':scope > .sounds') ?? Object.assign(div.querySelector(':scope > h2').insertAdjacentElement('afterend', document.createElement('div')), {className: 'sounds'});
@@ -363,8 +363,8 @@ if(!isDictPage){
 	}
 
 	// A media entry: a 🔊 for a recording, else a picture (jbig2 decoded)
-	function mediaElement(type, bytes, name, d){
-		if (AUDIO.test(type)) return soundButton([[type, bytes]], d);
+	function mediaElement(type, bytes, name, d, details){
+		if (AUDIO.test(type)) return soundButton([[type, bytes, details]], d);
 		if (/^voice$/i.test(type)) return document.createTextNode('The voice its tnefar recordings are decoded with');
 		if (/^times$/i.test(type)) return document.createTextNode('When each word of a chapter is said');
 		const el = document.createElement('img');
@@ -759,11 +759,13 @@ if(!isDictPage){
 	const tnefarDone = new WeakMap(); // a recording's bytes -> its sound ([samples, rate]: 16 kHz, tnefar's)
 	let tnefarCtx, tnefarX, tnefarHeld, tnefarJob = 0, tnefarOn = null; // (tnefarOn: what's playing, {button, live, stop, frame})
 	const tnefarWasm = () => tnefarX ??= decoder('tnefar').then(x => (x._initialize?.(), x));
-	// A dictionary's voice, in the wasm's memory: [where, length]
+	// A dictionary's voice, in the wasm's memory: [where, length]. With
+	// several speakers in a slab, a recording's details are its voice's number:
+	// "word<tab>2.tnefar" is in the voice tnefar2.voice
 	const tnefarVoices = {};
-	const tnefarVoice = (x, d) => tnefarVoices[d] ??= askDict(d, {type: 'media', words: ['tnefar']}).then(r => {
+	const tnefarVoice = (x, d, n) => tnefarVoices[`${d} ${n}`] ??= askDict(d, {type: 'media', words: [`tnefar${n}`]}).then(r => {
 		const v = r.files[0]?.[1];
-		if (!v) throw new Error(`tnefar: ${dicts[d].name} has no voice (tnefar.voice)`);
+		if (!v) throw new Error(`tnefar: ${dicts[d].name} has no voice (tnefar${n}.voice)`);
 		return [toWasm(x, v), v.length];
 	});
 	// Play recordings ([type, bytes]: tnefar's, and the others' (webm, ...),
@@ -836,7 +838,7 @@ if(!isDictPage){
 		};
 		made = false;
 		const ahead = () => job === tnefarJob && at - ctx.currentTime;
-		try { for (const [type, bytes] of recs) if (job === tnefarJob) await (TNEFAR.test(type) ? tnefarMake(bytes, d, play, ahead, from, to, rate) : soundMake(type, bytes, ctx, play)); }
+		try { for (const [type, bytes, voice] of recs) if (job === tnefarJob) await (TNEFAR.test(type) ? tnefarMake(bytes, d, voice, play, ahead, from, to, rate) : soundMake(type, bytes, ctx, play)); }
 		finally { made = true; }
 	}
 	// Another recording's sound (webm, codec2, ...: the browser decodes it)
@@ -850,9 +852,9 @@ if(!isDictPage){
 	}
 	// A recording's sound to play(), a piece at a time (ahead(): how far
 	// it's ahead of what's playing, or false: stop)
-	async function tnefarMake(bytes, d, play, ahead, from, to, rate){
+	async function tnefarMake(bytes, d, voice, play, ahead, from, to, rate){
 		if (!to && !from && rate === 1 && tnefarDone.has(bytes)) return play(...tnefarDone.get(bytes));
-		const x = await tnefarWasm(), [v, vn] = await tnefarVoice(x, d), held = tnefarHeld?.bytes === bytes;
+		const x = await tnefarWasm(), [v, vn] = await tnefarVoice(x, d, voice), held = tnefarHeld?.bytes === bytes;
 		let h = tnefarHeld?.h;
 		if (!held) {
 			const p = toWasm(x, bytes);
