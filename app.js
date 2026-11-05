@@ -2562,8 +2562,9 @@ if(!isDictPage){
 				bs.forEach(w => {
 					const b = w.querySelector('.tr-play') ?? Object.assign(w.appendChild(soundButton(fs, d)), {className: 'sound tr-play', voices: [], turn: 0});
 					b.voices.push([fs, d]);
+					if (b.voices.some(v => v[0].length === 1)) b.voices = b.voices.filter(v => v[0].length === 1); // (one's parts one after another: only if none has the word itself)
 					b.voices.sort((x, y) => rank(dicts[x[1]].priority) - rank(dicts[y[1]].priority));
-					if (b.voices.length > 1) b.dataset.n = b.voices.length;
+					if (b.voices.length > 1) b.dataset.n = b.voices.length; else delete b.dataset.n;
 					if (!b.turn) voiced(b, b.voices[0][1]);
 				});
 			}));
