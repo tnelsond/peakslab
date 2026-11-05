@@ -137,10 +137,11 @@ def key(code, c, v):
     vs = [x for x in khov[code] if x[0] == c]
     return min(vs) if vs else None
 
-entries = defaultdict(lambda: {'notes': [], 'xrefs': [], 'par': []})  # (code, c, v)
+entries = defaultdict(lambda: {'intro': [], 'notes': [], 'xrefs': [], 'par': [], 'after': []})  # (code, c, v)
 
-def note_html(n):
-    runs = n['runs']
+def runs_html(runs, book, c):
+    """Runs ([text, bold, limon], '\\n' between lines) -> HTML"""
+    runs = [list(r) for r in runs]
     # A bold word's last letter is often set in the plain font: give it back
     for i in range(len(runs) - 1):
         a, b = runs[i], runs[i + 1]
@@ -170,15 +171,86 @@ def note_html(n):
         p[0] = p[0].replace('\x01', '')
         if p[1] and p[2] and nxt and not nxt.isspace() and not re.search(r'\s$', p[0]) and i + 1 < len(parts) and not parts[i + 1][1]:
             p[0] += ' '  # after a bold word
-    c = n['start'][0]
     html = ''
     for t, b, lim in parts:
         if not t:
             continue
-        h = linkify(t, n['book'], c) if lim else escape(t)
+        h = linkify(t, book, c) if lim else escape(t)
         html += f'<b>{h}</b>' if b and t.strip() else h
+    return html.strip()
+
+def note_html(n):
+    html = runs_html(n['runs'], n['book'], n['start'][0])
     lab = re.sub(r'(\d+)³', r'\1:', n['label']).replace('/', ',')
-    return f'<p><b>{kd(lab)}</b>{html.rstrip()}</p>'
+    return f'<p><b>{kd(lab)}</b>{html}</p>'
+
+# --------------------------------------------------------------- introductions, maps, tables
+import base64, io
+_docs = {}
+def picture(pdf, page, bbox=None):
+    """A page (or a part of it) as an inline WEBP"""
+    import pymupdf
+    from PIL import Image, ImageChops
+    doc = _docs.setdefault(pdf, pymupdf.open(pdf))
+    pg = doc[page - 1]
+    clip = pymupdf.Rect(bbox) + (-3, -3, 3, 3) if bbox else pymupdf.Rect(0, 34, pg.rect.width, pg.rect.height - 30)  # (not its running head, page number)
+    pix = pg.get_pixmap(matrix=pymupdf.Matrix(2, 2), clip=clip)
+    im = Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
+    box = ImageChops.difference(im, Image.new('RGB', im.size, 'white')).point(lambda x: 255 if x > 24 else 0).getbbox()
+    if box:
+        im = im.crop((max(box[0] - 8, 0), max(box[1] - 8, 0), min(box[2] + 8, im.width), min(box[3] + 8, im.height)))
+    b = io.BytesIO()
+    im.save(b, 'WEBP', quality=60, method=6)
+    return f'<img src="data:image/webp;base64,{base64.b64encode(b.getvalue()).decode()}" style="max-width:100%">'
+
+def prose_html(pages, book):
+    """An introduction's (or an essay's) pages -> headings and paragraphs"""
+    out, para, last = [], [], None
+    def flush():
+        if para:
+            h = runs_html(para, book, 1)
+            if h:
+                out.append(f'<p>{h}</p>')
+            para.clear()
+    for pg in pages:
+        if pg['kind'] == 'figure':
+            flush()
+            out.append(f'<p>{picture(pg["pdf"], pg["page"])}</p>')
+            last = None
+            continue
+        body = [L for L in pg['lines'] if 16 <= L['size'] <= 17.6] or pg['lines']
+        edge = {}
+        for col in (0, 1):
+            ls = [L for L in body if L['col'] == col]
+            if ls:
+                edge[col] = (min(L['x0'] for L in ls), max(L['x1'] for L in ls))
+        for L in pg['lines']:
+            runs = [r for r in L['runs'] if r[0]]
+            text = ''.join(r[0] for r in runs).strip()
+            if not text:
+                continue
+            if re.fullmatch(r'[IVX]+\.', text) and out and out[-1].startswith('<h4>') and not para:
+                out[-1] = f'<h4>{text} ' + out[-1][4:]  # an outline's part number, set beside its heading
+                continue
+            left, right = edge.get(L['col'], (L['x0'], L['x1']))
+            lim = [r for r in runs if r[2] and r[0].strip()]
+            title = L['size'] >= 18.5 or L.get('chhay')
+            head = title or L['size'] >= 17.8 or (lim and all(r[1] for r in lim) and L['x1'] - L['x0'] < 0.75 * (right - left) and len(text) < 90)
+            if head:
+                flush()
+                h = runs_html([[r[0], False, r[2]] for r in runs], book, 1)
+                if h:
+                    out.append(f'<h4>{h}</h4>')
+                last = None
+                continue
+            if last is None or L['x0'] > left + 12 or last['x1'] < last_right - 35 or L['col'] != last['col'] and L['x0'] > left + 12:
+                flush()
+            elif para:
+                para.append(['\n', False, False])
+            para += [list(r) for r in runs]
+            last, last_right = L, right
+    flush()
+    return ''.join(out)
 
 def ctx_text(ctx):
     """The words of the verse just before a marker (Limon): its last phrase"""
@@ -307,8 +379,10 @@ def parallels_of(lines):
 
 xrefs_by_verse = {}
 allnotes, allx, alltm, allpar = [], [], [], []
+seqs = []  # each PDF's pages in order: its text pages' places, its other pages
 for f in PARSED:
     d = json.load(open(f))
+    seqs.append(sorted([dict(x, kind='text') for x in d.get('pagepos', [])] + d.get('prose', []), key=lambda x: (x['page'], x['kind'] == 'region')))
     allnotes += d['notes']
     allx += d['xstream']
     alltm += d['textmarks']
@@ -366,6 +440,46 @@ for book, c, v, lab, rest in parallels_of(allpar):
         entries[(book,) + k]['par'].append(f'<li><b>{labh}</b> = {h}</li>')
 
 # --------------------------------------------------------------- convert, write
+# Each introduction to its book's first verse; a map, table or essay after
+# a book's text (or among it) to the verse before it
+figs = 0
+for seq in seqs:
+    text = [x for x in seq if x['kind'] == 'text']
+    groups = []  # [target, where, pages]
+    for x in seq:
+        if x['kind'] == 'text':
+            continue
+        if x['kind'] == 'region':
+            t = next((y for y in reversed(text) if y['page'] == x['page']), None)
+            k = key(t['book'], t['c'], t['v']) if t else None
+            if k:
+                entries[(t['book'],) + k]['after'].append(f'<p>{picture(x["pdf"], x["page"], x["bbox"])}</p>')
+                figs += 1
+            continue
+        P = next((y for y in reversed(text) if y['page'] < x['page']), None)
+        N = next((y for y in text if y['page'] > x['page']), None)
+        titled = any(y['title'] for y in seq if y['kind'] == 'prose' and (P is None or y['page'] > P['page']) and y['page'] <= x['page'])
+        if N and (P is None or titled and N['book'] != P['book']):
+            tgt, where = (N['book'], 1, 1), 'intro'
+        elif P:
+            tgt, where = (P['book'], P['c'], P['v']), 'after'
+        else:
+            continue
+        if groups and groups[-1][0] == tgt and groups[-1][1] == where and groups[-1][2][-1]['page'] == x['page'] - 1:
+            groups[-1][2].append(x)
+        else:
+            groups.append([tgt, where, [x]])
+    for (b, c, v), where, pages in groups:
+        k = key(b, c, v)
+        if not k:
+            continue
+        figs += sum(p['kind'] == 'figure' for p in pages)
+        h = prose_html(pages, b)
+        if h:
+            entries[(b,) + k][where].append(h)
+    print('introductions and the like:', [(g[0], g[1], g[2][0]['page'], g[2][-1]['page']) for g in groups], file=sys.stderr)
+print(figs, 'pictures', file=sys.stderr)
+
 conv_tmp = os.path.join(os.path.dirname(OUT) or '.', '.conv.json')
 json.dump(conv_in, open(conv_tmp + '.in', 'w'), ensure_ascii=False)
 subprocess.run(['node', os.path.join(HERE, 'conv.mjs'), os.path.abspath(conv_tmp + '.in'), os.path.abspath(conv_tmp + '.out')], check=True, cwd=HERE)
@@ -375,17 +489,18 @@ rank = {b: i for i, b in enumerate(ORDER)}
 lines = []
 for (book, c, v) in sorted(entries, key=lambda k: (rank[k[0]], k[1], k[2])):
     e = entries[(book, c, v)]
-    body = ''.join(e['notes'])
+    body = ''.join(f'<div class="intro">{h}</div>' for h in e['intro']) + ''.join(e['notes'])
     if e['xrefs']:
         body += '<h4>ខគម្ពីរយោង</h4><ul class="xref">' + ''.join(e['xrefs']) + '</ul>'
     if e['par']:
         body += '<h4>អត្ថបទស្រដៀងគ្នា</h4><ul class="xref">' + ''.join(e['par']) + '</ul>'
+    body += ''.join(e['after'])
     body = resolve(body)
     body = re.sub(r'\s+', ' ', body).replace('\t', ' ')
     lines.append(f'{book} {c}.{v}\t@{NAMES[book]} {c}:{v}\t{body}\n')
 
 with open(OUT, 'w', encoding='utf-8') as out:
-    out.write('#desc\tKhmer Study Bible notes and cross references (ព្រះគម្ពីរបរិសុទ្ធសម្រាប់សិក្សា), '
+    out.write('#desc\tKhmer Study Bible notes, cross references, book introductions and outlines, maps and tables (ព្រះគម្ពីរបរិសុទ្ធសម្រាប់សិក្សា), '
               'set to the Hammond 1954 Khmer Bible (KHOV). Study Notes © The Bible League; '
               'published by The Bible League Cambodia\n#priority\t3\n#lang\tmono\n#no sort\n#collapsed\n')
     out.writelines(lines)

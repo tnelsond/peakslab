@@ -65,7 +65,7 @@ def is_marker(s): return 9.5 <= s['size'] <= 10.5 and 'Lmn' in s['font']
 
 def runs_of(seg, inv):
     """[(text, bold, limon)] for a segment"""
-    limon = 'Lmn' in seg['font']
+    limon = 'Lmn' in seg['font'] or 'CHHAY' in seg['font']  # (Chhay Round: the titles, Limon's encoding too)
     out = []
     for ch, f in zip(seg['t'].replace('\t', ' '), seg['b']):
         b = limon and inv[f].split('+')[0] in BOLD
@@ -75,19 +75,28 @@ def runs_of(seg, inv):
             out.append([ch, b, limon])
     return out
 
+def runs_of_spaced(seg, inv):
+    """runs_of, and a space before a segment that starts apart from the last"""
+    return runs_of(seg, inv)
+
+KINDS, REGIONS, FIGPDF = {}, {}, {}
+def load_figures(jsonl, fig):
+    d = json.load(open(fig))
+    KINDS[jsonl], REGIONS[jsonl], FIGPDF[jsonl] = d['pages'], d['regions'], d['pdf']
+
 def page_book(p):
     hs = [s['t'] for s in p['segs'] if s['top'] < 32 and s['size'] >= 16 and not re.fullmatch(r'\s*\d+\s*', s['t'])]
     name = re.sub(r'\s*\d+³.*', '', ' '.join(hs)).strip()
     name = re.sub(r'\s+\d+$', '', name).replace(' ', '')
     return HEADS.get(name)
 
-def lines_of(segs, W, pred, extra=None):
+def lines_of(segs, W, pred, extra=None, extra_alone=False, onecol=False):
     """Visual lines of the segments pred picks: [(col, top, x0, [runs])],
     left column then right column, top to bottom"""
     picked = [s for s in segs if pred(s)]
     lines = []
     for s in sorted(picked, key=lambda s: (s['x0'] >= W / 2 - 8, s['top'], s['x0'])):
-        col = int(s['x0'] >= W / 2 - 8)
+        col = 0 if onecol else int(s['x0'] >= W / 2 - 8)
         for L in lines:
             if L['col'] == col and abs(L['top'] - s['top']) < 3:
                 L['segs'].append(s)
@@ -97,11 +106,14 @@ def lines_of(segs, W, pred, extra=None):
     if extra:  # e.g. English words (Times) set inside a note's line
         for s in segs:
             if extra(s):
-                col = int(s['x0'] >= W / 2 - 8)
+                col = 0 if onecol else int(s['x0'] >= W / 2 - 8)
                 for L in lines:
                     if L['col'] == col and -3 < s['top'] - L['top'] < 9:
                         L['segs'].append(s)
                         break
+                else:
+                    if extra_alone:
+                        lines.append({'col': col, 'top': s['top'], 'segs': [s]})
     lines.sort(key=lambda L: (L['col'], L['top']))
     for L in lines:
         L['segs'].sort(key=lambda s: s['x0'])
@@ -113,6 +125,7 @@ def main(files, out):
     parallels = []  # (book, page, text)
     textmarks = {}  # (book, c, v, marker) -> context (Limon)
     vnums = defaultdict(set)
+    prose, pagepos = [], []
     for path in files:
         book = None
         tc, tv = 0, 0  # text's chapter, verse
@@ -124,11 +137,33 @@ def main(files, out):
             hb = page_book(p)
             if hb and hb != book:
                 book, tc, tv = hb, 0, 0
+            kind = KINDS.get(path, {}).get(str(p['page']), 'text')
+            if kind != 'text':  # an introduction, an outline, a map, a table: kept for build.py
+                if kind != 'skip':
+                    big = any(('Lmn' in s['font'] and s['size'] >= 17.9) or 'CHHAY' in s['font'] for s in p['segs'])
+                    lines = []
+                    if kind == 'prose':
+                        body = [s for s in p['segs'] if 'Lmn' in s['font'] and 16 <= s['size'] <= 17.6]
+                        spans = sum(1 for s in body if s['x0'] < W / 2 - 20 and s['x1'] > W / 2 + 20)
+                        onecol = spans >= len(body) * 0.3 or spans >= 8  # (most such pages are one column)
+                        for L in lines_of([s for s in p['segs'] if s['size'] > 1 and not re.fullmatch(r'\s*\d+\s*', s['t'])], W,
+                                          lambda s: s['size'] > 1 and ('Lmn' in s['font'] or 'CHHAY' in s['font']),
+                                          lambda s: ('Times' in s['font'] or 'Arial' in s['font']) and s['size'] > 1, True, onecol):
+                            lines.append({'chhay': any('CHHAY' in x['font'] for x in L['segs']), 'col': L['col'], 'top': L['top'], 'x0': L['segs'][0]['x0'], 'x1': L['segs'][-1]['x1'],
+                                          'size': max((x for x in L['segs'] if 'Times' not in x['font']), key=lambda x: len(x['t'].strip()))['size'] if any('Times' not in x['font'] for x in L['segs']) else 17,
+                                          'runs': [r for x in L['segs'] for r in runs_of_spaced(x, inv)]})
+                    prose.append({'page': p['page'], 'kind': kind, 'title': big, 'W': W, 'lines': lines,
+                                  'pdf': FIGPDF.get(path)})
+                continue
             if not book:
                 continue
             p_book = book
-            if not any(is_vnum(s) or is_chnum(s) for s in segs):
-                continue  # an introduction, a table, a map: no Bible text, no notes on it
+            regions = [r[1:] for r in REGIONS.get(path, []) if r[0] == p['page']]
+            if regions:  # a table among the text: a picture of it, not notes
+                inside = lambda s: any(r[0] - 2 <= (s['x0'] + s['x1']) / 2 <= r[2] + 2 and r[1] - 2 <= s['top'] + s['size'] / 2 <= r[3] + 2 for r in regions)
+                segs = [s for s in segs if not inside(s)]
+                for r in regions:
+                    prose.append({'page': p['page'], 'kind': 'region', 'bbox': r, 'pdf': FIGPDF.get(path), 'title': False, 'lines': []})
             # --- the Bible text: chapter and verse numbers, and the markers
             ctx = since = ''
             for s in segs:
@@ -151,6 +186,7 @@ def main(files, out):
                 elif is_text(s):
                     ctx = (ctx + s['t'])[-200:]
                     since = (since + s['t'])[-200:]
+            pagepos.append({'page': p['page'], 'pdf': FIGPDF.get(path), 'book': book, 'c': tc, 'v': tv})
             # --- notes
             nl = lines_of(segs, W, is_note, lambda s: 'Times' in s['font'] and 7 <= s['size'] <= 12.5)
             for L in nl:  # above some of the Bible's text: not a note
@@ -224,8 +260,14 @@ def main(files, out):
     print(fixed, 'chapters fixed', file=sys.stderr)
     json.dump({'notes': notes, 'xstream': xstream, 'parallels': parallels,
                'textmarks': [[*k, v] for k, v in textmarks.items()],
-               'vnums': {b: sorted(v) for b, v in vnums.items()}}, open(out, 'w'), ensure_ascii=False)
+               'vnums': {b: sorted(v) for b, v in vnums.items()},
+               'prose': prose, 'pagepos': pagepos}, open(out, 'w'), ensure_ascii=False)
     print(len(notes), 'notes', len(xstream), 'xref pages', len(parallels), 'parallel lines', len(textmarks), 'text markers', file=sys.stderr)
 
 if __name__ == '__main__':
-    main(sys.argv[1:-1], sys.argv[-1])
+    # parse.py <pages.jsonl> [figures.json] <out.json>
+    args = sys.argv[1:]
+    if len(args) == 3:
+        load_figures(args[0], args[1])
+        args = [args[0], args[2]]
+    main(args[:-1], args[-1])
