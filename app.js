@@ -336,8 +336,14 @@ if(!isDictPage){
 		popMenu(h, `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
 			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>` +
 			(isAligned(dicts[d]) ? `<button data-a="pairs">${pairs ? 'Every sense' : 'Only senses another language has too'}</button>` : ''),
-			a => a === 'off' ? setOn([d], false) : a === 'star' ? toggleStar(d) : setWiktPairs(!pairs));
+			a => a === 'off' ? turnOff(d) : a === 'star' ? toggleStar(d) : setWiktPairs(!pairs));
 	};
+	// Off from its name: glosses and the popup too (they use it if it's ticked for them and downloaded)
+	function turnOff(d){
+		delete glossSet[dicts[d].path];
+		if (!solo.length) store(glossKey, glossSet);
+		setOn([d], false);
+	}
 	// Aligned ones only with another language's for the same key (style.css
 	// hides the rest: a card's lone one, and a card of nothing
 	// else): with two or more of them searched in a category, unless its menu said
@@ -2035,7 +2041,23 @@ if(!isDictPage){
 		applyOn();
 		renderLists();
 		renderBibleBar();
-		if (ds.some(isBibleText)) bibleCards().forEach(c => c.dataset.texts || !inPopup(c) || fillCard(c)); // (the popup's that have the search's translations)
+		const off = ds.filter(d => !libOn[d]);
+		if (ds.some(d => isBibleText(d) || isNote(d))) bibleCards().forEach(c => {
+			const own = ownTexts(c), keep = own?.filter(d => !off.includes(d)); // (a card's own translations, without those)
+			if (own ? keep.length === own.length && !ds.some(isNote) : !inPopup(c) && !off.length) return;
+			if (own) {
+				keep.length ? c.dataset.texts = keep.join() : delete c.dataset.texts;
+				renderCardBar(c);
+			}
+			fillCard(c);
+		});
+		// What's on the screen of the ones turned off (a search again wouldn't
+		// reach a popup, or anything if none's left): gone, a card left with nothing too
+		off.forEach(d => document.querySelectorAll(`p-d:not(.chapter) p-e[data-d="${d}"]`).forEach(pe => {
+			const card = pe.closest('p-d');
+			pe.remove();
+			if (!card.querySelector('p-e')) card.remove();
+		}));
 		if (ds.some(d => was[d] !== searched(d) && (!searched(d) || loaded.has(d)))) searchAgain();
 	}
 
