@@ -1,5 +1,5 @@
 /* tnefar_cli.c - decode a .tnefar file to a 16 kHz WAV with the same code as tnefar.wasm.
- * usage: tnefar_cli voice in.tnefar out.wav [chunk frames]   (voice: a slab's tnefar.voice) */
+ * usage: tnefar_cli voice in.tnefar out.wav [chunk frames [speed]]   (voice: a slab's tnefar.voice) */
 #undef fopen /* (the Makefile points the codec's at the built-in files, not this one's) */
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +10,7 @@ typedef struct tnefar tnefar_t;
 intptr_t tnefar_open(const uint8_t *buf, int len, const uint8_t *filter, int filter_len);
 int tnefar_frames(tnefar_t *d);
 int tnefar_run(tnefar_t *d, int n);
+void tnefar_speed(tnefar_t *d, float rate);
 float *tnefar_pcm(tnefar_t *d);
 void tnefar_close(tnefar_t *d);
 
@@ -29,7 +30,9 @@ int main(int argc, char **argv) {
   if (h < 0) { fprintf(stderr, "%s: tnefar_open failed (%ld)\n", argv[2], (long)h); return 1; }
   tnefar_t *d = (tnefar_t *)h;
   int N = tnefar_frames(d), chunk = argc > 4 ? atoi(argv[4]) : 10, total = 0, k;
-  int16_t *pcm = malloc(sizeof(int16_t) * (N + 2) * 160);
+  float speed = argc > 5 ? atof(argv[5]) : 1;
+  tnefar_speed(d, speed);
+  int16_t *pcm = malloc(sizeof(int16_t) * (size_t)((N + 3) / speed) * 160);
   while ((k = tnefar_run(d, chunk)) > 0) {
     const float *p = tnefar_pcm(d);
     for (int i = 0; i < k; i++) pcm[total++] = (int16_t)floorf(.5f + 32767.f * p[i]);

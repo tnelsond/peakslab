@@ -21,7 +21,7 @@ a worker a few 10 ms frames at a time and plays each piece with Web Audio as it 
 is kept to play again.
 
 ## Files
-- `tnefar.c`: the decoder API (`tnefar_open` / `tnefar_seek` / `tnefar_run` / `tnefar_pcm` / `tnefar_close`) and the
+- `tnefar.c`: the decoder API (`tnefar_open` / `tnefar_seek` / `tnefar_speed` / `tnefar_run` / `tnefar_pcm` / `tnefar_close`) and the
   built-in data (`fargan.bin`, `voice/`). `tnefar_cli.c`: the same decoder to a .wav (`make native`).
 - `fcq/`: the codec, copied unchanged from opus2/zclaude (codec.c, rc.c, rvq.c, pf.c, nnf.c).
   The encoder and decoder must be the same version: copy them again (and re-encode) when it changes.

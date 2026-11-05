@@ -762,6 +762,18 @@ if(!isDictPage){
 	// (an <audio> started when another ends isn't), so the audio is started
 	// first and the sound follows
 	// (from, to: just those frames of a recording; then: called at its end)
+	// A chapter's speed (its menu's, remembered): a tnefar chapter's made at
+	// it (tnefar_speed: the pitch stays)
+	const SPEEDS = [.5, .75, 1, 1.25, 1.5, 2];
+	let soundSpeed = stored('soundSpeed') || 1;
+	function nextSpeed(){
+		const o = tnefarOn;
+		if (o?.live() && o.button.classList.contains('ch-play')) { // (what's made so far has the old one: from here, when it goes on)
+			o.button.at = o.frame();
+			o.stop();
+		}
+		store('soundSpeed', soundSpeed = SPEEDS[(SPEEDS.indexOf(soundSpeed) + 1) % SPEEDS.length]);
+	}
 	async function soundPlay(recs, d, button, from = 0, to = 0, then){
 		if (!tnefarCtx) {
 			try { navigator.audioSession.type = 'playback'; } catch (e) { /* (iOS: heard even with the ringer off, like <audio>) */ }
@@ -776,11 +788,11 @@ if(!isDictPage){
 		}
 		ctx.resume();
 		tnefarOn?.stop();
-		const job = ++tnefarJob, srcs = [];
+		const job = ++tnefarJob, srcs = [], rate = button.classList.contains('ch-play') ? soundSpeed : 1;
 		let at = 0, first, made = true; // (when the next piece starts, and the sound would have; made: all of it is)
 		const me = tnefarOn = {button,
 			live: () => job === tnefarJob && (!made || ctx.currentTime < at),
-			frame: () => from + Math.max(0, ctx.currentTime - (ctx.outputLatency || 0) - (first ?? Infinity)) * 100, // (the frame being heard)
+			frame: () => from + Math.max(0, ctx.currentTime - (ctx.outputLatency || 0) - (first ?? Infinity)) * 100 * rate, // (the frame being heard)
 			stop: () => { ++tnefarJob; srcs.forEach(s => s.stop()); tnefarShow(button, false); }};
 		tnefarShow(button, true);
 		const play = (pcm, rate = 16000) => {
@@ -802,7 +814,7 @@ if(!isDictPage){
 		};
 		made = false;
 		const ahead = () => job === tnefarJob && at - ctx.currentTime;
-		try { for (const [type, bytes] of recs) if (job === tnefarJob) await (TNEFAR.test(type) ? tnefarMake(bytes, d, play, ahead, from, to) : soundMake(type, bytes, ctx, play)); }
+		try { for (const [type, bytes] of recs) if (job === tnefarJob) await (TNEFAR.test(type) ? tnefarMake(bytes, d, play, ahead, from, to, rate) : soundMake(type, bytes, ctx, play)); }
 		finally { made = true; }
 	}
 	// Another recording's sound (webm, codec2, ...: the browser decodes it)
@@ -816,8 +828,8 @@ if(!isDictPage){
 	}
 	// A recording's sound to play(), a piece at a time (ahead(): how far
 	// it's ahead of what's playing, or false: stop)
-	async function tnefarMake(bytes, d, play, ahead, from, to){
-		if (!to && !from && tnefarDone.has(bytes)) return play(...tnefarDone.get(bytes));
+	async function tnefarMake(bytes, d, play, ahead, from, to, rate){
+		if (!to && !from && rate === 1 && tnefarDone.has(bytes)) return play(...tnefarDone.get(bytes));
 		const x = await tnefarWasm(), [v, vn] = await tnefarVoice(x, d), held = tnefarHeld?.bytes === bytes;
 		let h = tnefarHeld?.h;
 		if (!held) {
@@ -832,7 +844,8 @@ if(!isDictPage){
 			tnefarHeld = {bytes, h};
 		}
 		if (held || from) x.tnefar_seek(h, from);
-		let parts = short && !to && !from ? [] : null, left = to ? (to - from) * 160 : Infinity;
+		x.tnefar_speed(h, rate);
+		let parts = short && !to && !from && rate === 1 ? [] : null, left = to ? Math.round((to - from) * 160 / rate) : Infinity;
 		try {
 			for (let n = 4, k; left > 0 && ahead() !== false && (k = x.tnefar_run(h, n)) > 0; n = 16) {
 				const pcm = new Float32Array(x.memory.buffer, x.tnefar_pcm(h), Math.min(k, left)).slice();
@@ -2812,7 +2825,7 @@ if(!isDictPage){
 		const {el, sel, sub} = ctx;
 		let html;
 		if (ctx.chapter) html = ctxBtn('rew', 'Rewind', '', '<b>⏪&#xFE0E;</b>') + ctxBtn('play', 'Play', '', '<b>▶&#xFE0E;</b>') + ctxBtn('ffw', 'Forward', '', '<b>⏩&#xFE0E;</b>') +
-			ctxBtn('loop', 'Loop', `aria-pressed="${!!el.loop}"`, '<b>🔁&#xFE0E;</b>') +
+			ctxBtn('loop', 'Loop', `aria-pressed="${!!el.loop}"`, '<b>🔁&#xFE0E;</b>') + ctxBtn('speed', 'Speed', '', `<b>${soundSpeed}×</b>`) +
 			(el.reader ? ctxBtn('words', 'Play word', `aria-pressed="${el.reader.on === 'words'}"`, ICONS.speak) : '');
 		else if (sub === 'speak') html = ctxBtn('back', 'Back') + voiceLangs().map(x => ctxBtn('say', x.name, `data-lang="${x.val}"`,
 			abbr[x.name.toLowerCase()]?.[3] ? `<span class="ctx-flag" aria-hidden="true">${abbr[x.name.toLowerCase()][3]}</span>` : ICONS.speak)).join('');
@@ -2840,9 +2853,10 @@ if(!isDictPage){
 		const b = e.target.closest('button');
 		if (!b || !ctx) return;
 		const {el, sel} = ctx, act = b.dataset.c, h = compareOf(); // (before it closes)
-		if (ctx.chapter) { // (Rewind, Forward: 10 s, and it's left open to go further; Loop: on or off, left open)
+		if (ctx.chapter) { // (Rewind, Forward: 10 s, and it's left open to go further; Loop: on or off, Speed: the next, left open)
 			if (act === 'rew' || act === 'ffw') return skip(el, act === 'rew' ? -1000 : 1000);
 			if (act === 'loop') { el.loop = !el.loop; return renderCtx(); }
+			if (act === 'speed') { nextSpeed(); return renderCtx(); }
 			closeCtx();
 			wordTaps(el, act);
 			return act === 'play' && playWord(el);

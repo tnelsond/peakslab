@@ -1,13 +1,13 @@
 {
   "core": [
-    ["404.html", 1793842339],
+    ["404.html", 1793875023],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
     ["khmer/battambang.woff2", 1793169367],
     ["peakslab.svg", 1789218198],
     ["peak.wasm", 1793706555],
-    ["tnefar.wasm", 1793798838]
+    ["tnefar.wasm", 1793875014]
   ],
   "dicts": [
     ["amharic/bible/text/am-1954.peak.zst", 1793713533, "Amharic Bible (መጽሐፍ ቅዱስ (የብሉይና የሐዲስ ኪዳን መጻሕፍት)), from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1307, 1, "mono", 0, 1310002],

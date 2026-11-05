@@ -79,7 +79,8 @@ typedef struct tnefar {
   voice_t *voice;
   float *feat;                  /* N x NFEAT features: decoded, then postfiltered up to frame done */
   float *raw; uint8_t *mask;    /* (with a postfilter) the decoded features and their anchors */
-  int N, t, stop, skip, done, small;
+  int N, stop, skip, done, small;
+  double pos, rate;             /* where in the features the next frame is, and the step: 1, or a speed */
   float out[CHUNK_MAX * FRAME];
 } tnefar_t;
 
@@ -118,7 +119,7 @@ __attribute__((used)) intptr_t tnefar_open(const uint8_t *buf, int len, const ui
   tnefar_t *d = (tnefar_t *)calloc(1, sizeof *d);
   if (!d) { free(feat); free(mask); return -1; }
   d->voice = vo; vo->users++;
-  d->N = N; d->t = 1; d->skip = FRAME / 2; d->small = 1;
+  d->N = N; d->pos = 1; d->rate = 1; d->skip = FRAME / 2; d->small = 1;
   if (vo->pf && nnf_apply_range(vo->pf, feat, mask, N, 0, 0, feat) == 0) {   /* streaming filter */
     d->raw = feat; d->mask = mask; d->feat = (float *)malloc(sizeof(float) * (size_t)N * NFEAT);
     filter_to(d, 1);
@@ -142,8 +143,12 @@ __attribute__((used)) void tnefar_seek(tnefar_t *d, int frame) {
   prime(d, f);
   float pcm[FRAME];
   for (; t <= frame; t++) { filter_to(d, t + 1); fargan_synthesize(&d->fg, pcm, d->feat + (size_t)t * NFEAT); }
-  d->t = t; d->stop = 0; d->skip = FRAME / 2;
+  d->pos = t; d->stop = 0; d->skip = FRAME / 2;
 }
+
+/* The speed from here: the features are read faster or slower, a 10 ms frame still made from each
+ * step (between two frames, their mean by where it is), so the pitch stays as it was */
+__attribute__((used)) void tnefar_speed(tnefar_t *d, float rate) { d->rate = rate; }
 
 /* Frames in the file (100 a second): its length is tnefar_frames * 160 samples at 16 kHz */
 __attribute__((used)) int tnefar_frames(tnefar_t *d) { return d->N; }
@@ -153,10 +158,15 @@ __attribute__((used)) int tnefar_run(tnefar_t *d, int n) {
   int k = 0;
   if (n > CHUNK_MAX) n = CHUNK_MAX;
   for (int i = 0; i < n && d->stop < 2; i++) {
-    int fi = d->t < d->N ? d->t : d->N - 1;
-    filter_to(d, fi + 1);
+    int fi = d->pos < d->N ? (int)d->pos : d->N - 1;
+    float a = d->pos < d->N - 1 ? (float)(d->pos - fi) : 0, mix[NFEAT];
+    filter_to(d, fi + 1 + (a > 0));
     const float *f = d->feat + (size_t)fi * NFEAT;
-    if (d->t < d->N) d->t++; else d->stop++;
+    if (a > 0) {
+      for (int j = 0; j < NFEAT; j++) mix[j] = f[j] + a * (f[j + NFEAT] - f[j]);
+      f = mix;
+    }
+    if (d->pos < d->N) d->pos += d->rate; else d->stop++;
     float pcm[FRAME];
     fargan_synthesize(&d->fg, pcm, f);
     int end = d->stop == 2 ? d->skip + FRAME / 2 : FRAME;   /* the last frame: half (FARGAN's lookahead) */
