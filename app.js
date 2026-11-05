@@ -282,8 +282,11 @@ if(!isDictPage){
 			if(data.filetype)
 				el.append(mediaElement(data.filetype, data.body, data.header, d));
 			// (recordings: their 🔊s together on the card's first line, their dictionaries under them)
-			if (AUDIO.test(data.filetype)) insertSorted(div.querySelector(':scope > .sounds') ?? Object.assign(div.querySelector(':scope > h2').insertAdjacentElement('afterend', document.createElement('div')), {className: 'sounds'}), el, sortId(d));
-			else insertSorted(div, el, sortId(d));
+			if (AUDIO.test(data.filetype)) {
+				const box = div.querySelector(':scope > .sounds') ?? Object.assign(div.querySelector(':scope > h2').insertAdjacentElement('afterend', document.createElement('div')), {className: 'sounds'});
+				insertSorted(box, el, sortId(d));
+				if (TNEFAR.test(data.filetype) && !box.querySelector('.speed')) box.append(speedButton());
+			} else insertSorted(div, el, sortId(d));
 		}
 
 		if(first){
@@ -770,8 +773,9 @@ if(!isDictPage){
 	// (an <audio> started when another ends isn't), so the audio is started
 	// first and the sound follows
 	// (from, to: just those frames of a recording; then: called at its end)
-	// A chapter's speed (its menu's, remembered): a tnefar chapter's made at
-	// it (tnefar_speed: the pitch stays)
+	// The speed (a chapter's menu's, a word's recordings', a gloss's, one
+	// for all, remembered): tnefar's are made at it (tnefar_speed: the pitch
+	// stays); another's can't be, its pitch would go with it
 	const SPEEDS = [.5, .75, 1, 1.25, 1.5, 2];
 	let soundSpeed = stored('soundSpeed') || 1;
 	function nextSpeed(){
@@ -781,6 +785,16 @@ if(!isDictPage){
 			o.stop();
 		}
 		store('soundSpeed', soundSpeed = SPEEDS[(SPEEDS.indexOf(soundSpeed) + 1) % SPEEDS.length]);
+		document.querySelectorAll('.speed').forEach(b => { b.textContent = `${soundSpeed}×`; });
+	}
+	function speedButton(){
+		const b = document.createElement('button');
+		b.className = 'speed';
+		b.title = 'Speed';
+		b.setAttribute('aria-label', 'Speed');
+		b.textContent = `${soundSpeed}×`;
+		b.onclick = nextSpeed;
+		return b;
 	}
 	async function soundPlay(recs, d, button, from = 0, to = 0, then){
 		if (!tnefarCtx) {
@@ -796,7 +810,7 @@ if(!isDictPage){
 		}
 		ctx.resume();
 		tnefarOn?.stop();
-		const job = ++tnefarJob, srcs = [], rate = button.classList.contains('ch-play') ? soundSpeed : 1;
+		const job = ++tnefarJob, srcs = [], rate = recs.some(([t]) => TNEFAR.test(t)) ? soundSpeed : 1;
 		let at = 0, first, made = true; // (when the next piece starts, and the sound would have; made: all of it is)
 		const me = tnefarOn = {button,
 			live: () => job === tnefarJob && (!made || ctx.currentTime < at),
@@ -2544,6 +2558,7 @@ if(!isDictPage){
 				if (!box.dataset.ds.split(',').includes(String(d))) box.dataset.ds += `,${d}`;
 				const bs = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(word)}"]`), [type, bytes] = fs[0];
 				if (!AUDIO.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(type, bytes, word)).classList.add('tr-img'); });
+				if (bs.length && TNEFAR.test(type) && !box.querySelector('.speed')) box.prepend(speedButton());
 				bs.forEach(w => {
 					const b = w.querySelector('.tr-play') ?? Object.assign(w.appendChild(soundButton(fs, d)), {className: 'sound tr-play', voices: [], turn: 0});
 					b.voices.push([fs, d]);
@@ -2599,7 +2614,7 @@ if(!isDictPage){
 	// ---------------------------------------------------------------
 	const visible = el => el.checkVisibility?.() ?? true; // (not a hidden dictionary's)
 	// (a word glossed: it · its rows; text between: as it is)
-	const glossText = box => [...box.childNodes].map(n => n.matches?.('.tr-w') ? [n.querySelector('p-a'), ...n.querySelectorAll('.tr-r')].map(x => x.textContent.trim()).join(' · ') : n.matches?.('h2, .tr-head') ? '' : n.textContent.trim()).filter(Boolean).join('\n');
+	const glossText = box => [...box.childNodes].map(n => n.matches?.('.tr-w') ? [n.querySelector('p-a'), ...n.querySelectorAll('.tr-r')].map(x => x.textContent.trim()).join(' · ') : n.matches?.('h2, .tr-head, .speed') ? '' : n.textContent.trim()).filter(Boolean).join('\n');
 	function cardText(card){
 		if (card.dataset.ds !== undefined) return `${card.dataset.text}\n\n${glossText(card)}`;
 		const pes = [...card.querySelectorAll(':scope > p-e')].filter(visible);

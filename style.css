@@ -324,10 +324,22 @@ body.fullscreen #content { margin-top: 8px; }
 .sounds { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; margin-bottom: .6em; }
 .sounds > :where(p-e) { display: contents; }
 .sounds .sound { margin-right: -5px; }
-.sounds::before { content: ''; order: 1; flex-basis: 100%; height: 4px; }
-.sounds p-h { order: 2; float: none; padding: 0 8px; font-size: 11px; }
+.sounds .speed { order: 1; margin-left: 12px; }
+.sounds::before { content: ''; order: 2; flex-basis: 100%; height: 4px; }
+.sounds p-h { order: 3; float: none; padding: 0 8px; font-size: 11px; }
 .sounds p-n { display: none; }
-.sounds .menu { order: 3; }
+.sounds .menu { order: 4; }
+/* The speed of recordings, by them and above a gloss */
+.speed {
+	padding: 2px 8px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: none;
+	color: inherit;
+	font-size: 14px;
+	line-height: 1.3;
+}
+.tr-entry > .speed { float: right; margin-left: 8px; }
 #loader {
 	text-align: center;
 	padding: 1.5rem;
