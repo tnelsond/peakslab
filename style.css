@@ -312,13 +312,22 @@ body.fullscreen #content { margin-top: 8px; }
 	text-decoration: underline;
 }
 .sound {
-	padding: 1px 6px;
+	padding: 2px 8px;
 	border: 1px solid hsl(var(--voice) 65% 45% / .7);
 	border-radius: 6px;
 	background: hsl(var(--voice) 75% 55% / .28);
-	font-size: 14px;
+	font-size: 17px;
 	line-height: 1.3;
 }
+/* A word's recordings: the 🔊s side by side on one line, their dictionaries
+   on the next (their entries aren't boxes here) */
+.sounds { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; margin-bottom: .6em; }
+.sounds > :where(p-e) { display: contents; }
+.sounds .sound { margin-right: -5px; }
+.sounds::before { content: ''; order: 1; flex-basis: 100%; height: 4px; }
+.sounds p-h { order: 2; float: none; padding: 0 8px; font-size: 11px; }
+.sounds p-n { display: none; }
+.sounds .menu { order: 3; }
 #loader {
 	text-align: center;
 	padding: 1.5rem;

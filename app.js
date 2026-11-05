@@ -26,7 +26,7 @@ document.body.classList.toggle('show-chords', stored('showChords') === true);
 const hideStyle = document.head.appendChild(document.createElement('style'));
 const applyHidden = names => {
 	const sel = names.map(n => `p-e[data-dict="${CSS.escape(n)}"]`).join(',');
-	hideStyle.textContent = sel ? `p-d:not(.show-hidden,.chapter)>:is(${sel}){display:none}p-d:not(.show-hidden,.chapter):has(>:is(${sel}))>.see-more{display:block}` : '';
+	hideStyle.textContent = sel ? `p-d:not(.show-hidden,.chapter) :is(${sel}){display:none}p-d:not(.show-hidden,.chapter):has(:is(${sel}))>.see-more{display:block}` : ''; // (a recording's is in .sounds)
 };
 // On dictionary pages, start the workers right away, in parallel with
 // files.json instead of after it: starting a worker takes ~50 ms, and each
@@ -281,7 +281,9 @@ if(!isDictPage){
 			const el = t.content.firstChild;
 			if(data.filetype)
 				el.append(mediaElement(data.filetype, data.body, data.header, d));
-			insertSorted(div, el, sortId(d));
+			// (recordings: their 🔊s together on the card's first line, their dictionaries under them)
+			if (AUDIO.test(data.filetype)) insertSorted(div.querySelector(':scope > .sounds') ?? Object.assign(div.querySelector(':scope > h2').insertAdjacentElement('afterend', document.createElement('div')), {className: 'sounds'}), el, sortId(d));
+			else insertSorted(div, el, sortId(d));
 		}
 
 		if(first){

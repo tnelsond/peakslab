@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793875023],
+    ["404.html", 1793878420],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -163,11 +163,11 @@
     ["khmer/dict/tech/newlexicon.peak.zst", 1792401680, "", 1985, 3, "mono", 0, 46512],
     ["khmer/media/audio2-tnefar.slab", 1793698097, "Khmer Audio (includes bible words), tnefar codec: 700 bps", 288624, 1, "aux", 0, 542343],
     ["khmer/media/audio.slab", 1792225424, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 12916, 2, "aux", 0, 7228877],
-    ["khmer/media/bible-history-tnefar.slab", 1793844492, "Bible Words, Joshua to Esther and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713794, 2, "aux", 0, 1013473],
-    ["khmer/media/bible-pentateuch-tnefar.slab", 1793844503, "Bible Words, Genesis, Matthew and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713782, 2, "aux", 0, 901929],
-    ["khmer/media/bible-prophets-tnefar.slab", 1793844509, "Bible Words, Isaiah to Malachi and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713788, 2, "aux", 0, 823038],
-    ["khmer/media/bible-wisdom-tnefar.slab", 1793844506, "Bible Words, Job to Song of Songs and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713788, 2, "aux", 0, 786650],
     ["khmer/media/images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2, "aux", 0, 3272094],
+    ["khmer/media/khsv-1.slab", 1793878522, "Bible Words, Genesis, Matthew and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713815, 2, "aux", 0, 1072342],
+    ["khmer/media/khsv-2.slab", 1793878550, "Bible Words, Joshua to Esther and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713818, 2, "aux", 0, 1157199],
+    ["khmer/media/khsv-3.slab", 1793878565, "Bible Words, Job to Song of Songs and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713812, 2, "aux", 0, 1046987],
+    ["khmer/media/khsv-4.slab", 1793878577, "Bible Words, Isaiah to Malachi and more (cut from the Khmer audio Bible by alignment with KHSV), tnefar codec: 700 bps", 713809, 2, "aux", 0, 926387],
     ["khmer/music/chords/chords.peak.zst", 1792403311, "<a href=\"https://www.khmerworship.com/\">Khmer Worship</a>", 10958, 1, "mono", 0, 359243],
     ["khmer/music/sheet/kora-misc.slab", 1789366310, "Remaining songs from <a href=\"https://www.korapraise.com/\">Kora Praise</a>", 22316, 3, "mono", 0, 4557782],
     ["khmer/music/sheet/kora-pb1.slab", 1792670087, "The first half of the purple book via <a href=\"https/www.korapraise.com\">Kora Praise</a>", 24924, 2, "mono", 0, 4673978],
