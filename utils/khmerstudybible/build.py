@@ -58,61 +58,85 @@ def book_at(s, i, loose=False):
     ab = (m.group(1) + m.group(2)) if m.group(2) else m.group(3)
     return ABBR2CODE[ab], m.end(), m.group(0)
 
-def ref_links(code, c, v, rest, show_book):
-    """'3³22/24' -> links; rest the '-5', '/24' part"""
+def link(code, c, v, c2=None, v2=None):
+    """One reference, written out in full: its book's KHOV name, its chapter and verse(s)"""
+    if c2 is not None and c2 != c:
+        t, txt = f'{code} {c}.{v}-{c2}.{v2}', f'{kd(c)}:{kd(v)}-{kd(c2)}:{kd(v2)}'
+    elif v2 is not None and v2 != v:
+        t, txt = f'{code} {c}.{v}-{v2}', f'{kd(c)}:{kd(v)}-{kd(v2)}'
+    else:
+        t, txt = f'{code} {c}.{v}', f'{kd(c)}:{kd(v)}'
+    return f'<p-a s="{t}">{escape(NAMES[code])} {txt}</p-a>'
+
+def chapter_link(code, c):
+    return f'<p-a s="{code} {c}.1-{lastv[code, c] or 1}">{escape(NAMES[code])} {kd(c)}</p-a>'
+
+def ref_links(code, c, v, rest, show_book=None):
+    """'3³22/24' -> a link each, written out in full, a space between"""
     out = []
-    first = True
-    def link(target, text):
-        return f'<p-a s="{target}">{escape(text)}</p-a>'
     m = re.match(r'\s?-\s?(\d+)(?:³(\d+))?', rest)
-    lab = (L(show_book) + ' ' if show_book else '')
     if m:
         if m.group(2):
-            c2, v2 = int(m.group(1)), int(m.group(2))
-            out.append(link(f'{code} {c}.{v}-{c2}.{v2}', f'{kd(c)}:{kd(v)}-{kd(c2)}:{kd(v2)}'))
+            out.append(link(code, c, v, int(m.group(1)), int(m.group(2))))
         else:
-            v2 = int(m.group(1))
-            out.append(link(f'{code} {c}.{v}-{v2}', f'{kd(c)}:{kd(v)}-{kd(v2)}'))
+            out.append(link(code, c, v, c, int(m.group(1))))
         rest = rest[m.end():]
     else:
-        out.append(link(f'{code} {c}.{v}', f'{kd(c)}:{kd(v)}'))
+        out.append(link(code, c, v))
     for m in re.finditer(r'/(\d+)(?:-(\d+))?', rest):
-        a, b = int(m.group(1)), m.group(2)
-        out.append(link(f'{code} {c}.{a}' + (f'-{b}' if b else ''), kd(a) + (f'-{kd(b)}' if b else '')))
-    return lab + ', '.join(out)
+        out.append(link(code, c, int(m.group(1)), c, int(m.group(2)) if m.group(2) else None))
+    return ' '.join(out)
+
+def ref_at(s, i, code):
+    """REF at s[i], but where the PDF ran two references together ('82³5107³10'
+    for 82:5 107:10) only the first: (c, v, rest, end) or None"""
+    m = REF.match(s, i)
+    if not m:
+        return None
+    c, vd = int(m.group(1)), m.group(2)
+    nm = re.match(r'³(\d+)', s[m.end(2):])
+    if nm:  # the next reference's chapter is in the verse's digits
+        nxt = nm.group(1)
+        for k in range(len(vd) - 1, 0, -1):
+            v, c2 = int(vd[:k]), vd[k:]
+            if c2[0] != '0' and (c, v) in khov[code] and any((int(c2), int(nxt[:j])) in khov[code] for j in range(1, len(nxt) + 1)):
+                return c, v, '', m.start(2) + k
+        for k in range(len(vd) - 1, 0, -1):  # (the next one's in another book)
+            if vd[k] != '0' and (c, int(vd[:k])) in khov[code]:
+                return c, int(vd[:k]), '', m.start(2) + k
+    return c, int(vd), m.group(3), m.end()
 
 def linkify(s, book, ch):
     """Limon text with references in it -> HTML (placeholders for the rest)"""
     s = re.sub(r'(?<=[\d³]) {2,}| {2,}(?=\d)', ' ', unglue(s))
-    out, i, plain, cur = [], 0, '', book
+    out, i, plain, cur, refend = [], 0, '', book, -1
     def flush():
         nonlocal plain
         if plain:
-            out.append(L(plain))
+            out.append((L(plain), plain))
             plain = ''
     while i < len(s):
         b = book_at(s, i)
         if b:
             code, j, txt = b
-            m = REF.match(s, j + (1 if s[j:j + 1] == ' ' else 0))
-            if m:
+            r = ref_at(s, j + (1 if s[j:j + 1] == ' ' else 0), code)
+            if r:
                 flush()
-                out.append(f'<span class="ref">{ref_links(code, int(m.group(1)), int(m.group(2)), m.group(3), txt)}</span>')
-                cur, i = code, m.end()
+                out.append((ref_links(code, r[0], r[1], r[2]), None))
+                cur, i = code, r[3]
+                refend = i
                 continue
-        m = REF.match(s, i) if (i == 0 or not s[i - 1].isdigit()) else None
-        if m:
+        r = ref_at(s, i, cur) if (i == 0 or i == refend or not s[i - 1].isdigit()) else None
+        if r:
             flush()
-            out.append(ref_links(cur, int(m.group(1)), int(m.group(2)), m.group(3), None))
-            i = m.end()
+            out.append((ref_links(cur, r[0], r[1], r[2]), None))
+            i = refend = r[3]
             continue
         m = re.compile(r'x>\s?(\d+)((?:/\d+|-\d+)*)').match(s, i) if ch and (i == 0 or not s[i - 1].isalpha()) else None
         if m:
             flush()
-            out.append(L('x>'))
-            # rebuild simply: each number (with its range) a link to this chapter
             seq = re.findall(r'(\d+)(?:-(\d+))?', re.sub(r'^x>\s?', '', m.group(0)))
-            out.append(', '.join(f'<p-a s="{book} {ch}.{a}' + (f'-{b2}' if b2 else '') + f'">{kd(a)}' + (f'-{kd(b2)}' if b2 else '') + '</p-a>' for a, b2 in seq))
+            out.append((' '.join(link(book, ch, int(a), ch, int(b2) if b2 else None) for a, b2 in seq), None))
             i = m.end()
             continue
         ch_ = s[i]
@@ -121,7 +145,21 @@ def linkify(s, book, ch):
         plain += ch_
         i += 1
     flush()
-    return ''.join(out)
+    html = ''  # a space between a reference and the words next to it (not inside brackets)
+    out = [x for k, x in enumerate(out) if not (x[1] is not None and not x[1].strip() and 0 < k < len(out) - 1)]
+    for k, (o, raw) in enumerate(out):
+        if k:
+            praw = out[k - 1][1]
+            if raw is None and (praw is None or not re.search(r'[\s(\[{¬]$', praw)):
+                html += ' '
+            elif raw is not None and praw is None:
+                raw2 = raw.lstrip(' ')
+                if raw2 != raw:
+                    o = L(raw2) if raw2 else ''
+                if raw2 and not re.match(r'[)\]}¦.,;:>!?]', raw2):
+                    html += ' '
+        html += o
+    return html
 
 # --------------------------------------------------------------- key a verse to KHOV
 unaligned = defaultdict(int)
@@ -182,7 +220,7 @@ def runs_html(runs, book, c):
 def note_html(n):
     html = runs_html(n['runs'], n['book'], n['start'][0])
     lab = re.sub(r'(\d+)³', r'\1:', n['label']).replace('/', ',')
-    return f'<p><b>{kd(lab)}</b>{html}</p>'
+    return f'<p><b>{kd(lab)}</b> {html}</p>'
 
 # --------------------------------------------------------------- introductions, maps, tables
 import base64, io
@@ -284,10 +322,11 @@ def build_xrefs(xstream, textmarks):
                 toks.append(('book', b[0], b[2]))
                 i = b[1]
                 continue
-            m = REF.match(s, i)
-            if m:
-                toks.append(('ref', int(m.group(1)), int(m.group(2)), m.group(3)))
-                i = m.end()
+            tb = next((t[1] for t in reversed(toks) if t[0] == 'book'), book)
+            r = ref_at(s, i, tb)
+            if r:
+                toks.append(('ref', r[0], r[1], r[2]))
+                i = r[3]
                 continue
             m = re.compile(r'(\d+)(?=\s|$)').match(s, i)
             if m:
@@ -351,22 +390,17 @@ def build_xrefs(xstream, textmarks):
     return stats
 
 def group_html(g):
-    out, pend = [], None
+    out = []
     for it in g:
-        if it[0] == 'book':
-            pend = it[2]
-        elif it[0] == 'ref':
-            out.append(ref_links(it[1], it[2], it[3], it[4], pend))
-            pend = None
+        if it[0] == 'ref':
+            out.append(ref_links(it[1], it[2], it[3], it[4]))
         elif it[0] == 'x':
-            seq = re.findall(r'(\d+)(?:-(\d+))?', it[3])
-            out.append(L('x>') + ', '.join(f'<p-a s="{it[1]} {it[2]}.{a}' + (f'-{b}' if b else '') + f'">{kd(a)}' + (f'-{kd(b)}' if b else '') + '</p-a>' for a, b in seq))
+            out += [link(it[1], it[2], int(a), it[2], int(b) if b else None) for a, b in re.findall(r'(\d+)(?:-(\d+))?', it[3])]
         elif it[0] == 'v':
-            out[-1] += f', <p-a s="{it[1]} {it[2]}.{it[3]}">{kd(it[3])}</p-a>' if out else ''
+            out.append(link(it[1], it[2], it[3]))
         elif it[0] == 'ch':
-            out.append((L(pend) + ' ' if pend else '') + f'<p-a s="{it[1]} {it[2]}.1">{L("CMBUk")} {kd(it[2])}</p-a>')
-            pend = None
-    return '; '.join(out)
+            out.append(chapter_link(it[1], it[2]))
+    return ' '.join(out)
 
 def parallels_of(lines):
     res = []
