@@ -432,13 +432,25 @@ if(!isDictPage){
 		push(card._notes, v, {d, e});
 		card.querySelectorAll(`.vs[data-v="${v}"]`).forEach(noteLinks);
 	}
+	// Each set of notes has its own footnote mark on a verse (k: the Khmer
+	// Study Bible's), so two on one verse can be told apart: the one picked
+	// here, else the first letter of its name no other notes have
+	const NOTE_MARKS = {khovstudy: 'k', km_tn: 't', en_tn: 'n', en_bc: 'c', laobiblecommentary: 'l'}, noteMarks = {};
+	function noteMark(d){
+		const name = dicts[d].name;
+		if (!noteMarks[name]){
+			const used = new Set([...Object.values(noteMarks), ...Object.values(NOTE_MARKS)]);
+			noteMarks[name] = NOTE_MARKS[name] || [...name.toLowerCase().replace(/[^a-z]/g, '')].find(c => !used.has(c)) || '*';
+		}
+		return noteMarks[name];
+	}
 	function noteLinks(vs){
 		const v = +vs.dataset.v, group = vs.closest('.pv'), ns = vs.closest('p-d')._notes?.get(v);
 		if (!ns || (group && group.querySelector('.vs-note') && !vs.querySelector('.vs-note'))) return;
 		ns.forEach(({d, e}) => {
 			if (vs.querySelector(`.vs-note[data-d="${d}"]`)) return;
 			const label = refOf(e.body);
-			vs.insertAdjacentHTML('beforeend', `<button class="vs-note" data-d="${d}" data-v="${v}" onclick="showNote(this)" title="${escapeHTML(dicts[d].name + (label ? ': ' + label : ''))}" aria-label="Note on this verse (${escapeHTML(dicts[d].name)})">note</button>`);
+			vs.insertAdjacentHTML('beforeend', `<button class="vs-note" data-d="${d}" data-v="${v}" onclick="showNote(this)" title="${escapeHTML(dicts[d].name + (label ? ': ' + label : ''))}" aria-label="Note on this verse (${escapeHTML(dicts[d].name)})">${noteMark(d)}</button>`);
 		});
 	}
 	window.showNote = b => {

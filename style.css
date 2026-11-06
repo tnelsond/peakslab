@@ -865,12 +865,14 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .lib-space { margin: 0 0 .5em; font-size: .9em; color: var(--muted); }
 .lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
 .dict-del { align-self: center; padding: 4px 6px; color: var(--muted); font-size: .85em; }
-/* A note on a verse: a little link; it shows in the popup */
+/* A note on a verse: its notes' footnote mark (a letter), a little link; it shows in the popup */
 .vs-note {
 	font-size: .7em;
+	font-style: italic;
+	font-weight: 600;
 	vertical-align: super;
 	line-height: 1;
-	padding: 0 2px;
+	padding: 0 4px; /* (one letter: room enough to tap) */
 	margin: 0 1px;
 	color: var(--color1);
 	text-decoration: underline;
