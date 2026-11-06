@@ -264,7 +264,7 @@ if(!isDictPage){
 		}
 		div.seen.add(d + '\t' + data.body);
 		if(first){
-			div.innerHTML = `<h2><span class="hw">${data.header}</span>${foldBtnHTML}</h2>` +
+			div.innerHTML = `<h2>${backBtnHTML}<span class="hw">${data.header}</span>${foldBtnHTML}</h2>` +
 				'<button class="text-btn see-more" data-id="1e9" onclick="this.parentNode.classList.add(\'show-hidden\')">See more</button>'; // (entries go above it)
 		}
 		if (isBibleText(d)) { // A verse: a Bible card, for its reference
@@ -293,7 +293,8 @@ if(!isDictPage){
 			(popup ? popupResults : resultsDiv).insertBefore(div, popup ? null : loader);
 			if (popup) popupOpen();
 		}
-		if(!popup) found();
+		if(popup) popupScroll();
+		else found();
 	}
 	// Not to move: on the screen or above it (and showing), once the
 	// search's first results are in (its first 300 ms: in order)
@@ -442,10 +443,12 @@ if(!isDictPage){
 	}
 	window.showNote = b => {
 		const n = b.closest('p-d')._notes.get(+b.dataset.v).find(n => n.d === +b.dataset.d);
-		cleanup(popupResults);
-		popupQuery = n.e.header;
-		popupResults.innerHTML = `<p-d class="show-hidden"><h2><span class="hw">${escapeHTML(refOf(n.e.body))}</span>${foldBtnHTML}</h2>${entryHTML(n.d, textOf(n.e.body))}</p-d>`; // (shown: a note's dictionary's entries start hidden)
-		popupOpen();
+		popupGo(() => {
+			cleanup(popupResults);
+			popupQuery = n.e.header;
+			popupResults.innerHTML = `<p-d class="show-hidden"><h2>${backBtnHTML}<span class="hw">${escapeHTML(refOf(n.e.body))}</span>${foldBtnHTML}</h2>${entryHTML(n.d, textOf(n.e.body))}</p-d>`; // (shown: a note's dictionary's entries start hidden)
+			popupOpen();
+		});
 	};
 
 	// Current page path segments, e.g. ["khmer"] or ["khmer","bible"]
@@ -1197,6 +1200,9 @@ if(!isDictPage){
 	// from the rest (flip). A popup's card's ⋮ also has Show in the results.
 	const moreSVG = icon(['M12 5.5v.01M12 12v.01M12 18.5v.01', 'stroke-width="3.2"']);
 	const foldBtnHTML = `<button class="cb-more" data-cb="more" title="More" aria-label="More" aria-haspopup="true">${moreSVG}</button>`;
+	// (at a heading's start, seen only in the popup: what it showed before, or with nothing before, it's closed)
+	const backSVG = icon('M15 18l-6-6 6-6');
+	const backBtnHTML = `<button class="cb-back" data-cb="back" title="Back" aria-label="Back">${backSVG}</button>`;
 	const foldSVG = icon('M6 15l6-6 6 6'), unfoldSVG = icon('M6 9l6 6 6-6');
 	const foldItem = b => b.closest('.collapsed') ? ['unfold', unfoldSVG, 'Expand all'] : ['fold', foldSVG, 'Collapse all'];
 	const foldAll = btn => {
@@ -1233,7 +1239,8 @@ if(!isDictPage){
 		if (!bar) return;
 		if (!books) loadBooks(() => renderCardBar(card)); // (its book's name in the meantime: its code)
 		const ref = cardRef(card);
-		bar.innerHTML = `<button class="hw" data-cb="bible" title="Translation, book and chapter" aria-haspopup="dialog">${ref.bk ? refHeading(ref) : 'Bible'}</button>` +
+		bar.innerHTML = (card === bibleBar ? '' : backBtnHTML) +
+			`<button class="hw" data-cb="bible" title="Translation, book and chapter" aria-haspopup="dialog">${ref.bk ? refHeading(ref) : 'Bible'}</button>` +
 			(card === bibleBar ? '' : foldBtnHTML);
 		if (card !== bibleBar) moreVerses(card, ref);
 		chapterAudio(card, bar, ref);
@@ -1426,6 +1433,7 @@ if(!isDictPage){
 		const b = e.target.closest('button[data-cb]'), card = b && (b.closest('p-d') || bibleBar);
 		if (!b) return;
 		if (b.dataset.cb === 'bible') return openBible(card);
+		if (b.dataset.cb === 'back') return popupBack();
 		popMenu(b, menuHTML([...cardActs(card), foldItem(b)]), a => /fold/.test(a) ? foldAll(b) : cardAct(card, a));
 	});
 	function cardAct(card, act, go){
@@ -2236,7 +2244,25 @@ if(!isDictPage){
 	let popupQuery = '';
 	let popupHl = ''; // The verse a chapter in it is for (a Bible card's Popup)
 	// (a range: its card's translations, texts; cmp: Compare's)
-	function openPopupSearch(text, hl = '', texts = null, cmp = false){
+	const openPopupSearch = (text, hl, texts, cmp) => popupGo(() => popupSearch(text, hl, texts, cmp));
+	// What the popup's shown since it opened: each a way to show it again,
+	// and where it was scrolled to; popupY: where to go back to, once it's
+	// there (results come in a few at a time)
+	let popupPast = [], popupNow = null, popupY = 0;
+	function popupGo(show){
+		if (popupOverlay.style.display === 'block' && popupNow) popupPast.push({show: popupNow, y: popupBox.scrollTop});
+		popupNow = show;
+		popupY = 0;
+		show();
+	}
+	function popupBack(){
+		const last = popupPast.pop();
+		if (!last) return closePopup();
+		popupNow = last.show;
+		popupY = last.y;
+		last.show();
+	}
+	function popupSearch(text, hl = '', texts = null, cmp = false){
 		popupHl = hl;
 		popupQuery = text;
 		cleanup(popupResults);
@@ -2249,9 +2275,15 @@ if(!isDictPage){
 		// The gloss's that aren't loaded (off on the page): once they are
 		mask.forEach((on, d) => on && !loaded.has(d) && ensureLoaded(d, () => popupQuery === text && go(dicts.map((_, i) => i === d))));
 	}
+	function popupScroll(){
+		if (!popupY) return;
+		popupBox.scrollTop = popupY;
+		if (popupBox.scrollTop >= popupY - 1) popupY = 0;
+	}
 	function popupOpen(){
 		popupOverlay.style.display = 'block';
 		document.body.classList.add('no-scroll');
+		popupScroll();
 		setTimeout(() => document.addEventListener('click', closePopupClick)); // A click outside closes it (after the click that opened it, if one did)
 	}
 	function closePopupClick(e){
@@ -2260,6 +2292,8 @@ if(!isDictPage){
 	function closePopup(){
 		document.removeEventListener('click', closePopupClick);
 		cleanup(popupResults);
+		popupPast = [];
+		popupNow = null;
 		popupOverlay.style.display = 'none';
 		document.body.classList.remove('no-scroll');
 	}
@@ -2342,7 +2376,7 @@ if(!isDictPage){
 		if (translationDiv.childElementCount) ids.length ? translate() : translationDiv.replaceChildren();
 		document.querySelectorAll('.tr-entry').forEach(box => !ids.length ? box.remove() :
 			box.dataset.text !== undefined && glossInto(box.parentNode, box.dataset.text, ids, true));
-		if (popupOverlay.style.display === 'block' && !rangeOf(updateQuery(popupQuery))) openPopupSearch(popupQuery, popupHl);
+		if (popupOverlay.style.display === 'block' && !rangeOf(updateQuery(popupQuery))) popupSearch(popupQuery, popupHl);
 	}, 300);
 	// The query word by word, when the search found nothing (a Bible text's
 	// headwords are its verses, so "rom 8.1 gal 1.1" links to each)
@@ -2800,7 +2834,7 @@ if(!isDictPage){
 		share: icon('M12 15V3M7 8l5-5 5 5M5 12v8h14v-8'),
 		copy: icon('M9 9h11v11H9zM5 15H4V4h11v1'),
 		link: icon('M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1'),
-		back: icon('M15 18l-6-6 6-6'),
+		back: backSVG,
 		hide: icon('M3 3l18 18M10.6 5.1A9.8 9.8 0 0 1 12 5c5 0 8.5 4.5 9.5 7a14 14 0 0 1-3 4.2M6.5 6.6A14 14 0 0 0 2.5 12c1 2.5 4.5 7 9.5 7a9.6 9.6 0 0 0 5.3-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2'),
 		bookmark: icon('M6 3h12v18l-6-4.5L6 21z'),
 		compare: icon('M12 6C10 4.5 7 4 3 4v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14'),

@@ -687,7 +687,9 @@ p-d > h2 .menu button { display: flex; align-items: center; gap: 10px; white-spa
 /* ⋮: white, no border, a big target (to the heading's right edge, its
    height not more than the heading's) */
 .cb-more { flex: none; width: 48px; height: 44px; margin: -8px -14px -8px auto; padding: 0; color: #fff; line-height: 0; }
-.cb-more svg, .ch-go svg { display: block; margin: auto; }
+.cb-back { display: none; flex: none; width: 44px; height: 44px; margin: -8px -8px -8px -14px; padding: 0; color: #fff; line-height: 0; }
+#popupResults .cb-back { display: block; }
+.cb-more svg, .cb-back svg, .ch-go svg { display: block; margin: auto; }
 /* a chapter's recording: 🔊 at the right, before the ⋮ */
 .ch-play { flex: none; height: 44px; margin: -8px 0 -8px auto; padding: 0 10px; font-size: 18px; line-height: 1; }
 .ch-play + .cb-more { margin-left: 0; }

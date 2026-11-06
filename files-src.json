@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1793884448],
+    ["404.html", 1793927515],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -137,8 +137,8 @@
     ["khmer/bible/audio/dpi-wisdom.slab", 1793901861, "Audio Bible, Job to Song of Songs (Khmer non-drama recording KHMDPI), tnefar codec: 700 bps", 713745, 3, "aux", 0, 4821358],
     ["khmer/bible-extra/bible.peak.zst", 1792411280, "Khmer Bible dictionary I had lying around", 907, 1, "rbi", 0, 251698],
     ["khmer/bible-extra/biblewordkm.peak.zst", 1792405440, "Translation words from <a href=\"https://door43.org/\">door43</a>", 9321, 2, "mono", 0, 278316],
-    ["khmer/bible-extra/km_tn.peak.zst", 1793534666, "Khmer Translation Notes (កំណត់ចំណាំសម្រាប់អ្នកបកប្រែ) by Wycliffe Associates, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>. From <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 27848, 3, "mono", 1, 2672449],
     ["khmer/bible-extra/khovstudy.peak.zst", 1793914627, "Khmer Study Bible notes, cross references, book introductions and outlines, maps and tables (ព្រះគម្ពីរបរិសុទ្ធសម្រាប់សិក្សា), set to the Hammond 1954 Khmer Bible (KHOV). Study Notes © The Bible League; published by The Bible League Cambodia", 938939, 3, "mono", 1, 5687208],
+    ["khmer/bible-extra/km_tn.peak.zst", 1793534666, "Khmer Translation Notes (កំណត់ចំណាំសម្រាប់អ្នកបកប្រែ) by Wycliffe Associates, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>. From <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 27848, 3, "mono", 1, 2672449],
     ["khmer/bible/text/gkb.peak.zst", 1793534672, "Khmer 2023 (ព្រះគម្ពីរខ្មែរសាកល) GLOBAL KHMER BIBLE ©, Copyright © 2023 by Global Bible Initiative\" <a href=\"https://www.bible.com/bible/2287/MAT.7.GKHB\">bible.com</a>", 1339, 4, "mono", 0, 472171],
     ["khmer/bible/text/kcb.peak.zst", 1793534678, "Khmer 2012 (Khmer Christian Bible)\" Words of Life Ministries <a href=\"https://www.bible.com/bible/315/MAT.8.KCB\">bible.com</a>", 1454, 4, "mono", 0, 496878],
     ["khmer/bible/text/khmus.peak.zst", 1793534705, "Khmer 2014 (អាល់គីតាប) © 2014 United Bible Societies, UK <a href=\"https://www.bible.com/bible/2224/EXO.13.អគត\">bible.com</a>", 1670, 4, "mono", 0, 1919365],
