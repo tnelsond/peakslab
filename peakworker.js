@@ -97,13 +97,18 @@ self.onmessage = async ({data}) => {
 			});
 		});
 		break;
-	case 'media': // A media dictionary's file for each word (exactly it), or null: [filetype, bytes, its details]
-		reply(data, {files: data.words.map(w => loaded(d) && d.slab ? d.aside(w, 1, () => {
-			if (!(d.getResult(1) > 0)) return null;
-			const h = d.getHeader().split('\t');
-			return [h.at(-1), d.getBytes()?.slice(), h.slice(1, -1).join()]; // (a copy: the next search overwrites it)
-		}) : null)});
+	case 'media': { // A media dictionary's files for each word (exactly it): all (every speaker's): [filetype, bytes, its details] ...; files, each's first, or null
+		const all = data.words.map(w => loaded(d) && d.slab ? d.aside(w, 1, () => {
+			const fs = [];
+			while (d.getResult(1) > 0) {
+				const h = d.getHeader().split('\t');
+				fs.push([h.at(-1), d.getBytes()?.slice(), h.slice(1, -1).join()]); // (a copy: the next search overwrites it)
+			}
+			return fs;
+		}) : []);
+		reply(data, {files: all.map(fs => fs[0] ?? null), all});
 		break;
+	}
 	case 'matchall': {
 		// For translating with several dictionaries at once: this one's
 		// headwords and second index words at each place in the text, every

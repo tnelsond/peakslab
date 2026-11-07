@@ -776,12 +776,19 @@ if(!isDictPage){
 	const tnefarWasm = () => tnefarX ??= decoder('tnefar').then(x => (x._initialize?.(), x));
 	// A dictionary's voice, in the wasm's memory: [where, length]. With
 	// several speakers in a slab, a recording's details are its voice's number:
-	// "word<tab>2.tnefar" is in the voice tnefar2.voice
+	// "word<tab>2.tnefar" is in the voice tnefar2.voice. Its file is the codebook
+	// and the name of its postfilter, in the language's postfilters slab
 	const tnefarVoices = {};
-	const tnefarVoice = (x, d, n) => tnefarVoices[`${d} ${n}`] ??= askDict(d, {type: 'media', words: [`tnefar${n}`]}).then(r => {
+	const tnefarVoice = (x, d, n) => tnefarVoices[`${d} ${n}`] ??= askDict(d, {type: 'media', words: [`tnefar${n}`]}).then(async r => {
 		const v = r.files[0]?.[1];
 		if (!v) throw new Error(`tnefar: ${dicts[d].name} has no voice (tnefar${n}.voice)`);
-		return [toWasm(x, v), v.length];
+		const end = 4 + new DataView(v.buffer, v.byteOffset).getUint32(0, true), name = new TextDecoder().decode(v.subarray(end));
+		const pf = (await askDict(dicts.findIndex(x => x.lang === dicts[d].lang && x.name === 'postfilters'), {type: 'media', words: [name]})).files[0]?.[1];
+		if (!pf) throw new Error(`tnefar: no postfilter ${name}`);
+		const voice = new Uint8Array(end + pf.length);
+		voice.set(v.subarray(0, end));
+		voice.set(pf, end);
+		return [toWasm(x, voice), voice.length];
 	});
 	// Play recordings ([type, bytes]: tnefar's, and the others' (webm, ...),
 	// decoded; a compound's parts', one after another), all in the one Web
@@ -914,7 +921,7 @@ if(!isDictPage){
 	}
 	// A 🔊 that plays the recordings ([type, bytes]: a compound's parts')
 	// A dictionary's colour, from its name (a speaker's, on their 🔊): a hue
-	const voiced = (b, d) => b.style.setProperty('--voice', [...dicts[d].path].reduce((h, c) => h * 33 + c.charCodeAt(0) >>> 0, 7) % 360);
+	const voiced = (b, d, n = 0) => b.style.setProperty('--voice', ([...dicts[d].path].reduce((h, c) => h * 33 + c.charCodeAt(0) >>> 0, 7) + n * 90) % 360);
 	function soundButton(recs, d){
 		if (recs.some(([t]) => TNEFAR.test(t))) tnefarWasm().catch(() => {}); // (loading while it's not played yet)
 		const b = document.createElement('button');
@@ -2609,18 +2616,18 @@ if(!isDictPage){
 				if (bs.length && TNEFAR.test(type) && !box.querySelector('.speed')) box.prepend(speedButton());
 				bs.forEach(w => {
 					const b = w.querySelector('.tr-play') ?? Object.assign(w.appendChild(soundButton(fs, d)), {className: 'sound tr-play', voices: [], turn: 0});
-					b.voices.push([fs, d]);
+					b.voices.push(...(fs.length === 1 ? r.all[words.indexOf(ws[0])].map(f => [[f], d]) : [[fs, d]]));
 					if (b.voices.some(v => v[0].length === 1)) b.voices = b.voices.filter(v => v[0].length === 1); // (one's parts one after another: only if none has the word itself)
 					b.voices.sort((x, y) => rank(dicts[x[1]].priority) - rank(dicts[y[1]].priority));
 					if (b.voices.length > 1) b.dataset.n = b.voices.length; else delete b.dataset.n;
-					if (!b.turn) voiced(b, b.voices[0][1]);
+					if (!b.turn) voiced(b, b.voices[0][1], b.voices[0][0][0][2]);
 				});
 			}));
 		});
 	}
 	const soundError = b => e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; };
 	window.playWord = b => {
-		if (b.voices && !(tnefarOn?.button === b && tnefarOn.live())) voiced(b, (b.sound = b.voices[b.turn++ % b.voices.length])[1]); // (playing: it pauses)
+		if (b.voices && !(tnefarOn?.button === b && tnefarOn.live())) voiced(b, (b.sound = b.voices[b.turn++ % b.voices.length])[1], b.sound[0][0][2]); // (playing: it pauses)
 		soundPlay(...b.sound, b, b.at || b.from, b.to, () => {
 			b.at = 0;
 			if (b.loop) return playWord(b);
