@@ -847,7 +847,8 @@ if(!isDictPage){
 		if (!tnefarCtx) {
 			try { navigator.audioSession.type = 'playback'; } catch (e) { /* (iOS: heard even with the ringer off, like <audio>) */ }
 			const AC = window.AudioContext || window.webkitAudioContext;
-			try { tnefarCtx = new AC({sampleRate: 16000}); } catch (e) { tnefarCtx = new AC(); }
+			// ('playback': a bigger buffer, for listening; the smallest one, the default, crackles on phones, above all as it starts again after a pause)
+			try { tnefarCtx = new AC({sampleRate: 16000, latencyHint: 'playback'}); } catch (e) { tnefarCtx = new AC({latencyHint: 'playback'}); }
 		}
 		const ctx = tnefarCtx;
 		if (tnefarOn?.button === button && tnefarOn.live()) { // (its own button: pause, or go on)
