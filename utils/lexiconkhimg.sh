@@ -5,7 +5,7 @@
 # refuses is tried from the Internet Archive; what neither has is listed.
 # Usage: lexiconkhimg.sh [list] [outdir]
 LIST="${1:-utils/lexiconkh-images.txt}"
-OUT="${2:-dict_src/khmer/dict/tech/lexiconkh-img}"
+OUT="${2:-dict_src/khmer/dict/lexicon/lexiconkh-img}"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$OUT"

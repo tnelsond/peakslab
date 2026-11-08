@@ -15,7 +15,7 @@ other (the app shows the other dictionaries' entries for a headword found):
   - English's its own words (love)
 
 Usage: kaikkisensestotsv.py <English.jsonl[.gz]> <dict_src dir> [language ...]
-  (into <dict_src>/<language>/wiktionary/<abbreviation>senses.tsv, its languages
+  (into <dict_src>/<language>/wiktionary/<abbreviation>-senses.tsv, its languages
   LANGS below)
 """
 import gzip, json, os, sys
@@ -73,7 +73,7 @@ for l, (ab, *_) in LANGS.items():
 	if ONLY and l not in ONLY:
 		continue
 	os.makedirs(f'{SRC}/{l}/wiktionary', exist_ok=True)
-	out = f'{SRC}/{l}/wiktionary/{ab}senses.tsv'
+	out = f'{SRC}/{l}/wiktionary/{ab}-senses.tsv'
 	name = LANGS[l][1].replace('Chinese Mandarin', 'Chinese (Mandarin)')
 	with open(out, 'w', encoding='utf-8') as o:
 		o.write(f'#desc\t{name} words by English sense, from English Wiktionary\'s translation tables '

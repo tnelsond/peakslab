@@ -3,9 +3,9 @@
 their Khmer already Unicode: the phrasal verbs' through utils/limon.py) into
 peakslab .tsv files:
 
-  python3 -I utils/khmerappstotsv.py phrasal phrasalverbs.tsv > dict_src/khmer/dict/phrasalverbs.tsv
-  python3 -I utils/khmerappstotsv.py chinese chinese-khmer.tsv > dict_src/khmer/chinese/chinesekhmer.tsv
-  python3 -I utils/khmerappstotsv.py thai thai-khmer.tsv > dict_src/khmer/thai/thaikhmer.tsv
+  python3 -I utils/khmerappstotsv.py phrasal phrasalverbs.tsv > dict_src/khmer/dict/km-phrasalverbs.tsv
+  python3 -I utils/khmerappstotsv.py chinese chinese-khmer.tsv > dict_src/khmer/dict/chinese/km-chinese.tsv
+  python3 -I utils/khmerappstotsv.py thai thai-khmer.tsv > dict_src/khmer/dict/thai/km-thai.tsv
 
   account for	<p-n>១</p-n> @ផ្តល់ពត៌មានល្អិតល្អន់ពី	<p-n>២</p-n> @ដឹងពីពត៌មានរបស់ ...
   爱	<p-ipa>ài</p-ipa>	@ស្រឡាញ់

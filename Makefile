@@ -21,8 +21,8 @@ TSV_FILES := $(shell find dict_src -name '*.tsv' -o -name '*.tsv.1' 2>/dev/null 
 # Map dict_src/<lang>/... to meta/<lang>/...
 META_FILES := $(patsubst dict_src/%.tsv,meta/%.meta,$(patsubst dict_src/%.tsv.1,meta/%.meta,$(TSV_FILES)))
 
-# A media slab is a directory of files with its description in zzz.meta,
-# e.g. dict_src/khmer/media/audio/ -> khmer/media/audio.slab
+# An aux (media) slab is a directory of files with its description in zzz.meta,
+# e.g. dict_src/khmer/aux/km-audio/ -> khmer/aux/km-audio.slab
 SLAB_DIRS := $(patsubst %/zzz.meta,%,$(shell find dict_src -name zzz.meta 2>/dev/null | sort))
 SLAB_META_FILES := $(patsubst dict_src/%,meta/%.meta,$(SLAB_DIRS))
 
@@ -72,25 +72,25 @@ $(SLAB_META_FILES): peakgen FORCE
 	fi
 
 # g2k.tsv is made: ipa.tsv in G2K's phonetics, then the words only nath2022 has
-dict_src/khmer/phonetics/dict/g2k.tsv: dict_src/khmer/phonetics/dict/ipa.tsv dict_src/khmer/dict/nath2022.tsv utils/ipatog2k.py utils/nathtog2k.pl
-	perl utils/nathtog2k.pl dict_src/khmer/dict/nath2022.tsv > $@.nath
-	python3 utils/ipatog2k.py dict_src/khmer/phonetics/dict/ipa.tsv $@ $@.nath
+dict_src/khmer/dict/phonetics/km-g2k.tsv: dict_src/khmer/dict/phonetics/km-ipa.tsv dict_src/khmer/dict/km-nath2022.tsv utils/ipatog2k.py utils/nathtog2k.pl
+	perl utils/nathtog2k.pl dict_src/khmer/dict/km-nath2022.tsv > $@.nath
+	python3 utils/ipatog2k.py dict_src/khmer/dict/phonetics/km-ipa.tsv $@ $@.nath
 	rm $@.nath
 
 # The Lao pronunciation dictionaries are made from pat's and kerr's
-dict_src/lao/phonetics/dict/laoipa.tsv dict_src/lao/phonetics/dict/laosouth.tsv &: dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv utils/laophonetics.py
-	mkdir -p dict_src/lao/phonetics/dict
-	python3 utils/laophonetics.py dict_src/lao/dict/pat.tsv dict_src/lao/dict/kerr.tsv dict_src/lao/phonetics/dict
+dict_src/lao/dict/phonetics/lo-ipa.tsv dict_src/lao/dict/phonetics/lo-south.tsv &: dict_src/lao/dict/lo-pat.tsv dict_src/lao/dict/lo-kerr.tsv utils/laophonetics.py
+	mkdir -p dict_src/lao/dict/phonetics
+	python3 utils/laophonetics.py dict_src/lao/dict/lo-pat.tsv dict_src/lao/dict/lo-kerr.tsv dict_src/lao/dict/phonetics
 
 # The Greek and Hebrew interlinear Bibles and their lexicons are made from
 # STEPBible's data (https://github.com/STEPBible/STEPBible-Data: the TAGNT,
 # TAHOT, TBESG and TBESH .txt files in dict_src/stepbible)
-STEP_TSV := dict_src/ancient-greek/bible/text/grc-tagnt.tsv dict_src/ancient-greek/bible-extra/tbesg.tsv dict_src/biblical-hebrew/bible/text/hbo-tahot.tsv dict_src/biblical-hebrew/bible-extra/tbesh.tsv
+STEP_TSV := dict_src/ancient-greek/bible/text/grc-tagnt.tsv dict_src/ancient-greek/bible/dict/grc-tbesg.tsv dict_src/biblical-hebrew/bible/text/hbo-tahot.tsv dict_src/biblical-hebrew/bible/dict/hbo-tbesh.tsv
 $(STEP_TSV) &: $(wildcard dict_src/stepbible/*.txt) utils/stepbibletotsv.py
 	python3 utils/stepbibletotsv.py dict_src/stepbible dict_src
 
 # The KJV with Strong's numbers, from eBible's eng-kjv2006 USFM (dict_src/ebible/eng-kjv2006)
-dict_src/english/bible/text/eng-kjvs.tsv: $(wildcard dict_src/ebible/eng-kjv2006/*.usfm) utils/usfmstrongstotsv.py
+dict_src/english/bible/text/en-kjvs.tsv: $(wildcard dict_src/ebible/eng-kjv2006/*.usfm) utils/usfmstrongstotsv.py
 	python3 utils/usfmstrongstotsv.py $@ 'King James Version (1769) with Strong’s numbers: tap a word for its Greek or Hebrew. Public domain, from <a href="https://ebible.org/find/details.php?id=eng-kjv2006">eBible</a>' $(sort $(wildcard dict_src/ebible/eng-kjv2006/*.usfm))
 
 meta:

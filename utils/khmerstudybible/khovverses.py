@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""From the KHOV Bible module (khmer/bible/text/khov.peak.zst): its verses
+"""From the KHOV Bible module (khmer/bible/text/km-khov.peak.zst): its verses
 (khov_verses.json, [[book, chapter, verse], ...]) and its book names
 (khov_names.tsv), for the study notes to be keyed to.
 

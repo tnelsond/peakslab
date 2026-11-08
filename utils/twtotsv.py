@@ -12,7 +12,7 @@ publishes), cloned into one folder:
   git clone --depth 1 https://content.bibletranslationtools.org/WA-Catalog/km_tw.git
 
 Usage: twtotsv.py <folder of the clones> <dict_src dir>
-  (into <dict_src>/<language>/bible-words/<abbreviation>tw.tsv)
+  (into <dict_src>/<language>/bible/words/<abbreviation>-tw.tsv)
 """
 import glob, os, re, sys
 from html import escape
@@ -63,8 +63,8 @@ for k, ws in en.items():
 	heads[k] = t if n[t] == 1 else f'{t} ({k})'
 for code, (lang, ab, name) in LANGS.items():
 	arts = articles(code)
-	os.makedirs(f'{SRC}/{lang}/bible-words', exist_ok=True)
-	out = f'{SRC}/{lang}/bible-words/{ab}tw.tsv'
+	os.makedirs(f'{SRC}/{lang}/bible/words', exist_ok=True)
+	out = f'{SRC}/{lang}/bible/words/{ab}-tw.tsv'
 	with open(out, 'w', encoding='utf-8') as o:
 		o.write(f'#desc\t{name} Bible translation words (key terms, names and other words), just their words, from '
 			'<a href="https://bibleineverylanguage.org/">bibleineverylanguage</a> (translationWords, '

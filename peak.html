@@ -60,7 +60,6 @@
 	<div id="controls">
 		<button class="control-btn" id="install-button" title="Install app" aria-label="Install app">⤓</button>
 		<button class="control-btn" id="f4" title="Fullscreen">⛶</button>
-		<button class="control-btn" id="popupX" title="Close" aria-label="Close">×</button>
     </div>
 	<div id="drawer" class="hide">
 		<div class="drawer-bg"></div>
@@ -70,8 +69,11 @@
 		</aside>
 	</div>
     <div id="popupOverlay">
-        <div id="popupContent">
-            <div id="popupResults"></div>
+        <div id="popupSheet">
+            <div id="popupGrip" title="Drag up or down" aria-hidden="true"><span></span></div>
+            <div id="popupContent">
+                <div id="popupResults"></div>
+            </div>
         </div>
     </div>
 

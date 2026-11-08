@@ -87,10 +87,10 @@ def main(pat, kerr, out):
 	for w, ps in prons(kerr).items():
 		if w not in words: words[w] = list(dict.fromkeys(kerr2pat(p) for p in ps))
 	src = '<a href="https://sealang.net/lao/dictionary.htm">sealang</a>\'s Patterson and Kerr'
-	with open(f'{out}/laoipa.tsv', 'w', encoding='utf-8') as f:
+	with open(f'{out}/lo-ipa.tsv', 'w', encoding='utf-8') as f:
 		f.write(f'#desc\tLao pronunciation (Vientiane), from {src}: á high, ā mid, à low, â falling, ǎ rising, ȁ low falling\n#priority\t2\n#lang\tphon\n')
 		for w, ps in words.items(): f.write(f"{w}\t{', '.join(f'[{p}]' for p in ps)}\n")
-	with open(f'{out}/laosouth.tsv', 'w', encoding='utf-8') as f:
+	with open(f'{out}/lo-south.tsv', 'w', encoding='utf-8') as f:
 		f.write(f'#desc\tSouthern Lao pronunciation (Pakxé), {src} with Hartmann\'s Pakxé tones: ˦˥ high rising, ˧ mid, ˨ lower mid, ˩ low, ˨˩ low falling, ˧˩ mid falling, ̰ creaky\n#priority\t2\n#lang\tphon\n')
 		for w, ps in words.items(): f.write(f"{w}\t{', '.join(dict.fromkeys(f'[{south(p)}]' for p in ps))}\n")
 	print(f'{len(words)} words')

@@ -2,7 +2,7 @@
 # Convert the StarDict "Webster's Revised Unabridged Dictionary (1913)" TSV
 # (dict.org web1913 ASCII markup) into peakslab HTML.
 #
-#   python3 utils/webstertotsv.py webster.tsv.orig > dict_src/english/dict/webster.tsv
+#   python3 utils/webstertotsv.py webster.tsv.orig > dict_src/english/dict/en-webster.tsv
 #
 # Source markup handled:
 #   ['e] [=a] ["o] [a^] ...   accented letters        -> Unicode

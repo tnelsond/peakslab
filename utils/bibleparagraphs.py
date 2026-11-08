@@ -7,7 +7,7 @@ by reference. The ¶ goes before the verse's first word, after any heading and
 opening tags. A verse that has one already is left as it is, so running this
 again changes nothing.
 
-    utils/bibleparagraphs.py dict_src/english/bible/text/engULB.tsv x.tsv ...
+    utils/bibleparagraphs.py dict_src/english/bible/text/en-ULB.tsv x.tsv ...
 """
 import re, sys
 

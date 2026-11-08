@@ -13,7 +13,7 @@ the other:
     English's OEWN's whole definition (if cut) and examples
 
 Usage: omwtotsv.py <english-wordnet-2025.xml[.gz]> <omw-1.4 dir> <dict_src dir> [language ...]
-  (into <dict_src>/<language>/wordnet/<abbreviation>wn.tsv)
+  (into <dict_src>/<language>/thesaurus/<abbreviation>-wn.tsv)
 """
 import gzip, os, sys
 import xml.etree.ElementTree as ET
@@ -96,8 +96,8 @@ for l, (ab, name, wn) in LANGS.items():
 	src = ('Open English WordNet 2025 (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, '
 		'<a href="https://github.com/globalwordnet/english-wordnet">globalwordnet</a>)' if l == 'english' else
 		f'{CREDIT[wn]}, from the <a href="https://github.com/omwn/omw-data">Open Multilingual Wordnet</a>')
-	os.makedirs(f'{SRC}/{l}/wordnet', exist_ok=True)
-	out = f'{SRC}/{l}/wordnet/{ab}wn.tsv'
+	os.makedirs(f'{SRC}/{l}/thesaurus', exist_ok=True)
+	out = f'{SRC}/{l}/thesaurus/{ab}-wn.tsv'
 	with open(out, 'w', encoding='utf-8') as o:
 		o.write(f'#desc\t{name} words by WordNet sense, from {src}: its headwords the senses (Open English WordNet\'s '
 			'word and definition), the same in every language\'s, so with another language\'s on, a dictionary between them\n'

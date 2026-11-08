@@ -236,7 +236,7 @@ button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: 
 		justify-content: flex-start;
 		gap: 14px;
 		padding: 0 12px;
-			font-size: 16px;
+		font-size: 16px;
 	}
 	.head-menu .head-btn .lbl { display: inline; }
 }
@@ -319,16 +319,13 @@ body.fullscreen #content { margin-top: 8px; }
 	font-size: 17px;
 	line-height: 1.3;
 }
-/* A word's recordings: the 🔊s side by side on one line, their dictionaries
-   on the next (their entries aren't boxes here) */
-.sounds { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; margin-bottom: .6em; }
-.sounds > :where(p-e) { display: contents; }
-.sounds .sound { margin-right: -5px; }
-.sounds .speed { order: 1; margin-left: 12px; }
-.sounds::before { content: ''; order: 2; flex-basis: 100%; height: 4px; }
-.sounds p-h { order: 3; float: none; padding: 0 8px; font-size: 11px; }
+/* A word's recordings: the 🔊s side by side, each with its dictionary's
+   name under it (their entries aren't boxes here) */
+.sounds { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 8px; margin-bottom: .6em; }
+.sounds > p-e { display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 0; padding: 0; border: 0; }
+.sounds p-h { order: 1; float: none; margin: 0; padding: 0 6px; font-size: 11px; white-space: nowrap; }
 .sounds p-n { display: none; }
-.sounds .menu { order: 4; }
+.sounds .speed { order: 1; align-self: center; margin-left: 4px; } /* (after them all) */
 /* The speed of recordings, by them and above a gloss */
 .speed {
 	padding: 2px 8px;
@@ -514,6 +511,8 @@ body.show-chords .chords-btn::after { content: "Hide chords"; }
 	border-radius: 10px;
 	background: var(--card-bg);
 	box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+	width: max-content; /* (as wide as its words, not what opened it: a recording's name is narrow) */
+	max-width: min(320px, 90vw);
 }
 .menu button { padding: 9px 14px; color: var(--card-text); text-align: left; }
 .menu button + button { border-top: 1px solid var(--line); }
@@ -616,21 +615,20 @@ p-w:hover { text-decoration: underline dotted; }
 
 /* Bible: a verse's section (a Bible text's result) has a small
    reference, so a chapter's verses read on */
-p-d.chapter p-e :is(h3, h4) { font-size: 1.05em; color: var(--color1); }
 /* A chapter: each dictionary's verses in one card, running on */
 p-d.chapter p-e { line-height: 1.9; }
-p-d.chapter p-e :is(h3, h4) { display: block; margin: .8em 0 .3em; }
+p-d.chapter p-e :is(h3, h4) { display: block; margin: .8em 0 .3em; font-size: 1.05em; color: var(--color1); }
 /* Parallel: verse by verse, each text's on its own line under its name */
 .pv { padding: .35em 0; border-bottom: 3px solid var(--line); }
 .pv:last-child { border-bottom: 0; }
 .pv-t { display: flow-root; } /* (its name and Gloss float right, like an entry's) */
 .pv-t + .pv-t { margin: .15em 0 0 1.8em; } /* the others, offset */
-/* (a word joiner after it: it stays on the line with the verse's first
-   letter, in any script; no word to keep whole, as Chinese has none) */
 /* A chapter being read: the word being said. Play word: a tap says a word, reads from a verse */
 .sound.words { outline: 2px solid #f2c200; }
 .reading .w, .reading .vs-n { cursor: pointer; }
 .w.said { border-radius: 3px; background: rgba(242, 194, 0, .45); }
+/* A verse's number: a word joiner after it, so it stays on the line with
+   the verse's first letter, in any script (Chinese has no words to keep whole) */
 .vs-n::after { content: "\2060"; }
 .vs-n {
 	padding: 0 .2em 0 .1em;
@@ -660,7 +658,7 @@ p-d > h2, #chNav {
 	padding: 9px 14px;
 	background: var(--head-bg);
 	color: #fff;
-	font-size: 1.2em;
+	font-size: 1.2rem; /* (not the text size control's: that's for the entries) */
 	font-weight: 400;
 	line-height: 1.35;
 	cursor: pointer;
@@ -686,9 +684,9 @@ p-d > h2 .menu { font-size: 15px; line-height: 1.3; }
 p-d > h2 .menu button { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 /* ⋮: white, no border, a big target (to the heading's right edge, its
    height not more than the heading's) */
-.cb-more { flex: none; width: 48px; height: 44px; margin: -8px -14px -8px auto; padding: 0; color: #fff; line-height: 0; }
-.cb-back { display: none; flex: none; width: 44px; height: 44px; margin: -8px -8px -8px -14px; padding: 0; color: #fff; line-height: 0; }
-#popupResults .cb-back { display: block; }
+.cb-more, .cb-back { flex: none; width: 48px; height: 44px; margin: -8px -14px -8px auto; padding: 0; color: #fff; line-height: 0; }
+.cb-back { display: none; width: 44px; margin: -8px -8px -8px -14px; }
+#popupResults.has-past .cb-back { display: block; } /* (just with somewhere to go back to) */
 .cb-more svg, .cb-back svg, .ch-go svg { display: block; margin: auto; }
 /* a chapter's recording: 🔊 at the right, before the ⋮ */
 .ch-play { flex: none; height: 44px; margin: -8px 0 -8px auto; padding: 0 10px; font-size: 18px; line-height: 1; }
@@ -815,6 +813,7 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .dict-rows .row-main { gap: 2px; }
 .lib-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .lib-desc { font-size: .85em; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
+.dict-row .lib-desc { white-space: normal; }
 .lib-type {
 	font-size: .75em;
 	padding: 0 7px;
@@ -867,18 +866,21 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .dict-del { align-self: center; padding: 4px 6px; color: var(--muted); font-size: .85em; }
 /* A note on a verse: its notes' footnote mark (a letter), a little link; it shows in the popup */
 .vs-note {
-	font-size: .7em;
-	font-style: italic;
-	font-weight: 600;
-	vertical-align: super;
-	line-height: 1;
-	padding: 0 4px; /* (one letter: room enough to tap) */
-	margin: 0 1px;
+	display: inline-block;
+	min-width: 1.6em;
+	margin: 0 2px;
+	padding: 3px 5px;
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--color1) 18%, transparent);
 	color: var(--color1);
-	text-decoration: underline;
-	text-underline-offset: 2px;
+	font-size: .8em;
+	font-weight: 600;
+	line-height: 1;
+	text-align: center;
+	text-decoration: none;
+	vertical-align: .35em;
 }
-.dict-row .lib-desc { white-space: normal; }
+.vs-note:hover { background: color-mix(in srgb, var(--color1) 30%, transparent); }
 /* The library's: download (⬇), downloading (a circle), delete (🗑), its size under it */
 .dict-acts { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 2px; }
 .dict-act {
@@ -909,6 +911,8 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 @keyframes spin { to { transform: rotate(360deg); } }
 /* Side panel: history, bookmarks, the filter, languages, books */
 #drawer { position: fixed; inset: 0; z-index: 3500; } /* Over a popup too (its gloss) */
+/* The drawers (library, filter, ...) and the little menus: their own size, whatever the phone's or browser's text scaling (the text size control is just for entries) */
+#drawer, .menu { -webkit-text-size-adjust: none; text-size-adjust: none; }
 .drawer-bg { position: absolute; inset: 0; background: rgba(30,20,10,.45); }
 .drawer-panel {
 	position: absolute;
@@ -957,6 +961,8 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 	background: var(--control-btn-bg) var(--tick) center / 14px no-repeat;
 }
 .radio[aria-pressed="true"]::before { box-shadow: inset 0 0 0 3px var(--card-bg); }
+/* A group some of whose categories are ticked: a dash */
+.check[aria-pressed="mixed"]::before { border-color: var(--control-btn-bg); background: linear-gradient(var(--card-bg), var(--card-bg)) center / 9px 2px no-repeat var(--control-btn-bg); }
 .check[aria-pressed="true"] .row-w, .radio[aria-pressed="true"] .row-w { color: var(--color1); }
 .cat-exp {
 	flex: none;
@@ -972,39 +978,65 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .gloss-rows span { width: 1.2em; color: var(--muted); font-weight: 700; }
 .gloss-rows select { flex: 1; min-width: 0; padding: .3em; border: 1px solid var(--line); border-radius: 6px; background: var(--card-bg); color: inherit; font: inherit; font-size: .9em; }
 .cat-body { margin: 0 0 8px 34px; padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
+/* A group's categories (Bible: Text, Audio, Notes, ...): in its body, a little smaller, a line between */
+.subcats .cat-row { min-height: 40px; }
+.subcats .cat-sel { padding: 6px 4px; }
+.subcats .row-w { font-size: .98em; }
+.subcats > .cat:first-child { border-top: 0; }
+.cat-body:has(> .subcats) { margin-left: 16px; padding: 0 0 0 6px; }
+.subcats .cat-body { margin: 0 0 6px 30px; }
 
-/* A word's entries over the page */
+/* A word's entries over the page: a sheet from the bottom. It opens part of
+   the way up (--sheet-y: how far down it is); its grip, or its text, drags it
+   up to the top or down to close */
 #popupOverlay {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0,0,0,.8);
+	background: rgba(0,0,0,0);
+	transition: background .3s;
 	z-index: 3000;
 }
-#popupContent {
+#popupOverlay.open { background: rgba(0,0,0,.25); }
+#popupSheet {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	max-width: 1200px;
+	height: calc(100% - 8px - env(safe-area-inset-top, 0px));
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
 	background: var(--bg-color); /* the page's brown */
 	color: var(--card-text);
-	padding: 0 2px 20px; /* (as wide as the results: #content's; its first heading at its top) */
-	border-radius: 18px;
-	max-width: 1200px;
-	max-height: calc(100% - 76px - env(safe-area-inset-bottom, 0px)); /* (down to the round buttons below it: 56px, and its padding) */
-	margin: 0 auto;
+	border-radius: 18px 18px 0 0;
+	box-shadow: 0 -2px 10px rgba(0,0,0,.2);
+	transform: translateY(var(--sheet-y, 100%));
+	transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+	will-change: transform;
+}
+#popupSheet.drag { transition: none; }
+#popupGrip { flex: none; display: flex; justify-content: center; align-items: center; height: 22px; cursor: grab; touch-action: none; }
+#popupGrip span { width: 40px; height: 5px; border-radius: 3px; background: var(--muted); opacity: .7; }
+#popupContent {
+	flex: 1;
+	min-height: 0;
+	padding: 0 2px calc(76px + env(safe-area-inset-bottom, 0px)); /* (as wide as the results: #content's; its end scrolls clear of the round buttons) */
 	overflow-y: auto;
-	box-shadow: 0 20px 50px rgba(0,0,0,.7);
+	overscroll-behavior: contain;
 }
 /* Fullscreen (the ⛶ below): it fills the window */
-body.fullscreen #popupContent {
-	position: fixed;
-	inset: 0;
-	width: auto;
+body.fullscreen #popupSheet {
+	height: 100%;
 	max-width: none;
-	max-height: none;
 	border-radius: 0;
+	transform: none;
 	padding-top: env(safe-area-inset-top);
-	padding-bottom: 60px; /* (its end scrolls clear of the buttons below) */
 }
+body.fullscreen #popupGrip { display: none; }
 
-/* The fullscreen button, and the popup's × (while it's open) */
+/* The fullscreen button (and install) */
 #controls {
 	position: fixed;
 	bottom: 10px;
@@ -1026,11 +1058,9 @@ body.no-scroll #controls { z-index: 3001; } /* Over a popup too */
 	opacity: .55;
 }
 .control-btn:hover, body.fullscreen .control-btn { opacity: 1; }
-body.fullscreen .control-btn:not(#f4, #popupX) { display: none !important; } /* Fullscreen: just ⛶ (install's display is inline) */
+body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscreen: just ⛶ (install's display is inline) */
 /* Brown, like the context menu */
-#f4, #popupX { background: var(--header-bg); opacity: .85; }
-body:not(.no-scroll) #popupX { display: none; }
-#popupX { font-size: 26px; line-height: 1; }
+#f4 { background: var(--header-bg); opacity: .85; }
 
 /* The context menu (a tap on an entry's text, or selected text): docked
    at the bottom of the screen, over the round buttons; its icons, each
@@ -1079,7 +1109,7 @@ body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results abov
 
 @media (max-width: 480px) {
 	#content { padding: 0 6px 2px; }
-	#popupContent { padding: 0 6px 20px; }
+	#popupContent { padding-left: 6px; padding-right: 6px; }
 	p-d { --pd: 14px; }
 	p-e.starred { margin-left: -14px; padding-left: 10px; }
 	/* The cards (and the Bible bar) from edge to edge of the screen, square */
@@ -1089,5 +1119,5 @@ body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results abov
 }
 @media (prefers-reduced-motion: reduce) {
 	.drawer-panel { animation: none; }
-	#subbar, .cat-exp { transition: none; }
+	#subbar, .cat-exp, #popupSheet, #popupOverlay { transition: none; }
 }

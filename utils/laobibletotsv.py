@@ -5,7 +5,7 @@
 Usage: laobible.py <rawdir> <imgdir> <outdir>
   rawdir/commentary/LBC###.html, rawdir/dictionary/<TERM>.html, rawdir/terms.json
   imgdir/<name>.webp  images already converted (see laobiblefetchimg.sh)
-Writes outdir/laobiblecommentary.tsv and outdir/laobibledict.tsv
+Writes outdir/lo-biblecommentary.tsv and outdir/lo-bibledict.tsv
 """
 import base64, json, os, re, sys
 from bs4 import BeautifulSoup, NavigableString, Tag

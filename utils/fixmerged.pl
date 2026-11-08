@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # Untangles definitions that were merged with ## (h97: "+ ADJ + ក៏ ... ##
 # v to say, tell"), in place:
-#   fixmerged.pl dict_src/khmer/dict/h97.tsv
+#   fixmerged.pl dict_src/khmer/dict/km-h97.tsv
 # The parts after a ## come first, and grammar patterns ("+ VERB ...")
 # after the other senses, in their order; the ##s go.
 use strict; use warnings; use utf8;

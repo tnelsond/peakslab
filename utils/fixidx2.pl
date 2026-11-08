@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # Fixes second index (@) marks that don't start a word, in place:
-#   fixidx2.pl [--script=Khmer] dict_src/khmer/dict/sonv.tsv ...
+#   fixidx2.pl [--script=Khmer] dict_src/khmer/dict/km-sonv.tsv ...
 # A mark before spaces, tags, entities or punctuation moves on to the
 # word after them ("@<p-l> (noun) ក្រដាស" -> "<p-l> (noun) @ក្រដាស"). One
 # before a bracketed pronunciation, or before nothing (the field ends),
