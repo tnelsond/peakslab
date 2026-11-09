@@ -1290,19 +1290,26 @@ if(!isDictPage){
 	// right). The same button when the heading's redrawn: it may be playing
 	function chapterAudio(card, bar, ref){
 		const c = chOf(ref.from), w = ref.bk && c === chOf(ref.to) ? bookCode(ref.bk) + ' ' + c : '';
+		const text = cardTexts(card)[0], key = `${w} ${text}`; // (the card's first translation's recording, if it has one)
 		const put = b => bar.insertBefore(b, bar.querySelector(':scope > .cb-more'));
-		if (card._audio?.w === w) {
+		if (card._audio?.key === key) {
 			const b = card._audio.b;
 			if (b) { b.ref = ref; playSpan(b); put(b); }
 			return;
 		}
 		card._audio?.b && tnefarOn?.button === card._audio.b && tnefarOn.stop(); // (another chapter now)
-		card._audio = {w};
+		card._audio = {key};
 		if (!w) return;
 		const ts = dictIds.filter(isBibleText); // (a recording's words have a text's timing: "gen 1 km-khsv")
-		dictIds.filter(d => libOn[d] && dicts[d].media).forEach(d => askDict(d, {type: 'media', words: [w, ...ts.map(t => `${w} ${dicts[t].name}`)]}).then(r => {
-			const [f, ...ms] = r.files, i = ms.findIndex(m => m?.[1]);
-			if (!f?.[1] || !TNEFAR.test(f[0]) || card._audio.w !== w || card._audio.b) return;
+		const ds = dictIds.filter(d => libOn[d] && dicts[d].media);
+		Promise.all(ds.map(d => askDict(d, {type: 'media', words: [w, ...ts.map(t => `${w} ${dicts[t].name}`)]}).then(r => {
+			const [f, ...ms] = r.files;
+			return f?.[1] && TNEFAR.test(f[0]) ? {d, f, ms, i: ms.findIndex(m => m?.[1])} : null;
+		}))).then(rs => {
+			rs = rs.filter(Boolean);
+			const got = rs.find(r => ts[r.i] === text) ?? rs[0]; // (read along with this text, else any)
+			if (!got || card._audio.key !== key) return;
+			const {d, f, ms, i} = got;
 			const b = card._audio.b = soundButton([f], d);
 			b.classList.add('ch-play');
 			b.onclick = e => { // (playing, or Play word on: that stops; else its menu)
@@ -1316,7 +1323,7 @@ if(!isDictPage){
 			b.ref = ref;
 			if (i >= 0) readAlong(w, b, ts[i], ms[i][1]);
 			playSpan(b);
-		}));
+		});
 	}
 	// A chapter's read-along: its "gen 1 km-khsv.times" (times.py, in tnefar-work) says
 	// when each word of that text is said. Varints, for each verse (from
