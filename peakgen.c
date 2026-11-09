@@ -251,6 +251,27 @@ int readmeta(char *s, int len, int header){
 					beg = 1;
 					++skip;
 					continue;
+				}
+				// A book text, read as the Bible is ("nl1 1.2": book, chapter,
+				// paragraph; a chapter one card; its books in the Books panel):
+				// its collection's name ("New Life"), the same for its texts in
+				// other languages
+				else if(!ps_cmpe(s+skip, "#book")){
+					printf("##BOOK: %s\n", s+skip);
+					skip += 6;
+					vec_char_push(&desc, '#');
+					vec_char_push(&desc, 'k');
+					vec_char_push(&desc, '\t');
+					while(s[skip] && skip < len){
+						vec_char_push(&desc, s[skip]);
+						++skip;
+					}
+					if(skip > len)
+						break;
+					vec_char_push(&desc, '\n');
+					beg = 1;
+					++skip;
+					continue;
 				}else if(s[skip+1] == '#'){
 					//printf("%s\n", s + skip);
 					/* Get our slab substitution lines */

@@ -40,6 +40,16 @@ const isDictPage = window.location.pathname.length > 1;
 const $ = id => document.getElementById(id);
 const earlyWorkers = isDictPage ? [new Worker('/peakworker.js'), new Worker('/peakworker.js')] : [];
 const filesJson = await fetch('/files.json').then(r => r.json());
+// The user's own dictionaries (the library's Upload): their files.json
+// entries (the path's language and folders are its page and category, as
+// any dictionary's), their bytes in a cache of their own (not the service
+// worker's: an update never deletes it) at /~user/<path>. One at a path
+// files.json has too is used instead of it.
+const USER_CACHE = 'user-dicts', userKey = 'peakslab-user-dicts', userURL = path => '/~user/' + path;
+const DICT_FILE = /\.(peak|slab)(\.zst)?$/;
+const userEntries = readList(userKey).filter(e => Array.isArray(e) && typeof e[0] === 'string' && /^[^/]+\//.test(e[0]) && DICT_FILE.test(e[0]));
+const userPaths = new Set(userEntries.map(e => e[0]));
+filesJson.dicts = [...(filesJson.dicts || []).filter(e => !userPaths.has(e[0])), ...userEntries];
 
 // Ask the browser not to evict the cached dictionaries when disk space is low
 navigator.storage?.persisted?.().then(p => p || navigator.storage.persist());
@@ -180,9 +190,9 @@ if(!isDictPage){
 				sharedWasm().then(wasm => w.postMessage({type: 'wasm', wasm}));
 				break;
 			case 'needbytes':
-				(self.caches ? caches.match('/' + dicts[d].path).catch(() => null) : Promise.resolve(null))
+				(dicts[d].user ? userBytes(d) : (self.caches ? caches.match('/' + dicts[d].path).catch(() => null) : Promise.resolve(null))
 					.then(hit => { if (!hit) fetched.add(d); }) // (the service worker has it: not a download)
-					.then(() => fetchDict('/' + dicts[d].path, d))
+					.then(() => fetchDict('/' + dicts[d].path, d)))
 					.then(buf => w.postMessage({type: 'bytes', did: m.did, buf}, [buf]))
 					.catch(err => {
 						console.warn(`Fetching ${dicts[d].path} failed:`, err);
@@ -409,7 +419,7 @@ if(!isDictPage){
 		// In parallel, in the verse's group, by verse, each text as the
 		// dictionaries go: like an entry, with its name and Gloss
 		t.innerHTML = (par ? `<div class="pv-t" data-id="${sortId(d)}" data-d="${d}">${entryHeadHTML(d)}` : '') +
-			`<span class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}${lead}<span class="vs-n">${full ? cv : n}</span>${rest.slice(lead.length)}` +
+			`<span class="vs${para ? ' para' : ''}" data-v="${v}" data-h="${escapeHTML(h)}">${heads}${lead}${heads && !rest.replace(/<[^>]*>/g, '').trim() ? '' : `<span class="vs-n">${full ? cv : n}</span>`}${rest.slice(lead.length)}` + // (just a heading, a book's: no number under it)
 			(par ? '</span></div>' : ' </span>');
 		const el = t.content.firstChild, vs = par ? el.lastChild : el, pe = card.querySelector('p-e');
 		if(par){
@@ -484,7 +494,7 @@ if(!isDictPage){
 	const curLang = pLangParts[0] || pParts[0] || '';
 
 	// Every dictionary on the page, from files.json's [path, timestamp,
-	// description, buflen, priority, type, collapsed, size]. Its category is
+	// description, buflen, priority, type, collapsed, size(, book)]. Its category is
 	// its folders after the language's (a Khmer and an English Bible text
 	// are both "bible/text"). It's on the page if it's the page's language's
 	// and in every one of the page's folders (/khmer/bible: khmer/bible/text/x;
@@ -494,9 +504,11 @@ if(!isDictPage){
 	// 1's); 2, 3, ... the language's others, and -1, -2, ... the other
 	// languages' (the slider in the download prompt: Extra has 2 and -1,
 	// Max 3 and -2).
-	const allDicts = filesJson.dicts.map(([path, timestamp, desc, buflen, priority, type, collapsed, size]) => {
+	const allDicts = filesJson.dicts.map(([path, timestamp, desc, buflen, priority, type, collapsed, size, book]) => {
 		const [lang, ...folders] = path.split('/').slice(0, -1);
 		return {path, timestamp, desc, buflen, priority, collapsed, lang,
+			book: book || '', // A book text's collection ("New Life"): read as the Bible is (its #book)
+			user: userPaths.has(path), src: userPaths.has(path) ? userURL(path).slice(1) : path, // (the user's own: its bytes, in their cache)
 			type: type || '', // mono (in the language), bi (to English), rbi (English to it), phon (pronunciation), aux (audio, images, ...)
 			size: size || 0, // To download
 			name: path.split('/').pop().replace(/\.(peak|slab)(\.zst)?$/, ''),
@@ -1000,7 +1012,11 @@ if(!isDictPage){
 	// with every translation and note that's on (notes start collapsed).
 	// Books lists the books as a Bible has them.
 	// ---------------------------------------------------------------
-	const isBibleText = d => dicts[d].cat === 'bible/text', isNote = d => dicts[d].collapsed; // (notes: #collapsed, their entries start hidden)
+	// A book text (#book: "New Life", its collection) is read the same way:
+	// "nl1 1.2" is book nl1, chapter 1, paragraph 2; its collection's books
+	// are in Books after the Bible's, and a card has just its collection's texts.
+	const isBibleText = d => dicts[d].cat === 'bible/text' || !!dicts[d].book, isNote = d => dicts[d].collapsed; // (notes: #collapsed, their entries start hidden)
+	const collOf = d => dicts[d].book || 'Bible'; // (a Bible text's: the Bible)
 	const hasBible = dictIds.some(isBibleText);
 	// A verse's chapter: "rom 8.1" -> "rom 8.", else null
 	const chapterOf = h => (/^(.+ \d+\.)\d+$/.exec(h || '') || [])[1] || null;
@@ -1078,32 +1094,50 @@ if(!isDictPage){
 	// Revelation) and their colors, each unlike the ones next to it
 	const sections = 'gen jos job isa hos mat act rom heb rev'.split(' ');
 	const secColors = 'f59 39e fc2 a6e 3c9 e33 2cc f90 75f c4a'.split(' ');
-	let booksLoad = null;
+	// Each collection's books, from its first text (the one on, else the
+	// first): the Bible's always, another's while one of its texts is on
+	let booksLoad = null, booksKey = null;
+	function bookDicts(){
+		const mask = searchMask(), by = new Map();
+		dictIds.filter(isBibleText).sort((a, b) => mask[b] - mask[a] || sortId(a) - sortId(b)).forEach(d => by.has(collOf(d)) || by.set(collOf(d), d));
+		return [...by].filter(([c]) => c === 'Bible' || dictIds.some(d => isBibleText(d) && collOf(d) === c && (libOn[d] || mask[d]))).map(([, d]) => d);
+	}
+	const booksFresh = () => !!books && bookDicts().join() === booksKey;
 	function loadBooks(then){
-		const mask = searchMask();
-		const d = dictIds.filter(isBibleText).sort((a, b) => mask[b] - mask[a] || sortId(a) - sortId(b))[0];
-		(booksLoad ??= headsOf(d).then(heads => {
-			const list = [], firsts = [];
-			let s = 0;
-			heads.forEach(([code, cv], i) => {
-				if (list.at(-1)?.code !== code) {
-					s = Math.max(s, sections.indexOf(code));
-					list.push({code, n: 0, s, vs: []}); firsts.push(i);
-				}
-				const b = list.at(-1), c = chOf(cv);
-				b.n = Math.max(b.n, c);
-				b.vs[c] = Math.max(b.vs[c] || 0, cv % 1000); // (its chapters' last verses)
-			});
-			return askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}).then(r => {
-				r.entries.forEach((e, i) => {
-					const [, name, one] = /^(.*) (\p{Nd})/u.exec(refOf(e.body)); // (its first verse's: "លោកុប្បត្តិ ១:១")
-					Object.assign(list[i], {name, zero: one.codePointAt(0) - 1});
-				});
+		const ds = bookDicts(), key = ds.join();
+		if (key !== booksKey || !booksLoad) {
+			booksKey = key;
+			booksLoad = Promise.all(ds.map(bookList)).then(ls => {
+				const list = ls.flat();
 				abbrevBooks(list);
 				books = list;
 			});
-		})).then(then);
+		}
+		booksLoad.then(then);
 	}
+	// A text's books: {code, n (its last chapter), min (its first: a book's
+	// contents can be 0), name, zero (where its digits' 0 is), s (its color), vs, coll}
+	const bookList = d => headsOf(d).then(heads => {
+		const list = [], firsts = [], coll = collOf(d), bible = coll === 'Bible';
+		let s = 0;
+		heads.forEach(([code, cv], i) => {
+			if (list.at(-1)?.code !== code) {
+				s = bible ? Math.max(s, sections.indexOf(code)) : list.length % secColors.length;
+				list.push({code, n: 0, min: chOf(cv), s, vs: [], coll}); firsts.push(i);
+			}
+			const b = list.at(-1), c = chOf(cv);
+			b.n = Math.max(b.n, c);
+			b.min = Math.min(b.min, c);
+			b.vs[c] = Math.max(b.vs[c] || 0, cv % 1000); // (its chapters' last verses)
+		});
+		return askDict(d, {type: 'renderlines', lines: firsts.map(i => [i, 3])}).then(r => {
+			r.entries.forEach((e, i) => {
+				const m = /^(.*) (\p{Nd})/u.exec(e ? refOf(e.body) : ''); // (its first verse's: "លោកុប្បត្តិ ១:១", "ជីវិតជាសាវ័ក ០:១")
+				Object.assign(list[i], m ? {name: m[1], zero: m[2].codePointAt(0) - digit(m[2])} : {name: list[i].code, zero: 48});
+			});
+			return list;
+		});
+	});
 	// Each book's short name for the Books grid (ab): its first 3 letters
 	// if no other book's start with them, else its first 2, … and as much
 	// of its end as tells it from the others that start like it ("Ju…s",
@@ -1113,6 +1147,7 @@ if(!isDictPage){
 	function abbrevBooks(list){
 		const ls = list.map(x => letters(x.name.replace(/[\s\u200B]+/g, ''))), part = (l, a, b) => l.slice(a, b).join('');
 		list.forEach((x, i) => {
+			if (x.coll !== 'Bible') return x.ab = x.name; // (a collection's few books: their whole names)
 			const l = ls[i], p3 = part(l, 0, 3), p2 = part(l, 0, 2);
 			if (l.length <= 3 || !ls.some((m, j) => j !== i && part(m, 0, 3) === p3)) return x.ab = p3;
 			for (let k = 1; k <= l.length - 2; ++k) {
@@ -1132,14 +1167,14 @@ if(!isDictPage){
 	const digit = ch => { let k = 0; const cp = ch.codePointAt(0); while (/\p{Nd}/u.test(String.fromCodePoint(cp - k - 1))) ++k; return k % 10; };
 	function asChapter(q){
 		const m = books && /^(.*\S)\s+(\p{Nd}+)$/u.exec(q || ''), b = m && bookOf(m[1]), n = m && +[...m[2]].map(digit).join('');
-		return b && n >= 1 && n <= b.n ? `${b.code} ${n}.` : q;
+		return b && n >= b.min && n <= b.n ? `${b.code} ${n}.` : q;
 	}
 	// The chapter before or after book b's chapter c (dir -1 or 1), across
 	// books ("joh 4."; none at the ends)
 	function nextChapter(b, c, dir){
 		const i = books.indexOf(b), to = c + dir;
-		const bk = to < 1 ? books[i - 1] : to > b.n ? books[i + 1] : b;
-		return bk ? `${bk.code} ${to < 1 ? bk.n : bk === b ? to : 1}.` : null;
+		const bk = (x => x?.coll === b.coll ? x : null)(to < b.min ? books[i - 1] : to > b.n ? books[i + 1] : b); // (not into another collection)
+		return bk ? `${bk.code} ${to < b.min ? bk.n : bk === b ? to : bk.min}.` : null;
 	}
 
 	// The search's translations: the Bible texts that are on; more than
@@ -1152,7 +1187,8 @@ if(!isDictPage){
 	// chapter ▾, translation ▾ ›. The book opens the Books drawer (the books,
 	// a book's chapters), the translation the translations drawer. The
 	// search bar's there to type in too.
-	const bibleMode = () => hasBible && (pParts.includes('bible') || picks.filter.some(id => id.split('/')[0] === 'bible'));
+	const bookCats = new Set(dictIds.filter(d => dicts[d].book).map(d => catId(dicts[d]))); // ("ref": a book collection's)
+	const bibleMode = () => hasBible && (pParts.includes('bible') || pParts.slice(1).some(p => [...bookCats].some(c => c.split('/')[0] === p)) || picks.filter.some(id => id.split('/')[0] === 'bible' || bookCats.has(id)));
 	let lastRead = ''; // The chapter read last ("joh 3.")
 	let booksPick = null; // The book whose chapters the drawer shows
 	let booksOpen = false; // (the books showing, not a book's chapters)
@@ -1164,19 +1200,21 @@ if(!isDictPage){
 		if (chapterRef(query)) lastRead = query;
 		bibleBar.hidden = !bibleMode() || !!query; // (just with nothing searched: a search's Bible cards have their own)
 		if (bibleBar.hidden) return;
-		if (!books) return loadBooks(renderBibleBar); // (after it's started: not while the page is)
+		if (!booksFresh()) return loadBooks(renderBibleBar); // (after it's started: not while the page is)
 		Object.assign(bibleBar.dataset, chapterRef(lastRead) || {bk: ''});
 		renderCardBar(bibleBar);
 	}
 	// (now: the chapter the panel's card is in, "joh 3.")
 	function booksHTML(now = lastRead){
-		if (!books) {
+		if (!booksFresh()) {
 			loadBooks(() => drawerView === 'bible' && renderDrawer());
-			return '<p class="empty">Loading…</p>';
+			if (!books) return '<p class="empty">Loading…</p>';
 		}
 		const b = !booksOpen && books.find(x => x.code === booksPick), cur = on => on ? ' aria-current="true"' : '';
-		return (b ? `<div class="bk-grid ch">${Array.from({length: b.n}, (_, i) => `${b.code} ${i + 1}.`).map((ref, i) => `<button data-q="${ref}"${cur(ref === now)}>${bookNum(b, i + 1)}</button>`).join('')}</div>` :
-			`<div class="bk-grid">${books.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}" title="${escapeHTML(x.name)}" aria-label="${escapeHTML(x.name)}"${cur(now.startsWith(x.code + ' '))}>${escapeHTML(x.ab || x.name)}${/^[\x00-\x7f]*$/.test(x.ab || x.name) ? '' : `<small>${escapeHTML(x.code)}</small>`}</button>`).join('')}</div>`);
+		const colls = [...new Set(books.map(x => x.coll))]; // (more than one: each under its name)
+		const grid = xs => `<div class="bk-grid${xs[0]?.coll !== 'Bible' ? ' wide' : ''}">${xs.map(x => `<button style="--sec:#${secColors[x.s]}" data-book="${escapeHTML(x.code)}" title="${escapeHTML(x.name)}" aria-label="${escapeHTML(x.name)}"${cur(now.startsWith(x.code + ' '))}>${escapeHTML(x.ab || x.name)}${/^[\x00-\x7f]*$/.test(x.ab || x.name) ? '' : `<small>${escapeHTML(x.code)}</small>`}</button>`).join('')}</div>`;
+		return b ? `<div class="bk-grid ch">${Array.from({length: b.n - b.min + 1}, (_, i) => b.min + i).map(c => `<button data-q="${b.code} ${c}."${cur(`${b.code} ${c}.` === now)}>${bookNum(b, c)}</button>`).join('')}</div>` :
+			colls.length > 1 ? colls.map(c => `<h3 class="drawer-h">${escapeHTML(c)}</h3>${grid(books.filter(x => x.coll === c))}`).join('') : grid(books);
 	}
 
 	// ---------------------------------------------------------------
@@ -1191,7 +1229,9 @@ if(!isDictPage){
 	// A card's translations: its own (data-texts), or the search's (a
 	// popup's: the gloss's); more than one, in parallel. Its own go with it
 	// to its next chapter
-	const cardTexts = card => card.dataset.texts ? card.dataset.texts.split(',').map(Number) : inPopup(card) ? dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss')) : barTexts();
+	const cardTexts = card => card.dataset.texts ? card.dataset.texts.split(',').map(Number) : collTexts(card, inPopup(card) ? dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss')) : barTexts());
+	// (just the ones of its book's collection: a Bible card, the Bible's)
+	const collTexts = (card, ds) => (c => c ? ds.filter(d => collOf(d) === c) : ds)(bookOf(card.dataset.bk || '')?.coll);
 	const ownTexts = card => card.dataset.texts ? cardTexts(card) : null;
 	// A card's reference: {bk (its book as typed or found: "joh", "Romans"),
 	// from, to (chapter * 1000 + verse), kind (verse, chapter or range)}
@@ -1274,13 +1314,16 @@ if(!isDictPage){
 	const menuHTML = items => items.map(([a, ic, t]) => `<button data-a="${a}">${ic}<span>${escapeHTML(t)}</span></button>`).join('');
 	// Its translations: their names (none: Translation)
 	const textsLabel = texts => texts.length ? names(texts) : 'Translation';
+	// The Bible bar with no chapter read: a link to the books (its collections: "Bible · New Life")
+	const bookSVG = icon('M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5M8 7h7');
+	const pickBookHTML = () => `<span class="pick-book">${bookSVG}<span class="pb-t">Choose a book</span>${books ? `<span class="pb-c">${escapeHTML([...new Set(books.map(x => x.coll))].join(' · '))}</span>` : ''}${chevron}</span>`;
 	function renderCardBar(card){
 		const bar = card === bibleBar ? card : card.querySelector(':scope > .card-bar');
 		if (!bar) return;
 		if (!books) loadBooks(() => renderCardBar(card)); // (its book's name in the meantime: its code)
 		const ref = cardRef(card);
 		bar.innerHTML = (card === bibleBar ? '' : backBtnHTML) +
-			`<button class="hw" data-cb="bible" title="Translation, book and chapter" aria-haspopup="dialog">${ref.bk ? refHeading(ref) : 'Bible'}</button>` +
+			`<button class="hw" data-cb="bible" title="Translation, book and chapter" aria-haspopup="dialog">${ref.bk ? refHeading(ref) : pickBookHTML()}</button>` +
 			(card === bibleBar ? '' : foldBtnHTML);
 		if (card !== bibleBar) moreVerses(card, ref);
 		chapterAudio(card, bar, ref);
@@ -1527,7 +1570,7 @@ if(!isDictPage){
 	function bibleHTML(){
 		const card = navCard(), ref = cardRef(card), b = bookOf(ref.bk), empty = t => `<p class="empty">${t}</p>`;
 		const texts = cardTexts(card);
-		const all = dictIds.filter(d => isBibleText(d) && downloaded.has(d));
+		const all = dictIds.filter(d => isBibleText(d) && downloaded.has(d) && (!b || collOf(d) === b.coll)); // (its collection's)
 		const c = chOf(ref.from), chapter = ref.kind === 'chapter' && b, now = b ? `${b.code} ${c}.` : '';
 		const pick = books?.find(x => x.code === booksPick);
 		const go = (dir, label, ic) => `<button class="ch-go" data-go="${dir}" title="${label}" aria-label="${label}"${chapter && nextChapter(b, c, dir) ? '' : ' disabled'}>${ic}</button>`;
@@ -1560,7 +1603,7 @@ if(!isDictPage){
 	function setAllTexts(texts){
 		const owned = bibleCards().filter(c => c.dataset.texts);
 		owned.forEach(c => { delete c.dataset.texts; });
-		setOn(dictIds.filter(isBibleText), d => texts.includes(d));
+		setOn(dictIds.filter(d => isBibleText(d) && collOf(d) === collOf(texts[0])), d => texts.includes(d)); // (the other collections' stay as they are)
 		owned.forEach(c => { renderCardBar(c); fillCard(c); });
 	}
 	// The card's verses again, from its translations: a verse's card, their
@@ -1568,6 +1611,7 @@ if(!isDictPage){
 	// range's, all their verses in it (as many as it has)
 	const bibleCards = () => [...document.querySelectorAll(':is(#results, #popupResults) > p-d:has(> .card-bar)')];
 	function fillCard(card){
+		if (!booksFresh()) return new Promise(then => loadBooks(then)).then(() => fillCard(card));
 		const gen = card._gen = (card._gen || 0) + 1, r = cardRef(card), texts = cardTexts(card), par = texts.length > 1;
 		const live = () => card._gen === gen && card.isConnected, t = document.createElement('template');
 		card.querySelectorAll(':scope > p-e').forEach(pe => (!pe.dataset.d || isBibleText(+pe.dataset.d) || isNote(+pe.dataset.d)) && pe.remove()); // (its verses and notes are these; a verse's other dictionaries' stay)
@@ -1715,9 +1759,10 @@ if(!isDictPage){
 	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '');
 	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], bible: ['Bible', bibleHTML],
 		library: ['Library', libraryHTML],
-		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML], about: ['About', () => $('about').innerHTML]};
+		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML], upload: ['Your own dictionaries', uploadHTML], about: ['About', () => $('about').innerHTML]};
 	function renderDrawer(){
 		let v = drawerView, scroll = drawerBody.scrollTop, [title, html] = drawers[v] || [VIEWS[v].title, filterHTML];
+		if (v === 'bible' && books?.some(x => x.coll !== 'Bible')) title = books.some(x => x.coll === 'Bible') ? 'Books' : books[0].coll; // (not just the Bible's)
 		drawer.querySelector('.drawer-title').textContent = title;
 		drawerBody.innerHTML = html(v);
 		drawerBody.scrollTop = scroll;
@@ -1826,10 +1871,176 @@ if(!isDictPage){
 		return '<p class="lib-help"><button class="text-btn" data-first="again">Download the suggested dictionaries…</button></p>' +
 			`<p class="lib-space">Space used: ${sizeText(here)} for ${escapeHTML(cap(curLang) || 'this page')}${usage ? ` · ${sizeText(usage)} for all of PeakSlab` : ''} <button class="text-btn" data-first="delete">Delete everything…</button></p>` +
 			catsHTML('library') +
+			mineHTML() +
 			(byLang.size ? `<ul class="rows cats">${groupHTML('library:langs', groupHead('library:langs', 'Other languages', `${byLang.size} languages: add their dictionaries`),
 				() => `<ul class="rows cats">${[...byLang].sort(([a], [b]) => a.localeCompare(b)).map(lang).join('')}</ul>`)}</ul>` : '') +
 			`<details class="lib-ver"><summary>Version ${escapeHTML($('version').textContent)} and loading times</summary><div>${$('timing').innerHTML}</div></details>`;
 	}
+	// ---------------------------------------------------------------
+	// The user's own dictionaries: .peak, .peak.zst and .slab files
+	// uploaded (several at once: picked or dropped on the library), each
+	// with its details from its .meta (the one whose #f is its name, or
+	// named like it) or typed in. Its path (#f: language/category/name)
+	// puts it on its language's page, in its category.
+	// ---------------------------------------------------------------
+	// Its bytes, from the user's cache
+	function userBytes(d){
+		return caches.open(USER_CACHE).then(c => c.match('/' + dicts[d].src))
+			.then(r => r ? r.arrayBuffer() : Promise.reject(new Error('not in this browser any more: upload it again')));
+	}
+	// A .meta's details ({folder, name (its file's), desc, priority, type, book, collapsed, buflen})
+	function parseMeta(text){
+		const m = {};
+		text.split(/\r?\n/).forEach(l => {
+			const [, k, v] = /^#([a-z])\t?(.*)$/.exec(l) || [];
+			if (k === 'd') m.desc = v;
+			else if (k === 'p') m.priority = v.trim();
+			else if (k === 'l') m.type = v.trim();
+			else if (k === 'k') m.book = v.trim();
+			else if (k === 'c') m.collapsed = true;
+			else if (k === 'b') m.buflen = +v || 0;
+			else if (k === 'f') { const p = v.trim().replace(/^\/+/, ''); m.folder = p.split('/').slice(0, -1).join('/'); m.name = p.split('/').pop(); }
+		});
+		return m;
+	}
+	const baseOf = n => n.replace(/\.meta$/, '').replace(DICT_FILE, '');
+	// Its first bytes: a compressed one's (zstd) or a .peak/.slab's own
+	const ZSTD = [0x28, 0xb5, 0x2f, 0xfd], PEAK = [0, 0xf2, 0xfc, 0xf3, 0x50, 0x65, 0x61, 0x6b];
+	const hasMagic = (b, m) => m.every((x, i) => b[i] === x);
+	let ups = [], upNote = '';
+	// The files picked or dropped: the dictionaries, each with its .meta's
+	// details (or the page's language as its folder), to check and Add
+	async function addUploads(files){
+		files = [...files];
+		const metas = await Promise.all(files.filter(f => /\.meta$/i.test(f.name)).map(async f => ({f, m: parseMeta(await f.text())})));
+		const notes = [];
+		for (const f of files.filter(f => !/\.meta$/i.test(f.name))) {
+			const b = new Uint8Array(await f.slice(0, 8).arrayBuffer());
+			let name = f.name.replace(/\s+/g, '-');
+			if (!hasMagic(b, ZSTD) && !hasMagic(b, PEAK)) { notes.push(`${escapeHTML(f.name)}: not a PeakSlab dictionary`); continue; }
+			// (its name says compressed or not, as its bytes are: the worker goes by it)
+			if (!DICT_FILE.test(name)) name = name.replace(/\.zst$/, '') + '.peak';
+			name = name.replace(/\.zst$/, '') + (hasMagic(b, ZSTD) ? '.zst' : '');
+			const meta = metas.find(x => x.m.name && baseOf(x.m.name) === baseOf(name)) || metas.find(x => baseOf(x.f.name) === baseOf(name));
+			if (meta) meta.used = true;
+			const m = {folder: curLang + (pParts[1] ? '/' + pParts.slice(1).join('/') : '/dict'), desc: '', priority: '2', type: 'mono', book: '', collapsed: false, buflen: 0, ...meta?.m};
+			ups = ups.filter(u => u.name !== name);
+			ups.push({file: f, name, meta: m, fromMeta: !!meta, size: f.size});
+		}
+		metas.filter(x => !x.used).forEach(x => {
+			const u = ups.find(u => baseOf(u.name) === baseOf(x.m.name || x.f.name)); // (a .meta for one picked before)
+			if (u) Object.assign(u, {meta: {...u.meta, ...x.m}, fromMeta: true});
+			else notes.push(`${escapeHTML(x.f.name)}: no dictionary file with it`);
+		});
+		upNote = notes.join('<br>');
+		if (drawerView === 'upload') renderDrawer(); else openDrawer('upload');
+	}
+	const upPath = u => `${u.meta.folder.replace(/^\/+|\/+$/g, '')}/${u.name}`;
+	const upWhere = u => { const [l, ...fs] = upPath(u).split('/').slice(0, -1); return `${upPath(u)} · ${cap(l || '?')}${fs.length ? ': ' + catLabel(fs.join('/')) : ''}`; };
+	const upBad = u => !/^[a-z][a-z0-9-]*(\/[a-z0-9][a-z0-9_-]*)*$/.test(u.meta.folder.replace(/^\/+|\/+$/g, '')) ? 'Its folder: a language (lowercase, as in the address: khmer), then categories (khmer/dict)' :
+		u.meta.priority !== '' && !/^-?\d+$/.test(u.meta.priority) ? 'Its priority: a whole number (or nothing)' : '';
+	const pickInput = '<input type="file" multiple accept=".peak,.slab,.zst,.meta" hidden data-up-files="1">';
+	function uploadHTML(){
+		const folders = [...new Set(filesJson.dicts.map(e => e[0].split('/').slice(0, -1).join('/')))].sort();
+		const types = [...new Set(['mono', 'bi', 'rbi', 'phon', 'aux', ...filesJson.dicts.map(e => e[5]).filter(Boolean)])];
+		const field = (i, k, label, attrs = '') => `<label>${label}<input data-up="${k}" data-i="${i}" value="${escapeHTML(String(ups[i].meta[k] ?? ''))}" ${attrs}></label>`;
+		const item = (u, i) => `<fieldset class="up-item"><legend>${escapeHTML(u.name)} <small>${sizeText(u.size || 0)}${u.fromMeta ? ' · from its .meta' : u.edit ? '' : ' · no .meta: fill these in'}</small></legend>` +
+			field(i, 'folder', 'Folder: its language, then its category', `list="up-folders" placeholder="khmer/dict" autocapitalize="off" spellcheck="false"`) +
+			`<p class="up-path" data-up-path="${i}">${escapeHTML(upWhere(u))}</p>` +
+			(u.err ? `<p class="up-err">${escapeHTML(u.err)}</p>` : '') +
+			field(i, 'desc', 'Description (HTML)') +
+			`<div class="up-row">${field(i, 'type', 'Type', 'list="up-types" placeholder="mono"')}${field(i, 'priority', 'Priority', 'inputmode="numeric" placeholder="2"')}</div>` +
+			field(i, 'book', 'Book collection: read as the Bible is (or blank)', 'placeholder="New Life"') +
+			`<label class="up-chk"><input type="checkbox" data-up="collapsed" data-i="${i}"${u.meta.collapsed ? ' checked' : ''}> Its entries start hidden (notes)</label>` +
+			`<button class="text-btn" data-up-rm="${i}">Leave it out</button></fieldset>`;
+		return `<datalist id="up-folders">${folders.map(f => `<option value="${escapeHTML(f)}">`).join('')}</datalist>` +
+			`<datalist id="up-types">${types.map(t => `<option value="${escapeHTML(t)}">`).join('')}</datalist>` +
+			`<label class="up-drop">${pickInput}<b>Choose files…</b><span>or drop them here: .peak, .peak.zst or .slab dictionaries, and their .meta files</span></label>` +
+			(upNote ? `<p class="up-err">${upNote}</p>` : '') +
+			ups.map(item).join('') +
+			(ups.length ? `<p class="lib-help">Priority: 1, the language's main ones (on); 2, 3, … its others; 0, -1, … another language's, for this one. Type: mono (in the language), bi (to English), rbi (English to it), phon (pronunciation), aux (audio, images).</p>` +
+				`<button class="first-default" data-up-save="1">${ups.some(u => u.file) ? 'Add' : 'Save'} ${ups.length === 1 ? 'it' : `these ${ups.length}`}</button>` : '');
+	}
+	// The user's own, in the library (every language's): Upload, and each
+	// one's Edit (its details) and ✕
+	function mineHTML(){
+		const mine = readList(userKey);
+		return `<h3 class="drawer-h">Your own dictionaries</h3>` +
+			(mine.length ? `<ul class="rows dict-rows">${mine.map(e => `<li class="row dict-row"><div class="row-main"><span class="row-w">${escapeHTML(e[0].split('/').pop().replace(DICT_FILE, ''))}</span><small class="up-path">${escapeHTML(e[0])} · ${sizeText(e[7] || 0)}</small></div>` +
+				`<button class="text-btn" data-up-edit="${escapeHTML(e[0])}">Edit</button><button class="dict-del" data-up-del="${escapeHTML(e[0])}" title="Delete it" aria-label="Delete ${escapeHTML(e[0])}">✕</button></li>`).join('')}</ul>` : '') +
+			`<p class="lib-help"><button class="text-btn" data-up-open="1">Upload dictionaries…</button> .peak, .peak.zst or .slab files (several at once), with their .meta files or details you type in. Or drop them here.</p>`;
+	}
+	// Their upload saved: the files in the user's cache, the details in
+	// the list; on (on this page); the page again, for its dictionaries
+	async function saveUploads(){
+		ups.forEach(u => { u.err = upBad(u); });
+		if (ups.some(u => u.err)) return renderDrawer();
+		const cache = await caches.open(USER_CACHE), ts = Math.floor(Date.now() / 1000);
+		let list = readList(userKey);
+		const onHere = [];
+		for (const u of ups) {
+			const path = upPath(u), old = list.find(e => e[0] === (u.edit || path));
+			if (u.file) await cache.put(userURL(path), new Response(u.file, {headers: {'Content-Type': 'application/octet-stream', 'x-peak-timestamp': String(ts)}}));
+			else if (u.edit && u.edit !== path) { // (moved: its bytes too)
+				const r = await cache.match(userURL(u.edit));
+				if (r) await cache.put(userURL(path), new Response(await r.blob(), {headers: r.headers}));
+				await cache.delete(userURL(u.edit));
+			}
+			const m = u.meta, prio = m.priority === '' ? null : +m.priority;
+			list = list.filter(e => e[0] !== path && e[0] !== u.edit);
+			list.push([path, u.file ? ts : old?.[1] || ts, m.desc.trim(), m.buflen || old?.[3] || 1e6, prio, m.type.trim() || 'mono', m.collapsed ? 1 : 0, u.size || old?.[7] || 0, ...(m.book.trim() ? [m.book.trim()] : [])]);
+			if (u.file) onHere.push(path);
+		}
+		store(userKey, list);
+		if (!solo.length) store(libKey, [...readList(libKey).filter(x => !onHere.includes(x.file)), ...onHere.map(file => ({file, enabled: true}))]); // (the new ones on)
+		ups = [];
+		location.reload();
+	}
+	async function deleteUpload(path){
+		if (!confirm(`Delete ${path.split('/').pop()}? It's your own: you'd have to upload it again.`)) return;
+		const d = dicts.findIndex(x => x.path === path);
+		if (d >= 0) offDict(d);
+		await (await caches.open(USER_CACHE)).delete(userURL(path)).catch(() => {});
+		store(userKey, readList(userKey).filter(e => e[0] !== path));
+		if (d >= 0) location.reload(); else renderLibrary();
+	}
+	function uploadClick({upOpen, upRm, upSave, upEdit, upDel}){
+		if (upOpen) {
+			ups = []; upNote = '';
+			openDrawer('upload');
+			drawerBody.querySelector('[data-up-files]')?.click(); // (the files to pick, right away)
+		} else if (upRm !== undefined) { ups.splice(+upRm, 1); renderDrawer(); }
+		else if (upSave) saveUploads().catch(err => { upNote = escapeHTML('Not saved: ' + err.message); renderDrawer(); });
+		else if (upDel) deleteUpload(upDel);
+		else if (upEdit) {
+			const e = readList(userKey).find(e => e[0] === upEdit);
+			if (!e) return;
+			ups = [{edit: e[0], name: e[0].split('/').pop(), size: e[7], meta: {folder: e[0].split('/').slice(0, -1).join('/'), desc: e[2] || '', buflen: e[3],
+				priority: e[4] == null ? '' : String(e[4]), type: e[5] || '', collapsed: !!e[6], book: e[8] || ''}}];
+			upNote = '';
+			openDrawer('upload');
+		}
+	}
+	// What's typed: its details (its path again, under its folder)
+	drawerBody.addEventListener('input', e => {
+		const {up, i} = e.target.dataset;
+		if (!up || !ups[i]) return;
+		ups[i].meta[up] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+		const p = drawerBody.querySelector(`[data-up-path="${i}"]`);
+		if (p) p.textContent = upWhere(ups[i]);
+	});
+	drawerBody.addEventListener('change', e => { if (e.target.dataset.upFiles && e.target.files.length) addUploads(e.target.files); });
+	// Dropped on the library (or the upload's drawer)
+	const dropping = e => ['library', 'upload'].includes(drawerView) && [...(e.dataTransfer?.types || [])].includes('Files');
+	drawer.addEventListener('dragover', e => { if (dropping(e)) { e.preventDefault(); drawer.classList.add('dragging'); } });
+	drawer.addEventListener('dragleave', e => { if (!drawer.contains(e.relatedTarget)) drawer.classList.remove('dragging'); });
+	drawer.addEventListener('drop', e => {
+		drawer.classList.remove('dragging');
+		if (!dropping(e)) return;
+		e.preventDefault();
+		if (drawerView === 'library') { ups = []; upNote = ''; }
+		addUploads(e.dataTransfer.files);
+	});
 	// The first time (nothing saved): which to download. A slider picks how
 	// many: Bare (priority 1), Recommended (and 0), Extra (and 2, -1), Max
 	// (and 3, -2); its dictionaries are listed, ticked, by category (the
@@ -1961,6 +2172,7 @@ if(!isDictPage){
 		const files = [];
 		try {
 			for (const k of await caches.keys()) {
+				if (k === USER_CACHE) continue; // (the user's own: not downloads)
 				const c = await caches.open(k);
 				for (const r of await c.keys()) if (/\.(peak|slab)/.test(r.url)) files.push([c, r, new URL(r.url).pathname.slice(1)]);
 			}
@@ -1971,6 +2183,7 @@ if(!isDictPage){
 	const offDict = d => libOn[d] ? setOn([d], false) : loaded.has(d) && unloadDict(d);
 	async function deleteDict(d){
 		const x = dicts[d];
+		if (x.user) return deleteUpload(x.path);
 		offDict(d);
 		for (const [c, r, path] of await cachedDicts()) if (path === x.path) await c.delete(r);
 		downloaded.delete(d);
@@ -2025,6 +2238,7 @@ if(!isDictPage){
 		if (!b) return;
 		const {book, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txAll, txDrop, go} = b.dataset;
 		const drawerBooks = drawerView === 'bible';
+		if (Object.keys(b.dataset).some(k => /^up[A-Z]/.test(k))) return uploadClick(b.dataset); // (uploading the user's own)
 		if (tx !== undefined || txAdd !== undefined || txAll) return cardTextsClick(b.dataset); // (a card's translations)
 		if (txDrop) {
 			txOpen = !txOpen;
@@ -2185,7 +2399,7 @@ if(!isDictPage){
 	// ones all downloaded already, those are just turned on; saved but none
 	// downloaded, asked too. Can't tell (no Cache API): as saved, or asked.
 	const markCached = async () => {
-		const hits = await Promise.all(dicts.map(x => caches.match('/' + x.path)));
+		const hits = await Promise.all(dicts.map(x => caches.match('/' + x.src)));
 		hits.forEach((hit, d) => hit && downloaded.add(d));
 		return hits.some(Boolean);
 	};
@@ -2226,8 +2440,8 @@ if(!isDictPage){
 		// The worker reads it from the offline cache itself (off this
 		// thread), or asks for it with 'needbytes' if there's no
 		// current copy there.
-		const {path, name, buflen, timestamp} = dicts[d];
-		workerOf(d).postMessage({type: 'load', did: didOf(d), msg: [path, name, buflen], timestamp});
+		const {src, name, buflen, timestamp} = dicts[d];
+		workerOf(d).postMessage({type: 'load', did: didOf(d), msg: [src, name, buflen], timestamp});
 	}
 
 	// For a worker whose cache has no current copy ('needbytes'): fetch()
@@ -2851,7 +3065,7 @@ if(!isDictPage){
 		updateBig();
 		updateURL();
 		const q0 = updateQuery();
-		if (hasBible && !books && /\s\p{Nd}+$/u.test(q0)) return loadBooks(startSearch); // (it may be a chapter: "gen 1")
+		if (hasBible && !booksFresh() && /\s\p{Nd}+$/u.test(q0)) return loadBooks(startSearch); // (it may be a chapter: "gen 1")
 		query = asChapter(q0);
 		renderQuick();
 		if(!query){
@@ -3123,7 +3337,7 @@ if(!isDictPage){
 			setQueryText(sel);
 			startSearch();
 		} else if (act === 'popup') openPopupSearch(sel);
-		else if (act === 'compare') openPopupSearch(`${h}-${h.split('.').pop()}`, '', dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss')), true); // (the verse, in every Bible text the gloss has)
+		else if (act === 'compare') openPopupSearch(`${h}-${h.split('.').pop()}`, '', dictIds.filter(d => isBibleText(d) && isOn(d, 'gloss') && collOf(d) === (bookOf(h.split(' ')[0])?.coll ?? collOf(d))), true); // (the verse, in every Bible text the gloss has)
 	});
 	document.addEventListener('keydown', e => { if (e.key === 'Escape' && ctx) closeCtx(); });
 	// A tap on an entry's text (not on a word that looks itself up, a

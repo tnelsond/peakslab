@@ -5,7 +5,7 @@
 # Output format:
 # {
 #   "core":  [ [file, timestamp], ... ],
-#   "dicts": [ [file, timestamp, description, buflen, priority, lang, collapsed, size], ... ],
+#   "dicts": [ [file, timestamp, description, buflen, priority, lang, collapsed, size(, book)], ... ],
 #   "abbr": {
 #     "khmer": ["km", "ខ"],
 #     "music": ["mus", "𝄞"],
@@ -19,6 +19,8 @@
 # their abbreviations (abbreviations.json's first): "zh,km" Chinese to Khmer,
 # "th,en,zh" Thai to English and Chinese; "" if not set. A missing priority is null.
 # size is the file's size in bytes (what downloading it takes).
+# book (from #book, only if it has one) is the collection a book text is in
+# ("New Life"): read as the Bible is, a chapter a card.
 # All other files go under "core" (filename + timestamp only).
 # In both arrays, timestamp is always element[1] so it can be read the same
 # way regardless of file type.
@@ -45,6 +47,7 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
     buflen=""
     lang=""
     collapsed=0
+    book=""
 
     while IFS= read -r line || [ -n "$line" ]; do
         line="${line%$'\r'}"  # strip Windows \r if present
@@ -56,6 +59,7 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
             "#b"*)  buflen="${line:3}"; buflen="${buflen%%[[:space:]]*}" ;;
             "#l"*)  lang="${line:3}"; lang="${lang%%[[:space:]]*}" ;;
             "#c"*)  collapsed=1 ;;
+            "#k"*)  book="${line:3}" ;;
         esac
     done < "$metafile"
 
@@ -71,6 +75,10 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
     file="${file//\"/\\\"}"
     desc="${desc//\\/\\\\}"
     desc="${desc//\"/\\\"}"
+    book="${book//$'\t'/ }"
+    book="${book%"${book##*[![:space:]]}"}"
+    book="${book//\\/\\\\}"
+    book="${book//\"/\\\"}"
 
     # Classify: dictionaries vs core
     case "$file" in
@@ -81,7 +89,11 @@ find "$SEARCH_DIR" -name "*.meta" -print0 | sort -z | while IFS= read -r -d '' m
                 printf ",\n" >> "$DICTS_TMP"
             fi
             size=$(stat -c %s "$file" 2>/dev/null || echo 0)
-            printf '    ["%s", %s, "%s", %s, %s, "%s", %s, %s]' "$file" "$timestamp" "$desc" "$buflen" "${priority:-null}" "$lang" "$collapsed" "$size" >> "$DICTS_TMP"
+            if [ -n "$book" ]; then
+                printf '    ["%s", %s, "%s", %s, %s, "%s", %s, %s, "%s"]' "$file" "$timestamp" "$desc" "$buflen" "${priority:-null}" "$lang" "$collapsed" "$size" "$book" >> "$DICTS_TMP"
+            else
+                printf '    ["%s", %s, "%s", %s, %s, "%s", %s, %s]' "$file" "$timestamp" "$desc" "$buflen" "${priority:-null}" "$lang" "$collapsed" "$size" >> "$DICTS_TMP"
+            fi
             ;;
         *)
             if [ "$CORE_FIRST" -eq 1 ]; then
