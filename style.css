@@ -336,7 +336,8 @@ body.fullscreen #content { margin-top: 8px; }
 	font-size: 14px;
 	line-height: 1.3;
 }
-.tr-entry > .speed { float: right; margin-left: 8px; }
+.tr-w > .speed { position: absolute; top: 2.15em; right: 2px; padding: 1px 4px; font-size: 12px; } /* (under the word's 🔊) */
+.tr-w:has(> .speed) { min-height: 3.8em; }
 #loader {
 	text-align: center;
 	padding: 1.5rem;

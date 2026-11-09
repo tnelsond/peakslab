@@ -2715,7 +2715,6 @@ if(!isDictPage){
 				if (!box.dataset.ds.split(',').includes(String(d))) box.dataset.ds += `,${d}`;
 				const bs = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(word)}"]`), [type, bytes] = fs[0];
 				if (!AUDIO.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(type, bytes, word)).classList.add('tr-img'); });
-				if (bs.length && TNEFAR.test(type) && !box.querySelector('.speed')) box.prepend(speedButton());
 				bs.forEach(w => {
 					const b = w.querySelector('.tr-play') ?? Object.assign(w.appendChild(soundButton(fs, d)), {className: 'sound tr-play', voices: [], turn: 0});
 					b.voices.push(...(fs.length === 1 ? r.all[words.indexOf(ws[0])].map(f => [[f], d]) : [[fs, d]]));
@@ -2724,6 +2723,7 @@ if(!isDictPage){
 					if (b.voices.length > 1) b.dataset.n = b.voices.length; else delete b.dataset.n;
 					if (!b.turn) voiced(b, b.voices[0][1], b.voices[0][0][0][2]);
 				});
+				if (bs.length && TNEFAR.test(type) && !box.querySelector('.speed')) bs[0].append(speedButton()); // (under its 🔊: one for all)
 			}));
 		});
 	}
