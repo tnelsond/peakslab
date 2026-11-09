@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1794205133],
+    ["404.html", 1794205815],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -126,7 +126,7 @@
     ["kannada/bible/text/kn-irv.peak.zst", 1793714402, "Kannada 2019 (ಇಂಡಿಯನ್ ರಿವೈಜ್ಡ್ ವರ್ಸನ್ (IRV) - ಕನ್ನಡ - 2019) KAN-IRV Creative Commons License Indian Revised Version (IRV), from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1383, 1, "mono", 0, 1504475],
     ["kannada/bible/words/kn-tw.peak.zst", 1793714402, "Kannada Bible translation words (key terms, names and other words), just their words, from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a> (translationWords, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>): with another language's on, a dictionary between them", 470, -2, "kn,aligned", 0, 27270],
     ["kannada/wiktionary/kn-senses.peak.zst", 1793714403, "Kannada words by English sense, from English Wiktionary's translation tables (<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/English/\">kaikki.org</a>: with another language's on, a dictionary between them", 438, -2, "kn,aligned", 0, 102616],
-    ["khmer/aux/km-audio2-tnefar.slab", 1794205064, "Khmer Audio (includes bible words), tnefar codec: 700 bps", 30454, 1, "aux", 0, 281991],
+    ["khmer/aux/km-audio2-tnefar.slab", 1794205808, "Khmer Audio (includes bible words), tnefar codec: 700 bps", 30454, 1, "aux", 0, 284173],
     ["khmer/aux/km-audio.slab", 1792225424, "Contains audio from <a href=\"kheng.info\">kheng.info</a>", 12916, 2, "aux", 0, 7228877],
     ["khmer/aux/km-images.slab", 1788856845, "Contains images from the <a href=\"plantsdictionarykh.com\">plantsdictionary</a>", 79212, 2, "aux", 0, 3272094],
     ["khmer/aux/km-kheng.slab", 1794016015, "Khmer Audio from <a href=\"kheng.info\">kheng.info</a>, tnefar codec: 700 bps", 30388, 2, "aux", 0, 338496],

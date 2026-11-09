@@ -2723,7 +2723,11 @@ if(!isDictPage){
 					if (b.voices.length > 1) b.dataset.n = b.voices.length; else delete b.dataset.n;
 					if (!b.turn) voiced(b, b.voices[0][1], b.voices[0][0][0][2]);
 				});
-				if (bs.length && TNEFAR.test(type) && !box.querySelector('.speed')) bs[0].append(speedButton()); // (under its 🔊: one for all)
+				if (bs.length && TNEFAR.test(type) && !box.querySelector('.speed')) { // (one for all: before the words, after the heading)
+					const b = speedButton(), head = [...box.children].filter(c => c.matches('h2, .tr-head')).pop();
+					b.classList.add('tr-speed');
+					head ? head.after(b) : box.prepend(b);
+				}
 			}));
 		});
 	}
