@@ -2575,11 +2575,12 @@ if(!isDictPage){
 	// their details; its files are added to the words found, addMedia)
 	// (matched in lower case; its words and the text between them shown as
 	// typed, unless lower case changes its length)
-	function translateText(ids, typed, done){
+	// (shorter: matches shorter than that only, a word's + splitting it)
+	function translateText(ids, typed, done, shorter = Infinity){
 		typed = typed.replace(/[​⁠­﻿]/g, ''); // Invisible formatting: the dictionaries say where words break
 		const text = typed.toLowerCase();
 		Promise.all([...ids.map((d, k) => askDict(d, {type: 'matchall', query: text}).then(r => r.matches
-			.filter(([a]) => !/\s/.test(text[a])) // A word doesn't start with the space before it (a second index word can)
+			.filter(([a, len]) => !/\s/.test(text[a]) && len < shorter) // A word doesn't start with the space before it (a second index word can)
 			.map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k})))), rangeMatches(ids, text)])
 			.then(all => pickPieces(all.flat(), typed.length === text.length ? typed : text, ids, done));
 	}
@@ -2684,7 +2685,8 @@ if(!isDictPage){
 			// (each media dictionary's files for it, like a row: its own, else its parts' (a compound's recordings, one after another))
 			const media = !p.w ? [] : ids.filter(d => dicts[d].media).map(d => [d, cover(p, matches.filter(x => x.d === d && x.a >= p.a && x.a + x.len <= p.b)).map(x => text.slice(x.a, x.a + x.len))]).filter(([, ws]) => ws.length);
 			const ds = p.rows.flatMap((xs, r) => xs.flatMap(x => [x.d, viaOf(glossRows[r], x)?.[1]])).filter(d => d !== undefined).concat(media.map(([d]) => d));
-			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: gs.map(g => g.join(' ')), media, ds: [...new Set(ds)]}; // ds: the dictionaries in its rows, and its media's
+			const more = splitText(p.xs.filter(x => x.len < p.b - p.a), text, p.a, p.b).filter(q => q.w).length > 1; // (at least two shorter words with definitions in it: its + splits it)
+			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: gs.map(g => g.join(' ')), media, ds: [...new Set(ds)], more}; // ds: the dictionaries in its rows, and its media's
 		})));
 	}
 
@@ -2701,7 +2703,8 @@ if(!isDictPage){
 			if (!p.ds.length) return escapeHTML(p.text).replace(/\n/g, '<br>'); // Nothing to gloss it with: as it is (notes between the words glossed)
 			const w = escapeHTML(p.text.trim());
 			return `<span class="tr-w" data-w="${w}" title="${names(p.ds)}"><p-a>${w}</p-a>` +
-				p.rows.map((t, i) => t ? `<span class="tr-r tr-r${i + 1}" title="${escapeHTML(t)}">${escapeHTML(t)}</span>` : '').join('') + '</span>';
+				p.rows.map((t, i) => t ? `<span class="tr-r tr-r${i + 1}" title="${escapeHTML(t)}">${escapeHTML(t)}</span>` : '').join('') +
+				(p.more ? '<button class="tr-more" title="Its parts" aria-label="Its parts" onclick="splitWord(this)">+</button>' : '') + '</span>';
 		}).join('');
 	}
 
@@ -2711,7 +2714,7 @@ if(!isDictPage){
 	// picture (of all of it, not a part's), under it. Each dictionary with the
 	// word is a voice: the one 🔊 goes through them a tap at a time, by priority
 	const AUDIO = /webm|ogg|opus|mp3|wav|m4a|codec2|c2|tnefar/i;
-	function addMedia(box, pieces){
+	function addMedia(box, pieces, cards){
 		const by = new Map(); // (a dictionary's: word -> its files' words)
 		pieces.forEach(p => p.media.forEach(([d, ws]) => (by.get(d) ?? by.set(d, new Map()).get(d)).set(p.text.trim(), ws)));
 		by.forEach((of, d) => {
@@ -2720,7 +2723,7 @@ if(!isDictPage){
 				const fs = ws.map(w => r.files[words.indexOf(w)]);
 				if (!fs.every(f => f?.[1]) || !AUDIO.test(fs[0][0]) && fs.length > 1) return;
 				if (!box.dataset.ds.split(',').includes(String(d))) box.dataset.ds += `,${d}`;
-				const bs = box.querySelectorAll(`.tr-w[data-w="${CSS.escape(word)}"]`), [type, bytes] = fs[0];
+				const bs = cards ? cards.filter(w => w.dataset.w === word) : [...box.querySelectorAll(`.tr-w[data-w="${CSS.escape(word)}"]`)], [type, bytes] = fs[0];
 				if (!AUDIO.test(type)) return bs.forEach(w => { if (!w.querySelector('.tr-img')) w.appendChild(mediaElement(type, bytes, word)).classList.add('tr-img'); });
 				bs.forEach(w => {
 					const b = w.querySelector('.tr-play') ?? Object.assign(w.appendChild(soundButton(fs, d)), {className: 'sound tr-play', voices: [], turn: 0});
@@ -2770,11 +2773,29 @@ if(!isDictPage){
 	// with any of its words).
 	function fillGloss(box, pieces, ids, text, head){
 		const ds = [...new Set(pieces.flatMap(p => p.ds))];
+		box.ids = ids; // (for a word's +)
 		box.dataset.text = text;
 		box.dataset.ds = ds.join();
 		box.innerHTML = head(names(ds)) + (pieces.some(p => p.ds.length) ? translationHTML(pieces) : 'No words found.');
 		addMedia(box, pieces);
 	}
+	// A word's +: in its place, its parts (glossed with only words shorter
+	// than it), each with its own + if it has shorter words in it too
+	window.splitWord = b => {
+		const w = b.closest('.tr-w'), box = w.closest('[data-ds]'), word = w.dataset.w;
+		b.disabled = true;
+		translateText(box.ids, word, pieces => {
+			if (!w.isConnected) return;
+			const t = document.createElement('template');
+			t.innerHTML = translationHTML(pieces);
+			const cards = [...t.content.children];
+			w.replaceWith(t.content);
+			const ds = new Set(box.dataset.ds.split(',').filter(Boolean));
+			pieces.forEach(p => p.ds.forEach(d => ds.add(String(d))));
+			box.dataset.ds = [...ds].join();
+			addMedia(box, pieces, cards);
+		}, word.length);
+	};
 
 	// ---------------------------------------------------------------
 	// Sharing a card (a word's, a chapter's, a gloss; the context menu's
@@ -3153,7 +3174,7 @@ if(!isDictPage){
 	// 🔊) is a tap on its p-a.
 	document.addEventListener('click', e => {
 		const w = e.target.closest('p-a, p-w, .tr-w'), a = w?.matches('.tr-w') ? w.querySelector('p-a') : w;
-		if (a && !e.target.closest('.tr-play')) openPopupSearch(a.getAttribute('s') || a.textContent);
+		if (a && !e.target.closest('.tr-play, .tr-more')) openPopupSearch(a.getAttribute('s') || a.textContent);
 	});
 	// <p-il>word|transliteration|gloss|G976|grammar ¦ ...</p-il>: an
 	// interlinear verse, each word over the rest (and a sixth field: a note,
