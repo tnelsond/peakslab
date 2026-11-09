@@ -106,6 +106,7 @@ a:visited { color: var(--link-old); }
 /* Buttons: no box of their own, the text around them's font and color */
 button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button:disabled { cursor: default; }
+.check:disabled { opacity: .5; } /* (the download prompt's downloaded ones: ticked, not to change) */
 button:focus-visible, a:focus-visible, summary:focus-visible {
 	outline: 2px solid var(--star);
 	outline-offset: 2px;
@@ -625,7 +626,6 @@ p-d.chapter p-e :is(h3, h4) { display: block; margin: .8em 0 .3em; font-size: 1.
 .pv-t { display: flow-root; } /* (its name and Gloss float right, like an entry's) */
 .pv-t + .pv-t { margin: .15em 0 0 1.8em; } /* the others, offset */
 /* A chapter being read: the word being said. Play word: a tap says a word, reads from a verse */
-.sound.words { outline: 2px solid #f2c200; }
 .reading .w, .reading .vs-n { cursor: pointer; }
 .w.said { border-radius: 3px; background: rgba(242, 194, 0, .45); }
 /* A verse's number: a word joiner after it, so it stays on the line with
@@ -690,19 +690,7 @@ p-d > h2 .menu button { display: flex; align-items: center; gap: 10px; white-spa
 #popupResults.has-past .cb-back { display: block; } /* (just with somewhere to go back to) */
 .cb-more svg, .cb-back svg, .ch-go svg { display: block; margin: auto; }
 /* a chapter's recording: 🔊 at the right, before the ⋮ */
-.ch-play { flex: none; height: 44px; margin: -8px 0 -8px auto; padding: 0 10px; font-size: 18px; line-height: 1; }
-.ch-play + .cb-more { margin-left: 0; }
-#chNav > .ch-play { position: absolute; top: 0; right: 4px; bottom: 0; height: auto; margin: 0; }
-/* (the card has its own translations, not the search's: a dot after its reference) */
-p-d[data-texts] > .card-bar .hw::after { content: " •"; }
-/* The Bible bar with nothing read: plainly a link to the books (a book
-   icon, underlined, its collections after it) */
-#chNav .pick-book { display: inline-flex; align-items: center; gap: .45em; flex-wrap: wrap; justify-content: center; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .25em; color: #ffe9a8; }
-#chNav .pick-book svg { width: 1.2em; height: 1.2em; margin: 0; opacity: 1; fill: none; stroke: currentColor; stroke-width: 2; }
-#chNav .pick-book .pb-c { font-size: .75em; opacity: .85; }
-#chNav .pick-book > svg:last-child { width: .75em; height: .75em; }
-#chNav:hover .pick-book { color: #fff; }
-#chNav .hw:has(.pick-book) { overflow: visible; white-space: normal; text-align: center; }
+#chNav u { color: #ffe9a8; } /* (nothing read: Choose a book, a link) */
 /* A verse's …: the rest of its chapter (above it, below it) */
 p-d > .vs-more { display: block; width: 100%; padding: 0 0 2px; color: var(--color1); font: 700 1.6em/1 system-ui, sans-serif; letter-spacing: .1em; }
 p-d > .vs-more:hover { color: var(--tab-bg); }
@@ -738,7 +726,6 @@ p-d > .vs-more:hover { color: var(--tab-bg); }
 .bk-btn small { font-size: .65em; font-weight: 400; }
 .bk-btn[aria-expanded="true"] .tx-caret { transform: rotate(180deg); }
 .ch-nav + .bk-grid, .ch-nav + * { margin-top: 10px; }
-.tx-all-row { border-top: 1px solid var(--line); }
 .ch-go { flex: none; width: 44px; padding: 0; line-height: 0; }
 .ch-go:disabled { opacity: .35; }
 /* Collapsed (Collapse all, or a heading tapped: flip, the other way from
@@ -767,9 +754,8 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .bk-grid button {
 	padding: 4px 2px;
 	font-size: .92em;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	line-height: 1.2;
+	overflow-wrap: anywhere; /* (a book's whole name, on two lines if it needs them) */
 }
 /* A book: a tint of its section's color (--sec, from app.js) */
 .bk-grid button[style] { background: color-mix(in srgb, var(--sec) 25%, var(--card-bg)); border-color: var(--sec); }
@@ -838,7 +824,6 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .lib-size { font-size: .8em; color: var(--muted); white-space: nowrap; }
 .dict-row .star-btn { font-size: 1.4em; padding: 0 10px; }
 .dict-row > .text-btn { white-space: nowrap; padding: 0 12px; }
-.cat-subh { margin: .8em 0 .1em; font-size: .85em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 /* The first time: how many (a slider), then download the ones picked */
 .first-level { margin: .6em 0 .4em; }
 .first-level input { display: block; width: 75%; margin: 0 auto; /* (from the first mark's middle to the last's) */ accent-color: var(--color1); }
@@ -874,25 +859,10 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 .lib-space { margin: 0 0 .5em; font-size: .9em; color: var(--muted); }
 .lib-help { margin: 0 0 .5em; color: var(--muted); font-size: .9em; line-height: 1.5; }
 .dict-del { align-self: center; padding: 4px 6px; color: var(--muted); font-size: .85em; }
-/* The user's own dictionaries: Upload's drop area (picked or dropped: a
-   dashed box, green while files are over the drawer), and each file's
-   details to check or fill in */
-.up-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0 0 12px; padding: 18px 12px; border: 2px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; font-size: .9em; cursor: pointer; }
-.up-drop b { color: var(--link); font-size: 1.1em; text-decoration: underline; }
-.up-drop:hover, #drawer.dragging .up-drop { border-color: var(--control-btn-bg); background: color-mix(in srgb, var(--control-btn-bg) 8%, transparent); }
-#drawer.dragging .drawer-body { outline: 2px dashed var(--control-btn-bg); outline-offset: -6px; }
-.up-item { margin: 0 0 12px; padding: 6px 12px 10px; border: 1px solid var(--line); border-radius: 10px; }
-.up-item legend { padding: 0 4px; font-weight: 600; overflow-wrap: anywhere; }
-.up-item legend small { font-weight: 400; color: var(--muted); }
-.up-item label { display: block; margin: .55em 0 0; font-size: .85em; color: var(--muted); }
-.up-item input:not([type=checkbox]) { display: block; box-sizing: border-box; width: 100%; margin-top: 2px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-bg); color: var(--card-text); font: inherit; font-size: 1rem; }
-.up-item input:focus { outline: 2px solid var(--control-btn-bg); outline-offset: -1px; }
-.up-row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
-.up-item .up-chk { display: flex; align-items: center; gap: 6px; }
-.up-item .text-btn { margin-top: .6em; }
-.up-path { margin: 3px 0 0; font-size: .8em; color: var(--muted); overflow-wrap: anywhere; }
-.up-err { margin: 4px 0; color: #b3261e; font-size: .9em; }
-body.dark-mode .up-err { color: #f2b8b5; }
+.up fieldset { margin: 0 0 10px; border: 1px solid var(--line); border-radius: 10px; }
+.up label { display: block; color: var(--muted); font-size: .85em; }
+.up input { display: block; box-sizing: border-box; width: 100%; margin: 2px 0 6px; padding: 6px; font: inherit; }
+.up input:invalid, .up-err { border-color: #c33; color: #c33; }
 /* A note on a verse: its notes' footnote mark (a letter), a little link; it shows in the popup */
 .vs-note {
 	display: inline-block;
@@ -1128,7 +1098,13 @@ body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscree
 .ctx-row button b { font-size: 20px; line-height: 24px; }
 .ctx-row button[data-c="back"] { width: 44px; opacity: .8; }
 .ctx-row button[data-c="gloss"] { color: var(--tab-bg); }
-.ctx-flag { font-size: 20px; line-height: 22px; }
+.ctx-row select { /* (Play's voice: a pill like its buttons, its ▾ white) */
+	align-self: center; max-width: 120px; height: 40px; margin: 0 6px; padding: 0 28px 0 12px; border: 0; border-radius: 12px;
+	-webkit-appearance: none; appearance: none; background: rgba(255, 255, 255, .14) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center / 12px;
+	color: #fff; font: 600 13px system-ui, sans-serif; cursor: pointer;
+}
+.ctx-row select:hover, .ctx-row select:focus-visible { background-color: rgba(255, 255, 255, .24); outline: none; }
+.ctx-row option { color: #000; background: #fff; }
 .ctx-glyph { font-size: 18px; line-height: 22px; font-weight: 700; }
 .ctx-said { padding: 14px 24px; color: #fff; font: 600 14px system-ui, sans-serif; }
 body.ctx-open #controls { display: none; }

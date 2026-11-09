@@ -1,11 +1,14 @@
-from http.server import SimpleHTTPRequestHandler, HTTPServer
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
 
 class NoCacheHTTPRequestHandler(SimpleHTTPRequestHandler):
+    # Keep-alive: one connection for many files (HTTP/1.0 opens one per file)
+    protocol_version = 'HTTP/1.1'
+
     def end_headers(self):
-        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-        self.send_header('Pragma', 'no-cache')
-        self.send_header('Expires', '0')
+        # Always checked, never stale: an unchanged file is a quick 304
+        # (Last-Modified), not downloaded again as no-store made it
+        self.send_header('Cache-Control', 'no-cache')
         super().end_headers()
     
     def do_GET(self):
@@ -22,20 +25,24 @@ class NoCacheHTTPRequestHandler(SimpleHTTPRequestHandler):
     
     def send_error(self, code, message=None):
         if code == 404:
-            self.send_response(404)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
             try:
                 with open('404.html', 'rb') as f:
-                    self.wfile.write(f.read())
+                    body = f.read()
             except FileNotFoundError:
-                self.wfile.write(b"<h1>404 - Page Not Found</h1>")
+                body = b"<h1>404 - Page Not Found</h1>"
+            self.send_response(404)
+            self.send_header('Content-type', 'text/html')
+            self.send_header('Content-Length', str(len(body)))  # (keep-alive: where it ends)
+            self.end_headers()
+            if self.command != 'HEAD':
+                self.wfile.write(body)
         else:
             super().send_error(code, message)
 
 if __name__ == '__main__':
     os.chdir('.')  # Change to your webapp directory if needed
-    server = HTTPServer(('0.0.0.0', 8000), NoCacheHTTPRequestHandler)
+    # Threads: a big dictionary downloading doesn't hold up everything else
+    server = ThreadingHTTPServer(('0.0.0.0', 8000), NoCacheHTTPRequestHandler)
     print('Server running on http://0.0.0.0:8000')
     server.serve_forever()
 
