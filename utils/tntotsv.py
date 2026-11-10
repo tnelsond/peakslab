@@ -99,3 +99,8 @@ with open(OUT, 'w', encoding='utf-8') as out:
 print(f'{len(entries)} entries', file=sys.stderr)
 if missing:
 	print('no notes for', ' '.join(sorted(missing)), file=sys.stderr)
+
+# Its Bible references as links (utils/fixbiblerefs.py)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fixbiblerefs
+fixbiblerefs.fix_file(OUT)

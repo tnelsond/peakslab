@@ -172,3 +172,9 @@ with open(AOUT, 'w', encoding='utf-8') as o:
 	o.write(head.format(ADESC))
 	o.writelines(a + '\n' for a in sorted(arts))
 print(len(rows), 'notes,', len(arts), 'articles', file=sys.stderr)
+
+# Its Bible references as links (utils/fixbiblerefs.py)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fixbiblerefs
+fixbiblerefs.fix_file(OUT)
+fixbiblerefs.fix_file(AOUT)

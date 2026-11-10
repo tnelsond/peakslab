@@ -124,3 +124,9 @@ open(OUT, 'w', encoding='utf-8').writelines([f'#desc\t{DESC}\n#priority\t3\n#lan
 open(AOUT, 'w', encoding='utf-8').writelines([f'#desc\t{ADESC}\n#priority\t3\n#lang\tmono\n', *articles])
 missing = sorted(set(titles) - {f for f, _, _ in bodies})
 print(f'{len(entries)} sections, {len(articles)} articles' + (f'; links to no article: {" ".join(missing)}' if missing else ''), file=sys.stderr)
+
+# Its Bible references as links (utils/fixbiblerefs.py)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fixbiblerefs
+fixbiblerefs.fix_file(OUT)
+fixbiblerefs.fix_file(AOUT)

@@ -208,3 +208,8 @@ with open(OUT, 'w', encoding='utf-8') as o:
 	o.write(f'#desc\t{DESC}\n#priority\t{PRIORITY}\n#lang\tmono\n#no sort\n#collapsed\n')
 	o.writelines(r + '\n' for r in rows)
 print(len(rows), 'notes', file=sys.stderr)
+
+# Its Bible references as links (utils/fixbiblerefs.py)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fixbiblerefs
+fixbiblerefs.fix_file(OUT)
