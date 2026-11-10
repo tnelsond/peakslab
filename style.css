@@ -1081,6 +1081,7 @@ body.fullscreen .control-btn:not(#f4) { display: none !important; } /* Fullscree
 #ctxMenu[hidden] { display: none; }
 .ctx-row { display: flex; overflow-x: auto; scrollbar-width: none; }
 .ctx-row::-webkit-scrollbar { display: none; }
+.ctx-credit { max-width: 32em; padding: 2px 10px 6px; color: #fff; font: 11px/1.35 system-ui, sans-serif; opacity: .8; } /* (a recording's copyright notice) */
 .ctx-row button {
 	flex: none;
 	width: 64px;

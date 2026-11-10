@@ -3189,7 +3189,9 @@ if(!isDictPage){
 				(w && !sel ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
 				(!sel && recOf(el) || voiceLangs().length ? ctxBtn('play', 'Play') : '') + (sel ? '' : ctxBtn('share', 'Share')) + ctxBtn('look', 'Appearance');
 		}
-		ctxMenu.innerHTML = `<div class="ctx-row">${html}</div>`;
+		// (playing a recording: its dictionary's description, its copyright notice, under the buttons)
+		const rec = sub === 'play' && !sel && srcOf(recOf(el)) === '' && recOf(el), credit = rec && dicts[rec.sound[1]].desc.replace(/<[^>]+>/g, '');
+		ctxMenu.innerHTML = `<div class="ctx-row">${html}</div>` + (credit ? `<div class="ctx-credit">${escapeHTML(credit)}</div>` : '');
 	}
 	// Done (copied, ...): said for a moment, then it closes
 	function ctxDone(msg){
