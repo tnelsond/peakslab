@@ -3374,14 +3374,15 @@ if(!isDictPage){
 	});
 	// <p-il>word|transliteration|gloss|G976|grammar ¦ ...</p-il>: an
 	// interlinear verse, each word over the rest (and a sixth field: a note,
-	// for a word only some manuscripts have)
+	// for a word only some manuscripts have); its number and grammar code are
+	// words to tap (the lexicons, and the grammar codes' explanations)
 	customElements.define('p-il', class extends HTMLElement {
 		connectedCallback() {
 			if (this.firstElementChild) return; // Done already (moved)
 			this.innerHTML = this.textContent.split('¦').map(w => {
 				const [o, t = '', g = '', s, m = '', v] = w.trim().split('|').map(escapeHTML);
 				return `<span class="il-w${v ? ' il-v' : ''}"${v ? ` title="${v}"` : ''}><span class="il-o">${o}</span>` +
-					`<span class="il-t">${t}</span><span class="il-g">${g}</span><span class="il-s">${s ? `<p-a>${s}</p-a> ` : ''}${m}</span></span>`;
+					`<span class="il-t">${t}</span><span class="il-g">${g}</span><span class="il-s">${s ? `<p-a>${s}</p-a> ` : ''}${m ? `<p-a>${m}</p-a>` : ''}</span></span>`;
 			}).join(' ');
 		}
 	});

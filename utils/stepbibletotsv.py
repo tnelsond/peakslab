@@ -24,6 +24,7 @@ writes OUTDIR/ancient-greek/bible/{text/grc-tagnt,dict/tbesg}.tsv and
 OUTDIR/biblical-hebrew/bible/{text/hbo-tahot,dict/tbesh}.tsv
 """
 import glob, os, re, sys, unicodedata
+from html import escape
 from collections import defaultdict
 
 # STEPBible's book abbreviations, in order, and the KJV-style codes the other Bibles use
@@ -129,7 +130,7 @@ def refs(m):
 		out.append(f'<p-a>{book} {x[2]}.{x[3]}</p-a>{x[4]}')
 	return ' '.join(out) or m[2]
 
-def lexicon(pattern, path, desc, forms):
+def lexicon(pattern, path, desc, forms, priority=0):
 	entries = []
 	for line in lines(pattern):
 		f = line.rstrip('\n').split('\t')
@@ -144,7 +145,7 @@ def lexicon(pattern, path, desc, forms):
 	os.makedirs(os.path.dirname(path), exist_ok=True)
 	done = set()
 	with open(path, 'w', encoding='utf-8') as out:
-		out.write(f'#desc\t{desc}\n#priority\t0\n#lang\tbi\n')
+		out.write(f'#desc\t{desc}\n#priority\t{priority}\n#lang\tbi\n')
 		for s, lemma, translit, morph, gloss, d, ds in entries:
 			lemmas = [x.strip() for x in re.split(r'[,;]', lemma) if len(x.strip()) > 1]  # Not a letter alone (γ, λ, ...)
 			syn = [x for x in dict.fromkeys(lemmas + [translit]) if x]
@@ -158,6 +159,152 @@ def lexicon(pattern, path, desc, forms):
 				body += '<br><p-n>Forms: ' + ' '.join(f'@{x}\t' for x in fs).rstrip() + '</p-n>'
 			out.write(f'{s}\t{body}\n')
 
+# ---------------------------------------------------------------- Grammar codes
+def morph_codes(pattern):
+	"""TEGMC / TEHMC: the brief codes' table (Code, Example, Meaning) and the
+	full codes' records ("$", CODE<TAB>Function=..., then a phrase, what it
+	does, an example with the word in _underscores_) -> {code: html}"""
+	codes, rec = {}, None
+	def row(code, lines):
+		phrase, *rest = [x.strip().strip('"').replace('": "', ': ').strip() for x in lines if x.strip()] or ['']
+		ex = [re.sub(r'_\s*([^_]+?)\s*_', r'<b>\1</b>', escape(x, quote=False)) for x in rest]
+		codes[code] = f'<b>{escape(phrase, quote=False)}</b>' + ''.join(f'<br>{x}' for x in ex)
+	for line in lines(pattern):
+		line = line.rstrip('\n').rstrip('\t')
+		if line.startswith('$'):
+			if rec:
+				row(rec[0], rec[1])
+			rec = None if line.startswith('$=') else []
+			continue
+		if rec == []:
+			f = line.split('\t')
+			rec = (f[0].strip(), [])
+			continue
+		if rec:
+			rec[1].append(line)
+			continue
+		f = line.split('\t')
+		if len(f) >= 3 and re.match(r'[GHAN]:\S', f[0]) and f[2].strip():
+			codes.setdefault(f[0].strip(), f'<b>{escape(f[2].strip(), quote=False)}</b><br>{escape(f[1].strip(), quote=False)}')
+	if rec:
+		row(rec[0], rec[1])
+	return codes
+
+def write_morph(path, desc, codes, used=()):
+	"""Each code, and each combination the text uses (Hebrew "HC/Td/Ncfsa": its
+	language letter, then parts: HC, HTd, HNcfsa), what its parts mean"""
+	entries = dict(codes)
+	for c in used:
+		if c in entries or '/' not in c:
+			continue
+		parts = [c[0] + x for x in c[1:].split('/')]
+		if all(p in codes for p in parts):
+			entries[c] = '<br>'.join(f'<p-n>{p}</p-n> {codes[p]}' for p in parts)
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	with open(path, 'w', encoding='utf-8') as out:
+		out.write(f'#desc\t{desc}\n#priority\t0\n#lang\tmono\n')
+		for c in sorted(entries):
+			out.write(f'{c}\t{entries[c]}\n')
+
+# ---------------------------------------------------------------- Proper names
+def ref_list(s, book=None):
+	"""'Exo.4.27ff; 5.1ff; 9.8,27' -> links (a book carries on, as does a chapter)"""
+	out, ch = [], None
+	for part in re.split(r';\s*', s.strip().rstrip(';')):
+		pieces = []
+		for i, r in enumerate(part.split(',')):
+			r = r.strip()
+			x = re.match(r'(?:(\w{3})\.)?(?:(\d+)\.)?(\d+)([a-z]*\W*\w*)$', r)
+			if not x or (x[1] and x[1] not in BOOK) or not (x[2] or ch):
+				if r:
+					pieces.append(escape(r, quote=False))
+				continue
+			book = BOOK[x[1]] if x[1] else book
+			if not book:
+				continue
+			if x[2]:
+				ch = x[2]
+			pieces.append(f'<p-a>{book} {ch}.{x[3]}</p-a>{escape(x[4], quote=False)}')
+		out.append(', '.join(pieces))
+	return '; '.join(p for p in out if p)
+
+def names_in(s):
+	"""'Moses@Exo.2.10-Rev, Miriam@Exo.15.20-Mic' -> words to tap"""
+	return ', '.join(f'<p-a>{escape(n.split("@")[0].strip(), quote=False)}</p-a>' if '@' in n else escape(n.strip(), quote=False)
+		for n in re.split(r',\s*|\s+\+\s*', s) if n.strip(' +'))
+
+def tipnr(pattern, path, desc):
+	"""TIPNR: every person, place and other name, by its English name; its
+	Hebrew and Greek forms and Strong's numbers find it too"""
+	recs, rec = [], None
+	for line in lines(pattern):
+		line = line.rstrip('\n').rstrip('\t')
+		m = re.match(r'\$=+\s*(PERSON|PLACE|OTHER)', line)
+		if m:
+			rec = {'kind': m[1], 'head': None, 'names': [], 'total': None}
+			recs.append(rec)
+			continue
+		if not rec:
+			continue
+		f = line.split('\t')
+		if rec['head'] is None:
+			rec['head'] = f
+		elif f[0].startswith('– Total'):
+			rec['total'] = f
+		elif f[0].startswith('– '):
+			rec['names'].append(f)
+		elif m := re.match(r'@(\w+)=\s*(.*)', line):
+			rec[m[1]] = m[2].replace('\t', ' ').strip()
+	os.makedirs(os.path.dirname(path), exist_ok=True)
+	n = 0
+	with open(path, 'w', encoding='utf-8') as out:
+		out.write(f'#desc\t{desc}\n#priority\t2\n#lang\tmono\n')
+		for r in recs:
+			h = r['head']
+			if not h or '@' not in h[0]:
+				continue
+			name = h[0].split('@')[0].strip()
+			h += [''] * 9
+			body = []
+			brief = r.get('Brief') or r.get('Briefest') or (h[1] if r['kind'] != 'PLACE' else '')
+			if brief:
+				body.append(f'<b>{escape(brief, quote=False)}</b>')
+			art = r.get('Article') or r.get('Short') or ''
+			if art:
+				art = re.sub(r'<br\s*/?>', '<br>', escape(art, quote=False).replace('&lt;BR&gt;', '<br>').replace('&lt;br&gt;', '<br>'), flags=re.I)
+				body.append(art)
+			if r['kind'] == 'PERSON':
+				for label, v in (('Parents', h[2]), ('Siblings', h[3]), ('Partners', h[4]), ('Children', h[5]), ('Tribe or nation', h[6])):
+					v = v.strip(' +')
+					if v and v != '>':
+						body.append(f'{label}: {names_in(v) if "@" in v else escape(v, quote=False)}')
+			elif r['kind'] == 'PLACE':
+				links = [f'<a href="{u.strip()}">{t}</a>' for u, t in ((h[4], 'Google Maps'), (h[5], 'PalOpenMaps')) if u.strip().startswith('http')]
+				area = h[6].strip(' >')
+				if area:
+					body.append(f'Area: {escape(area, quote=False)}')
+				if links:
+					body.append(' · '.join(links))
+			forms = []
+			for f in r['names']:
+				f += [''] * 6
+				x = re.match(r'([GH]\d+\w*)«([GH]\d+)\w*=(.*)', f[2].strip())
+				if not x:
+					continue
+				word, s = x[3].strip(), plain(x[2])
+				shown = re.sub(r'\s*=\S+$', '', f[3]).strip()
+				forms.append(f'@{escape(word, quote=False)}\t <p-a>@{s}\t</p-a>' + (f' ({escape(shown, quote=False)})' if shown and shown != name else ''))
+			if forms:
+				body.append('Names: ' + '; '.join(dict.fromkeys(forms)))
+			t = r['total']
+			if t and len(t) > 4:
+				count = t[5].strip() if len(t) > 5 else ''
+				label = '1 reference' if count == '1' else f'{count} references' if count.isdigit() else 'References'
+				body.append(f'{label}: ' + ref_list(t[4], None))
+			out.write(f'{name}\t' + '<br>'.join(body) + '\n')
+			n += 1
+	return n
+
 def main():
 	src, out = sys.argv[1], sys.argv[2]
 	cc = 'CC BY 4.0, from <a href="https://github.com/STEPBible/STEPBible-Data">STEPBible.org</a> (Tyndale House, Cambridge)'
@@ -167,6 +314,11 @@ def main():
 	write_bible(f'{out}/biblical-hebrew/bible/text/hbo-tahot.tsv', f'Hebrew Old Testament, word by word: Translators Amalgamated Hebrew OT (TAHOT, Leningrad Codex, cantillation left out), English glosses, Strong’s numbers and grammar. {cc}', ot, rtl=True)
 	lexicon(os.path.join(src, 'TBESG*.txt'), f'{out}/ancient-greek/bible/dict/grc-tbesg.tsv', f'Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has. {cc}', ntforms)
 	lexicon(os.path.join(src, 'TBESH*.txt'), f'{out}/biblical-hebrew/bible/dict/hbo-tbesh.tsv', f'Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has. {cc}', otforms)
+	lexicon(os.path.join(src, 'TFLSJ*.txt'), f'{out}/ancient-greek/bible/dict/grc-tflsj.tsv', f'Translators Formatted full LSJ Bible lexicon (TFLSJ): Liddell–Scott–Jones from Perseus, abbreviations expanded and authors dated by Tyndale House, for every word of the Greek Bible, by Strong’s number, with every form the New Testament has. {cc}', ntforms, priority=2)
+	write_morph(f'{out}/ancient-greek/bible/dict/grc-tegmc.tsv', f'Greek grammar codes explained (TEGMC: what N-NSF, V-AAI-3S ... mean, with an example). {cc}', morph_codes(os.path.join(src, 'TEGMC*.txt')))
+	used = {w.split('|')[4] for ws in ot.values() for w in ws if w.count('|') >= 4}
+	write_morph(f'{out}/biblical-hebrew/bible/dict/hbo-tehmc.tsv', f'Hebrew and Aramaic grammar codes explained (TEHMC: what HVqp3ms, HC/Ncmsa ... mean, part by part, with an example). {cc}', morph_codes(os.path.join(src, 'TEHMC*.txt')), used)
+	tipnr(os.path.join(src, 'TIPNR*.txt'), f'{out}/english/bible/dict/en-tipnr.tsv', f'Translators Individualised Proper Names with all References (TIPNR): every person, place and other name of the Bible, who or what each is, their family, their Hebrew and Greek names and every verse. {cc}')
 
 if __name__ == '__main__':
 	main()
