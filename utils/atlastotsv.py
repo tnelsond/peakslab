@@ -9,19 +9,16 @@ pixels wide. Its ids get the map's prefix (m1223_font_3), so maps on one page do
 
 The labels' text in these PDFs is garbled (a custom glyph encoding), so they're
 read by OCR: the page's glyphs alone, black on white, through tesseract (khm).
-A label counts as a place name if a Khmer Bible has it, or has it with one
-mark (vowel sign, diacritic) added, dropped or changed: tesseract's usual
-mistakes (រូម for រ៉ូម).
+Every label is a name to search by (an @ alias), spelled as a Khmer Bible has
+it when one has it with one mark (vowel sign, diacritic) added, dropped or
+changed: tesseract's usual mistakes (រូម for រ៉ូម); else as read.
 
 A map that's only a picture (its PDF missing) is a WEBP, read by OCR as is.
 
-Usage: atlastotsv.py OUT.tsv "DESC" WORKDIR MAPS.txt BIBLE.tsv... DICT.tsv...
+Usage: atlastotsv.py OUT.tsv "DESC" WORKDIR MAPS.txt BIBLE.tsv...
   MAPS.txt  a line per map: "<id> <file.pdf|.png|.jpg>" (paths from MAPS.txt's folder)
   WORKDIR   each map's SVG and labels, kept: a second run reuses them
   BIBLE.tsv Khmer Bibles (dict_src/khmer/bible/text/*.tsv), words split by ZWSP
-  DICT.tsv  a general dictionary (dict_src/khmer/dict/km-nath2022.tsv): its
-            words alone aren't place names (ផ្លូវ "road"), though in a longer
-            label they can be (សមុទ្រក្រហម)
 Needs: pymupdf, pillow; rsvg-convert, tesseract with khm.traineddata (TESSDATA_PREFIX)
 """
 import base64, io, json, os, re, subprocess, sys
@@ -31,7 +28,7 @@ from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
 MAXW, Q = 2400, 55
-KHMER = re.compile(r'[ក-៝០-៩]+')
+KHMER = re.compile('[\u1780-\u17dd]+')  # (no digits: a scale's)
 MARKS = [chr(c) for c in range(0x17b6, 0x17d4)]  # vowel signs, diacritics
 
 def webp(im, maxw=MAXW):
@@ -129,34 +126,20 @@ def main():
 	with Pool(int(os.environ.get('JOBS', '2'))) as p:
 		list(p.imap_unordered(one, jobs))
 	labels = {mid: json.load(open(os.path.join(WORK, mid + '.json'))) for mid, _, _ in jobs}
-	runs = set()  # every run of a label's words, joined
-	for d in labels.values():
-		for l in d['labels']:
-			ws = KHMER.findall(l)
-			runs.update(''.join(ws[i:j]) for i in range(len(ws)) for j in range(i + 1, len(ws) + 1))
-	vocab = vocabulary((b for b in sys.argv[5:] if '/bible/' in b), {v for r in runs for v in variants(r)})
-	# A word in a general dictionary (Chuon Nath's: no place names) isn't one alone
-	common = {l.split('\t', 1)[0] for b in sys.argv[5:] if '/bible/' not in b for l in open(b, encoding='utf-8')}
+	runs = {''.join(KHMER.findall(l)) for d in labels.values() for l in d['labels']}  # each label's words, joined
+	vocab = vocabulary(sys.argv[5:], {v for r in runs for v in variants(r)})
 	rows, found, kept = [], 0, 0
 	for mid, _, _ in jobs:
 		d = labels[mid]
 		names = []
-		for l in d['labels']:
-			ws = KHMER.findall(l)
-			found += len(ws)
-			i = 0
-			while i < len(ws):  # the longest run of the label's words that's a name
-				for j in range(len(ws), i, -1):
-					w = ''.join(ws[i:j])
-					p = place(w, vocab) if len(w) > 2 and (j - i > 1 or w not in common) else None
-					if p and (j - i > 1 or p not in common):
-						break
-				else:
-					i += 1
-					continue
-				if p not in names:
-					names.append(p)
-				i = j
+		for l in d['labels']:  # each label a name, as a Bible spells it if one has it
+			w = ''.join(KHMER.findall(l))
+			if len(w) < 3:  # (two letters: a scrap)
+				continue
+			found += 1
+			p = place(w, vocab) or w
+			if p not in names:
+				names.append(p)
 		kept += len(names)
 		head = '<p-n>' + ' · '.join(f'@{n}\t' for n in names) + '</p-n>' if names else ''
 		# its ids its own, so maps on one page don't clash
@@ -165,7 +148,7 @@ def main():
 	with open(OUT, 'w', encoding='utf-8') as o:
 		o.write(f'#desc\t{DESC}\n#priority\t2\n#lang\tmono\n')
 		o.writelines(r + '\n' for r in rows)
-	print(f'{len(rows)} maps, {kept} place names (of {found} words read)', file=sys.stderr)
+	print(f'{len(rows)} maps, {kept} place names (of {found} labels read)', file=sys.stderr)
 
 if __name__ == '__main__':
 	main()
