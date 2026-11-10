@@ -1382,6 +1382,7 @@ if(!isDictPage){
 			return;
 		}
 		card._audio?.b && tnefarOn?.button === card._audio.b && tnefarOn.stop(); // (another chapter now)
+		card.querySelector(':scope > .rec-credit')?.remove();
 		card._audio = {key};
 		if (!w) return;
 		const ts = dictIds.filter(isBibleText); // (a recording's words have a text's timing: "gen 1 km-khsv")
@@ -1397,6 +1398,7 @@ if(!isDictPage){
 			const b = card._audio.b = soundButton([f], d); // (not shown: the context menu's Play plays it)
 			b.classList.add('ch-play');
 			b.ref = ref;
+			b.card = card;
 			if (i >= 0) readAlong(w, b, ts[i], ms[i][1]);
 			playSpan(b);
 		});
@@ -2859,7 +2861,16 @@ if(!isDictPage){
 		});
 	}
 	const soundError = b => e => { b.firstChild.data = '⚠'; b.title = `Can't play it here: ${e.message}`; };
+	// A chapter's recording, once it's played: its dictionary's description
+	// (its copyright notice) at the end of the chapter, small
+	const credit = b => {
+		if (!b.card?.isConnected || b.card.querySelector(':scope > .rec-credit')) return;
+		const p = b.card.appendChild(document.createElement('p'));
+		p.className = 'rec-credit';
+		p.textContent = dicts[b.sound[1]].desc.replace(/<[^>]+>/g, '');
+	};
 	window.playWord = b => {
+		credit(b);
 		if (b.voices && !playingOn(b)) voiced(b, (b.sound = b.voices[b.turn++ % b.voices.length])[1], b.sound[0][0][2]); // (playing: it pauses)
 		ttsU = null; // (speech stops: its end isn't this one's)
 		window.speechSynthesis?.cancel();
@@ -3189,9 +3200,7 @@ if(!isDictPage){
 				(w && !sel ? ctxBtn('bookmark', isBookmarked(w) ? 'Bookmarked' : 'Bookmark', `aria-pressed="${isBookmarked(w)}"`) : '') +
 				(!sel && recOf(el) || voiceLangs().length ? ctxBtn('play', 'Play') : '') + (sel ? '' : ctxBtn('share', 'Share')) + ctxBtn('look', 'Appearance');
 		}
-		// (playing a recording: its dictionary's description, its copyright notice, under the buttons)
-		const rec = sub === 'play' && !sel && srcOf(recOf(el)) === '' && recOf(el), credit = rec && dicts[rec.sound[1]].desc.replace(/<[^>]+>/g, '');
-		ctxMenu.innerHTML = `<div class="ctx-row">${html}</div>` + (credit ? `<div class="ctx-credit">${escapeHTML(credit)}</div>` : '');
+		ctxMenu.innerHTML = `<div class="ctx-row">${html}</div>`;
 	}
 	// Done (copied, ...): said for a moment, then it closes
 	function ctxDone(msg){
