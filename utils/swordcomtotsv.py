@@ -81,7 +81,7 @@ def reflist(s, b, c):
 
 def thml(t, b, c):
 	"""The TSK: a word of the verse, then its references, a line each"""
-	segs = [s.strip() for s in re.split(r'<br\s*/?>|\n', t)]
+	segs = [re.sub(r'\s+', ' ', s).strip() for s in re.split(r'<br\s*/?>', t)]  # (a line break in the text: a space)
 	out, word, c = [], None, str(c)
 	for s in segs:
 		s = re.sub(r'<sync[^>]*/>|<See[^>]*>', '', s).strip()

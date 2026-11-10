@@ -61,6 +61,9 @@ for c, names in {'GEN': 'Ge Gn', 'EXO': 'Ex Exod', 'LEV': 'Le Lv', 'NUM': 'Nu Nm
 	'2TI': '2Tim', 'TIT': 'Tt', 'PHM': 'Phlm Philem Phm', 'HEB': 'He', 'JAM': 'Jas Jm', '1PE': '1Pet 1Pt',
 	'2PE': '2Pet 2Pt', '1JO': '1Jn 1John', '2JO': '2Jn 2John', '3JO': '3Jn 3John', 'JUD': 'Jude', 'REV': 'Re Rv'}.items():
 	ABBR.update({n.upper(): c for n in names.split()})
+ABBR.update(BOOK)  # (and STEPBible's: Jhn, Mrk, Sng, Ezk, ...)
+# Misspellings the commentaries have
+ABBR.update({'COLOSSIAN': 'COL', 'MATTHEWS': 'MAT', 'MATHEW': 'MAT', 'ROMAN': 'ROM', 'PHILIPPIAN': 'PHI'})
 ABBR['JUD'] = 'JDG'
 ABBR['SONGOFSONGS'] = 'SOL'
 
@@ -79,11 +82,17 @@ def form(k):
 			out.add(w)
 	return out
 
-NAME = '|'.join(sorted({p for k in ABBR for p in form(k)}, key=len, reverse=True)).replace(' ', '[ ]?')
+NAME = '|'.join(sorted({p for k in ABBR for p in form(k)}, key=len, reverse=True)).replace(' ', r'\s*')
 BOOKNAME = rf'(?:{NAME})\.?'
-VERSE = r'(\d{1,3}):(\d{1,3})(?:\s*[-–]\s*(?:(\d{1,3}):)?(\d{1,3}))?'
-START = re.compile(rf'(?<![\w:.])(?:({BOOKNAME})\s+)?{VERSE}(?![\d:])')
-MORE = re.compile(rf'\s*([,;]|(?:and|or|with|cf\.)(?=\s))\s*(?:({BOOKNAME})\s+)?(?:(\d{{1,3}}):)?(\d{{1,3}})(?:\s*[-–]\s*(?:(\d{{1,3}}):)?(\d{{1,3}}))?(?![\d:])')
+# A verse: after a book, chapter and verse by ":" or "." ("Acts 10: 35", "Ps. 97. 7",
+# "1Ki.15.7"); alone, only by ":" ("see 1:5", not "21.888"). Ranges, and a letter
+# after ("7:9b"): the link is the first verse
+N = r'([0-9]{1,3})'
+RANGE = rf'(?:\s*[-–]\s*(?:{N}[:.])?{N})?'
+END = r'(?![0-9]|:[0-9])'
+START = re.compile(rf'(?<![\w:.])(?:({BOOKNAME})\s*{N}\s*[:.]\s*{N}|{N}:{N}){RANGE}{END}'
+	rf'|(?<![\w:.])({BOOKNAME})\s*{N}\s*[-–]\s*{N}(?![0-9]|[:.][0-9])')  # Chapters: "Ezek. 26-28"
+MORE = re.compile(rf'\s*([,;]|(?:and|or|with|cf\.)(?=\s))\s*(?:({BOOKNAME})\s*)?(?:{N}\s*(?::\s*|\.(?=[0-9])))?{N}{RANGE}{END}(?!\s*[A-Za-z]+\.?\s*[0-9]{1,3}\s*[:.][0-9])')  # (not the 1 of "1 Ki 2:1")
 
 def book_of(name):
 	n = re.sub(r'^(III|II|I|(?i:first|second|third))(?=\s|[A-Z][a-z])', lambda m: str({'I': 1, 'II': 2, 'III': 3, 'FIRST': 1, 'SECOND': 2, 'THIRD': 3}[m[1].upper()]), name.strip())
@@ -117,11 +126,16 @@ def link_text(t, here, prev=None):
 	for m in START.finditer(t):
 		if m.start() < pos:
 			continue
-		code = book_of(m[1]) if m[1] else here
+		if m[8]:  # Chapters
+			code = book_of(m[8])
+			if code:
+				out.append(t[pos:m.start()] + tag(code, m[9]) + f'–{m[10]}')
+				pos = m.end()
+			continue
+		code, c, v = (book_of(m[1]), m[2], m[3]) if m[1] else (here, m[4], m[5])
 		if not code:
 			continue
-		c, v = m[2], m[3]
-		s = tag(code, c, v) + (f'–{m[4] + ":" if m[4] else ""}{m[5]}' if m[5] else '')
+		s = tag(code, c, v) + (f'–{m[6] + ":" if m[6] else ""}{m[7]}' if m[7] else '')
 		rest, end, _, _ = more(t, m.end(), code, c)
 		out.append(t[pos:m.start()])
 		out.append(s + rest)

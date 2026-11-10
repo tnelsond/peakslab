@@ -25,6 +25,8 @@ OUTDIR/biblical-hebrew/bible/{text/hbo-tahot,dict/tbesh}.tsv
 """
 import glob, os, re, sys, unicodedata
 from html import escape
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fixbiblerefs
 from collections import defaultdict
 
 # STEPBible's book abbreviations, in order, and the KJV-style codes the other Bibles use
@@ -151,7 +153,7 @@ def lexicon(pattern, path, desc, forms, priority=0):
 			syn = [x for x in dict.fromkeys(lemmas + [translit]) if x]
 			# The text's forms go with the number's first entry (the others are its other senses)
 			seen = {x.lower() for x in lemmas}
-			fs = sorted(x for x in {x.lower(): x for x in forms.get(s, ())}.values() if x.lower() not in seen) if s not in done else []
+			fs = sorted(x for x in {x.lower(): x for x in sorted(forms.get(s, ()), reverse=True)}.values() if x.lower() not in seen) if s not in done else []
 			done.add(s)
 			body = (f'<b>{"".join("@" + x + chr(9) for x in lemmas)}</b><p-ipa>@{translit}</p-ipa>\t' if lemmas else '') + \
 				f'<p-n>{morph} {ds}</p-n> <b>{gloss}</b><br>{d}'
@@ -270,6 +272,7 @@ def tipnr(pattern, path, desc):
 			if brief:
 				body.append(f'<b>{escape(brief, quote=False)}</b>')
 			art = r.get('Article') or r.get('Short') or ''
+			art = re.sub(r'<ref="[^"]*">(.*?)</ref>', r'\1', art)  # (its references: fixbiblerefs.py links them)
 			if art:
 				art = re.sub(r'<br\s*/?>', '<br>', escape(art, quote=False).replace('&lt;BR&gt;', '<br>').replace('&lt;br&gt;', '<br>'), flags=re.I)
 				body.append(art)
@@ -303,6 +306,7 @@ def tipnr(pattern, path, desc):
 				body.append(f'{label}: ' + ref_list(t[4], None))
 			out.write(f'{name}\t' + '<br>'.join(body) + '\n')
 			n += 1
+	fixbiblerefs.fix_file(path)
 	return n
 
 def main():
