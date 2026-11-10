@@ -517,15 +517,18 @@ if(!isDictPage){
 			media: path.includes('.slab'),
 			on: [undefined, 1, 0].includes(priority)}; // On by default: priority 1 and 0 (and see ownLevel)
 	});
-	const primaryCats = new Set(allDicts.filter(x => x.primary).map(x => x.cat));
+	const primaryCats = new Set(allDicts.filter(x => x.primary).map(x => x.cat)), primaryTops = new Set([...primaryCats].map(c => c.split('/')[0]));
 	// Its folder here: its category's; another language's dictionaries for
 	// this one, a dictionary (khmer/dict/chinese/x on /chinese: dict)
 	allDicts.forEach(x => { x.folder = x.primary || !x.cat.split('/').some(f => abbr[f]?.[2]) ? x.cat : 'dict'; });
 	// Other languages' dictionaries added in the library (their paths)
 	const addKey = `peakslab-added-${pagePath}`, addedPaths = new Set(readList(addKey));
 	allDicts.forEach(x => { x.added = !x.primary && addedPaths.has(x.path); });
-	// (and another language's for this one with priority <= 0: khmer/dict/chinese/x on /chinese)
-	const dicts = allDicts.filter(x => x.primary || x.added || (x.priority <= 0 && (primaryCats.has(x.cat) || x.cat.split('/').includes(curLang))));
+	// (and another language's for this one with priority <= 0: khmer/dict/chinese/x on /chinese; with 0,
+	// the best, in a folder that's on the page: the Greek and Hebrew lexicons, bible/dict, with a Bible's
+	// Strong's numbers, on a page with a Bible, bible/text)
+	const dicts = allDicts.filter(x => x.primary || x.added || (x.priority <= 0 && (primaryCats.has(x.cat) || x.cat.split('/').includes(curLang))) ||
+		(x.priority === 0 && primaryTops.has(x.cat.split('/')[0])));
 	const dictIds = dicts.map((_, d) => d);
 	// The download prompt's levels (firstHTML): which dictionaries each has
 	// (9: none, never suggested). On by default: Recommended's, and if none

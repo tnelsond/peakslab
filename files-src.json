@@ -1,6 +1,6 @@
 {
   "core": [
-    ["404.html", 1794300442],
+    ["404.html", 1794308993],
     ["codec2.wasm", 1789218181],
     ["files.json", 1789220126],
     ["jbig2.wasm", 1789218129],
@@ -57,7 +57,7 @@
     ["english/bible/psalter/en-psabradytate.peak.zst", 1788854149, "Psalter Brady & Tate from <a href=\"https://www.friendsofsabbath.org/cgmusic.com/workshop/index.htm\">friends of sabbath</a>", 27538, 1, "mono", 0, 109410],
     ["english/bible/psalter/en-psascott.peak.zst", 1788854149, "The Scottish Psalter from <a href=\"https://www.friendsofsabbath.org/cgmusic.com/workshop/index.htm\">friends of sabbath</a>", 20691, 2, "mono", 0, 101944],
     ["english/bible/text/en-asv.peak.zst", 1793593532, "American Standard Version (1901), public domain, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 526, 3, "mono", 0, 1340978],
-    ["english/bible/text/en-bsb.peak.zst", 1794294520, "Berean Standard Bible from <a href=\"https://ebible.org\">eBible</a>", 432, 0, "mono", 0, 1357503],
+    ["english/bible/text/en-bsb.peak.zst", 1794308805, "Berean Standard Bible (public domain), with Strong’s numbers: tap a word for its Hebrew or Greek. From Berean’s interlinear tables (<a href=\"https://bereanbible.com\">bereanbible.com</a>)", 1309, 0, "mono", 0, 2152483],
     ["english/bible/text/en-kjv.peak.zst", 1793534516, "KJV bible from <a href=\"https://ebible.org\">eBible</a>", 557, -3, "mono", 0, 1381283],
     ["english/bible/text/en-kjvs.peak.zst", 1793534946, "King James Version (1769) with Strong’s numbers: tap a word for its Greek or Hebrew. Public domain, from <a href=\"https://ebible.org/find/details.php?id=eng-kjv2006\">eBible</a>", 1317, -1, "mono", 0, 2145646],
     ["english/bible/text/en-ULB.peak.zst", 1793534538, "English Unlocked Literal Bible from <a href=\"https://door43.org\">Door43</a>, Wycliffe Associates", 790, 4, "mono", 0, 1437299],
@@ -74,6 +74,7 @@
     ["french/bible/words/fr-tw.peak.zst", 1793714223, "French Bible translation words (key terms, names and other words), just their words, from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a> (translationWords, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>): with another language's on, a dictionary between them", 134, -2, "fr,aligned", 0, 16319],
     ["french/thesaurus/fr-wn.peak.zst", 1793754727, "French words by WordNet sense, from WOLF, the French WordNet (<a href=\"http://www.cecill.info/licenses/Licence_CeCILL-C_V1-en.html\">CeCILL-C</a>), from the <a href=\"https://github.com/omwn/omw-data\">Open Multilingual Wordnet</a>: its headwords the senses (Open English WordNet's word and definition), the same in every language's, so with another language's on, a dictionary between them", 304, -2, "fr,aligned", 0, 1676248],
     ["french/wiktionary/fr-senses.peak.zst", 1793714237, "French words by English sense, from English Wiktionary's translation tables (<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/English/\">kaikki.org</a>: with another language's on, a dictionary between them", 631, -2, "fr,aligned", 0, 2564229],
+    ["german/bible/text/de-luther1912.peak.zst", 1794308857, "Lutherbibel 1912, gemeinfrei, mit Strong-Nummern: tippe auf ein Wort für sein Griechisch oder Hebräisch, from <a href=\"https://ebible.org/find/details.php?id=deu1912\">eBible</a>", 1264, 2, "mono", 0, 2269073],
     ["german/bible/text/de-SchBible.peak.zst", 1793534546, "Die Schlachter-Bibel 1951 from <a href=\"https://ebible.org/details.php?id=deu1951\">eBible</a>", 494, 1, "mono", 0, 1575613],
     ["german/dict/de-kaikki.peak.zst", 1794294261, "Kaikki German-English Dictionary (English Wiktionary, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/German/\">kaikki.org</a>", 7137, 1, "bi", 0, 13714804],
     ["german/wiktionary/de-senses.peak.zst", 1793671049, "German words by English sense, from English Wiktionary's translation tables (<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/English/\">kaikki.org</a>: with another language's on, a dictionary between them", 561, -2, "de,aligned", 0, 2906685],
@@ -234,7 +235,7 @@
     ["russian/bible/text/ru-synodal.peak.zst", 1793715338, "Russian Synodal 1876 Public Domain, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 3465, 1, "mono", 0, 1395200],
     ["russian/bible/words/ru-tw.peak.zst", 1793715338, "Russian Bible translation words (key terms, names and other words), just their words, from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a> (translationWords, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>): with another language's on, a dictionary between them", 213, -2, "ru,aligned", 0, 21456],
     ["russian/wiktionary/ru-senses.peak.zst", 1793715355, "Russian words by English sense, from English Wiktionary's translation tables (<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/English/\">kaikki.org</a>: with another language's on, a dictionary between them", 1051, -2, "ru,aligned", 0, 3375550],
-    ["spanish/bible/text/es-rv1909.peak.zst", 1793593856, "Reina-Valera 1909, dominio público, from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 492, 1, "mono", 0, 1386500],
+    ["spanish/bible/text/es-rv1909.peak.zst", 1794308829, "Reina-Valera 1909, dominio público, con los números de Strong: toca una palabra para su griego o hebreo, from <a href=\"https://ebible.org/find/details.php?id=spaRV1909\">eBible</a>", 1660, 1, "mono", 0, 2217623],
     ["spanish/bible/text/es-ULB.peak.zst", 1793534555, "Spanish Unlocked Literal Bible from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 552, 3, "mono", 0, 1521692],
     ["spanish/bible/words/es-biblewords.peak.zst", 1789697027, "Spanish Bible Translation words from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a>", 3956, 1, "mono", 0, 262897],
     ["spanish/bible/words/es-tw.peak.zst", 1793715375, "Spanish (Latin America) Bible translation words (key terms, names and other words), just their words, from <a href=\"https://bibleineverylanguage.org/\">bibleineverylanguage</a> (translationWords, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>): with another language's on, a dictionary between them", 91, -2, "es,aligned", 0, 19681],
