@@ -192,9 +192,10 @@ def morph_codes(pattern):
 		row(rec[0], rec[1])
 	return codes
 
-def write_morph(path, desc, codes, used=()):
+def write_morph(path, codes, used=()):
 	"""Each code, and each combination the text uses (Hebrew "HC/Td/Ncfsa": its
-	language letter, then parts: HC, HTd, HNcfsa), what its parts mean"""
+	language letter, then parts: HC, HTd, HNcfsa), what its parts mean: added
+	to the end of a lexicon's .tsv (path), the grammar codes' home"""
 	entries = dict(codes)
 	for c in used:
 		if c in entries or '/' not in c:
@@ -202,9 +203,7 @@ def write_morph(path, desc, codes, used=()):
 		parts = [c[0] + x for x in c[1:].split('/')]
 		if all(p in codes for p in parts):
 			entries[c] = '<br>'.join(f'<p-n>{p}</p-n> {codes[p]}' for p in parts)
-	os.makedirs(os.path.dirname(path), exist_ok=True)
-	with open(path, 'w', encoding='utf-8') as out:
-		out.write(f'#desc\t{desc}\n#priority\t0\n#lang\tmono\n')
+	with open(path, 'a', encoding='utf-8') as out:
 		for c in sorted(entries):
 			out.write(f'{c}\t{entries[c]}\n')
 
@@ -316,12 +315,12 @@ def main():
 	write_bible(f'{out}/ancient-greek/bible/text/grc-tagnt.tsv', f'Greek New Testament, word by word: Translators Amalgamated Greek NT (TAGNT, Nestlé-Aland text with the KJV’s variants marked), English glosses based on the BSB, Strong’s numbers and grammar. {cc}', nt)
 	ot, otforms = tahot(src)
 	write_bible(f'{out}/biblical-hebrew/bible/text/hbo-tahot.tsv', f'Hebrew Old Testament, word by word: Translators Amalgamated Hebrew OT (TAHOT, Leningrad Codex, cantillation left out), English glosses, Strong’s numbers and grammar. {cc}', ot, rtl=True)
-	lexicon(os.path.join(src, 'TBESG*.txt'), f'{out}/ancient-greek/bible/dict/grc-tbesg.tsv', f'Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has. {cc}', ntforms)
-	lexicon(os.path.join(src, 'TBESH*.txt'), f'{out}/biblical-hebrew/bible/dict/hbo-tbesh.tsv', f'Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has. {cc}', otforms)
-	lexicon(os.path.join(src, 'TFLSJ*.txt'), f'{out}/ancient-greek/bible/dict/grc-tflsj.tsv', f'Translators Formatted full LSJ Bible lexicon (TFLSJ): Liddell–Scott–Jones from Perseus, abbreviations expanded and authors dated by Tyndale House, for every word of the Greek Bible, by Strong’s number, with every form the New Testament has. {cc}', ntforms, priority=2)
-	write_morph(f'{out}/ancient-greek/bible/dict/grc-tegmc.tsv', f'Greek grammar codes explained (TEGMC: what N-NSF, V-AAI-3S ... mean, with an example). {cc}', morph_codes(os.path.join(src, 'TEGMC*.txt')))
+	lexicon(os.path.join(src, 'TBESG*.txt'), f'{out}/ancient-greek/bible/dict/grc-tbesg.tsv', f'Translators Brief lexicon of Extended Strong’s for Greek (TBESG, from Abbott-Smith), with every form the New Testament has, and its grammar codes explained (TEGMC: what N-NSF, V-AAI-3S ... mean, with an example). {cc}', ntforms)
+	write_morph(f'{out}/ancient-greek/bible/dict/grc-tbesg.tsv', morph_codes(os.path.join(src, 'TEGMC*.txt')))
+	lexicon(os.path.join(src, 'TBESH*.txt'), f'{out}/biblical-hebrew/bible/dict/hbo-tbesh.tsv', f'Translators Brief lexicon of Extended Strong’s for Hebrew (TBESH, from BDB), with every form the Old Testament has, and the Hebrew and Aramaic grammar codes explained (TEHMC: what HVqp3ms, HC/Ncmsa ... mean, part by part, with an example). {cc}', otforms)
 	used = {w.split('|')[4] for ws in ot.values() for w in ws if w.count('|') >= 4}
-	write_morph(f'{out}/biblical-hebrew/bible/dict/hbo-tehmc.tsv', f'Hebrew and Aramaic grammar codes explained (TEHMC: what HVqp3ms, HC/Ncmsa ... mean, part by part, with an example). {cc}', morph_codes(os.path.join(src, 'TEHMC*.txt')), used)
+	write_morph(f'{out}/biblical-hebrew/bible/dict/hbo-tbesh.tsv', morph_codes(os.path.join(src, 'TEHMC*.txt')), used)
+	lexicon(os.path.join(src, 'TFLSJ*.txt'), f'{out}/ancient-greek/bible/dict/grc-tflsj.tsv', f'Translators Formatted full LSJ Bible lexicon (TFLSJ): Liddell–Scott–Jones from Perseus, abbreviations expanded and authors dated by Tyndale House, for every word of the Greek Bible, by Strong’s number, with every form the New Testament has. {cc}', ntforms, priority=2)
 	tipnr(os.path.join(src, 'TIPNR*.txt'), f'{out}/english/bible/dict/en-tipnr.tsv', f'Translators Individualised Proper Names with all References (TIPNR): every person, place and other name of the Bible, who or what each is, their family, their Hebrew and Greek names and every verse. {cc}')
 
 if __name__ == '__main__':

@@ -82,10 +82,12 @@ dict_src/lao/dict/phonetics/lo-ipa.tsv dict_src/lao/dict/phonetics/lo-south.tsv 
 	mkdir -p dict_src/lao/dict/phonetics
 	python3 utils/laophonetics.py dict_src/lao/dict/lo-pat.tsv dict_src/lao/dict/lo-kerr.tsv dict_src/lao/dict/phonetics
 
-# The Greek and Hebrew interlinear Bibles and their lexicons are made from
-# STEPBible's data (https://github.com/STEPBible/STEPBible-Data: the TAGNT,
-# TAHOT, TBESG and TBESH .txt files in dict_src/stepbible)
-STEP_TSV := dict_src/ancient-greek/bible/text/grc-tagnt.tsv dict_src/ancient-greek/bible/dict/grc-tbesg.tsv dict_src/biblical-hebrew/bible/text/hbo-tahot.tsv dict_src/biblical-hebrew/bible/dict/hbo-tbesh.tsv
+# The Greek and Hebrew interlinear Bibles, their lexicons (with the grammar
+# codes explained), the LSJ and the proper names are made from STEPBible's data
+# (https://github.com/STEPBible/STEPBible-Data: the TAGNT, TAHOT, TBESG, TBESH,
+# TEGMC, TEHMC, TFLSJ and TIPNR .txt files in dict_src/stepbible, renamed
+# without spaces: TAGNT_Mat-Jhn.txt, TFLSJ_extra.txt, ...)
+STEP_TSV := dict_src/ancient-greek/bible/text/grc-tagnt.tsv dict_src/ancient-greek/bible/dict/grc-tbesg.tsv dict_src/ancient-greek/bible/dict/grc-tflsj.tsv dict_src/biblical-hebrew/bible/text/hbo-tahot.tsv dict_src/biblical-hebrew/bible/dict/hbo-tbesh.tsv dict_src/english/bible/dict/en-tipnr.tsv
 $(STEP_TSV) &: $(wildcard dict_src/stepbible/*.txt) utils/stepbibletotsv.py
 	python3 utils/stepbibletotsv.py dict_src/stepbible dict_src
 
