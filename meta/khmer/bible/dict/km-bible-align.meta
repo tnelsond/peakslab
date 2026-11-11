@@ -1,6 +1,6 @@
 #d	Khmer–English Bible glosses, machine-made by word-aligning 7 Khmer Bibles (GKB, KCB, KHMUS, KHOV, KHOV2016, KHSV, ULB) and 7 English ones (ASV, BBE, BSB, ERV, KJV, ULB, WEB) with eflomal: a Khmer word's English glosses, an English word's Khmer ones. Percent = how often the word was aligned to that gloss. A word only one Bible has, or (English) only the KJV and ASV, has its name after it. Unchecked: verify before relying on it.
-#p	5
+#p	1
 #l	bi
 #f	khmer/bible/dict/km-bible-align.peak.zst
-#t	1794360781
+#t	1794400397
 #b	837
