@@ -193,12 +193,19 @@ for rows in by_k.values():
 FUNCW = {w for w, c in func_w.items() if c[True] > c[False]}
 
 
+# Khmer words that make another word of the one after them (សេចក្តីស្រឡាញ់ love n., ធ្វើបាប to sin): not grammar words there
+MAKERS = {'សេចក្តី', 'សេចក្ដី', 'ការ', 'ភាព', 'អំពើ', 'ធ្វើ', 'ប្រព្រឹត្ត', 'ចិត្ត'}
+
+
 def more(g, kept, sep):
     """g is a gloss already kept with a grammar word before or after it"""
     for k in kept:
-        for rest in (g[len(k):], g[:-len(k)]) if len(g) > len(k) else ():
-            if (g.startswith(k) if rest == g[len(k):] else g.endswith(k)) and rest.strip(sep) in FUNCW:
-                return True
+        if len(g) <= len(k):
+            continue
+        if g.startswith(k) and g[len(k):].strip(sep) in FUNCW:
+            return True
+        if g.endswith(k) and g[:-len(k)].strip(sep) in FUNCW and not (not sep and g[:-len(k)] in MAKERS):
+            return True
     return False
 
 
