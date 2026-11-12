@@ -82,7 +82,7 @@ def fix(e):
 
 merged = defaultdict(lambda: [0, Counter(), set(), set(), set()])
 for k, e, c, posc, ex, vs, es in d['pairs']:
-    if not KH_CHAR.search(k):
+    if not KH_CHAR.search(k) or re.search(r"[^A-Za-z' _-]", e):  # (no "4?tons": English is letters)
         continue
     if ZW in k and (len(vs) < 2 or c < 10):  # a name's pieces: in two Bibles at least
         continue
@@ -100,8 +100,19 @@ for e, v in Le.items():
     Le2[fix(e)] += v
 Lk, Le = Lk2, Le2
 
+# A number gloss only for a number word: a classifier (នាក់, "three hundred men") isn't
+# "hundred", nor "thousand" នាក់. A pair is a number's if most of it is aligned with English numbers;
+# a Khmer word is a number word if its commonest English is one (ពាន់: thousand; នាក់: man)
+is_num = lambda posc: sum(v for t, v in posc.items() if 'NUM' in t.split('+')) * 2 > sum(posc.values())
+top_k = {}
+for (k, e), (c, posc, kb, eb, _) in merged.items():
+    if c > top_k.get(k, (0, None))[0]:
+        top_k[k] = (c, is_num(posc))
+num_k = {k: 1 if n else 0 for k, (_, n) in top_k.items()}
 by_k, by_e = defaultdict(list), defaultdict(list)
 for (k, e), (c, posc, kb, eb, _) in merged.items():
+    if is_num(posc) and num_k[k] <= 0:
+        continue
     row = dict(k=k, e=e, c=c, pf=c / Lk[k], pb=c / Le[e], top=label(posc)[0], kb=kb, eb=eb)
     by_k[k].append(row)
     by_e[e].append(row)
@@ -148,11 +159,12 @@ def entries(glosses, head, gloss, hb, gb, totals):
     for h, rows in glosses.items():
         if not rows:
             continue
-        rows = sorted(rows, key=lambda r: -r['c'])[:8]
+        # its commonest 8, those only one Bible (or only the KJV and ASV) has last
+        rows = sorted(sorted(rows, key=lambda r: -r['c'])[:8], key=lambda r: bool(which(r[gb], gb == 'eb')))
         own = which(set().union(*(r[hb] for r in rows)), hb == 'eb')
         gl = ''.join(f'@{esc(r[gloss].replace("_", " "))}\t' + (which(r[gb], gb == 'eb') + '\t' if which(r[gb], gb == 'eb') else '') for r in rows)
-        lines.append((-totals[h], f'{esc(h.replace("_", " "))}\t{own + " " if own else ""}{gl}'))
-    return [l for _, l in sorted(lines)]
+        lines.append((bool(own), -totals[h], f'{esc(h.replace("_", " "))}\t{own + " " if own else ""}{gl}'))
+    return [l for *_, l in sorted(lines)]  # (those only one Bible has last)
 
 
 km_glosses = both(by_k, by_e, 'pf', 'pb', Lk, 6, 'k')
