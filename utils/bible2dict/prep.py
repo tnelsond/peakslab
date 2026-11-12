@@ -119,18 +119,21 @@ def khmer_tokens(text, segmenter=None):
     return out
 
 
+def spaced(t):
+    """A line already in words: zero-width spaces between them (as many as spaces at least)"""
+    z = t.count('\u200b')
+    return z > 0 and z >= t.count(' ')
+
+
 def do_khmer(path):
+    """Its lines as words: as written if word-spaced (ZWSP), else khmer-nltk's (a line at a
+    time: a corpus can be both); a text mostly word-spaced counts as such (zwsp)"""
+    import logging
+    logging.disable(logging.CRITICAL)
+    from khmernltk import word_tokenize
     v = load(path)
-    sample = ''.join(list(v.values())[:500])
-    zw_ratio = sample.count('​') / max(1, len(sample))
-    seg = None
-    if zw_ratio < 0.05:  # text without zero-width-space word breaks -> segment it
-        import logging
-        logging.disable(logging.CRITICAL)
-        from khmernltk import word_tokenize
-        seg = word_tokenize
-    toks = {k: khmer_tokens(t, seg) for k, t in v.items()}
-    return name(path), toks, 'segmented' if seg else 'zwsp'
+    toks = {k: khmer_tokens(t, None if spaced(t) else word_tokenize) for k, t in v.items()}
+    return name(path), toks, 'zwsp' if sum(map(spaced, v.values())) * 2 > len(v) else 'segmented'
 
 
 def do_english(path):
@@ -143,7 +146,7 @@ def do_english(path):
     for k, doc in zip(keys, nlp.pipe(texts, batch_size=256)):
         t = []
         for w in doc:
-            if w.is_punct or w.is_space or not re.search(r'[A-Za-z]', w.text):
+            if w.is_punct or w.is_space or not re.search(r'[A-Za-z]', w.text) or '|' in w.text + w.lemma_:  # (| parts a token)
                 continue
             low = w.text.lower().replace('’', "'")
             if low == "'s" or low == "'":  # a possessive: grammar (Khmer has it as របស់, or not at all)

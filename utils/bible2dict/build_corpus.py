@@ -5,7 +5,7 @@ Usage: build_corpus.py WORK_DIR
 Writes WORK_DIR/corpus.km, corpus.en (one verse per line, space-separated tokens)
 and corpus.meta.jsonl (verse key, khm name, eng name, english surface/pos per token).
 """
-import sys, json, glob, os
+import sys, json, glob, os, re
 from collections import Counter, defaultdict
 
 W = sys.argv[1]
@@ -35,7 +35,7 @@ with open(f'{W}/corpus.km', 'w') as fk, open(f'{W}/corpus.en', 'w') as fe, open(
                 if not kept or len(ktoks) > 250 or len(kept) > 250:
                     continue
                 fk.write(' '.join(ktoks) + '\n')
-                fe.write(' '.join(t[0].replace(' ', '_') for t in kept) + '\n')
+                fe.write(' '.join(re.sub(r'\s', '_', t[0]) for t in kept) + '\n')  # (any space in a word: one token)
                 fm.write(json.dumps([key, kn, en, [t[1] for t in kept]], ensure_ascii=False) + '\n')
                 n += 1
 print(n, 'sentence pairs')

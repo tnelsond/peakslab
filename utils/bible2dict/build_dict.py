@@ -50,7 +50,7 @@ import glob, os
 # spaCy sometimes invents lemmas ("taxes" -> "taxis"); if a lemma never occurs as a real word
 # in the English Bibles, show the most common surface form instead. A name (mostly tagged one)
 # is capitalized: God, Lord (LORD too), Israel; "i" is I, "o" O.
-surf, lem2surf, propn = set(), defaultdict(Counter), defaultdict(Counter)
+surf, lem2surf, propn, usual, caps = set(), defaultdict(Counter), defaultdict(Counter), defaultdict(Counter), defaultdict(Counter)
 in_en, in_km = defaultdict(set), defaultdict(set)  # word -> the Bibles that have it
 for p in glob.glob(f'{W}/eng_*.json'):
     bible = os.path.basename(p)[4:-5]
@@ -59,7 +59,9 @@ for p in glob.glob(f'{W}/eng_*.json'):
             l, pos, s = t.split('|', 2)
             surf.add(s.lower())
             lem2surf[l][s.lower()] += 1
-            propn[s.lower()][pos == 'PROPN'] += 1  # (by the word as written: "lovest" a name only sometimes)
+            propn[s.lower()][pos == 'PROPN'] += 1
+            usual[l][pos] += 1
+            caps[l][s[:1].isupper()] += 1  # (by the word as written: "lovest" a name only sometimes)
             in_en[l].add(bible)
 for p in glob.glob(f'{W}/khm_*.json'):
     bible = os.path.basename(p)[4:-5]
@@ -80,9 +82,28 @@ def fix(e):
     return ' '.join(out)
 
 
+# EN_WORDS (a word list: Open English WordNet's headwords): English only its lowercase words,
+# not names nearly always (tagged one 90% of the time, or capitalized 85%: Skype, Android, China;
+# "university" 69%, apple 84%, a word starting a sentence 10-20%), or
+# grammar words (spaCy's English stop words: of, your); so no brand or program names, "wanna",
+# "Hd", "ve" or "files" (and all lowercase). Without it (the Bibles), names too: Abraham
+EN_WORDS = os.environ.get('EN_WORDS')
+if EN_WORDS:
+    lower = {l.split('\t', 1)[0].strip() for l in open(EN_WORDS, encoding='utf-8') if l[:1].islower()}
+    from spacy.lang.en.stop_words import STOP_WORDS
+    def english(e):
+        for w in e.split(' '):
+            c, u = usual.get(w, Counter()), caps.get(w, Counter())
+            if not (w in STOP_WORDS or (w in lower and c['PROPN'] < 0.9 * sum(c.values()) and u[True] < 0.85 * sum(u.values()))):
+                return False
+        return True
+    fix = lambda e: ' '.join('I' if w == 'i' else w for w in e.split(' '))
+else:
+    english = lambda e: True
+
 merged = defaultdict(lambda: [0, Counter(), set(), set(), set()])
 for k, e, c, posc, ex, vs, es in d['pairs']:
-    if not KH_CHAR.search(k) or re.search(r"[^A-Za-z' _-]", e):  # (no "4?tons": English is letters)
+    if not KH_CHAR.search(k) or re.search(r"[^A-Za-z' _-]|^-|-$", e) or not english(e.replace('_', ' ')):  # (no "4?tons", "-water": English is letters)
         continue
     if ZW in k and (len(vs) < 2 or c < 10):  # a name's pieces: in two Bibles at least
         continue
@@ -153,6 +174,26 @@ def which(bibles, english):
     return ''
 
 
+# Grammar words: Khmer ones mostly aligned with English function words (ជា, បាន, នៃ), English
+# ones mostly function words; a gloss that's an earlier one of its entry and one of these
+# (water: ទឹក, not ទឹកជា "water is"; intend, not "intend to") is left off
+func_w = defaultdict(Counter)
+for rows in by_k.values():
+    for r in rows:
+        func_w[r['k']][r['top'] in FUNC] += r['c']
+        func_w[r['e']][r['top'] in FUNC] += r['c']
+FUNCW = {w for w, c in func_w.items() if c[True] > c[False]}
+
+
+def more(g, kept, sep):
+    """g is a gloss already kept with a grammar word before or after it"""
+    for k in kept:
+        for rest in (g[len(k):], g[:-len(k)]) if len(g) > len(k) else ():
+            if (g.startswith(k) if rest == g[len(k):] else g.endswith(k)) and rest.strip(sep) in FUNCW:
+                return True
+    return False
+
+
 def entries(glosses, head, gloss, hb, gb, totals):
     """head<tab>(its Bible) @gloss<tab>(its Bibles)<tab>@gloss<tab>... (the app shows them "a; b (KJV); c")"""
     lines = []
@@ -160,7 +201,12 @@ def entries(glosses, head, gloss, hb, gb, totals):
         if not rows:
             continue
         # its commonest 8, those only one Bible (or only the KJV and ASV) has last
-        rows = sorted(sorted(rows, key=lambda r: -r['c'])[:8], key=lambda r: bool(which(r[gb], gb == 'eb')))
+        sep = ' ' if gloss == 'e' else ''
+        kept = []
+        for r in sorted(rows, key=lambda r: -r['c']):
+            if not more(r[gloss], [x[gloss] for x in kept], sep):
+                kept.append(r)
+        rows = sorted(kept[:8], key=lambda r: bool(which(r[gb], gb == 'eb')))
         own = which(set().union(*(r[hb] for r in rows)), hb == 'eb')
         gl = ''.join(f'@{esc(r[gloss].replace("_", " "))}\t' + (which(r[gb], gb == 'eb') + '\t' if which(r[gb], gb == 'eb') else '') for r in rows)
         lines.append((bool(own), -totals[h], f'{esc(h.replace("_", " "))}\t{own + " " if own else ""}{gl}'))
@@ -177,7 +223,8 @@ DESC = (f'Khmer–English Bible glosses, machine-made by word-aligning {len(kms)
         f'and {len(ens)} English ones ({", ".join(ens)}) with eflomal: a Khmer word\'s English glosses and an English '
         'word\'s Khmer ones, commonest first. A word only one Bible has, or (English) only the KJV and '
         'ASV, has its name after it. Unchecked: verify before relying on it.')
+DESC = os.environ.get('DESC', DESC).replace('{n}', ', '.join(kms))  # (another corpus's; {n}: its parts)
 with open(OUT, 'w', encoding='utf-8') as f:
-    f.write(f'#desc\t{DESC}\n#priority\t1\n#lang\tbi\n')
+    f.write(f'#desc\t{DESC}\n#priority\t{os.environ.get("PRIORITY", 1)}\n#lang\tbi\n')
     f.writelines(l + '\n' for l in lines)
 print(sum(1 for r in km_glosses.values() if r), 'Khmer headwords,', sum(1 for r in en_glosses.values() if r), 'English headwords')

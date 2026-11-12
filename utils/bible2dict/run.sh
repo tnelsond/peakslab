@@ -11,8 +11,9 @@
 set -e
 W=$1; shift; D=$(dirname "$0")
 mkdir -p "$W"
-# Khmer words: the Khmer dictionaries' headwords (a Bible's pieces of one, ផ្ទៃ​មេឃ, are one word)
-cut -f1 dict_src/khmer/dict/km-nath2022.tsv dict_src/khmer/dict/km-h97.tsv dict_src/khmer/dict/km-wiktionary.tsv \
+# Khmer words: the Khmer dictionaries' headwords (a Bible's pieces of one, ផ្ទៃ​មេឃ, are one word);
+# not Headley's (h97), whose headwords are phrases too: ទៅផ្ទះ, នៅក្នុងផ្ទះ, ចង់ឲ្យ
+cut -f1 dict_src/khmer/dict/km-nath2022.tsv dict_src/khmer/dict/km-wiktionary.tsv \
 	dict_src/khmer/dict/km-kaikki.tsv | sed 's/\xe2\x80\x8b//g' | grep -P '^[\x{1780}-\x{17FF}]{2,}$' | sort -u > "$W/km-words.txt"
 [ -s "$W/corpus.km" ] || { python3 "$D/prep.py" "$W" "$W/km-words.txt" "$@" && python3 "$D/build_corpus.py" "$W"; }  # clean, tokenize, pair every Khmer x English Bible verse by verse (kept: delete corpus.km to redo)
 # aligned all at once (PIECE=0), or in pieces of PIECE verse pairs, in order: eflomal's

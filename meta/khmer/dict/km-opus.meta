@@ -1,0 +1,6 @@
+#d	Khmer–English glosses, machine-made by word-aligning English and Khmer sentence pairs from <a href="https://opus.nlpl.eu/">OPUS</a> (CCALIGNED, GLOBALVOICES, KDE, PARACRAWL, QED, SUBS, TATOEBA, TICO, TRANSLATEWIKI, WIKIMEDIA, XLENT: subtitles, web pages, KDE and translatewiki software strings, Wikipedia names and pages, TICO-19, Global Voices, Tatoeba) with eflomal: a Khmer word&#39;s English glosses and an English word&#39;s Khmer ones, commonest first; English only dictionary words (Open English WordNet&#39;s), no names. A word only one source has has its name after it. Unchecked: verify before relying on it.
+#p	2
+#l	bi
+#f	khmer/dict/km-opus.peak.zst
+#t	1794457451
+#b	387
