@@ -292,7 +292,7 @@ if(!isDictPage){
 			// show/hide button if it has any, and the text
 			const t = document.createElement('template');
 			t.innerHTML = entryHTML(d, data.filetype ? (data.subheader ? `<p-n>${data.subheader.join(",<br>")}<br></p-n>` : '') :
-				(data.body?.includes('<p-m') ? chordsBtnHTML : '') + highlightText(data.body, data.query));
+				(data.body?.includes('<p-m') ? chordsBtnHTML : '') + highlightText(joinTabs(data.body), data.query));
 			const el = t.content.firstChild;
 			if(data.filetype) {
 				el.append(mediaElement(data.filetype, data.body, data.header, d, data.subheader.join()));
@@ -2647,21 +2647,28 @@ if(!isDictPage){
 	}
 
 	// HTML as lines of text: one per line, list item, paragraph, heading, ...
-	function textLines(html){
+	// (and tab: second index words, "@love<tab>@charity<tab>"; or tab marks them)
+	function textLines(html, tab = '\n'){
 		const t = document.createElement('template');
-		t.innerHTML = html.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol|h[1-6]|p-ipa)(?=[\s/>])[^>]*>|\t/gi, '\n');
+		t.innerHTML = html.replace(/<br\s*\/?>|<\/?(li|p|div|ul|ol|h[1-6]|p-ipa)(?=[\s/>])[^>]*>/gi, '\n').replace(/(?<=[^\s>])\t/g, tab).replaceAll('\t', '\n');
 		return t.content.textContent.split('\n').map(x => x.trim());
 	}
+	// Second index words one after another, as they're seen: "love; charity"
+	// (a tab between words is "; ", before a "(note)" on the word a space;
+	// after a label, <p-n>(n.)</p-n><tab>, it's a space as it was)
+	const tabJoin = x => x.startsWith('(') ? ' ' : '; ';
+	const joinTabs = html => html.replace(/(?<=[^\s>])\t+\s*(?=([^\s<]))/g, (_, c) => tabJoin(c));
 	// An entry as one line, without lines that are only [pronunciations] or
 	// [[see also]]s (h97's second column), or the headword's other spellings
 	// first (one word each in its script: "ພະເຈົ້າ<tab>@ພຣະເຈົ້າ<tab>...");
 	// one that's only [pronunciations] is them, without the brackets
 	const isText = x => x && !/^(\[[^\]]*\]+\s*)+$/.test(x);
 	function summary(html, header){
-		const all = textLines(html).filter(Boolean), lines = all.filter(isText);
-		if (!lines.length) return all.join(' ').replace(/[[\]]/g, '');
-		while (lines.length > 1 && !/\s/.test(lines[0]) && script(lines[0]) === script(header)) lines.shift();
-		return lines.join(' ');
+		const all = textLines(html, '\x1f').flatMap(l => l.split('\x1f').map((x, i) => ({x: x.trim(), tab: i > 0}))).filter(p => p.x);
+		const lines = all.filter(p => isText(p.x));
+		if (!lines.length) return all.map(p => p.x).join(' ').replace(/[[\]]/g, '');
+		while (lines.length > 1 && !/\s/.test(lines[0].x) && script(lines[0].x) === script(header)) lines.shift();
+		return lines.map((p, i) => (i ? p.tab ? tabJoin(p.x) : ' ' : '') + p.x).join('');
 	}
 	// An entry's text, without its labels (p-n: parts of speech, ...)
 	function entryText(pe){

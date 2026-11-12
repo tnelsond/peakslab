@@ -5,7 +5,7 @@ Usage: extract.py WORK_DIR
 Reads corpus.km/en, corpus.meta.jsonl, fwd.align, rev.align
 Writes pairs.json : {"pairs": [[km, en, count, pos_counts, examples, khmer Bibles, English Bibles], ...], "Lk": {...}, "Le": {...}}
 """
-import sys, json
+import sys, json, re
 from collections import Counter, defaultdict
 
 W = sys.argv[1]
@@ -25,7 +25,45 @@ def contiguous(xs):
     return xs == list(range(xs[0], xs[0] + len(xs)))
 
 
-def events(km, en, fwd, rev):
+BASE = re.compile(r'[\u1780-\u17b3](?:\u17d2[\u1780-\u17b3])*([\u17b6-\u17d1\u17dd]*)')
+
+
+def km_syllables(w):
+    """About how many syllables: a letter (its subscripts with it) with a vowel sign
+    or mark is one; one without is the inherent vowel's at a word's start, else a final"""
+    n = 0
+    for i, m in enumerate(BASE.finditer(w)):
+        n += bool(m[1]) or (i == 0 and m.end() < len(w))
+    return max(n, 1)
+
+
+def en_syllables(w):
+    w = w.lower()
+    n = len(re.findall(r'[aeiouy]+', w)) - (w.endswith('e') and not w.endswith(('le', 'ee')) and len(w) > 3)
+    return max(n, 1)
+
+
+def name_span(km, j, e, inter, k2e):
+    """A name's Khmer: from a word aligned with it both ways, the run of next words
+    (aligned with nothing else) whose syllables come nearest the English's: a
+    Bible may write a name in pieces (អ័ប្រា​ហាំ)"""
+    seeds = sorted(i for i in range(len(km)) if (i, j) in inter)
+    if not seeds:
+        return None
+    a = b = seeds[0]
+    want = en_syllables(e)
+    free = lambda i: 0 <= i < len(km) and set(k2e.get(i, ())) <= {j}
+    syl = lambda a, b: sum(km_syllables(km[i]) for i in range(a, b + 1))
+    while b - a + 1 < MAX_SPAN:
+        cur = abs(syl(a, b) - want)
+        opts = [(abs(syl(x, y) - want), x, y) for x, y in ((a - 1, b), (a, b + 1)) if free(x if x < a else y)]
+        if not opts or min(opts)[0] >= cur:
+            break
+        _, a, b = min(opts)
+    return a, b
+
+
+def events(km, en, fwd, rev, pos):
     """Yield (khmer_string, english_string, english_token_indices) for one verse pair."""
     inter = fwd & rev
     union = fwd | rev
@@ -34,13 +72,13 @@ def events(km, en, fwd, rev):
         k2e[i].append(j)
         e2k[j].append(i)
     used = set()
-    # Khmer multi-token phrase -> one English word (e.g. ផ្ទៃ + មេឃ -> heaven)
-    for j, ks in e2k.items():
-        ks.sort()
-        if 2 <= len(ks) <= MAX_SPAN and contiguous(ks) and any((i, j) in inter for i in ks):
-            if all(len(k2e[i]) == 1 for i in ks):
-                yield '\u200b'.join(km[i] for i in ks), en[j], [j]
-                used.update((i, j) for i in ks)
+    # A name: the Khmer words that write it, by their syllables (អ័ប្រា + ហាំ -> Abraham)
+    for j, p in enumerate(pos):
+        if p == 'PROPN':
+            sp = name_span(km, j, en[j], inter, k2e)
+            if sp and sp[1] > sp[0]:
+                yield '\u200b'.join(km[sp[0]:sp[1] + 1]), en[j], [j]
+                used.update((i, j) for i in range(sp[0], sp[1] + 1))
     # One Khmer word -> English multi-word phrase (e.g. ពិធីបូជា -> burnt offering)
     for i, es in k2e.items():
         es.sort()
@@ -49,7 +87,7 @@ def events(km, en, fwd, rev):
                 yield km[i], ' '.join(en[j] for j in es), es
                 used.update((i, j) for j in es)
     for i, j in inter:
-        if (i, j) not in used:
+        if (i, j) not in used and not any(i == x for x, _ in used):
             yield km[i], en[j], [j]
 
 
@@ -62,8 +100,8 @@ def run(pass_no, keep=None):
     files = [open(f'{W}/{n}') for n in ('corpus.km', 'corpus.en', 'fwd.align', 'rev.align', 'corpus.meta.jsonl')]
     for n, (lk, le, lf, lr, lm) in enumerate(zip(*files)):
         km, en = lk.split(), le.split()
-        meta = json.loads(lm) if pass_no == 2 else None
-        for k, e, js in events(km, en, links(lf), links(lr)):
+        meta = json.loads(lm)
+        for k, e, js in events(km, en, links(lf), links(lr), meta[3]):
             if pass_no == 1:
                 counts[(k, e)] += 1
             elif (k, e) in keep:

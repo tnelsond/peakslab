@@ -11,12 +11,17 @@
 set -e
 W=$1; shift; D=$(dirname "$0")
 mkdir -p "$W"
-[ -s "$W/corpus.km" ] || { python3 "$D/prep.py" "$W" "$@" && python3 "$D/build_corpus.py" "$W"; }  # clean, tokenize, pair every Khmer x English Bible verse by verse (kept: delete corpus.km to redo)
-# aligned in pieces (PIECE verse pairs each: eflomal's memory grows with the corpus), in order
-PIECE=${PIECE:-250000}
+# Khmer words: the Khmer dictionaries' headwords (a Bible's pieces of one, ផ្ទៃ​មេឃ, are one word)
+cut -f1 dict_src/khmer/dict/km-nath2022.tsv dict_src/khmer/dict/km-h97.tsv dict_src/khmer/dict/km-wiktionary.tsv \
+	dict_src/khmer/dict/km-kaikki.tsv | sed 's/\xe2\x80\x8b//g' | grep -P '^[\x{1780}-\x{17FF}]{2,}$' | sort -u > "$W/km-words.txt"
+[ -s "$W/corpus.km" ] || { python3 "$D/prep.py" "$W" "$W/km-words.txt" "$@" && python3 "$D/build_corpus.py" "$W"; }  # clean, tokenize, pair every Khmer x English Bible verse by verse (kept: delete corpus.km to redo)
+# aligned all at once (PIECE=0), or in pieces of PIECE verse pairs, in order: eflomal's
+# memory grows with the corpus (all of it, 1.2 million: about 3 GB), and a piece's statistics are its own
+PIECE=${PIECE:-0}
 rm -f "$W"/piece.* "$W/fwd.align" "$W/rev.align"
-split -l "$PIECE" -d -a 3 "$W/corpus.km" "$W/piece.km."
-split -l "$PIECE" -d -a 3 "$W/corpus.en" "$W/piece.en."
+L=$PIECE; [ "$L" -gt 0 ] || L=$(wc -l < "$W/corpus.km")
+split -l "$L" -d -a 3 "$W/corpus.km" "$W/piece.km."
+split -l "$L" -d -a 3 "$W/corpus.en" "$W/piece.en."
 for k in "$W"/piece.km.*; do
 	n=${k##*.}
 	eflomal-align -s "$k" -t "$W/piece.en.$n" -f "$W/piece.fwd.$n" -r "$W/piece.rev.$n" -m 3 --overwrite
@@ -24,4 +29,4 @@ for k in "$W"/piece.km.*; do
 	rm "$k" "$W/piece.en.$n" "$W/piece.fwd.$n" "$W/piece.rev.$n"
 done
 python3 "$D/extract.py" "$W"                # count aligned word/phrase pairs
-python3 "$D/build_dict.py" "$W" dict_src/khmer/bible/dict/km-bible-align.tsv
+python3 "$D/build_dict.py" "$W" "${OUT:-dict_src/khmer/bible/dict/km-bible-align.tsv}"

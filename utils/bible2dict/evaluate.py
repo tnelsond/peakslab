@@ -15,8 +15,8 @@ def load_gen(p):
         if line[0] == '#':
             continue
         k, v = line.rstrip('\n').split('\t', 1)
-        glosses = re.findall(r'</p-n> <p-a>([^<]+)</p-a> <p-n>(\d+)%', v)
-        out[k] = [(g, int(pct)) for g, pct in glosses]
+        gl = re.findall(r'@([^\t]+)\t', v) or re.findall(r'<p-a>([^<]+)</p-a> <p-n>\d+%', v)  # (or the older format's)
+        out[k] = [(g, 0) for g in gl if re.search('[a-zA-Z]', g)]  # its glosses, commonest first
     return out
 
 
@@ -53,9 +53,7 @@ for k, gl in gen.items():
     if k not in h97 or not gl:
         continue
     ref = stems(h97[k])
-    top = gl[0][1]
-    b = '>=70%' if top >= 70 else '40-69%' if top >= 40 else '<40%'
-    for key in (b, 'all'):
+    for key in ('all',):
         buckets[key][0] += 1
         buckets[key][1] += match(gl[0][0], ref)
         buckets[key][2] += any(match(g, ref) for g, _ in gl)
