@@ -7,9 +7,12 @@ the lemma lowercase: God and god, LORD and Lord one word);
 a Bible's name is its file's (km-khsv.tsv: khsv)
 
 WORDS.txt: Khmer words, one a line (the Khmer dictionaries' headwords). A word a
-Bible writes in pieces (ZWSP between: ផ្ទៃ​មេឃ) is one token, the longest it makes:
-one of these, or one two Bibles at least write whole (សេចក្តីស្រឡាញ់; not GKB's
-ស្រឡាញ់លុយ alone)
+Bible writes in pieces (ZWSP between: ផ្ទៃ​មេឃ) is one token, the longest it makes
+(្ដ and ្ត one letter: សេចក្តីស្រឡាញ់ is the dictionaries' សេចក្ដីស្រឡាញ់); and a run
+that isn't a word (ULB's ព្រះរបស់, ដល់ដី: khmer-nltk's, or a Bible's own) is its
+words, if it's 2 or 3 common ones (a name, ដាវីឌ, isn't ដា + វីឌ). A word is one
+the dictionaries have, or one the word-spaced Bibles write whole more often than
+in pieces (ព្រះយេស៊ូ 1,258 times whole in KHSV; ព្រះនៃ 8 times, against hundreds split)
 """
 import sys, re, json, os, html
 from collections import Counter
@@ -61,12 +64,39 @@ def whole_words(toks, words):
         n = 1
         for m in range(min(JOIN, len(toks) - i), 1, -1):
             w = ''.join(toks[i:i + m])
-            if len(w) <= JOIN_LEN and w in words:
+            if len(w) <= JOIN_LEN and w.replace('\u17d2\u178f', '\u17d2\u178a') in words:
                 n = m
                 break
         out.append(''.join(toks[i:i + n]))
         i += n
     return out
+
+
+COMMON = 50  # a word that splits a run: one the Bibles have on its own this often
+
+
+def norm(w):
+    return w.replace('\u17d2\u178f', '\u17d2\u178a')
+
+
+def split_run(t, words, common, memo={}):
+    """A run that's no word as its fewest common words (2 or 3), or itself"""
+    if norm(t) in words or len(t) < 4:
+        return [t]
+    if t not in memo:
+        best = None
+        for i in range(1, len(t)):
+            a, b = t[:i], t[i:]
+            if norm(a) not in common:
+                continue
+            if norm(b) in common:
+                best = [a, b]
+                break
+            for j in range(1, len(b)):
+                if norm(b[:j]) in common and norm(b[j:]) in common and not best:
+                    best = [a, b[:j], b[j:]]
+        memo[t] = best or [t]
+    return memo[t]
 
 
 def khmer_tokens(text, segmenter=None):
@@ -149,12 +179,22 @@ if __name__ == '__main__':
         futs = [ex.submit(do_english, n) for n in ENG]
         khm = [ex.submit(do_khmer, n) for n in KHM]
         khm = [f.result() for f in khm]
-        # whole words: the dictionaries', and those two Bibles write unsplit
-        words = {l.strip() for l in open(WORDS, encoding='utf-8') if l.strip()}
-        bibles = Counter(t for _, toks, _ in khm for t in {t for v in toks.values() for t in v} if len(t) > 1)
-        words |= {t for t, n in bibles.items() if n >= 2}
+        # whole words: the dictionaries' (a Bible's unsplit runs are phrases as often: ដល់ដី, មុខគេ)
+        words = {l.strip().replace('\u17d2\u178f', '\u17d2\u178a') for l in open(WORDS, encoding='utf-8') if l.strip()}
+        seen = Counter(norm(t) for _, toks, _ in khm for v in toks.values() for t in v)
+        common = {w for w in words if seen[w] >= COMMON}
+        whole, pieces = Counter(), Counter()  # in the word-spaced Bibles
+        for _, toks, how in khm:
+            if how == 'zwsp':
+                for v in toks.values():
+                    whole.update(norm(t) for t in v)
+                    for i in range(len(v)):
+                        for m in (2, 3):
+                            if i + m <= len(v):
+                                pieces[norm(''.join(v[i:i + m]))] += 1
+        words |= {w for w, n in whole.items() if n >= 3 and n > pieces[w] and len(w) > 1}
         for n, toks, how in khm:
-            toks = {k: whole_words(v, words) for k, v in toks.items()}
+            toks = {k: whole_words([x for t in v for x in split_run(t, words, common)], words) for k, v in toks.items()}
             json.dump(toks, open(f'{OUT}/khm_{n}.json', 'w'), ensure_ascii=False)
             print(n, len(toks), how, flush=True)
         eng = {}

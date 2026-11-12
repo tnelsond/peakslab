@@ -120,42 +120,52 @@ def pick(rows, p_main, p_other, n):
     return out
 
 
-# A Khmer word's glosses: its commonest English, then the English words it's the commonest Khmer for
-glosses = defaultdict(list)
-for k, rows in by_k.items():
-    if Lk[k] >= 8:
-        glosses[k] += pick(rows, 'pf', 'pb', 6)
-for e, rows in by_e.items():
-    if Le[e] >= 8:
-        for r in pick(rows, 'pb', 'pf', 3):
-            if r not in glosses[r['k']]:
-                glosses[r['k']].append(r)
+# Each headword's glosses, both ways: a Khmer word's commonest English (and the English words
+# it's the commonest Khmer for), an English word's commonest Khmer (and the Khmer words it's
+# the commonest English for): many Khmer words for an English one, for its gloss
+def both(groups, others, main, other, totals, n, key):
+    out = defaultdict(list)
+    for h, rows in groups.items():
+        if totals[h] >= 8:
+            out[h] += pick(rows, main, other, n)
+    for h, rows in others.items():
+        for r in pick(rows, other, main, 3):
+            if r not in out[r[key]] and totals[r[key]] >= 8:
+                out[r[key]].append(r)
+    return out
 
 
 def which(bibles, english):
     """The Bibles to name after a word: its only one, or (English) only the KJV and ASV"""
     if len(bibles) == 1 or (english and bibles and bibles <= ARCHAIC):
-        return f' ({", ".join(sorted(b.upper() for b in bibles))})'
+        return f'({", ".join(sorted(b.upper() for b in bibles))})'
     return ''
 
 
-lines = []
-for k, rows in glosses.items():
-    if not rows:
-        continue
-    rows = sorted(rows, key=lambda r: -r['c'])[:8]
-    own = which(set().union(*(r['kb'] for r in by_k[k])), False).strip()
-    # each a second index word (the app joins them: "thee (ASV, KJV); you"), its Bibles after it
-    gl = ''.join(f'@{esc(r["e"].replace("_", " "))}\t' + (f'{which(r["eb"], True).strip()}\t' if which(r['eb'], True) else '') for r in rows)
-    lines.append((-Lk[k], f'{k}\t{own + " " if own else ""}{gl}'))
+def entries(glosses, head, gloss, hb, gb, totals):
+    """head<tab>(its Bible) @gloss<tab>(its Bibles)<tab>@gloss<tab>... (the app shows them "a; b (KJV); c")"""
+    lines = []
+    for h, rows in glosses.items():
+        if not rows:
+            continue
+        rows = sorted(rows, key=lambda r: -r['c'])[:8]
+        own = which(set().union(*(r[hb] for r in rows)), hb == 'eb')
+        gl = ''.join(f'@{esc(r[gloss].replace("_", " "))}\t' + (which(r[gb], gb == 'eb') + '\t' if which(r[gb], gb == 'eb') else '') for r in rows)
+        lines.append((-totals[h], f'{esc(h.replace("_", " "))}\t{own + " " if own else ""}{gl}'))
+    return [l for _, l in sorted(lines)]
+
+
+km_glosses = both(by_k, by_e, 'pf', 'pb', Lk, 6, 'k')
+en_glosses = both(by_e, by_k, 'pb', 'pf', Le, 8, 'e')
+lines = entries(km_glosses, 'k', 'e', 'kb', 'eb', Lk) + entries(en_glosses, 'e', 'k', 'eb', 'kb', Le)
 
 kms = sorted(os.path.basename(p)[4:-5].upper() for p in glob.glob(f'{W}/khm_*.json'))
 ens = sorted(os.path.basename(p)[4:-5].upper() for p in glob.glob(f'{W}/eng_*.json'))
 DESC = (f'Khmer–English Bible glosses, machine-made by word-aligning {len(kms)} Khmer Bibles ({", ".join(kms)}) '
-        f'and {len(ens)} English ones ({", ".join(ens)}) with eflomal: a Khmer word\'s English glosses, commonest '
-        'first (an English word finds its Khmer ones). A word only one Bible has, or (English) only the KJV and '
+        f'and {len(ens)} English ones ({", ".join(ens)}) with eflomal: a Khmer word\'s English glosses and an English '
+        'word\'s Khmer ones, commonest first. A word only one Bible has, or (English) only the KJV and '
         'ASV, has its name after it. Unchecked: verify before relying on it.')
 with open(OUT, 'w', encoding='utf-8') as f:
     f.write(f'#desc\t{DESC}\n#priority\t1\n#lang\tbi\n')
-    f.writelines(l + '\n' for _, l in sorted(lines))
-print(len(lines), 'Khmer headwords,', len({r['e'] for rs in glosses.values() for r in rs}), 'English words')
+    f.writelines(l + '\n' for l in lines)
+print(sum(1 for r in km_glosses.values() if r), 'Khmer headwords,', sum(1 for r in en_glosses.values() if r), 'English headwords')
