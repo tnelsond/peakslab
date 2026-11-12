@@ -103,7 +103,7 @@ else:
 
 merged = defaultdict(lambda: [0, Counter(), set(), set(), set()])
 for k, e, c, posc, ex, vs, es in d['pairs']:
-    if not KH_CHAR.search(k) or re.search(r"[^A-Za-z' _-]|^-|-$", e) or not english(e.replace('_', ' ')):  # (no "4?tons", "-water": English is letters)
+    if not re.search(r'[^\W\d_]', k) or len(set(re.split('[_ ]', e))) < len(re.split('[_ ]', e)) or re.search(r"[^A-Za-z' _-]|^-|-$", e) or not english(e.replace('_', ' ')):  # (no "4?tons", "-water": English is letters)
         continue
     if ZW in k and (len(vs) < 2 or c < 10):  # a name's pieces: in two Bibles at least
         continue
@@ -167,9 +167,17 @@ def both(groups, others, main, other, totals, n, key):
     return out
 
 
+# A source's share of its side (its lines): one with most of it (the ChiTonga Bible beside nine
+# stories) isn't named after a word only it has, as nearly every word is
+share = {}
+for side in ('khm', 'eng'):
+    n = {os.path.basename(p)[4:-5]: len(json.load(open(p))) for p in glob.glob(f'{W}/{side}_*.json')}
+    share.update({b: c / sum(n.values()) for b, c in n.items()})
+
+
 def which(bibles, english):
-    """The Bibles to name after a word: its only one, or (English) only the KJV and ASV"""
-    if len(bibles) == 1 or (english and bibles and bibles <= ARCHAIC):
+    """The Bibles to name after a word: its only one (not most of the corpus), or (English) only the KJV and ASV"""
+    if (len(bibles) == 1 and share.get(next(iter(bibles)), 0) < 0.6) or (english and bibles and bibles <= ARCHAIC):
         return f'({", ".join(sorted(b.upper() for b in bibles))})'
     return ''
 

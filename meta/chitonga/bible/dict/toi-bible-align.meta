@@ -1,0 +1,6 @@
+#d	ChiTonga–English Bible glosses, machine-made by word-aligning five ChiTonga Bibles (the Chitonga Bible, the Toka-Leya, Bbaibele 1996, Ibbaibele 1963, the Tonga Translation Project) with 7 English ones (ASV, BBE, BSB, ERV, KJV, ULB, WEB) and nine children&#39;s stories in ChiTonga (the <a href="https://github.com/benjaminfeldsott/Zambia-Storybook-Corpus">Zambia Storybook Corpus</a>, two translations) with eflomal: a ChiTonga word&#39;s English glosses and an English word&#39;s ChiTonga ones, commonest first. A word only the stories have, or (English) only the KJV and ASV, has its name after it. Unchecked: verify before relying on it.
+#p	1
+#l	bi
+#f	chitonga/bible/dict/toi-bible-align.peak.zst
+#t	1794474959
+#b	224

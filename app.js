@@ -2660,14 +2660,17 @@ if(!isDictPage){
 	const joinTabs = html => html.replace(/(?<=[^\s>])\t+\s*(?=([^\s<]))/g, (_, c) => tabJoin(c));
 	// An entry as one line, without lines that are only [pronunciations] or
 	// [[see also]]s (h97's second column), or the headword's other spellings
-	// first (one word each in its script: "ພະເຈົ້າ<tab>@ພຣະເຈົ້າ<tab>...");
-	// one that's only [pronunciations] is them, without the brackets
+	// first (one word each in its script: "ພະເຈົ້າ<tab>@ພຣະເຈົ້າ<tab>...") when
+	// there's more after them (all words like that are its glosses: ChiTonga
+	// "maanzi<tab>@water<tab>@waters"); one that's only [pronunciations] is
+	// them, without the brackets
 	const isText = x => x && !/^(\[[^\]]*\]+\s*)+$/.test(x);
 	function summary(html, header){
 		const all = textLines(html, '\x1f').flatMap(l => l.split('\x1f').map((x, i) => ({x: x.trim(), tab: i > 0}))).filter(p => p.x);
 		const lines = all.filter(p => isText(p.x));
 		if (!lines.length) return all.map(p => p.x).join(' ').replace(/[[\]]/g, '');
-		while (lines.length > 1 && !/\s/.test(lines[0].x) && script(lines[0].x) === script(header)) lines.shift();
+		const other = lines.findIndex(p => /\s/.test(p.x) || script(p.x) !== script(header));
+		if (other > 0) lines.splice(0, other);
 		return lines.map((p, i) => (i ? p.tab ? tabJoin(p.x) : ' ' : '') + p.x).join('');
 	}
 	// An entry's text, without its labels (p-n: parts of speech, ...)

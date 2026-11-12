@@ -15,7 +15,7 @@ the dictionaries have, or one the word-spaced Bibles write whole more often than
 in pieces (ព្រះយេស៊ូ 1,258 times whole in KHSV; ព្រះនៃ 8 times, against hundreds split)
 """
 import sys, re, json, os, html
-from collections import Counter
+from collections import Counter, defaultdict
 from concurrent.futures import ProcessPoolExecutor
 
 OUT, WORDS = sys.argv[1:3]
@@ -125,13 +125,33 @@ def spaced(t):
     return z > 0 and z >= t.count(' ')
 
 
+LATIN_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
+
+
+def lower_latin(texts):
+    """A language written with spaces (ChiTonga), over all its texts: words lowercase
+    unless written with a capital 85% of the time at least (Leza; not a sentence's first)"""
+    caps = defaultdict(Counter)
+    for toks in texts:
+        for ws in toks.values():
+            for w in ws:
+                caps[w.lower()][w[:1].isupper()] += 1
+    keep = {w for w, c in caps.items() if c[True] >= 0.85 * sum(c.values())}
+    for toks in texts:
+        for k, ws in toks.items():
+            toks[k] = [w if w.lower() in keep else w.lower() for w in ws]
+
+
 def do_khmer(path):
     """Its lines as words: as written if word-spaced (ZWSP), else khmer-nltk's (a line at a
-    time: a corpus can be both); a text mostly word-spaced counts as such (zwsp)"""
+    time: a corpus can be both); a text mostly word-spaced counts as such (zwsp). Not
+    Khmer (another language beside the English: ChiTonga), its words as spaced"""
     import logging
     logging.disable(logging.CRITICAL)
     from khmernltk import word_tokenize
     v = load(path)
+    if not KH_CHAR.search(''.join(list(v.values())[:200])):
+        return name(path), {k: LATIN_WORD.findall(t) for k, t in v.items()}, 'latin'
     toks = {k: khmer_tokens(t, None if spaced(t) else word_tokenize) for k, t in v.items()}
     return name(path), toks, 'zwsp' if sum(map(spaced, v.values())) * 2 > len(v) else 'segmented'
 
@@ -182,6 +202,7 @@ if __name__ == '__main__':
         futs = [ex.submit(do_english, n) for n in ENG]
         khm = [ex.submit(do_khmer, n) for n in KHM]
         khm = [f.result() for f in khm]
+        lower_latin([toks for _, toks, how in khm if how == 'latin'])
         # whole words: the dictionaries' (a Bible's unsplit runs are phrases as often: ដល់ដី, មុខគេ)
         words = {l.strip().replace('\u17d2\u178f', '\u17d2\u178a') for l in open(WORDS, encoding='utf-8') if l.strip()}
         seen = Counter(norm(t) for _, toks, _ in khm for v in toks.values() for t in v)
