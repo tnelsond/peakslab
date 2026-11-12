@@ -99,7 +99,7 @@ def split_run(t, words, common, memo={}):
     return memo[t]
 
 
-def khmer_tokens(text, segmenter=None):
+def khmer_tokens(text, segmenter=None, longer=6):
     text = text.replace('‌', '').replace('‍', '').replace('﻿', '')
     text = KH_PUNCT.sub(' ', text)
     out = []
@@ -112,7 +112,7 @@ def khmer_tokens(text, segmenter=None):
         chunk = re.sub(r'[០-៩0-9]+', '', chunk)
         if not chunk:
             continue
-        if segmenter and len(chunk) > 6:
+        if segmenter and len(chunk) > longer:
             out.extend(t for t in segmenter(chunk) if t.strip() and KH_CHAR.search(t))
         else:
             out.append(chunk)
@@ -120,9 +120,11 @@ def khmer_tokens(text, segmenter=None):
 
 
 def spaced(t):
-    """A line already in words: zero-width spaces between them (as many as spaces at least)"""
+    """A line already in words: zero-width spaces between them (as many as spaces at least, and
+    one every 12 letters at least: a word-spaced Bible's is every 5; ULB's lines with a stray
+    one, ស្ត្រីនិយាយទៅកាន់សត្វពស់ថា៖<ZWSP> «យើងអាច..., aren't)"""
     z = t.count('\u200b')
-    return z > 0 and z >= t.count(' ')
+    return z > 0 and z >= t.count(' ') and len(KH_CHAR.findall(t)) <= 12 * z
 
 
 LATIN_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
@@ -152,7 +154,8 @@ def do_khmer(path):
     v = load(path)
     if not KH_CHAR.search(''.join(list(v.values())[:200])):
         return name(path), {k: LATIN_WORD.findall(t) for k, t in v.items()}, 'latin'
-    toks = {k: khmer_tokens(t, None if spaced(t) else word_tokenize) for k, t in v.items()}
+    # (a word-spaced line's runs of several words too, ULB's: ...គ្រិស្ត ដោយសារជំនឿបានក្លាយជាប្រជារាស្រ្ត ដែល...)
+    toks = {k: khmer_tokens(t, word_tokenize, 12 if spaced(t) else 6) for k, t in v.items()}
     return name(path), toks, 'zwsp' if sum(map(spaced, v.values())) * 2 > len(v) else 'segmented'
 
 
