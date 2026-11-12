@@ -68,9 +68,11 @@ def aligned(text):
 	return ''.join(out)
 
 def book(path):
-	text = open(path, encoding='utf-8').read()
+	text = open(path, encoding='utf-8').read().replace('\ufeff', '')  # (a BOM before \\id)
+	text = re.sub(r'\\(?!zaln)[a-z]+\d?(-[se])?\\\*', '', text)  # milestones (\\ts\\*: a translator's chunk)
 	if '\\zaln-s' in text:
 		text = aligned(text)
+	text = re.sub(r'\\w ([^|\\]*)\|(?![^\\]*strong=)[^\\]*\\w\*', r'\1', text)  # a word not aligned (x-occurrence only): just the word
 	code = re.search(r'^\\id (\w+)', text, re.M)[1]
 	code = CODE.get(code, code).lower()
 	name = (re.search(r'^\\toc2 (.+?)\s*$', text, re.M) or re.search(r'^\\h (.+?)\s*$', text, re.M))[1]  # The book's short name ("Genesis"; \\h can be capitals, "GENÈSE"), for its references
