@@ -46,11 +46,13 @@ def en_syllables(w):
 def name_span(km, j, e, inter, k2e):
     """A name's Khmer: from a word aligned with it both ways, the run of next words
     (aligned with nothing else) whose syllables come nearest the English's: a
-    Bible may write a name in pieces (អ័ប្រា​ហាំ)"""
+    Bible may write a name in pieces (អ័ប្រា​ហាំ). Another language's, that word"""
     seeds = sorted(i for i in range(len(km)) if (i, j) in inter)
     if not seeds:
         return None
     a = b = seeds[0]
+    if not BASE.match(km[a]):  # (not Khmer: a name one word, Lao's ອັບຣາຮາມ)
+        return a, b
     want = en_syllables(e)
     free = lambda i: 0 <= i < len(km) and set(k2e.get(i, ())) <= {j}
     syl = lambda a, b: sum(km_syllables(km[i]) for i in range(a, b + 1))

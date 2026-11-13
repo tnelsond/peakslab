@@ -1,0 +1,6 @@
+#d	Lao words by English word, machine-made by word-aligning 3 Lao Bibles with 8 English ones, and Lao–English sentence pairs from <a href="https://opus.nlpl.eu/">OPUS</a> (web pages, Wikipedia, the Asian Language Treebank, software strings, Tatoeba) and FLORES-200, with eflomal: an English word’s commonest Lao, commonest first. With another language’s on, a dictionary between them. (Archaic): English only the KJV and ASV have. Unchecked: verify before relying on it.
+#p	1
+#l	lo,aligned
+#f	lao/dict/lo-align.peak.zst
+#t	1794568820
+#b	333

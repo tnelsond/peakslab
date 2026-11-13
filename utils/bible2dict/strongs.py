@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Khmer Bibles aligned with the Greek and Hebrew: each Khmer word (or phrase)
-to the Strong's number of the word it translates.
+"""A language's Bibles (Khmer's, Lao's...) aligned with the Greek and Hebrew: each
+word (or phrase) to the Strong's number of the word it translates.
 
 The corpus: every Khmer Bible's words for a verse (prep.py's khm_*.json),
 against the Strong's numbers of that verse in STEPBible's TAGNT and TAHOT
@@ -11,13 +11,15 @@ of them (BIBLE) comes out tagged.
 Writes:
   BIBLE_OUT.tsv   that Khmer Bible with each aligned word <p-w s=H8064>ផ្ទៃមេឃ</p-w>
                   (a tap: the lexicons' entry), its headings and markup as they were
-  LEX_OUT.tsv     each Strong's number (G26, its Greek or Hebrew word another
-                  name for it): the Khmer words it's translated by, how often,
-                  and verses of BIBLE
+  LEX_OUT.tsv     each Strong's number (G26: the key every language's shares, so
+                  with two on, a dictionary between them; "#lang km,aligned"):
+                  its Greek or Hebrew word, the words it's translated by, how
+                  often, and verses of BIBLE
 
 Usage: strongs.py WORK_DIR grc-tagnt.tsv hbo-tahot.tsv BIBLE BIBLE.tsv BIBLE_OUT.tsv LEX_OUT.tsv LEXICON.tsv...
   WORK_DIR  prep.py's (khm_<name>.json); BIBLE a name there (khsv)
   LEXICON   grc-tbesg.tsv, hbo-tbesh.tsv: each number's dictionary form and transliteration
+  LANG=Lao CODE=lo  the language (Khmer, km if not given)
 Needs: eflomal-align on PATH
 """
 import html, json, glob, os, re, subprocess, sys
@@ -26,37 +28,17 @@ from collections import Counter, defaultdict
 W, TAGNT, TAHOT, BIBLE, BIBLE_TSV, BIBLE_OUT, LEX_OUT = sys.argv[1:8]
 LEXICONS = sys.argv[8:]
 MAXLEN = 250
+LANG, CODE = os.environ.get('LANG_NAME', 'Khmer'), os.environ.get('CODE', 'km')
+NOSPACE = re.compile('[\u0e00-\u0eff\u1780-\u17ff\u1000-\u109f\u3040-\u30ff\u4e00-\u9fff]')  # (Thai, Lao, Khmer, Burmese, Japanese, Chinese: a phrase's words without spaces)
 ZW = '​'
 # Khmer grammar words at a rendering's edges (បានបង្កើត, នៅលើមេឃ, ព្រះនៃ): not the word's meaning
 LEAD = {'បាន', 'ដែល', 'នៅ', 'លើ', 'ជា', 'ត្រូវ', 'នឹង', 'កំពុង', 'ក៏', 'ហើយ', 'គឺ', 'ឲ្យ', 'អោយ', 'ពី', 'ក្នុង', 'ដល់', 'ទៅ', 'មក'}
 TRAIL = {'នៃ', 'របស់', 'ដែរ', 'ហើយ', 'នោះ', 'នេះ', 'ទាំង', 'ទៅ', 'មក', 'ឡើយ', 'ផង'}
 
 # ------------------------------------------------------------------ the originals
-orig = {}   # verse -> [Strong's]
-word = {}   # Strong's -> (word, transliteration, English gloss): its commonest
-forms = defaultdict(Counter)
-for path in (TAGNT, TAHOT):
-	for line in open(path, encoding='utf-8'):
-		if line.startswith('#'):
-			continue
-		key, _, body = line.rstrip('\n').split('\t', 2)
-		body = re.sub(r'<[^>]+>', '', body)
-		ss = []
-		for w in body.split(' ¦ '):
-			f = w.split('|')
-			if len(f) < 4 or not re.match(r'[GH]\d+', f[3]):
-				continue
-			s = re.match(r'[GH]\d+', f[3])[0]
-			ss.append(s)
-			forms[s][(re.sub(r'[^\w֐-׿Ͱ-Ͽἀ-῿]', '', f[0]), f[1], f[2].strip('[]‹›.,;:'))] += 1
-		orig[key] = ss
-for s, c in forms.items():
-	word[s] = c.most_common(1)[0][0]
-for path in LEXICONS:  # the dictionary form, where a lexicon has it
-	for line in open(path, encoding='utf-8'):
-		m = re.match(r'([GH]\d+)\t<b>@([^\t<]+)\t</b>(?:<p-ipa>@([^<]*)</p-ipa>)?', line)
-		if m and m[1] in word:
-			word[m[1]] = (m[2].strip(), (m[3] or word[m[1]][1]).strip(), word[m[1]][2])
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from origwords import originals, code
+orig, word = originals(TAGNT, TAHOT, LEXICONS)
 
 # ------------------------------------------------------------------ the corpus
 khm = {os.path.basename(p)[4:-5]: json.load(open(p)) for p in sorted(glob.glob(f'{W}/khm_*.json'))}
@@ -108,7 +90,7 @@ with open(f'{W}/s.km') as fk, open(f'{W}/s.src') as fs, open(f'{W}/s.fwd') as ff
 				ws = ws[1:]
 			while len(ws) > 1 and ws[-1] in TRAIL:
 				ws = ws[:-1]
-			k = ''.join(ws)
+			k = ('' if NOSPACE.search(ws[0]) else ' ').join(ws)
 			pairs[(k, s)] += 1
 			if name == BIBLE and len(seen[(k, s)]) < 3 and key not in seen[(k, s)]:
 				seen[(k, s)].append(key)
@@ -116,10 +98,6 @@ with open(f'{W}/s.km') as fk, open(f'{W}/s.src') as fs, open(f'{W}/s.fwd') as ff
 			tagged[key] = (km, sp)
 
 # ------------------------------------------------------------------ the tagged Bible
-def code(key):
-	b, rest = key.split(' ', 1)
-	return (b[:2].upper() + b[2:] if b[0].isdigit() else b.capitalize()) + ' ' + rest
-
 def tag_text(text, km, sp):
 	"""The verse's text, its words wrapped: found in order in the text (prep.py's
 	words are its own, punctuation and digits out), outside tags and headings"""
@@ -155,6 +133,8 @@ with open(BIBLE_TSV, encoding='utf-8') as f, open(BIBLE_OUT, 'w', encoding='utf-
 		if line.startswith('#'):
 			if line.startswith('#desc'):
 				line = line.rstrip('\n') + ' Each word tapped: the Greek or Hebrew it translates (machine-aligned with STEPBible’s TAGNT and TAHOT, eflomal).\n'
+			elif line.startswith('#priority'):
+				line = '#priority\t4\n'
 			o.write(line)
 			continue
 		parts = line.rstrip('\n').split('\t')
@@ -183,15 +163,16 @@ for s, lst in by_s.items():
 	if not keep:
 		continue
 	w, tr, gl = word.get(s, ('', '', ''))
-	items = ''.join(f'<li><p-l><p-a>{html.escape(k, quote=False)}</p-a></p-l> <p-n>{round(100 * c / tot[s])}%'
-		+ (' · ' + ', '.join(f'<p-a>{code(v)}</p-a>' for v in seen[(k, s)][:2]) if seen[(k, s)] else '') + '</p-n></li>'
+	# (the words its second index words; the rest in <p-n>, which another language's row leaves out)
+	items = ''.join(f'@{html.escape(k, quote=False)}\t<p-n>{round(100 * c / tot[s])}%'
+		+ (' · ' + ', '.join(f'<p-a>{code(v)}</p-a>' for v in seen[(k, s)][:2]) if seen[(k, s)] else '') + '</p-n>\t'
 		for c, k in keep)
-	head = f'<b>@{w}\t</b> <p-ipa>{html.escape(tr, quote=False)}</p-ipa> <p-n>{html.escape(gl, quote=False)}</p-n>' if w else ''
-	rows.append((s[0], int(s[1:]), f'{s}\t{head}<ul>{items}</ul>'))
+	head = f'<p-n>{html.escape(w, quote=False)} <i>{html.escape(tr, quote=False)}</i> {html.escape(gl, quote=False)}</p-n>\t' if w else ''
+	rows.append((s[0], int(s[1:]), f'{s}\t{head}{items}'))
 rows.sort()
 with open(LEX_OUT, 'w', encoding='utf-8') as o:
-	o.write('#desc\tGreek and Hebrew words in Khmer: each Strong’s number, the Khmer words the Khmer Bibles translate it by '
-		f'(machine-aligned with STEPBible’s TAGNT and TAHOT, eflomal: {", ".join(n.upper() for n in khm)}), how often, and verses of the {BIBLE.upper()}. '
-		'Unchecked: verify before relying on it.\n#priority\t2\n#lang\tbi\n')
+	o.write(f'#desc\tGreek and Hebrew words in {LANG}: each Strong’s number, the {LANG} words {len(khm)} {LANG} Bibles translate it by '
+		f'(machine-aligned with STEPBible’s TAGNT and TAHOT, eflomal), how often, and verses. With another language’s on, a dictionary between them. '
+		f'Unchecked: verify before relying on it.\n#priority\t2\n#lang\t{CODE},aligned\n')
 	o.writelines(r[2] + '\n' for r in rows)
-print(len(rows), 'Strong’s numbers in Khmer', file=sys.stderr)
+print(len(rows), 'Strong’s numbers in', LANG, file=sys.stderr)

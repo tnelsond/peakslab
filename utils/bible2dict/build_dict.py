@@ -4,9 +4,9 @@ with its English glosses as second index words ("@love\t; @charity\t"), so an
 English word finds its Khmer ones and glosses English text with them too.
 
 A gloss is a Khmer word's commonest English, or an English word's commonest
-Khmer (either way round). A word in only one of the Bibles (Khmer or English),
-or English only in the KJV and ASV (archaic: "thee", "begat"), has the Bible's
-name after it.
+Khmer (either way round). A word in only one of the sources (Khmer or English),
+or English only in the KJV and ASV (archaic: "thee", "begat"), comes last; after
+it (Archaic) for those, a corpus's name for one only it has (OPUS's SUBS), not a Bible's.
 
 Usage: build_dict.py WORK_DIR OUT.tsv
 """
@@ -42,11 +42,20 @@ def label(posc):
     return top, ('phr.' if top == 'phr' else POS.get(top, ''))
 
 
+LATIN = re.compile('[A-Za-z]')
+
+
 def esc(s):
-    return html.escape(s, quote=False)
+    """(a phrase in a language without spaces, Lao's, written whole)"""
+    return html.escape(s if LATIN.search(s) else s.replace(' ', ''), quote=False)
 
 
 import glob, os
+# a source is a Bible if its lines are verses ("gen 1.1"), not a corpus's ("subs 12")
+VERSE = re.compile(r'^\w+ \d+\.\d+')
+is_bible = {(side == 'eng', os.path.basename(p)[4:-5]): bool(VERSE.match(next(iter(json.load(open(p))), '')))
+            for side in ('khm', 'eng') for p in glob.glob(f'{W}/{side}_*.json')}
+bibles = {b for (english, b), v in is_bible.items() if english and v}
 # spaCy sometimes invents lemmas ("taxes" -> "taxis"); if a lemma never occurs as a real word
 # in the English Bibles, show the most common surface form instead. A name (mostly tagged one)
 # is capitalized: God, Lord (LORD too), Israel; "i" is I, "o" O.
@@ -87,6 +96,7 @@ def fix(e):
 # "university" 69%, apple 84%, a word starting a sentence 10-20%), or
 # grammar words (spaCy's English stop words: of, your); so no brand or program names, "wanna",
 # "Hd", "ve" or "files" (and all lowercase). Without it (the Bibles), names too: Abraham
+# (A word the Bibles have passes: Abraham. Without them, names are lowercase too)
 EN_WORDS = os.environ.get('EN_WORDS')
 if EN_WORDS:
     lower = {l.split('\t', 1)[0].strip() for l in open(EN_WORDS, encoding='utf-8') if l[:1].islower()}
@@ -97,13 +107,16 @@ if EN_WORDS:
             if not (w in STOP_WORDS or (w in lower and c['PROPN'] < 0.9 * sum(c.values()) and u[True] < 0.85 * sum(u.values()))):
                 return False
         return True
-    fix = lambda e: ' '.join('I' if w == 'i' else w for w in e.split(' '))
+    if not bibles:
+        fix = lambda e: ' '.join('I' if w == 'i' else w for w in e.split(' '))
 else:
     english = lambda e: True
 
 merged = defaultdict(lambda: [0, Counter(), set(), set(), set()])
 for k, e, c, posc, ex, vs, es in d['pairs']:
-    if not re.search(r'[^\W\d_]', k) or len(set(re.split('[_ ]', e))) < len(re.split('[_ ]', e)) or re.search(r"[^A-Za-z' _-]|^-|-$", e) or not english(e.replace('_', ' ')):  # (no "4?tons", "-water": English is letters)
+    if not re.search(r'[^\W\d_]', k) or len(set(re.split('[_ ]', e))) < len(re.split('[_ ]', e)) or re.search(r"[^A-Za-z' _\u0e81-\u0ecd\u0edc-\u0edf-]|^-|-$", e):  # (no "4?tons", "-water": English, or Lao, is letters)
+        continue
+    if not (bibles & set(es)) and not english(e.replace('_', ' ')):
         continue
     if ZW in k and (len(vs) < 2 or c < 10):  # a name's pieces: in two Bibles at least
         continue
@@ -172,14 +185,21 @@ def both(groups, others, main, other, totals, n, key):
 share = {}
 for side in ('khm', 'eng'):
     n = {os.path.basename(p)[4:-5]: len(json.load(open(p))) for p in glob.glob(f'{W}/{side}_*.json')}
-    share.update({b: c / sum(n.values()) for b, c in n.items()})
+    share.update({(side == 'eng', b): c / sum(n.values()) for b, c in n.items()})
+
+
+def rare(bibles, english):
+    """A word only one source has (not most of the corpus), or (English) only the KJV and ASV: last"""
+    return (len(bibles) == 1 and share.get((english, next(iter(bibles))), 0) < 0.6) or bool(english and bibles and bibles <= ARCHAIC)
 
 
 def which(bibles, english):
-    """The Bibles to name after a word: its only one (not most of the corpus), or (English) only the KJV and ASV"""
-    if (len(bibles) == 1 and share.get(next(iter(bibles)), 0) < 0.6) or (english and bibles and bibles <= ARCHAIC):
-        return f'({", ".join(sorted(b.upper() for b in bibles))})'
-    return ''
+    """What to put after a rare word: (Archaic) for English only the KJV and ASV have, a
+    corpus's name for one only it has (OPUS's SUBS); not a Bible's"""
+    if english and bibles and bibles <= ARCHAIC:
+        return '(Archaic)'
+    names = sorted(b.upper() for b in bibles if not is_bible.get((english, b)))
+    return f'({", ".join(names)})' if rare(bibles, english) and len(names) == len(bibles) else ''
 
 
 # Grammar words: Khmer ones mostly aligned with English function words (ជា, បាន, នៃ), English
@@ -210,27 +230,57 @@ def more(g, kept, sep):
 
 
 def entries(glosses, head, gloss, hb, gb, totals):
-    """head<tab>(its Bible) @gloss<tab>(its Bibles)<tab>@gloss<tab>... (the app shows them "a; b (KJV); c")"""
+    """head<tab>(its source) @gloss<tab>(its source)<tab>@gloss<tab>... (the app shows them "a; b (SUBS); c")"""
     lines = []
     for h, rows in glosses.items():
         if not rows:
             continue
-        # its commonest 8, those only one Bible (or only the KJV and ASV) has last
+        # its commonest 8, those only one source (or only the KJV and ASV) has last
         sep = ' ' if gloss == 'e' else ''
         kept = []
         for r in sorted(rows, key=lambda r: -r['c']):
             if not more(r[gloss], [x[gloss] for x in kept], sep):
                 kept.append(r)
-        rows = sorted(kept[:8], key=lambda r: bool(which(r[gb], gb == 'eb')))
-        own = which(set().union(*(r[hb] for r in rows)), hb == 'eb')
+        rows = sorted(kept[:8], key=lambda r: rare(r[gb], gb == 'eb'))
+        hs = set().union(*(r[hb] for r in rows))
+        own, last = which(hs, hb == 'eb'), rare(hs, hb == 'eb')
         gl = ''.join(f'@{esc(r[gloss].replace("_", " "))}\t' + (which(r[gb], gb == 'eb') + '\t' if which(r[gb], gb == 'eb') else '') for r in rows)
-        lines.append((bool(own), -totals[h], f'{esc(h.replace("_", " "))}\t{own + " " if own else ""}{gl}'))
+        lines.append((last, -totals[h], f'{esc(h.replace("_", " "))}\t{own + " " if own else ""}{gl}'))
     return [l for *_, l in sorted(lines)]  # (those only one Bible has last)
 
 
 km_glosses = both(by_k, by_e, 'pf', 'pb', Lk, 6, 'k')
 en_glosses = both(by_e, by_k, 'pb', 'pf', Le, 8, 'e')
 lines = entries(km_glosses, 'k', 'e', 'kb', 'eb', Lk) + entries(en_glosses, 'e', 'k', 'eb', 'kb', Le)
+
+
+def aligned():
+    """An entry an English word (the key every language's dictionary shares: with two on, a
+    dictionary between them), its words in the language: those it's the commonest English
+    for and its own commonest, commonest first (those only one source has last)"""
+    words = defaultdict(dict)
+    for gl in (en_glosses, km_glosses):
+        for rows in gl.values():
+            for r in rows:
+                words[r['e']].setdefault(r['k'], r)
+    out = []
+    for e, rows in words.items():
+        kept = []
+        for r in sorted(rows.values(), key=lambda r: -r['c']):
+            if not more(r['k'], [x['k'] for x in kept], ''):
+                kept.append(r)
+        rows = sorted(kept[:8], key=lambda r: rare(r['kb'], False))
+        eb = set().union(*(r['eb'] for r in rows))
+        note = lambda t: f'<p-n>{t}</p-n>\t' if t else ''  # (not the words: the app's other languages' rows leave it out)
+        gl = ''.join(f'@{esc(r["k"].replace("_", " "))}\t' + note(which(r['kb'], False)) for r in rows)
+        out.append((rare(eb, True), -Le[e], f'{esc(e.replace("_", " "))}\t{note(which(eb, True))}{gl}'))
+    return [l for *_, l in sorted(out)]
+
+
+# ALIGNED=<code> (lo): that instead, "#lang lo,aligned"
+ALIGNED = os.environ.get('ALIGNED')
+if ALIGNED:
+    lines = aligned()
 
 kms = sorted(os.path.basename(p)[4:-5].upper() for p in glob.glob(f'{W}/khm_*.json'))
 ens = sorted(os.path.basename(p)[4:-5].upper() for p in glob.glob(f'{W}/eng_*.json'))
@@ -240,6 +290,6 @@ DESC = (f'Khmer–English Bible glosses, machine-made by word-aligning {len(kms)
         'ASV, has its name after it. Unchecked: verify before relying on it.')
 DESC = os.environ.get('DESC', DESC).replace('{n}', ', '.join(kms))  # (another corpus's; {n}: its parts)
 with open(OUT, 'w', encoding='utf-8') as f:
-    f.write(f'#desc\t{DESC}\n#priority\t{os.environ.get("PRIORITY", 1)}\n#lang\tbi\n')
+    f.write(f'#desc\t{DESC}\n#priority\t{os.environ.get("PRIORITY", 1)}\n#lang\t{ALIGNED + ",aligned" if ALIGNED else "bi"}\n')
     f.writelines(l + '\n' for l in lines)
 print(sum(1 for r in km_glosses.values() if r), 'Khmer headwords,', sum(1 for r in en_glosses.values() if r), 'English headwords')

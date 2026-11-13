@@ -1,6 +1,6 @@
-#d	Greek and Hebrew words in Khmer: each Strong’s number, the Khmer words the Khmer Bibles translate it by (machine-aligned with STEPBible’s TAGNT and TAHOT, eflomal: GKB, KCB, KHMUS, KHOV, KHOV2016, KHSV, ULB), how often, and verses of the KHSV. Unchecked: verify before relying on it.
-#p	2
-#l	bi
+#d	Greek and Hebrew words in Khmer: each Strong’s number, the Khmer words 7 Khmer Bibles translate it by (machine-aligned with STEPBible’s TAGNT and TAHOT, eflomal), how often, and verses. With another language’s on, a dictionary between them. Unchecked: verify before relying on it.
+#p	-2
+#l	km,aligned
 #f	khmer/bible/dict/km-strongs.peak.zst
-#t	1794386863
-#b	1008
+#t	1794568874
+#b	734

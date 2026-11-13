@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Load PeakSlab Bible TSVs, clean verse text, tokenize.
 
-Usage: prep.py OUT_DIR WORDS.txt KHMER.tsv... -- ENGLISH.tsv...
+Usage: prep.py OUT_DIR WORDS.txt SOURCE.tsv... -- TARGET.tsv...
 Writes OUT_DIR/{khm,eng}_<name>.json : {verse_key: [tokens]} (eng tokens are "lemma|POS|surface",
 the lemma lowercase: God and god, LORD and Lord one word);
 a Bible's name is its file's (km-khsv.tsv: khsv)
+
+A source is Khmer, Lao (laonlp's words, any zero-width spaces dropped) or a language
+written with spaces; a target English (spaCy's), or Lao ("word|W|word": no lemmas,
+no parts of speech)
 
 WORDS.txt: Khmer words, one a line (the Khmer dictionaries' headwords). A word a
 Bible writes in pieces (ZWSP between: ផ្ទៃ​មេឃ) is one token, the longest it makes
@@ -127,6 +131,35 @@ def spaced(t):
     return z > 0 and z >= t.count(' ') and len(KH_CHAR.findall(t)) <= 12 * z
 
 
+LO_CHAR = re.compile('[\u0e81-\u0ecd\u0edc-\u0edf]')  # (Lao letters and marks: not its digits, ໐-໙)
+LO_PUNCT = re.compile('[^\\s\u0e81-\u0ecd\u0edc-\u0edf]+')
+
+
+# Lao written more than one way: ນໍ້າ, ນ້ໍາ, ນຳ້ are ນ້ຳ (ໍ + າ is ຳ, the tone before it); ໜ, ໝ are ຫນ, ຫມ
+LO_SAME = [('\u0ecd\u0ec9\u0eb2', '\u0ec9\u0eb3'), ('\u0ec9\u0ecd\u0eb2', '\u0ec9\u0eb3'), ('\u0ecd\u0eb2', '\u0eb3'),
+           ('\u0eb3\u0ec9', '\u0ec9\u0eb3'), ('\u0eb3\u0ec8', '\u0ec8\u0eb3'), ('\u0edc', '\u0eab\u0e99'), ('\u0edd', '\u0eab\u0ea1')]
+
+
+def lao_norm(t):
+    for a, b in LO_SAME:
+        t = t.replace(a, b)
+    return t
+
+
+def lao(v):
+    """Lao lines as laonlp's words"""
+    from laonlp.tokenize import word_tokenize
+    out = {}
+    for k, t in v.items():
+        t = LO_PUNCT.sub(' ', lao_norm(t.replace('\u200b', '').replace('‌', '').replace('‍', '').replace('ໆ', ' ')))
+        out[k] = [w for w in word_tokenize(t) if LO_CHAR.search(w)]
+    return out
+
+
+def script(v, char):
+    return char.search(''.join(list(v.values())[:200]))
+
+
 LATIN_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
 
 
@@ -152,7 +185,9 @@ def do_khmer(path):
     logging.disable(logging.CRITICAL)
     from khmernltk import word_tokenize
     v = load(path)
-    if not KH_CHAR.search(''.join(list(v.values())[:200])):
+    if script(v, LO_CHAR):
+        return name(path), lao(v), 'lao'
+    if not script(v, KH_CHAR):
         return name(path), {k: LATIN_WORD.findall(t) for k, t in v.items()}, 'latin'
     # (a word-spaced line's runs of several words too, ULB's: ...គ្រិស្ត ដោយសារជំនឿបានក្លាយជាប្រជារាស្រ្ត ដែល...)
     toks = {k: khmer_tokens(t, word_tokenize, 12 if spaced(t) else 6) for k, t in v.items()}
@@ -160,9 +195,11 @@ def do_khmer(path):
 
 
 def do_english(path):
+    v = load(path)
+    if script(v, LO_CHAR):
+        return name(path), {k: [f'{w}|W|{w}' for w in ws] for k, ws in lao(v).items()}, 'lao'
     import spacy
     nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
-    v = load(path)
     keys = list(v)
     texts = [re.sub(r'\s+', ' ', v[k].replace('’', "'").replace('‘', "'")).strip() for k in keys]  # (spaCy splits doesn't, not doesn’t)
     toks = {}
@@ -221,7 +258,8 @@ if __name__ == '__main__':
                                 pieces[norm(''.join(v[i:i + m]))] += 1
         words |= {w for w, n in whole.items() if n >= 3 and n > pieces[w] and len(w) > 1}
         for n, toks, how in khm:
-            toks = {k: whole_words([x for t in v for x in split_run(t, words, common)], words) for k, v in toks.items()}
+            if how in ('zwsp', 'segmented'):  # (Khmer)
+                toks = {k: whole_words([x for t in v for x in split_run(t, words, common)], words) for k, v in toks.items()}
             json.dump(toks, open(f'{OUT}/khm_{n}.json', 'w'), ensure_ascii=False)
             print(n, len(toks), how, flush=True)
         eng = {}
