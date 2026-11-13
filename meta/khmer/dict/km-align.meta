@@ -1,0 +1,6 @@
+#d	Khmer words by English word, machine-made by word-aligning 7 Khmer Bibles with 8 English ones, and Khmer–English sentence pairs from <a href="https://opus.nlpl.eu/">OPUS</a> (subtitles, web pages, KDE and translatewiki software strings, Wikipedia names and pages, TICO-19, Global Voices, Tatoeba) and FLORES-200, with eflomal: an English word’s commonest Khmer, commonest first. With another language’s on, a dictionary between them. (Archaic): English only the KJV and ASV have; a corpus’s name after a word only it has. Unchecked: verify before relying on it.
+#p	1
+#l	km,aligned
+#f	khmer/dict/km-align.peak.zst
+#t	1794570889
+#b	365
