@@ -462,7 +462,7 @@ p-q, p-q2 {
 	margin-left: 1em;
 	padding-left: 1em;
 }
-/* An example sentence (toi-nouns, -verbs, -other): <p-x><i>its words</i>its translation</p-x>,
+/* An example sentence (toi-nouns, -verbs, -other): <p-x><p-l>its words</p-l>its translation</p-x>,
    each a block of its own, the translation under the words */
 p-x {
 	display: block;
@@ -471,7 +471,7 @@ p-x {
 	border-left: 3px solid var(--tab-bg);
 }
 p-x + p-x { margin-top: .9em; }
-p-x > i { display: block; }
+p-x > p-l { display: block; margin-bottom: 0; font-style: italic; } /* (its words, in p-l's colour; the translation the text's) */
 /* A verse with a quote's lines (a poem's) is a block too: not lines inside
    a span (a selection in them wasn't highlighted) */
 .vs:has(> :is(p-q, p-q2)) { display: block; }
