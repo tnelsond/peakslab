@@ -132,12 +132,13 @@ def spaced(t):
 
 
 LO_CHAR = re.compile('[\u0e81-\u0ecd\u0edc-\u0edf]')  # (Lao letters and marks: not its digits, ໐-໙)
+LO_MARK = re.compile('[\u0eb0-\u0ebc\u0ec8-\u0ecd]')  # (a vowel sign, tone or mark: never a word's first)
 LO_PUNCT = re.compile('[^\\s\u0e81-\u0ecd\u0edc-\u0edf]+')
 
 
 # Lao written more than one way: ນໍ້າ, ນ້ໍາ, ນຳ້ are ນ້ຳ (ໍ + າ is ຳ, the tone before it); ໜ, ໝ are ຫນ, ຫມ
 LO_SAME = [('\u0ecd\u0ec9\u0eb2', '\u0ec9\u0eb3'), ('\u0ec9\u0ecd\u0eb2', '\u0ec9\u0eb3'), ('\u0ecd\u0eb2', '\u0eb3'),
-           ('\u0eb3\u0ec9', '\u0ec9\u0eb3'), ('\u0eb3\u0ec8', '\u0ec8\u0eb3'), ('\u0edc', '\u0eab\u0e99'), ('\u0edd', '\u0eab\u0ea1')]
+           ('\u0eb3\u0ec9', '\u0ec9\u0eb3'), ('\u0eb0\u0eb0', '\u0eb0'), ('\u0eb3\u0ec8', '\u0ec8\u0eb3'), ('\u0edc', '\u0eab\u0e99'), ('\u0edd', '\u0eab\u0ea1')]
 
 
 def lao_norm(t):
@@ -152,7 +153,15 @@ def lao(v):
     out = {}
     for k, t in v.items():
         t = LO_PUNCT.sub(' ', lao_norm(t.replace('\u200b', '').replace('‌', '').replace('‍', '').replace('ໆ', ' ')))
-        out[k] = [w for w in word_tokenize(t) if LO_CHAR.search(w)]
+        ws = []
+        for w in word_tokenize(t):
+            if not LO_CHAR.search(w):
+                continue
+            if ws and LO_MARK.match(w):  # (a piece that starts with a vowel sign or tone: the word before's, from a typo, ປະຖົມ + ະ)
+                ws[-1] += w
+            else:
+                ws.append(w)
+        out[k] = ws
     return out
 
 
