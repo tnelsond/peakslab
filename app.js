@@ -2666,6 +2666,7 @@ if(!isDictPage){
 	// them, without the brackets
 	const isText = x => x && !/^(\[[^\]]*\]+\s*)+$/.test(x);
 	function summary(html, header){
+		html = html.replace(/<p-x>[^]*?<\/p-x>/g, ''); // (not its examples)
 		const all = textLines(html, '\x1f').flatMap(l => l.split('\x1f').map((x, i) => ({x: x.trim(), tab: i > 0}))).filter(p => p.x);
 		const lines = all.filter(p => isText(p.x));
 		if (!lines.length) return all.map(p => p.x).join(' ').replace(/[[\]]/g, '');
@@ -2798,7 +2799,7 @@ if(!isDictPage){
 			return askDict(t, {type: 'matchall', query: heads.join('\n')}).then(r => {
 				const ys = r.matches.filter(([a, len, , , sec]) => !sec && at.get(a)?.length === len).map(([a, , m, ix]) => ({d: t, m, ix, h: at.get(a)}));
 				return render(t, ys).then(() => ys.forEach(y => y.r && ss.forEach(x => {
-					if (x.r?.header.toLowerCase() === y.h && catOf(x.d) === catOf(t)) (x.via ||= {})[outLang({d: t})] ||= [textLines(y.r.body.replace(/<p-(n|ipa)>[^]*?<\/p-\1>/g, '')).filter(Boolean).join(', '), t];
+					if (x.r?.header.toLowerCase() === y.h && catOf(x.d) === catOf(t)) (x.via ||= {})[outLang({d: t})] ||= [textLines(y.r.body.replace(/<p-(n|ipa|x)>[^]*?<\/p-\1>/g, '')).filter(Boolean).join(', '), t];
 				})));
 			});
 		})));
