@@ -1,6 +1,6 @@
-#d	English words by Khmer word and sense, machine-made: the Khmer words of km-align (Bibles and OPUS word-aligned with eflomal), each one’s English grouped by the sense they share (Open English WordNet), with example sentences from openly licensed sources (CC BY, CC BY-SA, public domain). Unchecked: verify before relying on it.
+#d	English words by Khmer word and sense, machine-made: the Khmer words of km-align (Bibles and OPUS word-aligned with eflomal), each one’s English grouped by sense (Chuon Nath’s, else Open English WordNet’s), with an example sentence from openly licensed sources (CC BY, CC BY-SA, public domain). Unchecked: verify before relying on it.
 #p	1
 #l	km,en
 #f	khmer/dict/km-senses.peak.zst
-#t	1794655296
-#b	78088
+#t	1794657328
+#b	5242
