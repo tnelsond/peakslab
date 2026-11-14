@@ -5,11 +5,15 @@ Usage: extract.py WORK_DIR
 Reads corpus.km/en, corpus.meta.jsonl, fwd.align, rev.align
 Writes pairs.json : {"pairs": [[km, en, count, pos_counts, examples, khmer Bibles, English Bibles], ...], "Lk": {...}, "Le": {...}}
 """
-import sys, json, re
+import os, sys, json, re
 from collections import Counter, defaultdict
 
 W = sys.argv[1]
 MIN = 5
+# Clean corpora (translated by people, not mined from the web): a pair in 2 of their sentences is
+# enough (CLEAN=flores,alt,tatoeba: a word FLORES-200 has twice, not the web's 5 times)
+CLEAN = set(filter(None, os.environ.get('CLEAN', '').split(',')))
+CLEAN_MIN = 2
 MAX_SPAN = 4
 
 
@@ -93,6 +97,9 @@ def events(km, en, fwd, rev, pos):
             yield km[i], en[j], [j]
 
 
+ccounts = Counter()  # (in the clean corpora)
+
+
 def run(pass_no, keep=None):
     counts = Counter()
     pos = defaultdict(Counter)
@@ -103,9 +110,12 @@ def run(pass_no, keep=None):
     for n, (lk, le, lf, lr, lm) in enumerate(zip(*files)):
         km, en = lk.split(), le.split()
         meta = json.loads(lm)
+        clean = meta[1].split('.')[0] in CLEAN
         for k, e, js in events(km, en, links(lf), links(lr), meta[3]):
             if pass_no == 1:
                 counts[(k, e)] += 1
+                if clean:
+                    ccounts[(k, e)] += 1
             elif (k, e) in keep:
                 p = '+'.join(meta[3][j] for j in js)
                 pos[(k, e)][p] += 1
@@ -124,11 +134,11 @@ Lk, Le = Counter(), Counter()
 for (k, e), c in counts.items():
     Lk[k] += c
     Le[e] += c
-keep = {ke for ke, c in counts.items() if c >= MIN}
+keep = {ke for ke, c in counts.items() if c >= MIN or ccounts[ke] >= CLEAN_MIN}
 print(len(counts), 'pairs,', len(keep), 'with count >=', MIN, file=sys.stderr)
 _, pos, ex, vers, engs = run(2, keep)
 out = {
-    'pairs': [[k, e, counts[(k, e)], dict(pos[(k, e)]), ex[(k, e)], sorted(vers[(k, e)]), sorted(engs[(k, e)])] for (k, e) in keep],
+    'pairs': [[k, e, counts[(k, e)], dict(pos[(k, e)]), ex[(k, e)], sorted(vers[(k, e)]), sorted(engs[(k, e)]), ccounts[(k, e)]] for (k, e) in keep],
     'Lk': {k: v for k, v in Lk.items() if v >= MIN},
     'Le': {e: v for e, v in Le.items() if v >= MIN},
 }

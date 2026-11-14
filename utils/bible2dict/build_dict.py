@@ -117,8 +117,9 @@ if EN_WORDS:
 else:
     english = lambda e: True
 
-merged = defaultdict(lambda: [0, Counter(), set(), set(), set()])
-for k, e, c, posc, ex, vs, es in d['pairs']:
+CLEAN_MIN = 2  # (extract.py's: a pair in 2 sentences of the clean corpora)
+merged = defaultdict(lambda: [0, Counter(), set(), set(), set(), 0])
+for k, e, c, posc, ex, vs, es, *cc in d['pairs']:
     if not re.search(r'[^\W\d_]', k) or len(set(re.split('[_ ]', e))) < len(re.split('[_ ]', e)) or re.search(r"[^A-Za-z' _\u0e81-\u0ecd\u0edc-\u0edf-]|^-|-$", e):  # (no "4?tons", "-water": English, or Lao, is letters)
         continue
     if not (bibles & set(es)) and not english(e.replace('_', ' ')):
@@ -127,6 +128,7 @@ for k, e, c, posc, ex, vs, es in d['pairs']:
         continue
     m = merged[(k.replace(ZW, ''), fix(e))]
     m[0] += c
+    m[5] += cc[0] if cc else 0
     m[1].update(posc)
     # the Bibles that have the words: a word's own, a name's (several pieces) where it was aligned
     m[2].update(in_km[k] if ZW not in k and k in in_km else vs)
@@ -144,15 +146,15 @@ Lk, Le = Lk2, Le2
 # a Khmer word is a number word if its commonest English is one (ពាន់: thousand; នាក់: man)
 is_num = lambda posc: sum(v for t, v in posc.items() if 'NUM' in t.split('+')) * 2 > sum(posc.values())
 top_k = {}
-for (k, e), (c, posc, kb, eb, _) in merged.items():
+for (k, e), (c, posc, kb, eb, _, cc) in merged.items():
     if c > top_k.get(k, (0, None))[0]:
         top_k[k] = (c, is_num(posc))
 num_k = {k: 1 if n else 0 for k, (_, n) in top_k.items()}
 by_k, by_e = defaultdict(list), defaultdict(list)
-for (k, e), (c, posc, kb, eb, _) in merged.items():
+for (k, e), (c, posc, kb, eb, _, cc) in merged.items():
     if is_num(posc) and num_k[k] <= 0:
         continue
-    row = dict(k=k, e=e, c=c, pf=c / Lk[k], pb=c / Le[e], top=label(posc)[0], kb=kb, eb=eb)
+    row = dict(k=k, e=e, c=c, cc=cc, pf=c / (Lk[k] or c), pb=c / (Le[e] or c), top=label(posc)[0], kb=kb, eb=eb)
     by_k[k].append(row)
     by_e[e].append(row)
 
@@ -162,7 +164,7 @@ def pick(rows, p_main, p_other, n):
     for r in sorted(rows, key=lambda r: -r['c']):
         pm, po = r[p_main], r[p_other]
         need = 0.25 if r['top'] in FUNC else 0.07
-        if pm < need or (po < 0.01 and pm < 0.3) or r['c'] < 5:
+        if pm < need or (po < 0.01 and pm < 0.3) or (r['c'] < 5 and r['cc'] < CLEAN_MIN):
             continue
         out.append(r)
         if len(out) == n:
@@ -176,11 +178,11 @@ def pick(rows, p_main, p_other, n):
 def both(groups, others, main, other, totals, n, key):
     out = defaultdict(list)
     for h, rows in groups.items():
-        if totals[h] >= 8:
+        if totals[h] >= 8 or any(r['cc'] >= CLEAN_MIN for r in rows):  # (a word the clean corpora have twice)
             out[h] += pick(rows, main, other, n)
     for h, rows in others.items():
         for r in pick(rows, other, main, 3):
-            if r not in out[r[key]] and totals[r[key]] >= 8:
+            if r not in out[r[key]] and (totals[r[key]] >= 8 or r['cc'] >= CLEAN_MIN):
                 out[r[key]].append(r)
     return out
 
