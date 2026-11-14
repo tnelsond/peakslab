@@ -1,0 +1,6 @@
+#d	Chinese words by English word, machine-made by word-aligning 4 Chinese Bibles with 3 English ones, Chinese–English sentence pairs from <a href="https://opus.nlpl.eu/">OPUS</a> (SPC, tico-19, NeuLab-TedTalks, QED, TED2020, tldr-pages, ALT, WMT-News, infopankki, PHP, News-Commentary, TED2013, wikimedia, WikiTitles) and FLORES-200, with eflomal: an English word’s commonest Chinese, commonest first. With another language’s on, a dictionary between them. (Archaic): English only the KJV has. Unchecked: verify before relying on it.
+#p	1
+#l	zh,aligned
+#f	chinese/dict/zh-align.peak.zst
+#t	1794645827
+#b	172

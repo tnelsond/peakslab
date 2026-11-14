@@ -171,7 +171,7 @@ for s, lst in by_s.items():
 	rows.append((s[0], int(s[1:]), f'{s}\t{head}{items}'))
 rows.sort()
 with open(LEX_OUT, 'w', encoding='utf-8') as o:
-	o.write(f'#desc\tGreek and Hebrew words in {LANG}: each Strong’s number, the {LANG} words {len(khm)} {LANG} Bibles translate it by '
+	o.write(f'#desc\tGreek and Hebrew words in {LANG}: each Strong’s number, the {LANG} words {len(khm)} {LANG} Bible{'s' if len(khm) > 1 else ''} translate{'' if len(khm) > 1 else 's'} it by '
 		f'(machine-aligned with STEPBible’s TAGNT and TAHOT, eflomal), how often, and verses. With another language’s on, a dictionary between them. '
 		f'Unchecked: verify before relying on it.\n#priority\t2\n#lang\t{CODE},aligned\n')
 	o.writelines(r[2] + '\n' for r in rows)

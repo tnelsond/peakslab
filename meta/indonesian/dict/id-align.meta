@@ -1,0 +1,6 @@
+#d	Indonesian words by English word, machine-made by word-aligning 3 Indonesian Bibles with 3 English ones, Indonesian–English sentence pairs from <a href="https://opus.nlpl.eu/">OPUS</a> (ELRC_2922, ELRC-3049-wikipedia_health, ELRC-wikipedia_health, tico-19, tldr-pages, Tatoeba, KDE4, GlobalVoices, News-Commentary, ALT, GNOME, translatewiki, NeuLab-TedTalks, TED2020, QED, wikimedia) and FLORES-200, with eflomal: an English word’s commonest Indonesian, commonest first. With another language’s on, a dictionary between them. (Archaic): English only the KJV has. Unchecked: verify before relying on it.
+#p	1
+#l	id,aligned
+#f	indonesian/dict/id-align.peak.zst
+#t	1794645826
+#b	157

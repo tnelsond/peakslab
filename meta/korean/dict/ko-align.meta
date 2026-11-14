@@ -1,0 +1,6 @@
+#d	Korean words by English word, machine-made by word-aligning 3 Korean Bibles with 3 English ones, Korean–English sentence pairs from <a href="https://opus.nlpl.eu/">OPUS</a> (ELRC_2922, ELRC-3070-wikipedia_health, ELRC-wikipedia_health, Tatoeba, MDN_Web_Docs, GlobalVoices, PHP, tldr-pages, KDE4, translatewiki, wikimedia, NeuLab-TedTalks, TED2020, QED) and FLORES-200, with eflomal: an English word’s commonest Korean, commonest first. With another language’s on, a dictionary between them. (Archaic): English only the KJV has. Unchecked: verify before relying on it.
+#p	1
+#l	ko,aligned
+#f	korean/dict/ko-align.peak.zst
+#t	1794645826
+#b	207

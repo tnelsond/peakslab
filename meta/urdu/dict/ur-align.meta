@@ -1,0 +1,6 @@
+#d	Urdu words by English word, machine-made by word-aligning 1 Urdu Bible with 3 English ones, Urdu–English sentence pairs from <a href="https://opus.nlpl.eu/">OPUS</a> (Tatoeba, tico-19, GlobalVoices, NeuLab-TedTalks, pmindia, GNOME, TED2020, translatewiki, QED, Joshua-IPC, Anuvaad, wikimedia, XLEnt, OpenSubtitles) and FLORES-200, with eflomal: an English word’s commonest Urdu, commonest first. With another language’s on, a dictionary between them. (Archaic): English only the KJV has. Unchecked: verify before relying on it.
+#p	1
+#l	ur,aligned
+#f	urdu/dict/ur-align.peak.zst
+#t	1794645828
+#b	252
