@@ -42,27 +42,29 @@ def label(posc):
     return top, ('phr.' if top == 'phr' else POS.get(top, ''))
 
 
-LATIN = re.compile('[A-Za-z]')
+# languages written without spaces between words: Thai, Lao, Khmer, Burmese, Japanese, Chinese
+NOSPACE = re.compile('[\u0e00-\u0eff\u1780-\u17ff\u1000-\u109f\u3040-\u30ff\u4e00-\u9fff]')
 
 
 def esc(s):
     """(a phrase in a language without spaces, Lao's, written whole)"""
-    return html.escape(s if LATIN.search(s) else s.replace(' ', ''), quote=False)
+    return html.escape(s.replace(' ', '') if NOSPACE.search(s) else s, quote=False)
 
 
 import glob, os
 # a source is a Bible if its lines are verses ("gen 1.1"), not a corpus's ("subs 12")
 VERSE = re.compile(r'^\w+ \d+\.\d+')
-is_bible = {(side == 'eng', os.path.basename(p)[4:-5]): bool(VERSE.match(next(iter(json.load(open(p))), '')))
+src = lambda p: os.path.basename(p)[4:-5].split('.')[0]  # (a corpus in pieces, nllb.3: nllb)
+is_bible = {(side == 'eng', src(p)): bool(VERSE.match(next(iter(json.load(open(p))), '')))
             for side in ('khm', 'eng') for p in glob.glob(f'{W}/{side}_*.json')}
 bibles = {b for (english, b), v in is_bible.items() if english and v}
 # spaCy sometimes invents lemmas ("taxes" -> "taxis"); if a lemma never occurs as a real word
 # in the English Bibles, show the most common surface form instead. A name (mostly tagged one)
 # is capitalized: God, Lord (LORD too), Israel; "i" is I, "o" O.
-surf, lem2surf, propn, usual, caps = set(), defaultdict(Counter), defaultdict(Counter), defaultdict(Counter), defaultdict(Counter)
+surf, lem2surf, propn, usual, caps, scaps = set(), defaultdict(Counter), defaultdict(Counter), defaultdict(Counter), defaultdict(Counter), defaultdict(Counter)
 in_en, in_km = defaultdict(set), defaultdict(set)  # word -> the Bibles that have it
 for p in glob.glob(f'{W}/eng_*.json'):
-    bible = os.path.basename(p)[4:-5]
+    bible = src(p)
     for toks in json.load(open(p)).values():
         for t in toks:
             l, pos, s = t.split('|', 2)
@@ -71,9 +73,10 @@ for p in glob.glob(f'{W}/eng_*.json'):
             propn[s.lower()][pos == 'PROPN'] += 1
             usual[l][pos] += 1
             caps[l][s[:1].isupper()] += 1  # (by the word as written: "lovest" a name only sometimes)
+            scaps[s.lower()][s[:1].isupper()] += 1
             in_en[l].add(bible)
 for p in glob.glob(f'{W}/khm_*.json'):
-    bible = os.path.basename(p)[4:-5]
+    bible = src(p)
     for toks in json.load(open(p)).values():
         for t in toks:
             in_km[t].add(bible)
@@ -84,8 +87,10 @@ def fix(e):
     for w in e.split(' '):
         if w.lower() not in surf and lem2surf.get(w):
             w = lem2surf[w].most_common(1)[0][0]
-        c = propn.get(w.lower())
-        if w in ('i', 'o') or (c and c[True] >= c[False]):
+        c, k = propn.get(w.lower()), scaps[w.lower()]
+        # (and written capitalized 85% of the time: not Holy, South, Sparrow from the web's
+        # headlines, or Prayeth)
+        if w in ('i', 'o') or (c and c[True] >= c[False] and k[True] >= 0.85 * sum(k.values())):
             w = w[:1].upper() + w[1:]
         out.append(w)
     return ' '.join(out)
@@ -184,7 +189,9 @@ def both(groups, others, main, other, totals, n, key):
 # stories) isn't named after a word only it has, as nearly every word is
 share = {}
 for side in ('khm', 'eng'):
-    n = {os.path.basename(p)[4:-5]: len(json.load(open(p))) for p in glob.glob(f'{W}/{side}_*.json')}
+    n = Counter()
+    for p in glob.glob(f'{W}/{side}_*.json'):
+        n[src(p)] += len(json.load(open(p)))
     share.update({(side == 'eng', b): c / sum(n.values()) for b, c in n.items()})
 
 
@@ -236,7 +243,7 @@ def entries(glosses, head, gloss, hb, gb, totals):
         if not rows:
             continue
         # its commonest 8, those only one source (or only the KJV and ASV) has last
-        sep = ' ' if gloss == 'e' else ''
+        sep = ' ' if gloss == 'e' or not NOSPACE.search(h) else ''
         kept = []
         for r in sorted(rows, key=lambda r: -r['c']):
             if not more(r[gloss], [x[gloss] for x in kept], sep):
@@ -267,7 +274,9 @@ def aligned():
     for e, rows in words.items():
         kept = []
         for r in sorted(rows.values(), key=lambda r: -r['c']):
-            if not more(r['k'], [x['k'] for x in kept], ''):
+            if r['k'].lower() == e.lower() and r['k'] != e:  # (a corpus's English left untranslated, "House")
+                continue
+            if not more(r['k'], [x['k'] for x in kept], '' if NOSPACE.search(r['k']) else ' '):
                 kept.append(r)
         rows = sorted(kept[:8], key=lambda r: rare(r['kb'], False))
         eb = set().union(*(r['eb'] for r in rows))
@@ -282,8 +291,8 @@ ALIGNED = os.environ.get('ALIGNED')
 if ALIGNED:
     lines = aligned()
 
-kms = sorted(os.path.basename(p)[4:-5].upper() for p in glob.glob(f'{W}/khm_*.json'))
-ens = sorted(os.path.basename(p)[4:-5].upper() for p in glob.glob(f'{W}/eng_*.json'))
+kms = sorted({src(p).upper() for p in glob.glob(f'{W}/khm_*.json')})
+ens = sorted({src(p).upper() for p in glob.glob(f'{W}/eng_*.json')})
 DESC = (f'Khmer–English Bible glosses, machine-made by word-aligning {len(kms)} Khmer Bibles ({", ".join(kms)}) '
         f'and {len(ens)} English ones ({", ".join(ens)}) with eflomal: a Khmer word\'s English glosses and an English '
         'word\'s Khmer ones, commonest first. A word only one Bible has, or (English) only the KJV and '

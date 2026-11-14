@@ -169,6 +169,55 @@ def script(v, char):
     return char.search(''.join(list(v.values())[:200]))
 
 
+def thai(v):
+    from pythainlp import word_tokenize
+    return {k: [w for w in word_tokenize(t, keep_whitespace=False) if TH_CHAR.search(w)] for k, t in v.items()}
+
+
+def chinese(v):
+    import jieba, logging
+    jieba.setLogLevel(logging.ERROR)
+    return {k: [w for w in jieba.lcut(t) if HAN.search(w)] for k, t in v.items()}
+
+
+def japanese(v):
+    """janome's words, a verb's or adjective's dictionary form (された: する)"""
+    from janome.tokenizer import Tokenizer
+    tk, out = Tokenizer(), {}
+    for k, t in v.items():
+        ws = []
+        for m in tk.tokenize(t):
+            pos = m.part_of_speech.split(',')[0]
+            w = m.base_form if pos in ('動詞', '形容詞') and m.base_form != '*' else m.surface
+            if pos != '記号' and JA_CHAR.search(w):
+                ws.append(w)
+        out[k] = ws
+    return out
+
+
+def korean(v):
+    """kiwi's words: not its particles and endings (하나님이: 하나님), a verb's or adjective's stem + 다"""
+    from kiwipiepy import Kiwi
+    kw, out = Kiwi(), {}
+    for k, t in v.items():
+        ws = []
+        for m in kw.tokenize(t):
+            if m.tag.startswith(('J', 'E', 'S', 'XS', 'XP', 'W', 'U')) or not KO_CHAR.search(m.form):
+                continue
+            ws.append(m.form + '다' if m.tag in ('VV', 'VA', 'VX', 'VV-R', 'VA-R', 'VV-I', 'VA-I') else m.form)
+        out[k] = ws
+    return out
+
+
+TH_CHAR = re.compile('[\u0e01-\u0e4e]')
+HAN = re.compile('[\u4e00-\u9fff\u3400-\u4dbf]')
+JA_CHAR = re.compile('[\u3040-\u30ff\u4e00-\u9fff]')
+KANA = re.compile('[\u3040-\u30ff]')
+KO_CHAR = re.compile('[\uac00-\ud7a3]')
+# languages written without spaces between words (or with particles on them, Korean), their word splitters
+OTHERS = [(TH_CHAR, thai, 'thai'), (KANA, japanese, 'japanese'), (HAN, chinese, 'chinese'), (KO_CHAR, korean, 'korean')]
+import regex
+WORD = regex.compile(r"[\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*")  # (a letter's marks in it: परमेश्वर, not परम + श + वर)
 LATIN_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
 
 
@@ -196,8 +245,11 @@ def do_khmer(path):
     v = load(path)
     if script(v, LO_CHAR):
         return name(path), lao(v), 'lao'
+    for char, words, how in OTHERS:
+        if script(v, char):
+            return name(path), words(v), how
     if not script(v, KH_CHAR):
-        return name(path), {k: LATIN_WORD.findall(t) for k, t in v.items()}, 'latin'
+        return name(path), {k: WORD.findall(t) for k, t in v.items()}, 'latin'
     # (a word-spaced line's runs of several words too, ULB's: ...គ្រិស្ត ដោយសារជំនឿបានក្លាយជាប្រជារាស្រ្ត ដែល...)
     toks = {k: khmer_tokens(t, word_tokenize, 12 if spaced(t) else 6) for k, t in v.items()}
     return name(path), toks, 'zwsp' if sum(map(spaced, v.values())) * 2 > len(v) else 'segmented'
