@@ -2,19 +2,18 @@
 """km-english: every Khmer word the open sources have, with all they say of it in one
 entry (its English words index words: searching English finds the Khmer too):
 
-  - by sense, machine-made: km-senses' (Bibles, OPUS, NLLB word-aligned; the senses by
-    WordNet and Wiktionary, told apart by the sentences, other languages' Bibles, ALT, the
-    Greek and Hebrew); one open example a sense
+  - its English words, all that correspond to it, commonest first (km-align's, turned round
+    by utils/flatalign.py: Bibles, OPUS, NLLB word-aligned, and people's translations)
   - English Wiktionary's entry for it (km-kaikki, CC BY-SA)
   - the English senses Wiktionary's translation tables give it (wiktionary/km-senses)
   - Wikidata's items it's the label of (km-wikidata, CC0)
   - the Greek and Hebrew words the Khmer Bibles translate by it (km-strongs: Strong's numbers)
 
   - for a word the Khmer dictionaries have (Chuon Nath's 2022 and 1967 editions, Headley's,
-    Wiktionary's: its headword lists), without senses: the English it was aligned with most
+    Wiktionary's: its headword lists), not in that list: the English it was aligned with most
     (a fifth of its alignments at least; km-align leaves out grammar words and names)
 
-Usage: kmenglish.py <km-senses.tsv> <dict_src> <out.tsv> [pairs.json]
+Usage: kmenglish.py <Khmer-English.tsv (flatalign.py's)> <dict_src> <out.tsv> [pairs.json]
 """
 import html, re, sys
 from collections import defaultdict
@@ -58,7 +57,7 @@ if PAIRS:
     for r in json.load(open(PAIRS))['pairs']:
         al[norm(r[0])][r[1]] += r[2]
     for n, c in al.items():
-        if n in heads and 'senses' not in parts.get(n, {}):
+        if n in heads and 'senses' not in parts.get(n, {}):  # ("senses": the list)
             t = sum(c.values())
             es = [e for e, x in c.most_common(4) if x >= .2 * t and x >= 5]
             if es:
@@ -72,10 +71,11 @@ for key, b in rows(f'{K}/wiktionary/km-senses.tsv'):
     for k in re.findall(r'@([^\t<]+)', b):
         tr[norm(k)].append((w, g))
 for n, ws in tr.items():
-    add(n, 'trans', '\t'.join(f'@{html.escape(w, quote=False)}' + (f' <p-n>{html.escape(g, quote=False)}</p-n>' if g else '') for w, g in ws[:12]))
+    add(n, 'trans', '<ul>' + ''.join(f'<li>@{html.escape(w, quote=False)}' + (f' <p-n>{html.escape(g, quote=False)}</p-n>' if g else '') + '</li>' for w, g in ws[:12]) + '</ul>')
 
-for k, b in rows(f'{K}/dict/km-wikidata.tsv'):
-    add(k, 'wikidata', b)
+for k, b in rows(f'{K}/dict/km-wikidata.tsv'):  # (an item a line)
+    items = re.findall(r'(@[^\t]+)(?:\t(<p-n>.*?</p-n>))?(?=\t@|$)', b)
+    add(k, 'wikidata', '<ul>' + ''.join(f'<li>{e}' + (f' {d}' if d else '') + '</li>' for e, d in items) + '</ul>' if len(items) > 1 else b)
 
 # Strong's: a Khmer word's Greek and Hebrew (the ones it's a tenth of the translations of, at least)
 st = defaultdict(list)
@@ -88,16 +88,15 @@ for key, b in rows(f'{K}/bible/dict/km-strongs.tsv'):
             st[norm(k)].append((int(pct), key, g[1]))
 for n, xs in st.items():
     xs.sort(reverse=True)
-    add(n, 'strongs', ' · '.join(f'{g} <p-a>{key}</p-a> {p}%' for p, key, g in xs[:4]))
+    add(n, 'strongs', '<ul>' + ''.join(f'<li>{g} <p-a>{key}</p-a> {p}%</li>' for p, key, g in xs[:4]) + '</ul>')
 
 LABEL = {'senses': None, 'aligned': 'aligned', 'kaikki': 'Wiktionary', 'trans': 'Wiktionary: translates',
          'wikidata': 'Wikidata', 'strongs': 'Bible: Greek and Hebrew'}
 with open(OUT, 'w', encoding='utf-8') as o:
     o.write('#desc\tKhmer–English, as complete as open sources make it: every Khmer word they give English for, with all they say of it. '
-            'Its English by sense, machine-made (Bibles, OPUS and NLLB word-aligned with eflomal; the senses English '
-            'Wiktionary’s and Open English WordNet’s, told apart by the sentences, other languages’ Bibles, ALT and the '
-            'Bible’s Greek and Hebrew; checked against Headley’s and Chuon Nath’s dictionaries, not quoted), an example from '
-            'openly licensed sources; <a href="https://en.wiktionary.org/">English Wiktionary</a>’s entry and translation tables '
+            'Its English words, all that correspond to it, commonest first: machine-made (Bibles, OPUS and NLLB '
+            'word-aligned with eflomal), with people’s translations (Wiktionary’s, SBBIC’s); '
+            '<a href="https://en.wiktionary.org/">English Wiktionary</a>’s entry and translation tables '
             '(via <a href="https://kaikki.org/">Kaikki</a>); <a href="https://www.wikidata.org/">Wikidata</a> (CC0); the Greek '
             'and Hebrew words the Khmer Bibles translate by it (STEPBible’s tagged texts, CC BY 4.0); '
             'its parts under their sources’ licences: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> (Wiktionary’s), '
