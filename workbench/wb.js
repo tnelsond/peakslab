@@ -112,10 +112,22 @@ let Q = [], BY = new Map(), ED = new Map();
 let mode = stored('mode', 'write'), on = new Set(stored('srcs', Object.keys(SRC))), hide = stored('hide', false);
 let shown = [], limit = 300, cur = null, info = null, active = 0, sheet = null, saveT = null, dbOK = true;
 const closed = new Set(stored('closed', ['h97', 'nath2022', 'kmwikt']));
-const blank = w => ({w, senses: [], strike: [], add: [], match: [], done: false, t: 0});
+const blank = w => ({w, senses: [], strike: [], add: [], done: false, t: 0});
+// A saved word as the workbench keeps it: the old word-level Wiktionary matches (match) become pairs of its first sense
+function fromStore(r) {
+	r = {...blank(r.w), ...r};
+	const m = (r.match || []).filter(x => !r.senses.some(s => s.pairs.some(p => p.src === 'wikts' && p.id === x.id)));
+	if (m.length) { if (!r.senses.length) r.senses.push(newSense()); r.senses[0].pairs.push(...m.map(x => ({src: 'wikts', id: x.id, text: x.gloss, pos: x.pos}))) }
+	delete r.match;
+	return r;
+}
 const newSense = (o = {}) => ({pos: '', def: '', syn: [], note: '', pairs: [], ex: null, from: null, ...o});
-const rec = () => ED.get(cur) || blank(cur);
-const started = r => !!r && (r.senses.some(s => s.def.trim() || s.syn.length || s.note.trim() || s.pairs.length || s.ex) || r.strike.length || r.add.length || r.match?.length);
+// A word opened with no senses of yours yet gets a draft: one sense for each Wiktionary and WordNet sense (DRAFT),
+// saved only once you change something (or finish the word)
+const DRAFT = new Map();
+const rec = () => DRAFT.get(cur) || ED.get(cur) || blank(cur);
+const hasSenses = r => !!r && r.senses.some(s => s.def.trim() || s.syn.length || s.note.trim() || s.pairs.length || s.ex);
+const started = r => !!r && (r.senses.some(s => s.def.trim() || s.syn.length || s.note.trim() || s.pairs.length || s.ex) || r.strike.length || r.add.length);
 const inMode = x => mode === 'write' ? !x[3] : !!x[3];
 
 function setStatus(msg) {
@@ -208,7 +220,7 @@ const isWikt = src => src === 'wikt' || src === 'wikts';
 async function show(w) {
 	const x = BY.get(w);
 	if (x && !inMode(x) && !$('#q').value) { mode = x[3] ? 'review' : 'write'; store('mode', mode); counts(); renderQueue() }
-	cur = w; info = null; active = 0; M = {q: '', got: null, items: new Map()};
+	cur = w; info = null; active = 0;
 	try { history.replaceState(null, '', '#' + encodeURIComponent(w)) } catch (e) {}
 	if (!document.querySelector('.qi.cur') && shown.some(x => x[0] === w)) renderQueue();
 	markQueueItem();
@@ -223,13 +235,14 @@ async function show(w) {
 	try { data = wb[0] ? JSON.parse(wb[0].body) : {} } catch (e) { console.warn(e) }
 	info = {data, nath1967, kaikki, h97, nath2022, kmwikt, ipa: ipa[0] ? clean(ipa[0].body) : '', wikt: kaikki.flatMap(e => wiktSenses(e.body)),
 		wikts: kms.map(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j)};
+	if (!hasSenses(ED.get(w)) && !DRAFT.has(w)) { const d = await draftFor(w); if (cur !== w) return; if (d) DRAFT.set(w, d) }
 	renderWork(); renderRef();
 	const exs = rec().senses.map(s => s.ex?.ref).filter(Boolean);
 	if (exs.length) { await verses(exs); if (cur === w) renderWork() }
 }
 
 function edit(f, rerender = true) {
-	const r = structuredClone(rec()); f(r); r.t = Date.now(); ED.set(cur, r);
+	const r = structuredClone(rec()); f(r); r.t = Date.now(); ED.set(cur, r); DRAFT.delete(cur);
 	if (rerender) renderWork();
 	markQueueItem(); counts();
 	clearTimeout(saveT); const copy = r; saveT = setTimeout(() => db.put(copy).then(() => setStatus(), e => { dbOK = false; setStatus(); console.warn(e) }), 400);
@@ -248,6 +261,7 @@ function renderWork() {
 	const rank = x ? Q.indexOf(x) + 1 : 0;
 	const struck = new Set(r.strike);
 	const pairIn = new Map(); senses.forEach((s, i) => s.pairs.forEach(p => pairIn.set(p.src + '|' + p.id, i)));
+	const ov = overlaps(senses), nov = [...ov.values()].reduce((n, js) => n + js.length, 0), draft = DRAFT.has(w) && r.senses.length;
 	const keep = scrolls();
 	$('#work').innerHTML = `
 	<div class="card whead">
@@ -257,6 +271,7 @@ function renderWork() {
 		${d.mus ? '<span class="tag mus">muslim word</span>' : ''}
 		<span class="nav"><button type="button" class="btn" data-act="prev" title="Previous ( [ )">← Prev</button><button type="button" class="btn ${r.done ? 'done' : 'go'}" data-act="done" title="Ctrl+Enter">${r.done ? '✓ Finished' : 'Finished → next'}</button></span>
 	</div>
+	${draft ? `<div class="card draftnote"><span>Suggested from Wiktionary and WordNet: ${senses.length} sense${senses.length > 1 ? 's' : ''}${nov ? `, ${nov} that may be the same meaning (combine them below)` : ''}. Saved when you change something or press Finished.</span><button type="button" class="dash" data-act="nodraft">Start empty instead</button></div>` : ''}
 	${senses.map((s, i) => `
 	<section class="card sense" data-i="${i}" style="${i === active && senses.length > 1 ? 'box-shadow: 0 0 0 3px var(--tab)' : ''}">
 		<div class="bar"><span>Sense ${i + 1}</span>
@@ -264,6 +279,8 @@ function renderWork() {
 			${fromTag(s)}<span class="sp"></span>
 			${i > 0 ? `<button type="button" data-act="up" data-i="${i}" title="Move up" aria-label="Move sense ${i + 1} up">↑</button>` : ''}
 			<button type="button" data-act="delsense" data-i="${i}" title="Remove this sense" aria-label="Remove sense ${i + 1}">×</button></div>
+		${(ov.get(i) || []).length ? `<div class="combine"><div class="l">Same meaning as a WordNet sense? Combine them into this one, or say they're not the same.</div>${ov.get(i).map(j => `<div class="cand"><span><b>Sense ${j + 1}</b> · WordNet <span class="r">${esc(senses[j].pos)}</span> ${esc(senses[j].def)}${senses[j].syn.length ? ` <span class="r">(${esc(senses[j].syn.join(', '))})</span>` : ''}</span>
+				<span class="acts"><button type="button" data-act="combine" data-i="${i}" data-j="${j}" data-keep="i">Combine, keep this wording</button><button type="button" data-act="combine" data-i="${i}" data-j="${j}" data-keep="j">Combine, keep WordNet's</button><button type="button" data-act="apart" data-i="${i}" data-j="${j}">Not the same</button></span></div>`).join('')}</div>` : ''}
 		<div class="fields">
 			<label class="l" for="def-${i}">Definition</label>
 			<textarea id="def-${i}" data-f="def" data-i="${i}" rows="1" placeholder="What it means, in English">${esc(s.def)}</textarea>
@@ -279,20 +296,12 @@ function renderWork() {
 		</div>
 	</section>`).join('')}
 	<div class="addsense"><button type="button" class="btn" data-act="addsense">+ Add a sense</button><span class="hint">Tab: Definition → Synonyms → Notes · Enter adds a synonym · Ctrl+Enter: finished, next word</span></div>
-	<section class="card match" aria-label="English Wiktionary senses">
-		<div class="sect">ENGLISH WIKTIONARY SENSES · tick the ones <span class="km">${esc(w)}</span> means</div>
-		<div class="chips" id="mchips"></div>
-		<input type="search" id="matchq" value="${esc(M.q)}" placeholder="An English word: its Wiktionary senses" autocomplete="off" aria-label="Find an English word's Wiktionary senses">
-		<div class="chips" id="mquick"></div>
-		<div id="mres"></div>
-	</section>
 	<section class="card aligned">
 		<div class="sect">ALIGNED ENGLISH · click a word to strike it, + to make it a synonym of sense ${active + 1}</div>
 		<div class="chips">${(d.al || []).map(([e, c]) => `<span class="al${struck.has(e) ? ' struck' : ''}"><button type="button" class="t" data-act="strike" data-e="${esc(e)}">${esc(e)}</button><span class="c">${c ? c.toLocaleString() : 'dict'}</span><button type="button" data-act="syn" data-e="${esc(e)}" aria-label="Add ${esc(e)} as a synonym">+</button></span>`).join('') || (info ? '<span class="none">No aligned English.</span>' : '…')}
 		${r.add.map(e => `<span class="al added"><span>${esc(e)}</span><button type="button" data-act="syn" data-e="${esc(e)}" aria-label="Add ${esc(e)} as a synonym">+</button><button type="button" data-act="unadd" data-e="${esc(e)}" aria-label="Remove ${esc(e)}">×</button></span>`).join('')}</div>
 		<form class="addw" id="addw"><input id="addq" placeholder="Add an English word the aligned list is missing" autocomplete="off" aria-label="Add an English word"><button type="submit" class="btn">Add</button></form>
 	</section>`;
-	renderMatch();
 	document.querySelectorAll('#work textarea').forEach(fit);
 	keep();
 }
@@ -328,6 +337,64 @@ function renderRef() {
 	keep();
 }
 
+// ---- The draft: a sense for each of the word's Wiktionary senses (its own entry's, then the translation tables') and
+// each WordNet sense linked to it (Wikidata's and the weakest links, under 0.6, left out), each paired with its source
+async function draftFor(w) {
+	const r = structuredClone(ED.get(w) || blank(w)), out = [];
+	info.wikt.forEach((x, j) => { const id = w + '#' + j;
+		out.push(newSense({pos: POSOF[x.pos] || '', def: x.text, from: {src: 'Wiktionary', id, text: x.text}, pairs: [{src: 'wikt', id, text: x.text, pos: x.pos}], pre: 1})) });
+	info.wikts.forEach(x => out.push(newSense({pos: POSOF[x.pos] || '', def: x.gloss, syn: [x.word], from: {src: 'Wiktionary', id: x.id, text: x.gloss}, pairs: [{src: 'wikts', id: x.id, text: x.gloss, pos: x.pos}], pre: 1})));
+	const ids = (info.data.wn || []).filter(l => !/[ក-៿]/.test(l[0]) && l[1] !== 'Wikidata' && l[2] >= 0.6).map(l => l[0]);
+	const got = ids.length ? await engine.lookup('wn', ids) : {};
+	for (const id of ids) {
+		const e = got[id]?.[0], v = e ? wnParse(e) : {id, pos: '', gloss: id.replace(/^[^(]*\(|\)$/g, ''), lemmas: [id.replace(/ \(.*$/s, '')]};
+		WN.set(id, v);
+		out.push(newSense({pos: POSOF[v.pos] || '', def: v.gloss, syn: v.lemmas, from: {src: 'WordNet', id, text: v.gloss}, pairs: [{src: 'wn', id, text: v.gloss, pos: v.pos}], pre: 1}));
+	}
+	if (!out.length) return null;
+	r.senses = out; return r;
+}
+// The English words a sense's sources give it: a Wiktionary sense's own words ("to get, obtain": get, obtain),
+// a translation table's headword, a WordNet sense's lemmas
+function wordsOf(s) {
+	const ws = [];
+	for (const p of s.pairs) {
+		if (p.src === 'wikts') ws.push(p.id.replace(/ \(.*$/s, ''));
+		else if (p.src === 'wikt') p.text.replace(/\(.*?\)/g, '').split(/[;,]/).forEach(t => ws.push(t.replace(/^\s*(to|a|an|the)\s+/i, '')));
+		else if (p.src === 'wn') ws.push(p.id.replace(/ \(.*$/s, ''), ...(WN.get(p.id)?.lemmas || []));
+	}
+	return new Set(ws.map(x => x.toLowerCase().replace(/_/g, ' ').trim()).filter(Boolean));
+}
+// The drafted WordNet senses that may be the same meaning as a drafted Wiktionary one: sharing an English word,
+// and the same part of speech (or one unknown); i -> [j…]. You combine them, or say they're not the same.
+function overlaps(senses) {
+	const out = new Map();
+	senses.forEach((a, i) => {
+		if (!a.pre || !a.pairs.some(p => isWikt(p.src))) return;
+		const wa = wordsOf(a);
+		senses.forEach((b, j) => {
+			if (j === i || !b.pre || b.pairs.some(p => isWikt(p.src)) || !b.pairs.some(p => p.src === 'wn')) return;
+			if (b.pairs.some(p => (a.apart || []).includes('wn|' + p.id))) return;
+			if (a.pos && b.pos && a.pos !== b.pos) return;
+			if ([...wordsOf(b)].some(x => wa.has(x))) (out.get(i) || out.set(i, []).get(i)).push(j);
+		});
+	});
+	return out;
+}
+// Sense j put into sense i: their pairs, synonyms and notes together; the wording of the one you keep (keep: 'i' or 'j')
+function combine(i, j, keep) {
+	edit(r => {
+		const a = r.senses[i], b = r.senses[j], w = keep === 'j' ? b : a;
+		const syn = []; for (const y of [...a.syn, ...b.syn]) if (!syn.some(z => z.toLowerCase() === y.toLowerCase())) syn.push(y);
+		r.senses[i] = {...a, pos: w.pos || a.pos || b.pos, def: w.def, from: w.from, syn,
+			note: [a.note, b.note].filter(x => x.trim()).join(' · '), ex: a.ex || b.ex,
+			pairs: [...a.pairs, ...b.pairs.filter(p => !a.pairs.some(q => q.src === p.src && q.id === p.id))]};
+		r.senses.splice(j, 1);
+		active = j < i ? i - 1 : i;
+	});
+	renderRef();
+}
+
 // Using a source's sense: a new sense (or the first empty one) with its text, tagged with where it came from, and paired
 function useSense(s) {
 	edit(r => {
@@ -346,34 +413,6 @@ function pairActive(p) {
 		if (!s.pairs.some(x => x.src === p.src && x.id === p.id)) s.pairs.push(p);
 	});
 	renderRef();
-}
-
-// ---- Matching the word with English Wiktionary's senses (the word's own, no sense of yours needed) ----
-let M = {q: '', got: null, items: new Map()}, matchT = null;
-async function matchSearch() {
-	const w = cur, q = M.q.trim().toLowerCase();
-	if (!q) { M.got = null; return renderMatch() }
-	M.got = {q, list: null}; renderMatch();
-	const es = (await engine.lookup('ensenses', [q], true))[q] || [];
-	if (cur !== w || M.q.trim().toLowerCase() !== q) return;
-	M.got = {q, list: es.map(wsParse).filter((e, j, a) => a.findIndex(x => x.id === e.id) === j)};
-	renderMatch(true);
-}
-function renderMatch(top) {
-	const box = $('#mres'); if (!box) return;
-	const r = rec(), mine = new Set((r.match || []).map(m => m.id));
-	const opt = e => { M.items.set(e.id, e); const on = mine.has(e.id);
-		return `<label class="opt${on ? ' on' : ''}"><input type="checkbox" data-mk="${esc(e.id)}"${on ? ' checked' : ''}><span><b>${esc(e.word)}</b> <span class="r">${esc(e.pos)}</span> ${esc(e.gloss)}</span></label>` };
-	$('#mchips').innerHTML = (r.match || []).map(m => `<span class="pair wikt" title="${esc(m.id)}">${esc(m.id)}<button type="button" class="x" data-act="unmatch" data-id="${esc(m.id)}" aria-label="Unmatch">×</button></span>`).join('')
-		|| '<span class="none">None matched yet.</span>';
-	const d = info?.data || {}, quick = [...new Set([...(d.al || []).map(a => a[0]).filter(e => !r.strike.includes(e)).slice(0, 8), ...r.add, ...r.senses.flatMap(s => s.syn)])];
-	$('#mquick').innerHTML = quick.length ? '<span class="l">Look up:</span>' + quick.map(e => `<button type="button" class="dash" data-act="msearch" data-e="${esc(e)}">${esc(e)}</button>`).join('') : '';
-	const linked = info?.wikts || [];
-	const st = box.scrollTop;
-	box.innerHTML = (linked.length ? `<div class="sect">WIKTIONARY'S TRANSLATION TABLES GIVE <span class="km">${esc(cur)}</span> FOR</div>` + linked.map(opt).join('') : '')
-		+ (M.got ? `<div class="sect">“${esc(M.got.q)}” IN ENGLISH WIKTIONARY</div>` + (M.got.list == null ? '<div class="none">Looking…</div>' : M.got.list.length ? M.got.list.map(opt).join('') : '<div class="none">No Wiktionary sense of that word (its translation tables are where the senses come from).</div>') : '')
-		+ (!linked.length && !M.got ? '<div class="none">Wiktionary\'s translation tables don\'t give this word: look up an English word.</div>' : '');
-	if (!top) box.scrollTop = st;
 }
 
 // ---- Pairing ----
@@ -511,8 +550,9 @@ document.addEventListener('click', async e => {
 	case 'delsense': edit(r => { r.senses.splice(i, 1); active = Math.max(0, Math.min(active, r.senses.length - 1)) }); return renderRef();
 	case 'up': edit(r => { [r.senses[i - 1], r.senses[i]] = [r.senses[i], r.senses[i - 1]]; active = i - 1 }); return renderRef();
 	case 'delsyn': return edit(r => r.senses[i].syn.splice(+t.dataset.j, 1));
-	case 'msearch': M.q = t.dataset.e; $('#matchq').value = M.q; return matchSearch();
-	case 'unmatch': { const id = t.dataset.id; edit(r => r.match = (r.match || []).filter(m => m.id !== id), false); return renderMatch() }
+	case 'combine': return combine(i, +t.dataset.j, t.dataset.keep);
+	case 'apart': { const j = +t.dataset.j; return edit(r => { const a = r.senses[i]; a.apart = [...new Set([...(a.apart || []), ...r.senses[j].pairs.filter(p => p.src === 'wn').map(p => 'wn|' + p.id)])] }) }
+	case 'nodraft': DRAFT.set(cur, {...structuredClone(ED.get(cur) || blank(cur)), senses: []}); active = 0; renderWork(); return renderRef();
 	case 'delpair': edit(r => r.senses[i].pairs.splice(+t.dataset.j, 1)); return renderRef();
 	case 'strike': { const v = t.dataset.e; return edit(r => { r.strike = r.strike.includes(v) ? r.strike.filter(x => x !== v) : [...r.strike, v] }) }
 	case 'unadd': { const v = t.dataset.e; return edit(r => r.add = r.add.filter(x => x !== v)) }
@@ -536,15 +576,12 @@ document.addEventListener('change', e => {
 	if (t.id === 'importIn') return importFile(t.files[0]);
 	if (t.dataset.f === 'pos') { const i = +t.dataset.i, v = t.value; return edit(r => { if (!r.senses.length) r.senses.push(newSense()); r.senses[i].pos = v }, false) }
 	if (t.dataset.pk && sheet?.kind === 'pair') { const k = t.dataset.pk; t.checked ? sheet.sel.set(k, (({label, how, ...x}) => x)(sheet.all.get(k))) : sheet.sel.delete(k); return renderSheet() }
-	if (t.dataset.mk && cur) { const e = M.items.get(t.dataset.mk); if (!e) return; const on = t.checked;
-		edit(r => { r.match = (r.match || []).filter(m => m.id !== e.id); if (on) r.match.push({id: e.id, word: e.word, pos: e.pos, gloss: e.gloss}) }, false); return renderMatch() }
 	if (t.dataset.ref && sheet?.kind === 'verse') { sheet.pick = t.dataset.ref; return renderSheet() }
 });
 let pairT = null;
 document.addEventListener('input', e => {
 	const t = e.target;
 	if (t.id === 'q') { limit = 300; return renderQueue() }
-	if (t.id === 'matchq') { M.q = t.value; clearTimeout(matchT); matchT = setTimeout(matchSearch, 300); return }
 	if (t.id === 'pairq') { sheet.q = t.value; clearTimeout(pairT); pairT = setTimeout(pairSearch, 300); return }
 	if (t.id === 'verseq') { sheet.q = t.value; sheet.top = true; const pos = t.selectionStart; renderSheet(); const n = $('#verseq'); n.focus(); n.setSelectionRange(pos, pos); return }
 	if (t.dataset.f === 'def' || t.dataset.f === 'note') {
@@ -590,7 +627,7 @@ $('#q').addEventListener('keydown', e => { if (e.key === 'Enter') { const w = no
 
 // ---- Export / import ----
 $('#exportBtn').onclick = () => {
-	const data = {format: 'peakslab-workbench', version: 1, exported: new Date().toISOString(), entries: [...ED.values()].filter(r => started(r) || r.done)};
+	const data = {format: 'peakslab-workbench', version: 1, exported: new Date().toISOString(), entries: [...ED.values()].filter(r => started(r) || r.done).map(r => ({...r, senses: r.senses.map(({pre, apart, ...s}) => s)}))};
 	const a = document.createElement('a');
 	a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], {type: 'application/json'}));
 	a.download = `km-en-workbench-${new Date().toISOString().slice(0, 10)}.json`;
@@ -602,7 +639,8 @@ async function importFile(f) {
 	try {
 		const data = JSON.parse(await f.text());
 		const rs = (data.entries || []).filter(r => r && r.w && Array.isArray(r.senses));
-		const newer = rs.filter(r => !(ED.get(r.w)?.t > r.t)).map(r => ({...blank(r.w), ...r}));
+		const newer = rs.filter(r => !(ED.get(r.w)?.t > r.t)).map(fromStore);
+		newer.forEach(r => DRAFT.delete(r.w));
 		newer.forEach(r => ED.set(r.w, r));
 		await db.putAll(newer);
 		counts(); renderQueue(); if (cur) { renderWork(); renderRef() }
@@ -615,7 +653,7 @@ async function importFile(f) {
 (async () => {
 	renderSrcs(); $('#hide').checked = hide;
 	engine.start();
-	try { for (const r of await db.all()) ED.set(r.w, {...blank(r.w), ...r}) } catch (e) { dbOK = false; console.warn(e) }
+	try { for (const r of await db.all()) ED.set(r.w, fromStore(r)) } catch (e) { dbOK = false; console.warn(e) }
 	Q = await fetch('data/queue.json').then(r => r.json());
 	Q.forEach(x => BY.set(x[0], x));
 	counts(); renderQueue(); setStatus();

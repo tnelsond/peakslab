@@ -108,11 +108,14 @@ mark { background: var(--mark); color: inherit; border-radius: 2px }
 .addsense .hint { font-size: 12px; color: #321 }
 @media (prefers-color-scheme: dark) { .addsense .hint { color: var(--muted) } }
 .aligned { padding: 10px 12px; display: grid; gap: 8px }
-.match { padding: 10px 12px; display: grid; gap: 8px }
-.match #matchq { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; background: var(--soft) }
-.match #mquick .l { font-size: 12px; color: var(--muted) }
-.match #mres { max-height: 420px; overflow-y: auto; display: grid; gap: 2px; align-content: start }
-.match #mres .sect { padding: 8px 0 2px }
+.draftnote { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; color: var(--muted); background: var(--blue-soft) }
+.draftnote span { flex: 1 1 260px }
+.combine { margin: 0 12px 8px; padding: 8px 10px; border: 1px dashed var(--blue); border-radius: 8px; background: var(--blue-soft); display: grid; gap: 6px; font-size: 13px }
+.combine .cand { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: start; border-top: 1px solid var(--line); padding-top: 6px }
+.combine .r { color: var(--muted); font-size: 12px }
+.combine .acts { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end }
+.combine .acts button { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 1px 8px; font-size: 12px }
+@media (max-width: 600px) { .combine .cand { grid-template-columns: minmax(0, 1fr) } .combine .acts { justify-content: flex-start } }
 .sect { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--muted) }
 .al { display: inline-flex; align-items: baseline; gap: 5px; border: 1px solid var(--line); border-radius: 12px; padding: 1px 4px 1px 10px; background: var(--card) }
 .al .c { font: 11px monospace; color: var(--muted) }
