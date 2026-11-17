@@ -70,6 +70,12 @@ const engine = (() => {
 			worker.postMessage({type: 'load', did, msg: [path, name, buf || (e ? e[3] : 65536)], timestamp: timestampOf(path)});
 		});
 	}
+	// Every headword of dict at every place in text: [[start, length, match, index, second]] (UTF-16 offsets)
+	async function matchall(dict, text) {
+		const did = D[dict];
+		if (!text || !await ready[did].p) return [];
+		return (await ask({type: 'matchall', did, query: text})).matches;
+	}
 	// Entries whose headword (or, second, an index word: WordNet's lemmas) is exactly one of keys: {key: [{header, body}]}
 	async function lookup(dict, keys, second = false) {
 		const did = D[dict];
@@ -92,7 +98,7 @@ const engine = (() => {
 		return out;
 	}
 	const one = async (dict, key, second) => (await lookup(dict, [key], second))[key] || [];
-	return {start, lookup, one, loadedCount: () => nLoaded};
+	return {start, lookup, one, matchall, loadedCount: () => nLoaded};
 })();
 
 // ---- Your work: IndexedDB ----
@@ -497,6 +503,7 @@ function renderSheet() {
 	if (fo) { const n = document.getElementById(fo[0]); if (n) { n.focus({preventScroll: true}); try { n.setSelectionRange(fo[1], fo[2]) } catch (e) {} } }
 }
 function drawSheet() {
+	if (sheet.kind === 'tag') return drawTagSheet();
 	const s = rec().senses[sheet.i] || newSense(), sh = sheet;
 	const head = `<div class="sh"><div class="t"><span>${sh.kind === 'pair' ? 'PAIR' : 'EXAMPLE FOR'} SENSE ${sh.i + 1} OF <span class="km" style="letter-spacing:0">${esc(cur)}</span></span><button type="button" data-act="close" aria-label="Close">×</button></div><div class="d">${esc(s.def || '(no definition yet)')}</div>${s.syn.length ? `<div style="font-size:13px;opacity:.85">synonyms: ${esc(s.syn.join(', '))}</div>` : ''}</div>`;
 	let body = '', filters = '', foot = '';
@@ -541,10 +548,145 @@ function setMode(m) {
 	const first = shown.find(x => !ED.get(x[0])?.done) || shown[0]; if (first) show(first[0]);
 }
 
+// ---- Reading the Bible (the Khmer ULB), every word glossed with your senses ----
+// A word's gloss is blank until you've finished it. Tap a word to tag which of its senses it is there: that sense
+// is then first in its gloss, in bold. Tags are the word's (tags: {"joh 3.16 2": a sense's id}: its second time
+// in that verse), saved and exported with it.
+const BOOKS = [['gen', 'Genesis'], ['exo', 'Exodus'], ['lev', 'Leviticus'], ['num', 'Numbers'], ['deu', 'Deuteronomy'], ['jos', 'Joshua'], ['jdg', 'Judges'], ['rut', 'Ruth'],
+	['1sa', '1 Samuel'], ['2sa', '2 Samuel'], ['1ki', '1 Kings'], ['2ki', '2 Kings'], ['1ch', '1 Chronicles'], ['2ch', '2 Chronicles'], ['ezr', 'Ezra'], ['neh', 'Nehemiah'],
+	['est', 'Esther'], ['job', 'Job'], ['psa', 'Psalms'], ['pro', 'Proverbs'], ['ecc', 'Ecclesiastes'], ['sol', 'Song of Songs'], ['isa', 'Isaiah'], ['jer', 'Jeremiah'],
+	['lam', 'Lamentations'], ['eze', 'Ezekiel'], ['dan', 'Daniel'], ['hos', 'Hosea'], ['joe', 'Joel'], ['amo', 'Amos'], ['oba', 'Obadiah'], ['jon', 'Jonah'], ['mic', 'Micah'],
+	['nah', 'Nahum'], ['hab', 'Habakkuk'], ['zep', 'Zephaniah'], ['hag', 'Haggai'], ['zec', 'Zechariah'], ['mal', 'Malachi'],
+	['mat', 'Matthew'], ['mar', 'Mark'], ['luk', 'Luke'], ['joh', 'John'], ['act', 'Acts'], ['rom', 'Romans'], ['1co', '1 Corinthians'], ['2co', '2 Corinthians'],
+	['gal', 'Galatians'], ['eph', 'Ephesians'], ['phi', 'Philippians'], ['col', 'Colossians'], ['1th', '1 Thessalonians'], ['2th', '2 Thessalonians'], ['1ti', '1 Timothy'],
+	['2ti', '2 Timothy'], ['tit', 'Titus'], ['phm', 'Philemon'], ['heb', 'Hebrews'], ['jam', 'James'], ['1pe', '1 Peter'], ['2pe', '2 Peter'], ['1jo', '1 John'],
+	['2jo', '2 John'], ['3jo', '3 John'], ['jud', 'Jude'], ['rev', 'Revelation']];
+let reading = stored('reading', false), at = stored('readAt', {b: 'joh', c: 1}), CH = null; // CH: the chapter shown
+const NCH = new Map(); // a book's number of chapters, once known
+// A verse in words: the longest words of the workbench's list that cover the most of it (fewest letters left
+// over, then fewest pieces); what's between them (spaces, punctuation, letters in no word) as it is
+function words(text, ms, from = 0) {
+	const n = text.length, starts = Array.from({length: n}, () => []), km = c => /[ក-៿᧠-᧿]/.test(c);
+	for (const [a, len, , , sec] of ms) if (!sec && a >= from && a - from + len <= n) starts[a - from].push(len);
+	const best = new Array(n + 1); best[n] = [0, 0, 0];
+	for (let i = n - 1; i >= 0; i--) {
+		const k = km(text[i]) ? 1 : 0, nx = best[i + 1];
+		let b = [nx[0] + k, nx[1] + k, 0];
+		for (const len of starts[i]) { const c = best[i + len]; if (c[0] < b[0] || c[0] === b[0] && c[1] + 1 < b[1]) b = [c[0], c[1] + 1, len] }
+		best[i] = b;
+	}
+	const out = [];
+	for (let i = 0; i < n;) {
+		const len = best[i][2];
+		if (len) { out.push({w: text.slice(i, i + len)}); i += len }
+		else { if (typeof out.at(-1)?.t === 'string') out.at(-1).t += text[i]; else out.push({t: text[i]}); i++ }
+	}
+	return out;
+}
+// Your gloss of a word: nothing until it's finished; then the first synonym of each of its first three senses (one
+// without: the first piece of its definition), or, none having any, the first sentence of the first two senses'
+// definitions; the sense tagged here first, in bold
+const firstPiece = d => d.split(/[;,]/)[0].replace(/\s*\([^)]*\)/g, '').trim();
+const firstSent = d => (d.match(/^.*?[.!?។](?=\s|$)/)?.[0] ?? d).replace(/[.។]$/, '').trim();
+function readGloss(w, key) {
+	const r = ED.get(w);
+	if (!r?.done) return '';
+	const ss = r.senses.filter(x => x.def.trim() || x.syn.length), tag = r.tags?.[key], ti = tag ? ss.findIndex(x => x.id === tag) : -1;
+	const order = ti > 0 ? [ss[ti], ...ss.filter((_, j) => j !== ti)] : ss;
+	const syn = order.slice(0, 3).map(x => x.syn[0]);
+	const gs = syn.some(Boolean) ? order.slice(0, 3).map((x, j) => syn[j] || firstPiece(x.def)) : order.slice(0, 2).map(x => firstSent(x.def));
+	const seen = new Set();
+	return gs.map((g, j) => [g, j === 0 && ti >= 0]).filter(([g]) => g && !seen.has(g.toLowerCase()) && seen.add(g.toLowerCase()))
+		.map(([g, bold]) => bold ? `<b>${esc(g)}</b>` : esc(g)).join('; ');
+}
+async function loadChapter(b, c) {
+	const keys = Array.from({length: 176}, (_, v) => `${b} ${c}.${v + 1}`);
+	const [k, e] = await Promise.all([engine.lookup('ulb', keys), engine.lookup('enult', keys)]);
+	const text = es => es?.[0] ? clean(es[0].body.split('\t').slice(1).join(' ')) : '';
+	const vs = keys.filter(r => k[r]).map(r => ({ref: r, km: text(k[r]), en: text(e[r])}));
+	const name = k[keys[0]]?.[0]?.body.split('\t')[0].replace(/\s*[\d:]+$/, '') || '';
+	// The verses' words: one search of them all (normalized, the list's way: same length), split verse by verse
+	const all = vs.map(v => norm(v.km.replace(/​/g, ''))).join('\n'), ms = await engine.matchall('wb', all);
+	let o = 0;
+	for (const v of vs) { const t = norm(v.km.replace(/​/g, '')); v.words = words(t, ms, o); o += t.length + 1 }
+	return {b, c, name, vs};
+}
+async function chapterCount(b) {
+	if (NCH.has(b)) return NCH.get(b);
+	const keys = Array.from({length: 150}, (_, c) => `${b} ${c + 1}.1`), got = await engine.lookup('ulb', keys);
+	const n = keys.filter(k => got[k]).length || 1;
+	NCH.set(b, n); return n;
+}
+async function openChapter(b, c) {
+	at = {b, c}; store('readAt', at);
+	$('#read').innerHTML = '<div class="card empty">Loading the chapter…</div>';
+	const [ch] = await Promise.all([loadChapter(b, c), chapterCount(b)]);
+	if (at.b !== b || at.c !== c) return;
+	CH = ch; renderRead(true);
+}
+function renderRead(top) {
+	const el = $('#read'); if (!el || !CH) return;
+	const st = el.scrollTop, n = NCH.get(CH.b) || 1, bi = BOOKS.findIndex(x => x[0] === CH.b);
+	let total = 0, glossed = 0;
+	const verse = v => {
+		const seen = new Map();
+		const ws = v.words.map(p => {
+			if (p.t != null) return `<span class="rt">${esc(p.t)}</span>`;
+			const w = p.w, k = (seen.get(w) || 0) + 1; seen.set(w, k);
+			const key = `${v.ref} ${k}`, r = ED.get(w), g = readGloss(w, key), tagged = !!r?.tags?.[key];
+			total++; if (g) glossed++;
+			return `<button type="button" class="rw${g ? ' done' : r && hasSenses(r) ? ' started' : ''}${tagged ? ' tagged' : ''}" data-rw="${esc(w)}" data-key="${esc(key)}"><span class="k km">${esc(w)}</span><span class="g">${g || '&nbsp;'}</span></button>`;
+		}).join('');
+		return `<div class="rv"><span class="vn">${v.ref.split('.')[1]}</span><div class="ws">${ws}</div>${v.en ? `<div class="en">${esc(v.en)}</div>` : ''}</div>`;
+	};
+	const body = CH.vs.map(verse).join('');
+	el.innerHTML = `<div class="card rhead">
+			<select id="rbook" aria-label="Book">${BOOKS.map(([c, nm]) => `<option value="${c}"${c === CH.b ? ' selected' : ''}>${nm}</option>`).join('')}</select>
+			<select id="rch" aria-label="Chapter">${Array.from({length: n}, (_, j) => `<option value="${j + 1}"${j + 1 === CH.c ? ' selected' : ''}>${j + 1}</option>`).join('')}</select>
+			<span class="km rname">${esc(CH.name)} ${CH.c}</span>
+			<span class="rnav"><button type="button" class="btn" data-act="rprev"${CH.c === 1 && bi === 0 ? ' disabled' : ''}>← Chapter</button><button type="button" class="btn" data-act="rnext"${CH.c === n && bi === BOOKS.length - 1 ? ' disabled' : ''}>Chapter →</button></span>
+			<span class="rcount">${glossed.toLocaleString()} of ${total.toLocaleString()} words glossed</span>
+		</div>
+		<div class="card rtext">${body || '<div class="empty">No verses.</div>'}</div>`;
+	el.scrollTop = top ? 0 : st;
+}
+function setReading(on) {
+	reading = on; store('reading', on);
+	$('#app').classList.toggle('reading', on);
+	$('#readBtn').setAttribute('aria-pressed', String(on));
+	$('#readBtn').textContent = on ? 'Words' : 'Bible';
+	if (on) CH && CH.b === at.b && CH.c === at.c ? renderRead() : openChapter(at.b, at.c);
+}
+// A word tapped in the Bible: which of its senses it is there
+function tagEditor(w, key) { sheet = {kind: 'tag', w, key, i: 0}; renderSheet() }
+function drawTagSheet() {
+	const {w, key} = sheet, r = ED.get(w), ss = (r?.senses || []).filter(x => x.def.trim() || x.syn.length), tag = r?.tags?.[key];
+	const [b, cv] = key.split(' '), nth = +key.split(' ')[2], bk = BOOKS.find(x => x[0] === b)?.[1] || b;
+	const opt = (id, label) => `<label class="opt${(tag || '') === id ? ' on' : ''}"><input type="radio" name="tagsense" data-tagsense="${esc(id)}"${(tag || '') === id ? ' checked' : ''}><span>${label}</span></label>`;
+	const body = !ss.length ? `<div class="none">You haven't written senses for <span class="km">${esc(w)}</span> yet.</div>`
+		: `<div class="sect">WHICH SENSE IS IT HERE?</div>` + ss.map((x, j) => opt(x.id || `#${j}`, `<b>${j + 1}.</b> ${x.pos ? `<span class="r">${esc(x.pos)}</span> ` : ''}${esc(x.def || '')}${x.syn.length ? ` <span class="e">(${esc(x.syn.join(', '))})</span>` : ''}`)).join('') + opt('', 'Not tagged');
+	document.body.insertAdjacentHTML('beforeend', `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="Tag ${esc(w)} in ${esc(bk)} ${esc(cv)}">
+		<div class="sh"><div class="t"><span><span class="km" style="letter-spacing:0">${esc(w)}</span> · ${esc(bk)} ${esc(cv.replace('.', ':'))}${nth > 1 ? ` (its ${nth === 2 ? '2nd' : nth === 3 ? '3rd' : nth + 'th'} time in the verse)` : ''}</span><button type="button" data-act="close" aria-label="Close">×</button></div>
+		<div class="d">${r?.done ? `Gloss here: ${readGloss(w, key) || '—'}` : "Not finished yet: its gloss stays blank until you finish it."}</div></div>
+		<div class="sb">${body}</div>
+		<div class="sfoot"><button type="button" class="btn go" data-act="ropen">Open <span class="km">${esc(w)}</span> in the Workbench</button></div></section>`);
+}
+// Tags a sense (an id, given to the senses that have none: "#2" is the second without one) to w at key; '' untags
+function tagSense(w, key, id) {
+	const r = structuredClone(ED.get(w)); if (!r) return;
+	const ss = r.senses.filter(x => x.def.trim() || x.syn.length);
+	if (id.startsWith('#')) { const x = ss[+id.slice(1)]; if (!x) return; id = x.id ||= Math.random().toString(36).slice(2, 9) }
+	r.tags = {...r.tags}; if (id) r.tags[key] = id; else delete r.tags[key];
+	r.t = Date.now(); ED.set(w, r); DRAFT.delete(w);
+	db.put(r).then(() => setStatus(), e => { dbOK = false; setStatus(); console.warn(e) });
+	renderRead(); renderSheet();
+}
+
 // ---- Events ----
 document.addEventListener('click', async e => {
-	const t = e.target.closest('[data-act], [data-w], [data-src], [data-more], [data-tab], [data-group]');
+	const t = e.target.closest('[data-act], [data-w], [data-rw], [data-src], [data-more], [data-tab], [data-group]');
 	if (!t) return;
+	if (t.dataset.rw) return tagEditor(t.dataset.rw, t.dataset.key);
 	if (t.dataset.w) return show(t.dataset.w);
 	if (t.dataset.more) { limit += 300; return renderQueue() }
 	if (t.dataset.src) { const k = t.dataset.src; on.has(k) ? on.delete(k) : on.add(k); if (!on.size) on.add(k); store('srcs', [...on]); renderSrcs(); return renderQueue() }
@@ -553,6 +695,13 @@ document.addEventListener('click', async e => {
 	const a = t.dataset.act, i = +t.dataset.i;
 	switch (a) {
 	case 'close': sheet = null; return renderSheet();
+	case 'rprev': case 'rnext': {
+		const bi = BOOKS.findIndex(x => x[0] === CH.b), d = a === 'rnext' ? 1 : -1;
+		if (CH.c + d >= 1 && CH.c + d <= (NCH.get(CH.b) || 1)) return openChapter(CH.b, CH.c + d);
+		const nb = BOOKS[bi + d]; if (!nb) return;
+		return openChapter(nb[0], d > 0 ? 1 : await chapterCount(nb[0]));
+	}
+	case 'ropen': { const w = sheet.w; sheet = null; renderSheet(); setReading(false); return show(w) }
 	case 'pf': if (sheet?.kind === 'pair') { sheet.f = t.dataset.f; sheet.top = true; renderSheet() } return;
 	case 'fold': { const id = t.dataset.card; closed.has(id) ? closed.delete(id) : closed.add(id); store('closed', [...closed]); return renderRef() }
 	}
@@ -599,6 +748,9 @@ document.addEventListener('change', e => {
 	if (t.id === 'hide') { hide = t.checked; store('hide', hide); return renderQueue() }
 	if (t.id === 'importIn') return importFile(t.files[0]);
 	if (t.dataset.f === 'syn' && t.isConnected && t.value.trim()) { const v = t.value; t.value = ''; return addSyn(+t.dataset.i, v, false) }
+	if (t.dataset.tagsense != null && sheet?.kind === 'tag') return tagSense(sheet.w, sheet.key, t.dataset.tagsense);
+	if (t.id === 'rbook') return openChapter(t.value, 1);
+	if (t.id === 'rch') return openChapter(at.b, +t.value);
 	if (t.dataset.f === 'pos') { const i = +t.dataset.i, v = t.value; return edit(r => { if (!r.senses.length) r.senses.push(newSense()); r.senses[i].pos = v }, false) }
 	if (t.dataset.pk && sheet?.kind === 'pair') { const k = t.dataset.pk; t.checked ? sheet.sel.set(k, (({label, how, ...x}) => x)(sheet.all.get(k))) : sheet.sel.delete(k); return renderSheet() }
 	if (t.dataset.ref && sheet?.kind === 'verse') { sheet.pick = t.dataset.ref; return renderSheet() }
@@ -679,7 +831,7 @@ async function importFile(f) {
 		newer.forEach(r => DRAFT.delete(r.w));
 		newer.forEach(r => ED.set(r.w, r));
 		await db.putAll(newer);
-		counts(); renderQueue(); if (cur) { renderWork(); renderRef() }
+		counts(); renderQueue(); if (cur) { renderWork(); renderRef() } if (reading) renderRead();
 		setStatus(`Imported ${newer.length.toLocaleString()} word${newer.length === 1 ? "" : "s"} (${(rs.length - newer.length).toLocaleString()} older than yours kept as they were)`);
 	} catch (e) { setStatus(`That file couldn't be read: ${e.message}`) }
 	$('#importIn').value = '';
@@ -696,4 +848,6 @@ async function importFile(f) {
 	const h = decodeURIComponent(location.hash.slice(1));
 	const first = BY.has(h) ? h : (shown.find(x => !ED.get(x[0])?.done) || shown[0])?.[0];
 	if (first) show(first);
+	$('#readBtn').onclick = () => setReading(!reading);
+	if (reading) setReading(true);
 })();
