@@ -567,6 +567,30 @@ const BOOKS = [['gen', 'Genesis'], ['exo', 'Exodus'], ['lev', 'Leviticus'], ['nu
 	['2jo', '2 John'], ['3jo', '3 John'], ['jud', 'Jude'], ['rev', 'Revelation']];
 let reading = stored('reading', false), at = stored('readAt', {b: 'joh', c: 1}), CH = null; // CH: the chapter shown
 const NCH = new Map(); // a book's number of chapters, once known
+// Boxes you've broken: everywhere (all: a word -> its parts) or at one place (at: a verse -> {"word 2": its parts}:
+// its second time there). Remembered here, and exported.
+let SPL = stored('splits', {all: {}, at: {}});
+const saveSplits = () => store('splits', SPL);
+// A verse's words with the breaks in: a part knows the box it came from (from, fk: "word 2") and whether it's
+// broken there only or everywhere
+function broken(v) {
+	const seen = new Map(), out = [];
+	for (const p of v.words) {
+		if (p.t != null) { out.push(p); continue }
+		const k = (seen.get(p.w) || 0) + 1; seen.set(p.w, k);
+		const fk = `${p.w} ${k}`, here = SPL.at[v.ref]?.[fk], parts = here || SPL.all[p.w];
+		if (parts) parts.forEach(x => out.push({w: x, from: p.w, fk, scope: here ? 'here' : 'all'})); else out.push(p);
+	}
+	return out;
+}
+// The ways a box's word can be split into shorter words of the list: fewest parts first (six at most)
+function splitsOf(word, ms) {
+	const starts = Array.from({length: word.length}, () => []), out = [];
+	for (const [a, len, , , sec] of ms) if (!sec && len < word.length && a + len <= word.length) starts[a].push(len);
+	const go = (i, parts) => { if (out.length >= 200) return; if (i === word.length) return void out.push(parts); for (const len of starts[i]) go(i + len, [...parts, word.slice(i, i + len)]) };
+	go(0, []);
+	return out.sort((x, y) => x.length - y.length).slice(0, 6);
+}
 // A verse in words: the longest words of the workbench's list that cover the most of it (fewest letters left
 // over, then fewest pieces); what's between them (spaces, punctuation, letters in no word) as it is
 function words(text, ms, from = 0) {
@@ -634,12 +658,13 @@ function renderRead(top) {
 	let total = 0, glossed = 0;
 	const verse = v => {
 		const seen = new Map();
-		const ws = v.words.map(p => {
+		const ws = broken(v).map(p => {
 			if (p.t != null) return `<span class="rt">${esc(p.t)}</span>`;
 			const w = p.w, k = (seen.get(w) || 0) + 1; seen.set(w, k);
 			const key = `${v.ref} ${k}`, r = ED.get(w), g = readGloss(w, key), tagged = !!r?.tags?.[key];
 			total++; if (g) glossed++;
-			return `<button type="button" class="rw${g ? ' done' : r && hasSenses(r) ? ' started' : ''}${tagged ? ' tagged' : ''}" data-rw="${esc(w)}" data-key="${esc(key)}"><span class="k km">${esc(w)}</span><span class="g">${g || '&nbsp;'}</span></button>`;
+			const from = p.from ? ` data-from="${esc(p.from)}" data-fk="${esc(p.fk)}" data-scope="${p.scope}"` : '';
+			return `<button type="button" class="rw${g ? ' done' : r && hasSenses(r) ? ' started' : ''}${tagged ? ' tagged' : ''}${p.from ? ' part' : ''}" data-rw="${esc(w)}" data-key="${esc(key)}"${from}><span class="k km">${esc(w)}</span><span class="g">${g || '&nbsp;'}</span></button>`;
 		}).join('');
 		return `<div class="rv"><span class="vn">${v.ref.split('.')[1]}</span><div class="ws">${ws}</div>${v.en ? `<div class="en">${esc(v.en)}</div>` : ''}</div>`;
 	};
@@ -662,7 +687,13 @@ function setReading(on) {
 	if (on) CH && CH.b === at.b && CH.c === at.c ? renderRead() : openChapter(at.b, at.c);
 }
 // A word tapped in the Bible: which of its senses it is there
-function tagEditor(w, key) { sheet = {kind: 'tag', w, key, i: 0}; renderSheet() }
+async function tagEditor(w, key, from) {
+	const sh = sheet = {kind: 'tag', w, key, i: 0, from, cands: null}; renderSheet();
+	if (from) return;
+	const c = splitsOf(w, await engine.matchall('wb', w));
+	if (sheet !== sh) return;
+	sh.cands = c; renderSheet();
+}
 function drawTagSheet() {
 	const {w, key} = sheet, r = ED.get(w), ss = (r?.senses || []).filter(x => x.def.trim() || x.syn.length), tag = r?.tags?.[key];
 	const [b, cv] = key.split(' '), nth = +key.split(' ')[2], bk = BOOKS.find(x => x[0] === b)?.[1] || b;
@@ -672,8 +703,33 @@ function drawTagSheet() {
 	document.body.insertAdjacentHTML('beforeend', `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="Tag ${esc(w)} in ${esc(bk)} ${esc(cv)}">
 		<div class="sh"><div class="t"><span><span class="km" style="letter-spacing:0">${esc(w)}</span> · ${esc(bk)} ${esc(cv.replace('.', ':'))}${nth > 1 ? ` (its ${nth === 2 ? '2nd' : nth === 3 ? '3rd' : nth + 'th'} time in the verse)` : ''}</span><button type="button" data-act="close" aria-label="Close">×</button></div>
 		<div class="d">${r?.done ? `Gloss here: ${readGloss(w, key) || '—'}` : "Not finished yet: its gloss stays blank until you finish it."}</div></div>
-		<div class="sb">${body}</div>
-		<div class="sfoot"><button type="button" class="btn go" data-act="ropen">Open <span class="km">${esc(w)}</span> in the Workbench</button></div></section>`);
+		<div class="sb">${body}${splitHTML()}</div>
+		<div class="sfoot">${BY.has(w) ? `<button type="button" class="btn go" data-act="ropen">Open <span class="km">${esc(w)}</span> in the Workbench</button>` : '<span class="none">Not in the workbench\'s word list.</span>'}</div></section>`);
+}
+// The sheet's "Wrong box?": a part of a broken box joins back; a box breaks, here or everywhere, where you put spaces
+// (the ways the word list splits it fill them in)
+function splitHTML() {
+	const {w, key, from} = sheet, ref = key.split(' ').slice(0, 2).join(' ');
+	if (from) return `<div class="sect">BROKEN BOX</div><div class="splitb"><span>A part of <span class="km">${esc(from.w)}</span>, broken ${from.scope === 'here' ? 'here only' : 'everywhere it is'}.</span>
+		<button type="button" class="btn" data-act="join">Join back into <span class="km">${esc(from.w)}</span>${from.scope === 'all' ? ' everywhere' : ''}</button></div>`;
+	const cands = sheet.cands, first = cands?.[0]?.join(' ') ?? [...w].join('');
+	return `<div class="sect">WRONG BOX? BREAK IT</div><div class="splitb">
+		${cands == null ? '<span class="none">Looking for its parts…</span>' : cands.length ? `<span class="l">As the word list has its parts:</span><div class="chips">${cands.map(c => `<button type="button" class="dash km" data-act="splitpick" data-parts="${esc(c.join(' '))}">${c.map(esc).join(' · ')}</button>`).join('')}</div>` : '<span class="none">No words of the list make it up: put spaces where it breaks.</span>'}
+		<input type="text" id="splitq" class="km" value="${esc(cands?.length ? first : w)}" aria-label="The word with spaces where it breaks" autocomplete="off" spellcheck="false">
+		<div class="row"><button type="button" class="btn" data-act="splithere">Break it here only</button><button type="button" class="btn" data-act="splitall">Break it everywhere</button><span class="none" id="splitmsg"></span></div></div>`;
+}
+function doSplit(scope) {
+	const {w, key} = sheet, parts = $('#splitq').value.trim().split(/\s+/).filter(Boolean);
+	if (parts.length < 2 || parts.join('') !== w) { $('#splitmsg').textContent = parts.join('') !== w ? `The parts must make up ${w} exactly.` : 'Put at least one space in it.'; return }
+	const ref = key.split(' ').slice(0, 2).join(' '), fk = `${w} ${key.split(' ')[2]}`;
+	if (scope === 'all') SPL.all[w] = parts; else (SPL.at[ref] ||= {})[fk] = parts;
+	saveSplits(); sheet = null; renderSheet(); renderRead();
+}
+function joinBack() {
+	const {key, from} = sheet, ref = key.split(' ').slice(0, 2).join(' ');
+	if (from.scope === 'all') delete SPL.all[from.w];
+	else { delete SPL.at[ref]?.[from.fk]; if (SPL.at[ref] && !Object.keys(SPL.at[ref]).length) delete SPL.at[ref] }
+	saveSplits(); sheet = null; renderSheet(); renderRead();
 }
 // Tags a sense (an id, given to the senses that have none: "#2" is the second without one) to w at key; '' untags
 function tagSense(w, key, id) {
@@ -690,7 +746,7 @@ function tagSense(w, key, id) {
 document.addEventListener('click', async e => {
 	const t = e.target.closest('[data-act], [data-w], [data-rw], [data-src], [data-more], [data-tab], [data-group]');
 	if (!t) return;
-	if (t.dataset.rw) return tagEditor(t.dataset.rw, t.dataset.key);
+	if (t.dataset.rw) return tagEditor(t.dataset.rw, t.dataset.key, t.dataset.from ? {w: t.dataset.from, fk: t.dataset.fk, scope: t.dataset.scope} : null);
 	if (t.dataset.w) return show(t.dataset.w);
 	if (t.dataset.more) { limit += 300; return renderQueue() }
 	if (t.dataset.src) { const k = t.dataset.src; on.has(k) ? on.delete(k) : on.add(k); if (!on.size) on.add(k); store('srcs', [...on]); renderSrcs(); return renderQueue() }
@@ -705,6 +761,10 @@ document.addEventListener('click', async e => {
 		const nb = BOOKS[bi + d]; if (!nb) return;
 		return openChapter(nb[0], d > 0 ? 1 : await chapterCount(nb[0]));
 	}
+	case 'splitpick': $('#splitq').value = t.dataset.parts; $('#splitmsg').textContent = ''; return;
+	case 'splithere': return doSplit('here');
+	case 'splitall': return doSplit('all');
+	case 'join': return joinBack();
 	case 'ropen': { const w = sheet.w; sheet = null; renderSheet(); setReading(false); return show(w) }
 	case 'pf': if (sheet?.kind === 'pair') { sheet.f = t.dataset.f; sheet.top = true; renderSheet() } return;
 	case 'fold': { const id = t.dataset.card; closed.has(id) ? closed.delete(id) : closed.add(id); store('closed', [...closed]); return renderRef() }
@@ -820,7 +880,7 @@ function setTheme(t) {
 setTheme(theme);
 $('#themeBtn').onclick = () => setTheme({auto: 'light', light: 'dark', dark: 'auto'}[theme]);
 $('#exportBtn').onclick = () => {
-	const data = {format: 'peakslab-workbench', version: 1, exported: new Date().toISOString(), entries: [...ED.values()].filter(r => started(r) || r.done).map(r => ({...r, senses: r.senses.map(({pre, apart, ...s}) => s)}))};
+	const data = {format: 'peakslab-workbench', version: 1, exported: new Date().toISOString(), entries: [...ED.values()].filter(r => started(r) || r.done).map(r => ({...r, senses: r.senses.map(({pre, apart, ...s}) => s)})), splits: SPL};
 	const a = document.createElement('a');
 	a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], {type: 'application/json'}));
 	a.download = `km-en-workbench-${new Date().toISOString().slice(0, 10)}.json`;
@@ -834,6 +894,7 @@ async function importFile(f) {
 		const rs = (data.entries || []).filter(r => r && r.w && Array.isArray(r.senses));
 		const newer = rs.filter(r => !(ED.get(r.w)?.t > r.t)).map(fromStore);
 		newer.forEach(r => DRAFT.delete(r.w));
+		if (data.splits) { Object.assign(SPL.all, data.splits.all); for (const [ref, ks] of Object.entries(data.splits.at || {})) SPL.at[ref] = {...SPL.at[ref], ...ks}; saveSplits() }
 		newer.forEach(r => ED.set(r.w, r));
 		await db.putAll(newer);
 		counts(); renderQueue(); if (cur) { renderWork(); renderRef() } if (reading) renderRead();

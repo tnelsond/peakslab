@@ -190,6 +190,11 @@ p-a { color: var(--blue) }
 .sheet .sfoot { padding: 10px 18px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center }
 .sheet .sfoot span { flex: 1; font-size: 13px; color: var(--muted) }
 .tabs { display: none }
+.rw.part { border-color: var(--line); border-style: dashed }
+.splitb { display: grid; gap: 6px; padding: 4px 0 8px }
+.splitb .l { font-size: 12px; color: var(--muted) }
+.splitb input { border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; background: var(--soft); font-size: 18px }
+.splitb .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
 /* The Bible view: the chapter, every word in a box with your gloss under it (blank until you finish the word) */
 #read { display: none; flex: 1; min-width: 0; overflow-y: auto; flex-direction: column; gap: 10px; padding-bottom: 40px }
 #read > * { flex: none }
