@@ -3,8 +3,7 @@
 entry (its English words index words: searching English finds the Khmer too):
 
   - its English words, all that correspond to it, commonest first (km-align's, turned round
-    by utils/flatalign.py: Bibles, OPUS, NLLB word-aligned, and people's translations), by sense
-    where Chinese and Thai tell them apart (utils/zhsenses.py)
+    by utils/flatalign.py: Bibles, OPUS, NLLB word-aligned, and people's translations)
   - English Wiktionary's entry for it (km-kaikki, CC BY-SA)
   - the English senses Wiktionary's translation tables give it (wiktionary/km-senses)
   - Wikidata's items it's the label of (km-wikidata, CC0)
@@ -95,9 +94,9 @@ LABEL = {'senses': None, 'aligned': 'aligned', 'kaikki': 'Wiktionary', 'trans': 
          'wikidata': 'Wikidata', 'strongs': 'Bible: Greek and Hebrew'}
 with open(OUT, 'w', encoding='utf-8') as o:
     o.write('#desc\tKhmer–English, as complete as open sources make it: every Khmer word they give English for, with all they say of it. '
-            'Its English words, all that correspond to it, commonest first, by sense where Chinese and Thai tell them '
-            'apart (the Bible, ALT, FLORES-200 and OPUS’s subtitles, TED talks and KDE by the same English; a sense named by its Chinese, its meanings CC-CEDICT’s and Wiktionary’s, and its Thai): machine-made (Bibles, OPUS and NLLB '
-            'word-aligned with eflomal), with people’s translations (Wiktionary’s, SBBIC’s); '
+            'Its English words, all that correspond to it, commonest first: machine-made (Bibles, OPUS and NLLB '
+            'word-aligned with eflomal), with people’s translations (Wiktionary’s, SBBIC’s); (muslim word): a word only '
+            'the Khmer Muslim Bible has of the Khmer Bibles; '
             '<a href="https://en.wiktionary.org/">English Wiktionary</a>’s entry and translation tables '
             '(via <a href="https://kaikki.org/">Kaikki</a>); <a href="https://www.wikidata.org/">Wikidata</a> (CC0); the Greek '
             'and Hebrew words the Khmer Bibles translate by it (STEPBible’s tagged texts, CC BY 4.0); '
