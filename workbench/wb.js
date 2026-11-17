@@ -25,6 +25,9 @@ const DICTS = [
 	['wn', 'english/thesaurus/en-wn.peak.zst', 'WordNet'],
 	['ulb', 'khmer/bible/text/km-ulb.peak.zst', 'Khmer ULB'],
 	['enult', 'english/bible/text/en-ult.peak.zst', 'English ULT'],
+	// English Wiktionary's senses (headwords "word (gloss)", found by the word), and by the Khmer its translation tables give them
+	['ensenses', 'english/wiktionary/en-senses.peak.zst', 'Wiktionary senses'],
+	['kmsenses', 'khmer/wiktionary/km-senses.peak.zst', 'Wiktionary translations'],
 ];
 const D = Object.fromEntries(DICTS.map((d, i) => [d[0], i]));
 const engine = (() => {
@@ -195,6 +198,12 @@ function wnParse(e) {
 	const p = (e.body.match(/<p>(.*?)<\/p>/s) || [])[1];
 	return {id: e.header, pos, gloss: p ? clean(p) : e.header.replace(/^[^(]*\(|\)$/g, ''), lemmas};
 }
+// An English Wiktionary sense (en-senses', km-senses' headword "word (gloss)"): its word, part of speech and gloss
+function wsParse(e) {
+	return {id: e.header, word: e.header.replace(/ \(.*$/s, ''), pos: clean(e.body.split('\t')[0] || ''), gloss: e.header.replace(/^[^(]*\(|\)$/g, '')};
+}
+const PAIRSRC = {wn: 'WordNet', wd: 'Wikidata', wikt: 'Wiktionary', wikts: 'Wiktionary'};
+const isWikt = src => src === 'wikt' || src === 'wikts';
 
 async function show(w) {
 	const x = BY.get(w);
@@ -206,11 +215,14 @@ async function show(w) {
 	document.querySelector('.qi.cur')?.scrollIntoView({block: 'nearest'});
 	$('#app').classList.remove('qopen');
 	renderWork(); renderRef();
-	const [wb, nath1967, kaikki, h97, nath2022, kmwikt, ipa] = await Promise.all(['wb', 'nath1967', 'kaikki', 'h97', 'nath2022', 'kmwikt', 'ipa'].map(d => engine.one(d, w)));
+	const [[wb, nath1967, kaikki, h97, nath2022, kmwikt, ipa], kms] = await Promise.all([
+		Promise.all(['wb', 'nath1967', 'kaikki', 'h97', 'nath2022', 'kmwikt', 'ipa'].map(d => engine.one(d, w))),
+		engine.one('kmsenses', w, true)]);
 	if (cur !== w) return;
 	let data = {};
 	try { data = wb[0] ? JSON.parse(wb[0].body) : {} } catch (e) { console.warn(e) }
-	info = {data, nath1967, kaikki, h97, nath2022, kmwikt, ipa: ipa[0] ? clean(ipa[0].body) : '', wikt: kaikki.flatMap(e => wiktSenses(e.body))};
+	info = {data, nath1967, kaikki, h97, nath2022, kmwikt, ipa: ipa[0] ? clean(ipa[0].body) : '', wikt: kaikki.flatMap(e => wiktSenses(e.body)),
+		wikts: kms.map(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j)};
 	renderWork(); renderRef();
 	const exs = rec().senses.map(s => s.ex?.ref).filter(Boolean);
 	if (exs.length) { await verses(exs); if (cur === w) renderWork() }
@@ -236,6 +248,7 @@ function renderWork() {
 	const rank = x ? Q.indexOf(x) + 1 : 0;
 	const struck = new Set(r.strike);
 	const pairIn = new Map(); senses.forEach((s, i) => s.pairs.forEach(p => pairIn.set(p.src + '|' + p.id, i)));
+	const keep = scrolls();
 	$('#work').innerHTML = `
 	<div class="card whead">
 		<span class="word">${esc(w)}</span>${info?.ipa ? `<span class="ipa">/${esc(info.ipa)}/</span>` : ''}
@@ -259,7 +272,7 @@ function renderWork() {
 			<label class="l" for="note-${i}">Notes</label>
 			<textarea id="note-${i}" data-f="note" data-i="${i}" rows="1" placeholder="Notes for this sense">${esc(s.note)}</textarea>
 			<span class="l">Paired with</span>
-			<div class="chips">${s.pairs.map((p, j) => `<span class="pair${p.src === 'wikt' ? ' wikt' : ''}" title="${esc(p.id)}">${p.src === 'wn' ? 'WordNet' : p.src === 'wd' ? 'Wikidata' : 'Wiktionary'} · ${esc(p.text.length > 70 ? p.text.slice(0, 68) + '…' : p.text)}<button type="button" class="x" data-act="delpair" data-i="${i}" data-j="${j}" aria-label="Unpair">×</button></span>`).join('')}<button type="button" class="dash" data-act="pair" data-i="${i}">Pair…</button></div>
+			<div class="chips">${s.pairs.map((p, j) => `<span class="pair${isWikt(p.src) ? ' wikt' : ''}" title="${esc(p.id)}">${PAIRSRC[p.src] || 'Wiktionary'} · ${esc(p.src === 'wikts' ? p.id :p.text.length > 70 ? p.text.slice(0, 68) + '…' : p.text)}<button type="button" class="x" data-act="delpair" data-i="${i}" data-j="${j}" aria-label="Unpair">×</button></span>`).join('')}<button type="button" class="dash" data-act="pair" data-i="${i}">Pair…</button></div>
 			<span class="l">Example</span>
 			<div class="row">${s.ex ? (() => { const v = VERSES.get(s.ex.ref); return `<div class="exv"><div class="k">${v ? highlight(v[0], w) : '…'}</div><div class="e">${v ? esc(v[1]) : ''}</div><div class="r">${esc(bookName(s.ex.ref))} · km-ulb, en-ult</div></div>` })() : '<span class="none">None chosen.</span>'}
 				<button type="button" class="dash" data-act="verse" data-i="${i}">${s.ex ? 'Change' : 'Choose a verse'}${d.v ? ` · ${(d.vn || d.v.length).toLocaleString()}` : ''}</button></div>
@@ -273,8 +286,15 @@ function renderWork() {
 		<form class="addw" id="addw"><input id="addq" placeholder="Add an English word the aligned list is missing" autocomplete="off" aria-label="Add an English word"><button type="submit" class="btn">Add</button></form>
 	</section>`;
 	document.querySelectorAll('#work textarea').forEach(fit);
+	keep();
 }
 const fit = t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px' };
+// Where #work, #ref and the page are scrolled, to put back after redrawing one (a redraw, or fit()'s
+// shrinking a textarea for a moment, would otherwise pull them up)
+function scrolls() {
+	const els = [$('#work'), $('#ref'), document.scrollingElement].filter(Boolean), at = els.map(e => e.scrollTop);
+	return () => els.forEach((e, i) => { if (e.scrollTop !== at[i]) e.scrollTop = at[i] });
+}
 
 function card(id, title, tag, body, cls = '') {
 	return `<section class="card rc${closed.has(id) ? ' closed' : ''}" data-card="${id}"><button type="button" class="rh" data-act="fold" data-card="${id}">${closed.has(id) ? '▸ ' : ''}${esc(title)}${tag ? `<span class="d">${esc(tag)}</span>` : ''}</button><div class="rb ${cls}">${body}</div></section>`;
@@ -286,14 +306,18 @@ function renderRef() {
 	const pairIn = new Map(); r.senses.forEach((s, i) => s.pairs.forEach(p => pairIn.set(p.src + '|' + p.id, i)));
 	const where = k => pairIn.has(k) ? `<span class="in">· sense ${pairIn.get(k) + 1}</span>` : '';
 	const wikt = info.wikt.map((s, j) => `<div class="ws"><div><span class="pos">${esc(s.pos)}</span>${esc(s.text)} ${where('wikt|' + cur + '#' + j)}</div><div class="acts"><button type="button" data-act="usewikt" data-j="${j}">Use</button><button type="button" data-act="pairwikt" data-j="${j}">Pair</button></div></div>`).join('');
+	const wikts = info.wikts.map((s, j) => `<div class="ws"><div><b>${esc(s.word)}</b> <span class="pos">${esc(s.pos)}</span>${esc(s.gloss)} ${where('wikts|' + s.id)}</div><div class="acts"><button type="button" data-act="usewikts" data-j="${j}">Use</button><button type="button" data-act="pairwikts" data-j="${j}">Pair</button></div></div>`).join('');
 	const wn = (d.wn || []).filter(s => !/[ក-៿]/.test(s[0])).map((s, j) => { const wd = s[1] === 'Wikidata'; return `<div class="ws"><div><span class="pos">${esc(s[1])}</span>${esc(s[0])} <span class="how">· ${esc(s[3])} ${s[2]}</span> ${where((wd ? 'wd|' : 'wn|') + s[0])}</div><div class="acts">${wd ? '' : `<button type="button" data-act="usewn" data-id="${esc(s[0])}">Use</button>`}<button type="button" data-act="pairwn" data-id="${esc(s[0])}" data-wd="${wd ? 1 : ''}">Pair</button></div></div>` }).join('');
+	const keep = scrolls();
 	$('#ref').innerHTML =
 		card('nath1967', 'Chuon Nath 1967', 'km-nath1967', info.nath1967.length ? dictHtml(info.nath1967) : '<span class="none">Not in the 1967 edition.</span>', 'kmtext') +
 		card('kaikki', 'Wiktionary', 'km-kaikki', wikt || '<span class="none">No English Wiktionary entry.</span>') +
+		card('wikts', 'Wiktionary · translation tables', 'km-senses', wikts || `<span class="none">No English Wiktionary sense gives <span class="km">${esc(cur)}</span> as a translation.</span>`) +
 		card('wnl', 'WordNet · linked by votes', 'machine-linked', wn || '<span class="none">No WordNet senses linked.</span>') +
 		card('h97', 'Headley 1997', 'km-h97', info.h97.length ? dictHtml(info.h97) : '<span class="none">Not in Headley.</span>') +
 		card('nath2022', 'Chuon Nath 2022', 'km-nath2022', info.nath2022.length ? dictHtml(info.nath2022) : '<span class="none">Not in the 2022 edition.</span>', 'kmtext') +
 		card('kmwikt', 'Khmer Wiktionary', 'km-wiktionary', info.kmwikt.length ? dictHtml(info.kmwikt) : '<span class="none">Not in Khmer Wiktionary.</span>', 'kmtext');
+	keep();
 }
 
 // Using a source's sense: a new sense (or the first empty one) with its text, tagged with where it came from, and paired
@@ -319,14 +343,16 @@ function pairActive(p) {
 // ---- Pairing ----
 async function openPair(i) {
 	const s = (rec().senses[i] || newSense());
-	sheet = {kind: 'pair', i, q: '', sel: new Map(s.pairs.map(p => [p.src + '|' + p.id, p])), groups: []};
+	sheet = {kind: 'pair', i, q: '', f: 'all', sel: new Map(s.pairs.map(p => [p.src + '|' + p.id, p])), groups: []};
 	renderSheet(); await pairSearch();
 }
 async function pairSearch() {
 	const sh = sheet, s = rec().senses[sh.i] || newSense(), d = info?.data || {};
 	const groups = [];
 	const linked = [];
+	const wikts = es => es.map(wsParse).filter((e, j, a) => a.findIndex(x => x.id === e.id) === j).map(e => ({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word}));
 	info?.wikt.forEach((x, j) => linked.push({src: 'wikt', id: cur + '#' + j, text: x.text, pos: x.pos, label: 'Wiktionary'}));
+	(info?.wikts || []).forEach(e => linked.push({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word, how: 'Wiktionary translation table'}));
 	for (const l of (d.wn || []).filter(l => !/[ក-៿]/.test(l[0]))) {
 		const wd = l[1] === 'Wikidata';
 		linked.push({src: wd ? 'wd' : 'wn', id: l[0], text: l[0], pos: l[1], label: wd ? 'Wikidata' : 'WordNet', how: `${l[3]} ${l[2]}`});
@@ -335,20 +361,21 @@ async function pairSearch() {
 	const q = sh.q.trim();
 	const words = [...new Set([...(q && !/[ក-៿]/.test(q) ? [q] : []), ...s.syn].map(x => x.toLowerCase()))];
 	if (words.length) {
-		const got = await engine.lookup('wn', words, true);
+		const [got, gotW] = await Promise.all([engine.lookup('wn', words, true), engine.lookup('ensenses', words, true)]);
 		for (const wd of words) {
 			const es = (got[wd] || []).map(wnParse);
 			es.forEach(e => WN.set(e.id, e));
 			groups.push([`WORDNET · “${wd}”`, es.map(e => ({src: 'wn', id: e.id, text: e.gloss, pos: e.pos, label: e.lemmas.join(', ')}))]);
+			groups.push([`WIKTIONARY · “${wd}”`, wikts(gotW[wd] || [])]);
 		}
 	}
 	if (q && /[ក-៿]/.test(q) && norm(q) !== cur) {
-		const es = await engine.one('kaikki', norm(q));
-		groups.push([`WIKTIONARY · ${norm(q)}`, es.flatMap(e => wiktSenses(e.body)).map((x, j) => ({src: 'wikt', id: norm(q) + '#' + j, text: x.text, pos: x.pos, label: 'Wiktionary · ' + norm(q)}))]);
+		const [es, kms] = await Promise.all([engine.one('kaikki', norm(q)), engine.one('kmsenses', norm(q), true)]);
+		groups.push([`WIKTIONARY · ${norm(q)}`, [...es.flatMap(e => wiktSenses(e.body)).map((x, j) => ({src: 'wikt', id: norm(q) + '#' + j, text: x.text, pos: x.pos, label: 'Wiktionary · ' + norm(q)})), ...wikts(kms)]]);
 	}
 	if (sheet !== sh) return;
 	for (const [, xs] of groups) for (const x of xs) if (x.src === 'wn' && x.text === x.id) { const v = WN.get(x.id); if (v) x.text = v.gloss }
-	sh.groups = groups; renderSheet();
+	sh.groups = groups; sh.top = true; renderSheet();
 }
 
 // ---- Choosing an example ----
@@ -365,22 +392,36 @@ async function verseLoad() {
 	sh.rows = null; renderSheet();
 	const vs = await verses(refs);
 	if (sheet !== sh) return;
-	sh.rows = refs.map((r, j) => [r, ...vs[j]]); renderSheet();
+	sh.rows = refs.map((r, j) => [r, ...vs[j]]); sh.top = true; renderSheet();
 }
 
 function renderSheet() {
-	document.querySelector('.scrim')?.remove(); document.querySelector('.sheet')?.remove();
+	// The same sheet redrawn (a box ticked, a search's results): its list stays where it was scrolled (unless new
+	// results came: sheet.top), and the field being typed in keeps the focus and the cursor
+	const old = document.querySelector('.sheet'), same = !!old && old._sh === sheet, ae = document.activeElement;
+	const st = same && !sheet.top ? old.querySelector('.sb').scrollTop : 0;
+	const fo = same && ae?.id && old.contains(ae) ? [ae.id, ae.selectionStart, ae.selectionEnd] : null;
+	if (sheet) delete sheet.top;
+	document.querySelector('.scrim')?.remove(); old?.remove();
 	if (!sheet) return;
+	drawSheet();
+	const now = document.querySelector('.sheet'); now._sh = sheet; now.querySelector('.sb').scrollTop = st;
+	if (fo) { const n = document.getElementById(fo[0]); if (n) { n.focus({preventScroll: true}); try { n.setSelectionRange(fo[1], fo[2]) } catch (e) {} } }
+}
+function drawSheet() {
 	const s = rec().senses[sheet.i] || newSense(), sh = sheet;
 	const head = `<div class="sh"><div class="t"><span>${sh.kind === 'pair' ? 'PAIR' : 'EXAMPLE FOR'} SENSE ${sh.i + 1} OF <span class="km" style="letter-spacing:0">${esc(cur)}</span></span><button type="button" data-act="close" aria-label="Close">×</button></div><div class="d">${esc(s.def || '(no definition yet)')}</div>${s.syn.length ? `<div style="font-size:13px;opacity:.85">synonyms: ${esc(s.syn.join(', '))}</div>` : ''}</div>`;
 	let body = '', filters = '', foot = '';
 	if (sh.kind === 'pair') {
 		const pairIn = new Map(); rec().senses.forEach((x, i) => i !== sh.i && x.pairs.forEach(p => pairIn.set(p.src + '|' + p.id, i)));
-		filters = `<input type="search" id="pairq" value="${esc(sh.q)}" placeholder="Any English word for WordNet, or a Khmer word for Wiktionary" aria-label="Search senses">`;
-		body = sh.groups.length ? sh.groups.map(([t, xs]) => `<div class="sect">${esc(t)}</div>` + (xs.length ? xs.map(x => {
+		const fits = x => sh.f === 'all' || (sh.f === 'wikt' ? isWikt(x.src) : !isWikt(x.src));
+		filters = `<input type="search" id="pairq" value="${esc(sh.q)}" placeholder="Any English word (WordNet and Wiktionary), or a Khmer word" aria-label="Search senses">
+			<div class="pills">${[['all', 'All'], ['wn', 'WordNet'], ['wikt', 'Wiktionary']].map(([f, n]) => `<button type="button" data-act="pf" data-f="${f}" aria-pressed="${sh.f === f}">${n}</button>`).join('')}</div>`;
+		const shownGroups = sh.groups.map(([t, xs]) => [t, xs.filter(fits)]).filter(([, xs]) => xs.length || sh.f === 'all');
+		body = !sh.groups.length ? '<div class="none">Looking…</div>' : shownGroups.length ? shownGroups.map(([t, xs]) => `<div class="sect">${esc(t)}</div>` + (xs.length ? xs.map(x => {
 			const k = x.src + '|' + x.id, other = pairIn.get(k), on = sh.sel.has(k);
 			return `<label class="opt${on ? ' on' : ''}${other != null ? ' off' : ''}"><input type="checkbox" data-pk="${esc(k)}"${on ? ' checked' : ''}${other != null ? ' disabled' : ''}><span><b>${esc(x.label)}</b> <span class="r">${esc(x.pos)}</span> ${esc(x.text)}${x.how ? ` <span class="e">· ${esc(x.how)}</span>` : ''}${other != null ? ` <span class="e">· in sense ${other + 1}</span>` : ''}</span></label>`;
-		}).join('') : '<div class="none">Nothing.</div>')).join('') : '<div class="none">Looking…</div>';
+		}).join('') : '<div class="none">Nothing.</div>')).join('') : `<div class="none">No ${sh.f === 'wikt' ? 'Wiktionary' : 'WordNet'} sense here: search an English word above.</div>`;
 		sh.all = new Map(sh.groups.flatMap(([, xs]) => xs).map(x => [x.src + '|' + x.id, x]));
 		foot = `<span>${sh.sel.size} chosen. A pairing is a link: your definition stays yours.</span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn go" data-act="pairdone">Pair ${sh.sel.size}</button>`;
 	} else {
@@ -394,7 +435,7 @@ function renderSheet() {
 		body = sh.rows == null ? '<div class="none">Finding the verses…</div>' : rows.length ? rows.map(([r, k, e]) => `<label class="opt${sh.pick === r ? ' on' : ''}"><input type="radio" name="ex" data-ref="${esc(r)}"${sh.pick === r ? ' checked' : ''}><span><div class="k">${highlight(k, mark)}</div><div class="e">${esc(e)}</div><div class="r">${esc(bookName(r))}${used.has(r) ? ` · the example for sense ${used.get(r) + 1}` : ''}</div></span></label>`).join('') : '<div class="none">No verse in the Khmer ULB.</div>';
 		foot = `<span>${sh.rows ? `${rows.length.toLocaleString()} verses, shortest first${d.vn && !sh.group ? ` (the shortest 400 of ${d.vn.toLocaleString()})` : ''}` : ''}</span>${s.ex ? '<button type="button" class="btn" data-act="noex">No example</button>' : ''}<button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn go" data-act="versedone"${sh.pick ? '' : ' disabled'}>Use ${sh.pick ? esc(bookName(sh.pick)) : 'it'}</button>`;
 	}
-	document.body.insertAdjacentHTML('beforeend', `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true">${head}<div class="sf">${filters}</div><div class="sb">${body}</div><div class="sfoot">${foot}</div></section>`);
+	document.body.insertAdjacentHTML('beforeend', `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="${sh.kind === 'pair' ? 'Pair' : 'Example for'} sense ${sh.i + 1}">${head}<div class="sf">${filters}</div><div class="sb">${body}</div><div class="sfoot">${foot}</div></section>`);
 }
 
 // ---- Moving through the queue ----
@@ -423,6 +464,7 @@ document.addEventListener('click', async e => {
 	const a = t.dataset.act, i = +t.dataset.i;
 	switch (a) {
 	case 'close': sheet = null; return renderSheet();
+	case 'pf': if (sheet?.kind === 'pair') { sheet.f = t.dataset.f; sheet.top = true; renderSheet() } return;
 	case 'fold': { const id = t.dataset.card; closed.has(id) ? closed.delete(id) : closed.add(id); store('closed', [...closed]); return renderRef() }
 	}
 	if (!cur) return;
@@ -440,6 +482,8 @@ document.addEventListener('click', async e => {
 	case 'pair': if (!rec().senses.length) edit(r => r.senses.push(newSense())); active = i; return openPair(i);
 	case 'verse': if (!rec().senses.length) edit(r => r.senses.push(newSense())); active = i; return openVerse(i);
 	case 'usewikt': { const s = info.wikt[+t.dataset.j], id = cur + '#' + t.dataset.j; return useSense({pos: POSOF[s.pos] || '', def: s.text, from: {src: 'Wiktionary', id, text: s.text}, pairs: [{src: 'wikt', id, text: s.text, pos: s.pos}]}) }
+	case 'usewikts': { const s = info.wikts[+t.dataset.j]; return useSense({pos: POSOF[s.pos] || '', def: s.gloss, syn: [s.word], from: {src: 'Wiktionary', id: s.id, text: s.gloss}, pairs: [{src: 'wikts', id: s.id, text: s.gloss, pos: s.pos}]}) }
+	case 'pairwikts': { const s = info.wikts[+t.dataset.j]; return pairActive({src: 'wikts', id: s.id, text: s.gloss, pos: s.pos}) }
 	case 'pairwikt': { const s = info.wikt[+t.dataset.j]; return pairActive({src: 'wikt', id: cur + '#' + t.dataset.j, text: s.text, pos: s.pos}) }
 	case 'usewn': { const v = await wnSense(t.dataset.id); return useSense({pos: POSOF[v.pos] || '', def: v.gloss, syn: v.lemmas, from: {src: 'WordNet', id: v.id, text: v.gloss}, pairs: [{src: 'wn', id: v.id, text: v.gloss, pos: v.pos}]}) }
 	case 'pairwn': { if (t.dataset.wd) return pairActive({src: 'wd', id: t.dataset.id, text: t.dataset.id, pos: 'Wikidata'}); const v = await wnSense(t.dataset.id); return pairActive({src: 'wn', id: v.id, text: v.gloss, pos: v.pos}) }
@@ -461,7 +505,7 @@ document.addEventListener('input', e => {
 	const t = e.target;
 	if (t.id === 'q') { limit = 300; return renderQueue() }
 	if (t.id === 'pairq') { sheet.q = t.value; clearTimeout(pairT); pairT = setTimeout(pairSearch, 300); return }
-	if (t.id === 'verseq') { sheet.q = t.value; const pos = t.selectionStart; renderSheet(); const n = $('#verseq'); n.focus(); n.setSelectionRange(pos, pos); return }
+	if (t.id === 'verseq') { sheet.q = t.value; sheet.top = true; const pos = t.selectionStart; renderSheet(); const n = $('#verseq'); n.focus(); n.setSelectionRange(pos, pos); return }
 	if (t.dataset.f === 'def' || t.dataset.f === 'note') {
 		fit(t); const i = +t.dataset.i, f = t.dataset.f, v = t.value;
 		edit(r => { if (!r.senses.length) r.senses.push(newSense()); r.senses[i][f] = v }, false);
