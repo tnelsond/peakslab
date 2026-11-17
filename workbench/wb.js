@@ -344,7 +344,17 @@ async function draftFor(w) {
 	const r = structuredClone(ED.get(w) || blank(w)), out = [];
 	info.wikt.forEach((x, j) => { const id = w + '#' + j;
 		out.push(newSense({pos: POSOF[x.pos] || '', def: x.text, from: {src: 'Wiktionary', id, text: x.text}, pairs: [{src: 'wikt', id, text: x.text, pos: x.pos}], pre: 1})) });
-	info.wikts.forEach(x => out.push(newSense({pos: POSOF[x.pos] || '', def: x.gloss, syn: [x.word], from: {src: 'Wiktionary', id: x.id, text: x.gloss}, pairs: [{src: 'wikts', id: x.id, text: x.gloss, pos: x.pos}], pre: 1})));
+	// A translation table is for one sense: it goes into the entry's sense whose words have its English word (and
+	// the same part of speech, or one unknown), with that word among the sense's synonyms; one that fits none of
+	// them (or a word with no entry of its own) is a sense of its own
+	const own = out.map(s => ({s, words: wordsOf(s)}));
+	info.wikts.forEach(x => {
+		const pos = POSOF[x.pos] || '', word = x.word.toLowerCase(), pair = {src: 'wikts', id: x.id, text: x.gloss, pos: x.pos};
+		const home = own.find(o => o.words.has(word) && !(o.s.pos && pos && o.s.pos !== pos));
+		if (!home) return out.push(newSense({pos, def: x.gloss, syn: [x.word], from: {src: 'Wiktionary', id: x.id, text: x.gloss}, pairs: [pair], pre: 1}));
+		home.s.pairs.push(pair);
+		if (!home.s.syn.some(y => y.toLowerCase() === word)) home.s.syn.push(x.word);
+	});
 	if (!out.length) return null;
 	r.senses = out; return r;
 }
