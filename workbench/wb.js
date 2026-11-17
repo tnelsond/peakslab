@@ -518,12 +518,13 @@ function drawSheet() {
 
 // ---- Moving through the queue ----
 function go(step) { const i = shown.findIndex(x => x[0] === cur), n = shown[i + step]; if (n) show(n[0]) }
-function nextOpen() { const i = shown.findIndex(x => x[0] === cur); const n = shown.slice(i + 1).find(x => !ED.get(x[0])?.done); if (n) show(n[0]) }
+// Finished: the word marked done, and on to the next word in the list, finished or not (picked before the list is
+// redrawn, which drops this word when finished ones are hidden)
 function finish(toggle) {
-	const was = rec().done;
+	const was = rec().done, i = shown.findIndex(x => x[0] === cur), next = i >= 0 ? shown[i + 1] : null;
 	edit(r => r.done = toggle ? !was : true);
 	renderQueue();
-	if (!toggle || !was) nextOpen();
+	if ((!toggle || !was) && next) show(next[0]);
 }
 function setMode(m) {
 	mode = m; store('mode', m); $('#q').value = ''; limit = 300; counts(); renderQueue();
