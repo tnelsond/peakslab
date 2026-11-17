@@ -271,7 +271,7 @@ function renderWork() {
 		${d.mus ? '<span class="tag mus">muslim word</span>' : ''}
 		<span class="nav"><button type="button" class="btn" data-act="prev" title="Previous ( [ )">← Prev</button><button type="button" class="btn ${r.done ? 'done' : 'go'}" data-act="done" title="Ctrl+Enter">${r.done ? '✓ Finished' : 'Finished → next'}</button></span>
 	</div>
-	${draft ? `<div class="card draftnote"><span>Suggested from Wiktionary and WordNet: ${senses.length} sense${senses.length > 1 ? 's' : ''}${nov ? `, ${nov} that may be the same meaning (combine them below)` : ''}. Saved when you change something or press Finished.</span><button type="button" class="dash" data-act="nodraft">Start empty instead</button></div>` : ''}
+	${draft ? `<div class="card draftnote"><span>Suggested from Wiktionary: ${senses.length} sense${senses.length > 1 ? 's' : ''}${nov ? `, ${nov} that may be the same meaning (combine them below)` : ''}. Saved when you change something or press Finished.</span><button type="button" class="dash" data-act="nodraft">Start empty instead</button></div>` : ''}
 	${senses.map((s, i) => `
 	<section class="card sense" data-i="${i}" style="${i === active && senses.length > 1 ? 'box-shadow: 0 0 0 3px var(--tab)' : ''}">
 		<div class="bar"><span>Sense ${i + 1}</span>
@@ -279,8 +279,8 @@ function renderWork() {
 			${fromTag(s)}<span class="sp"></span>
 			${i > 0 ? `<button type="button" data-act="up" data-i="${i}" title="Move up" aria-label="Move sense ${i + 1} up">↑</button>` : ''}
 			<button type="button" data-act="delsense" data-i="${i}" title="Remove this sense" aria-label="Remove sense ${i + 1}">×</button></div>
-		${(ov.get(i) || []).length ? `<div class="combine"><div class="l">Same meaning as a WordNet sense? Combine them into this one, or say they're not the same.</div>${ov.get(i).map(j => `<div class="cand"><span><b>Sense ${j + 1}</b> · WordNet <span class="r">${esc(senses[j].pos)}</span> ${esc(senses[j].def)}${senses[j].syn.length ? ` <span class="r">(${esc(senses[j].syn.join(', '))})</span>` : ''}</span>
-				<span class="acts"><button type="button" data-act="combine" data-i="${i}" data-j="${j}" data-keep="i">Combine, keep this wording</button><button type="button" data-act="combine" data-i="${i}" data-j="${j}" data-keep="j">Combine, keep WordNet's</button><button type="button" data-act="apart" data-i="${i}" data-j="${j}">Not the same</button></span></div>`).join('')}</div>` : ''}
+		${(ov.get(i) || []).length ? `<div class="combine"><div class="l">Same meaning as one of Wiktionary's translation-table senses? Combine them into this one, or say they're not the same.</div>${ov.get(i).map(j => `<div class="cand"><span><b>Sense ${j + 1}</b> · Wiktionary table <span class="r">${esc(senses[j].pos)}</span> ${esc(senses[j].def)}${senses[j].syn.length ? ` <span class="r">(${esc(senses[j].syn.join(', '))})</span>` : ''}</span>
+				<span class="acts"><button type="button" data-act="combine" data-i="${i}" data-j="${j}" data-keep="i">Combine, keep this wording</button><button type="button" data-act="combine" data-i="${i}" data-j="${j}" data-keep="j">Combine, keep the table's</button><button type="button" data-act="apart" data-i="${i}" data-j="${j}">Not the same</button></span></div>`).join('')}</div>` : ''}
 		<div class="fields">
 			<label class="l" for="def-${i}">Definition</label>
 			<textarea id="def-${i}" data-f="def" data-i="${i}" rows="1" placeholder="What it means, in English">${esc(s.def)}</textarea>
@@ -337,20 +337,14 @@ function renderRef() {
 	keep();
 }
 
-// ---- The draft: a sense for each of the word's Wiktionary senses (its own entry's, then the translation tables') and
-// each WordNet sense linked to it (Wikidata's and the weakest links, under 0.6, left out), each paired with its source
+// ---- The draft: a sense for each of the word's Wiktionary senses (its own entry's, then the translation tables'),
+// each paired with its source. Not the WordNet links: those are machine-made (votes), so they're only in the
+// reference and the Pair sheet, for you to choose.
 async function draftFor(w) {
 	const r = structuredClone(ED.get(w) || blank(w)), out = [];
 	info.wikt.forEach((x, j) => { const id = w + '#' + j;
 		out.push(newSense({pos: POSOF[x.pos] || '', def: x.text, from: {src: 'Wiktionary', id, text: x.text}, pairs: [{src: 'wikt', id, text: x.text, pos: x.pos}], pre: 1})) });
 	info.wikts.forEach(x => out.push(newSense({pos: POSOF[x.pos] || '', def: x.gloss, syn: [x.word], from: {src: 'Wiktionary', id: x.id, text: x.gloss}, pairs: [{src: 'wikts', id: x.id, text: x.gloss, pos: x.pos}], pre: 1})));
-	const ids = (info.data.wn || []).filter(l => !/[ក-៿]/.test(l[0]) && l[1] !== 'Wikidata' && l[2] >= 0.6).map(l => l[0]);
-	const got = ids.length ? await engine.lookup('wn', ids) : {};
-	for (const id of ids) {
-		const e = got[id]?.[0], v = e ? wnParse(e) : {id, pos: '', gloss: id.replace(/^[^(]*\(|\)$/g, ''), lemmas: [id.replace(/ \(.*$/s, '')]};
-		WN.set(id, v);
-		out.push(newSense({pos: POSOF[v.pos] || '', def: v.gloss, syn: v.lemmas, from: {src: 'WordNet', id, text: v.gloss}, pairs: [{src: 'wn', id, text: v.gloss, pos: v.pos}], pre: 1}));
-	}
 	if (!out.length) return null;
 	r.senses = out; return r;
 }
@@ -365,16 +359,17 @@ function wordsOf(s) {
 	}
 	return new Set(ws.map(x => x.toLowerCase().replace(/_/g, ' ').trim()).filter(Boolean));
 }
-// The drafted WordNet senses that may be the same meaning as a drafted Wiktionary one: sharing an English word,
-// and the same part of speech (or one unknown); i -> [j…]. You combine them, or say they're not the same.
+// The drafted translation-table senses (Wiktionary's English senses giving the word) that may be the same meaning
+// as a drafted sense of the word's own Wiktionary entry: sharing an English word, and the same part of speech (or
+// one unknown); i -> [j…]. You combine them, or say they're not the same.
 function overlaps(senses) {
 	const out = new Map();
 	senses.forEach((a, i) => {
-		if (!a.pre || !a.pairs.some(p => isWikt(p.src))) return;
+		if (!a.pre || !a.pairs.some(p => p.src === 'wikt')) return;
 		const wa = wordsOf(a);
 		senses.forEach((b, j) => {
-			if (j === i || !b.pre || b.pairs.some(p => isWikt(p.src)) || !b.pairs.some(p => p.src === 'wn')) return;
-			if (b.pairs.some(p => (a.apart || []).includes('wn|' + p.id))) return;
+			if (j === i || !b.pre || b.pairs.some(p => p.src === 'wikt') || !b.pairs.some(p => p.src === 'wikts')) return;
+			if (b.pairs.some(p => (a.apart || []).includes('wikts|' + p.id))) return;
 			if (a.pos && b.pos && a.pos !== b.pos) return;
 			if ([...wordsOf(b)].some(x => wa.has(x))) (out.get(i) || out.set(i, []).get(i)).push(j);
 		});
@@ -559,7 +554,7 @@ document.addEventListener('click', async e => {
 	case 'up': edit(r => { [r.senses[i - 1], r.senses[i]] = [r.senses[i], r.senses[i - 1]]; active = i - 1 }); return renderRef();
 	case 'delsyn': return edit(r => r.senses[i].syn.splice(+t.dataset.j, 1));
 	case 'combine': return combine(i, +t.dataset.j, t.dataset.keep);
-	case 'apart': { const j = +t.dataset.j; return edit(r => { const a = r.senses[i]; a.apart = [...new Set([...(a.apart || []), ...r.senses[j].pairs.filter(p => p.src === 'wn').map(p => 'wn|' + p.id)])] }) }
+	case 'apart': { const j = +t.dataset.j; return edit(r => { const a = r.senses[i]; a.apart = [...new Set([...(a.apart || []), ...r.senses[j].pairs.filter(p => p.src === 'wikts').map(p => 'wikts|' + p.id)])] }) }
 	case 'nodraft': DRAFT.set(cur, {...structuredClone(ED.get(cur) || blank(cur)), senses: []}); active = 0; renderWork(); return renderRef();
 	case 'delpair': edit(r => r.senses[i].pairs.splice(+t.dataset.j, 1)); return renderRef();
 	case 'strike': { const v = t.dataset.e; return edit(r => { r.strike = r.strike.includes(v) ? r.strike.filter(x => x !== v) : [...r.strike, v] }) }
