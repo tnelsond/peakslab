@@ -629,6 +629,19 @@ $('#qscrim').onclick = () => $('#app').classList.remove('qopen');
 $('#q').addEventListener('keydown', e => { if (e.key === 'Enter') { const w = norm($('#q').value); if (w) show(BY.has(w) ? w : shown[0]?.[0] || w) } });
 
 // ---- Export / import ----
+// Colour scheme: Auto (the device's), Light or Dark, in turn; remembered (wb-theme), and set before the page is
+// drawn by index.html's first script
+const THEMES = {auto: ['◐', 'Auto: as the device'], light: ['☀', 'Light'], dark: ['☾', 'Dark']};
+let theme = stored('theme', 'auto');
+function setTheme(t) {
+	theme = THEMES[t] ? t : 'auto'; store('theme', theme);
+	if (theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = theme;
+	const next = {auto: 'light', light: 'dark', dark: 'auto'}[theme], b = $('#themeBtn');
+	b.textContent = THEMES[theme][0];
+	b.title = `Colours: ${THEMES[theme][1]}. Switch to ${THEMES[next][1].replace(/:.*/, '')}`; b.setAttribute('aria-label', b.title);
+}
+setTheme(theme);
+$('#themeBtn').onclick = () => setTheme({auto: 'light', light: 'dark', dark: 'auto'}[theme]);
 $('#exportBtn').onclick = () => {
 	const data = {format: 'peakslab-workbench', version: 1, exported: new Date().toISOString(), entries: [...ED.values()].filter(r => started(r) || r.done).map(r => ({...r, senses: r.senses.map(({pre, apart, ...s}) => s)}))};
 	const a = document.createElement('a');

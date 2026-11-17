@@ -10,6 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="apple-touch-icon" href="/peak192x192.png">
+<script>try { const t = JSON.parse(localStorage.getItem('wb-theme')); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t } catch (e) {}</script>
 <style>
 @font-face { font-family: Battambang; src: url(/khmer/battambang.woff2) format("woff2"); unicode-range: U+1780-17FF, U+19E0-19FF, U+200B-200D, U+25CC; }
 :root {
@@ -20,13 +21,21 @@
 	--km: Battambang, "Khmer OS", "Noto Sans Khmer", serif;
 	color-scheme: light;
 }
-@media (prefers-color-scheme: dark) { :root {
+/* Colour scheme: Auto follows the device; the header's button can pin Light or Dark (html data-theme) */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
 	--bg: #321; --card: #2a2420; --soft: #221c18; --text: #eee6da; --muted: #b8a88f; --line: #4a3f33;
 	--header-bg: #211; --header-fg: #f3e6c8; --tab: #672; --green: #2f5f15; --button: #3a7a1c; --fold: #3c4826;
 	--pill-bg: #4a3f2c; --pill-fg: #f0dcb8; --blue: #7fb6cf; --blue-soft: #1e3038; --brown: #e2b070;
 	--struck: #4a2c25; --added: #2f4a1f; --mark: #8a7020; --danger: #f88;
 	color-scheme: dark;
 } }
+:root[data-theme="dark"] {
+	--bg: #321; --card: #2a2420; --soft: #221c18; --text: #eee6da; --muted: #b8a88f; --line: #4a3f33;
+	--header-bg: #211; --header-fg: #f3e6c8; --tab: #672; --green: #2f5f15; --button: #3a7a1c; --fold: #3c4826;
+	--pill-bg: #4a3f2c; --pill-fg: #f0dcb8; --blue: #7fb6cf; --blue-soft: #1e3038; --brown: #e2b070;
+	--struck: #4a2c25; --added: #2f4a1f; --mark: #8a7020; --danger: #f88;
+	color-scheme: dark;
+}
 * { box-sizing: border-box }
 html, body { height: 100%; margin: 0 }
 body { background: var(--bg); color: var(--text); font: 15px/1.45 "Segoe UI", "Noto Sans", Arial, sans-serif; }
@@ -44,6 +53,7 @@ header .logo span { font-weight: 400; opacity: .8 }
 .modes button { border: 0; padding: 6px 12px; background: transparent; color: var(--header-fg); white-space: nowrap }
 .modes button[aria-pressed="true"] { background: var(--tab); color: #000; font-weight: 700 }
 .hbtn { border: 1px solid #a98; background: transparent; color: var(--header-fg); border-radius: 6px; padding: 5px 10px }
+#themeBtn { min-width: 2.4em; line-height: 1.2 }
 #status { margin-left: auto; font-size: 13px; opacity: .85; white-space: nowrap }
 #listBtn { display: none }
 .main { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px max(10px, env(safe-area-inset-right)) 10px max(10px, env(safe-area-inset-left)) }
@@ -108,7 +118,8 @@ header .logo span { font-weight: 400; opacity: .8 }
 mark { background: var(--mark); color: inherit; border-radius: 2px }
 .addsense { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
 .addsense .hint { font-size: 12px; color: #321 }
-@media (prefers-color-scheme: dark) { .addsense .hint { color: var(--muted) } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .addsense .hint { color: var(--muted) } }
+:root[data-theme="dark"] .addsense .hint { color: var(--muted) }
 .aligned { padding: 10px 12px; display: grid; gap: 8px }
 .draftnote { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; color: var(--muted); background: var(--blue-soft) }
 .draftnote span { flex: 1 1 260px }
@@ -151,7 +162,8 @@ p-a { color: var(--blue) }
 .scrim { position: fixed; inset: 0; background: rgba(50, 33, 17, .4); z-index: 20 }
 .sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(680px, 100vw); background: var(--card); z-index: 21; display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(0,0,0,.25) }
 .sheet .sh { background: var(--blue); color: #fff; padding: 12px max(18px, env(safe-area-inset-right)) 12px 18px; display: grid; gap: 2px }
-@media (prefers-color-scheme: dark) { .sheet .sh { background: #2c5d73 } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet .sh { background: #2c5d73 } }
+:root[data-theme="dark"] .sheet .sh { background: #2c5d73 }
 .sheet .sh .t { display: flex; font-size: 12px; font-weight: 700; letter-spacing: .06em }
 .sheet .sh .t span { flex: 1 }
 .sheet .sh button { border: 0; background: none; color: #fff; font-size: 22px; line-height: 1; padding: 0 }
@@ -204,7 +216,7 @@ p-a { color: var(--blue) }
 <div class="app" id="app">
 	<header>
 		<button class="hbtn" id="listBtn" type="button">Words</button>
-		<div class="logo"><img src="/peakslab.svg" alt="">PeakSlab <span>· Workbench</span></div>
+		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"><span>Workbench</span></div>
 		<input type="search" id="q" class="km" placeholder="Find a Khmer word" autocomplete="off" aria-label="Find a Khmer word">
 		<div class="modes" role="group" aria-label="Mode">
 			<button type="button" id="mWrite" aria-pressed="true" title="Words English Wiktionary doesn't have">Write <span id="nWrite"></span></button>
@@ -212,6 +224,7 @@ p-a { color: var(--blue) }
 		</div>
 		<button class="hbtn" id="exportBtn" type="button" title="Save your work as a file">Export</button>
 		<label class="hbtn" title="Load a saved file">Import<input type="file" id="importIn" accept=".json,application/json" hidden></label>
+		<button class="hbtn" id="themeBtn" type="button"></button>
 		<span id="status">Loading…</span>
 		<div class="tabs" role="group" aria-label="View"><button type="button" data-tab="work" aria-pressed="true">Senses</button><button type="button" data-tab="ref" aria-pressed="false">Reference</button></div>
 	</header>
