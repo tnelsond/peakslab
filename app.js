@@ -2674,6 +2674,49 @@ if(!isDictPage){
 		if (other > 0) lines.splice(0, other);
 		return lines.map((p, i) => (i ? p.tab ? tabJoin(p.x) : ' ' : '') + p.x).join('');
 	}
+	// An entry's senses: when its body has lists at its top (not inside anything else), each of their items is a
+	// sense (several lists, as Wiktionary's one for each part of speech: all their items, in order). A sense's text
+	// is its item's own, without what's inside it (a list of examples, a paragraph: "Synonyms: ...", a note),
+	// labels (p-n: parts of speech; p-tags: "feminine", "intransitive") or examples (p-x). None: no list at its top.
+	function sensesOf(html){
+		const t = document.createElement('template');
+		t.innerHTML = html;
+		return [...t.content.children].filter(e => e.matches('ol, ul')).flatMap(l => [...l.children].filter(li => li.matches('li')).map(li => {
+			const c = li.cloneNode(true);
+			c.querySelectorAll('ol, ul, p, div, p-x, p-n, p-tags, p-ipa, details, table, button').forEach(x => x.remove());
+			return c.textContent.replace(/\s+/g, ' ').trim();
+		})).filter(Boolean);
+	}
+	// A sense's pieces: its words between commas and semicolons (not inside brackets), without their brackets
+	// ("to go (away from the speaker)": to go)
+	// A sense's synonyms: its pieces, when the first is short (a word or a phrase: three words at most, "to" before a
+	// verb aside, and no full stop): "to get, obtain" is get's; "(of weather) pleasant; not cold" is pleasant's. A
+	// longer first one is a definition: no synonyms.
+	function piecesOf(sense){
+		const ps = [];
+		let depth = 0, at = '';
+		for (const ch of sense.replace(/^\s*(\([^)]*\)\s*)+/, '')) {
+			if ('([{'.includes(ch)) ++depth; else if (')]}'.includes(ch)) depth = Math.max(0, depth - 1);
+			if (!depth && ',;，；、'.includes(ch)) { ps.push(at.trim()); at = ''; } else at += ch;
+		}
+		ps.push(at.trim());
+		return ps.map(p => p.replace(/\s*[(（][^)）]*[)）]/g, '').trim()).filter(Boolean);
+	}
+	function synonymsOf(sense){
+		const ps = piecesOf(sense);
+		return ps.length && ps[0].replace(/^to /i, '').split(/\s+/).length <= 3 && !/[.!?。](\s|$)/.test(ps[0]) ? ps : [];
+	}
+	// A sense's first sentence (all of it, when it has no full stop)
+	const firstSentence = sense => (sense.match(/^.*?[.!?。](?=\s|$)/)?.[0] ?? sense).replace(/[.。]$/, '').trim();
+	// A gloss of an entry with senses: the first synonym of each of its first three senses (one with none: its first
+	// piece); when none of them has synonyms, the first sentence of its first two. Each once.
+	function sensesGloss(ss){
+		const first = ss.slice(0, 3).map(s => synonymsOf(s)[0]);
+		const gs = first.some(Boolean) ? ss.slice(0, 3).map((s, i) => first[i] ?? piecesOf(s)[0] ?? firstSentence(s)) : ss.slice(0, 2).map(firstSentence);
+		return [...new Set(gs.filter(Boolean))].join('; ');
+	}
+	// An entry's gloss: its senses', or (no list at its top) all of it in a line
+	const entryGloss = (html, header) => (ss => ss.length ? sensesGloss(ss) : summary(html, header))(sensesOf(html.replace(/<p-x>[^]*?<\/p-x>/g, '')));
 	// An entry's text, without its labels (p-n: parts of speech, ...)
 	function entryText(pe){
 		const c = pe.cloneNode(true);
@@ -2830,7 +2873,7 @@ if(!isDictPage){
 	// search finds for it
 	const script = t => (t.match(/\p{L}/u)?.[0] ?? ' ').codePointAt(0) >> 7; // (its Unicode block, roughly)
 	// (in a row's language, that language's: its words for a sense)
-	const glossOf = (x, word, row) => viaOf(row, x)?.[0] ?? (x.sec && (row.lang || script(x.r.header) !== script(word)) ? x.r.header : summary(x.r.body, x.r.header));
+	const glossOf = (x, word, row) => viaOf(row, x)?.[0] ?? (x.sec && (row.lang || script(x.r.header) !== script(word)) ? x.r.header : entryGloss(x.r.body, x.r.header));
 	function translationHTML(pieces){
 		return pieces.map(p => {
 			if (!p.ds.length) return escapeHTML(p.text).replace(/\n/g, '<br>'); // Nothing to gloss it with: as it is (notes between the words glossed)
