@@ -27,7 +27,17 @@ SLAB_DIRS := $(patsubst %/zzz.meta,%,$(shell find dict_src -name zzz.meta 2>/dev
 SLAB_META_FILES := $(patsubst dict_src/%,meta/%.meta,$(SLAB_DIRS))
 
 # The core files (404.html, peak.wasm, ...) too, so a rebuilt app reaches the service worker
-files-src.json: meta peakgen $(META_FILES) $(SLAB_META_FILES) $(wildcard $(FONTS:%=meta/%.meta)) $(filter-out meta/files.json.meta,$(wildcard meta/*.meta)) abbreviations.json
+# The Khmer–English workbench (workbench/: a page of its own on the engine). Its
+# 404.html is index.html (the service worker serves a directory's 404.html,
+# GitHub Pages its index.html); its data is utils/kmenwb.py's
+WB_FILES := workbench/404.html workbench/wb.js workbench/data/queue.json workbench/data/km-wb.zst
+WB_META := $(WB_FILES:%=meta/%.meta)
+workbench/404.html: workbench/index.html
+	cp $< $@
+$(WB_META): meta/%.meta: %
+	./createmeta.sh $<
+
+files-src.json: meta peakgen $(META_FILES) $(SLAB_META_FILES) $(WB_META) $(wildcard $(FONTS:%=meta/%.meta)) $(filter-out meta/files.json.meta,$(wildcard meta/*.meta)) abbreviations.json
 	./createdictlist.sh
 
 files.json: files-src.json
