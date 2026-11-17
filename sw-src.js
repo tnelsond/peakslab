@@ -267,7 +267,19 @@ async function activate() {
 async function handleFetch(request, path) {
   if (request.mode === 'navigate' || path.endsWith('.html') || path.endsWith('/')) {
     const p = await pageOf(path);
-    return (await (await caches.open(await currentCache())).match(p)) || cacheFirst(new Request('/404.html'), '/404.html');
+    // A directory without its slash (/workbench): to it with the slash, as
+    // GitHub Pages does, so its page's relative addresses are its own
+    if (p === '/404.html' && request.mode === 'navigate' && files.has(path + '/404.html')) {
+      const u = new URL(request.url); u.pathname += '/';
+      return Response.redirect(u.href, 301);
+    }
+    const hit = await (await caches.open(await currentCache())).match(p);
+    if (hit) return hit;
+    if (p !== '/404.html') { // A page of its own (/workbench/404.html) not yet cached: downloaded
+      const res = await cacheFirst(new Request(p), p).catch(() => null);
+      if (res?.ok) return res;
+    }
+    return cacheFirst(new Request('/404.html'), '/404.html');
   }
   return cacheFirst(request, path);
 }
