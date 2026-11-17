@@ -285,7 +285,7 @@ function renderWork() {
 			<label class="l" for="def-${i}">Definition</label>
 			<textarea id="def-${i}" data-f="def" data-i="${i}" rows="1" placeholder="What it means, in English">${esc(s.def)}</textarea>
 			<span class="l">Synonyms</span>
-			<div class="chips">${s.syn.map((y, j) => `<span class="chip">${esc(y)}<button type="button" class="x" data-act="delsyn" data-i="${i}" data-j="${j}" aria-label="Remove ${esc(y)}">×</button></span>`).join('')}<input class="syn-in" id="syn-${i}" data-f="syn" data-i="${i}" placeholder="+ English word" aria-label="Add a synonym to sense ${i + 1}"></div>
+			<div class="chips">${s.syn.map((y, j) => `<span class="chip">${esc(y)}<button type="button" class="x" data-act="delsyn" data-i="${i}" data-j="${j}" aria-label="Remove ${esc(y)}">×</button></span>`).join('')}<form class="synf" data-i="${i}"><input class="syn-in" id="syn-${i}" data-f="syn" data-i="${i}" placeholder="+ English word" aria-label="Add a synonym to sense ${i + 1}" enterkeyhint="done" autocomplete="off"><button type="submit" class="dash" aria-label="Add the synonym to sense ${i + 1}">Add</button></form></div>
 			<label class="l" for="note-${i}">Notes</label>
 			<textarea id="note-${i}" data-f="note" data-i="${i}" rows="1" placeholder="Notes for this sense">${esc(s.note)}</textarea>
 			<span class="l">Paired with</span>
@@ -405,6 +405,14 @@ function useSense(s) {
 		active = i;
 	});
 	renderRef();
+}
+// Synonyms typed into sense i's box (one, or several between commas), added once each (case aside); refocus: keep typing
+function addSyn(i, raw, refocus = true) {
+	const vs = raw.split(/[,;，]/).map(v => v.trim()).filter(Boolean);
+	if (!vs.length) return;
+	edit(r => { if (!r.senses.length) r.senses.push(newSense()); const s = r.senses[i]; if (!s) return;
+		for (const v of vs) if (!s.syn.some(y => y.toLowerCase() === v.toLowerCase())) s.syn.push(v) });
+	if (refocus) $(`#syn-${i}`)?.focus();
 }
 function pairActive(p) {
 	edit(r => {
@@ -574,6 +582,7 @@ document.addEventListener('change', e => {
 	const t = e.target;
 	if (t.id === 'hide') { hide = t.checked; store('hide', hide); return renderQueue() }
 	if (t.id === 'importIn') return importFile(t.files[0]);
+	if (t.dataset.f === 'syn' && t.isConnected && t.value.trim()) { const v = t.value; t.value = ''; return addSyn(+t.dataset.i, v, false) }
 	if (t.dataset.f === 'pos') { const i = +t.dataset.i, v = t.value; return edit(r => { if (!r.senses.length) r.senses.push(newSense()); r.senses[i].pos = v }, false) }
 	if (t.dataset.pk && sheet?.kind === 'pair') { const k = t.dataset.pk; t.checked ? sheet.sel.set(k, (({label, how, ...x}) => x)(sheet.all.get(k))) : sheet.sel.delete(k); return renderSheet() }
 	if (t.dataset.ref && sheet?.kind === 'verse') { sheet.pick = t.dataset.ref; return renderSheet() }
@@ -584,6 +593,7 @@ document.addEventListener('input', e => {
 	if (t.id === 'q') { limit = 300; return renderQueue() }
 	if (t.id === 'pairq') { sheet.q = t.value; clearTimeout(pairT); pairT = setTimeout(pairSearch, 300); return }
 	if (t.id === 'verseq') { sheet.q = t.value; sheet.top = true; const pos = t.selectionStart; renderSheet(); const n = $('#verseq'); n.focus(); n.setSelectionRange(pos, pos); return }
+	if (t.dataset.f === 'syn' && /[,;，]/.test(t.value)) { const v = t.value, k = Math.max(v.lastIndexOf(','), v.lastIndexOf(';'), v.lastIndexOf('，')); t.value = v.slice(k + 1).trimStart(); const rest = t.value; addSyn(+t.dataset.i, v.slice(0, k)); const n = $(`#syn-${t.dataset.i}`); if (n) n.value = rest; return }
 	if (t.dataset.f === 'def' || t.dataset.f === 'note') {
 		fit(t); const i = +t.dataset.i, f = t.dataset.f, v = t.value;
 		edit(r => { if (!r.senses.length) r.senses.push(newSense()); r.senses[i][f] = v }, false);
@@ -599,12 +609,8 @@ document.addEventListener('keydown', e => {
 	if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (cur) finish(false); return }
 	if (e.key === 'Escape' && sheet) { sheet = null; renderSheet(); return }
 	if (t.dataset?.f === 'syn') {
-		if (e.key === 'Enter' || e.key === ',') {
-			e.preventDefault();
-			const v = t.value.trim(), i = +t.dataset.i; if (!v) return;
-			edit(r => { if (!r.senses.length) r.senses.push(newSense()); if (!r.senses[i].syn.includes(v)) r.senses[i].syn.push(v) });
-			$(`#syn-${i}`)?.focus();
-		} else if (e.key === 'Backspace' && !t.value) {
+		if ((e.key === 'Enter' || e.key === ',') && !e.isComposing) { e.preventDefault(); const v = t.value; t.value = ''; addSyn(+t.dataset.i, v) }
+		else if (e.key === 'Backspace' && !t.value) {
 			const i = +t.dataset.i; if (rec().senses[i]?.syn.length) { e.preventDefault(); edit(r => r.senses[i].syn.pop()); $(`#syn-${i}`)?.focus() }
 		}
 		return;
@@ -614,6 +620,7 @@ document.addEventListener('keydown', e => {
 	else if (e.key === '/') { e.preventDefault(); $('#app').classList.add('qopen'); $('#q').focus() }
 });
 document.addEventListener('submit', e => {
+	if (e.target.classList.contains('synf')) { e.preventDefault(); const t = e.target.querySelector('.syn-in'), v = t.value; t.value = ''; return addSyn(+e.target.dataset.i, v) }
 	if (e.target.id !== 'addw') return;
 	e.preventDefault();
 	const v = $('#addq').value.trim(); if (!v || !cur) return;
