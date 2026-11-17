@@ -24,7 +24,7 @@ const DICTS = [
 	['ipa', 'khmer/dict/phonetics/km-ipa.peak.zst', 'IPA'],
 	['wn', 'english/thesaurus/en-wn.peak.zst', 'WordNet'],
 	['ulb', 'khmer/bible/text/km-ulb.peak.zst', 'Khmer ULB'],
-	['enulb', 'english/bible/text/en-ULB.peak.zst', 'English ULB'],
+	['enult', 'english/bible/text/en-ult.peak.zst', 'English ULT'],
 ];
 const D = Object.fromEntries(DICTS.map((d, i) => [d[0], i]));
 const engine = (() => {
@@ -152,7 +152,7 @@ const VERSES = new Map(); // ref -> [Khmer, English]
 async function verses(refs) {
 	const need = refs.filter(r => !VERSES.has(r));
 	if (need.length) {
-		const [k, e] = await Promise.all([engine.lookup('ulb', need), engine.lookup('enulb', need)]);
+		const [k, e] = await Promise.all([engine.lookup('ulb', need), engine.lookup('enult', need)]);
 		const text = es => es?.[0] ? clean(es[0].body.split('\t').slice(1).join(' ')) : '';
 		for (const r of need) VERSES.set(r, [text(k[r]), text(e[r])]);
 	}
@@ -261,7 +261,7 @@ function renderWork() {
 			<span class="l">Paired with</span>
 			<div class="chips">${s.pairs.map((p, j) => `<span class="pair${p.src === 'wikt' ? ' wikt' : ''}" title="${esc(p.id)}">${p.src === 'wn' ? 'WordNet' : p.src === 'wd' ? 'Wikidata' : 'Wiktionary'} · ${esc(p.text.length > 70 ? p.text.slice(0, 68) + '…' : p.text)}<button type="button" class="x" data-act="delpair" data-i="${i}" data-j="${j}" aria-label="Unpair">×</button></span>`).join('')}<button type="button" class="dash" data-act="pair" data-i="${i}">Pair…</button></div>
 			<span class="l">Example</span>
-			<div class="row">${s.ex ? (() => { const v = VERSES.get(s.ex.ref); return `<div class="exv"><div class="k">${v ? highlight(v[0], w) : '…'}</div><div class="e">${v ? esc(v[1]) : ''}</div><div class="r">${esc(bookName(s.ex.ref))} · km-ulb</div></div>` })() : '<span class="none">None chosen.</span>'}
+			<div class="row">${s.ex ? (() => { const v = VERSES.get(s.ex.ref); return `<div class="exv"><div class="k">${v ? highlight(v[0], w) : '…'}</div><div class="e">${v ? esc(v[1]) : ''}</div><div class="r">${esc(bookName(s.ex.ref))} · km-ulb, en-ult</div></div>` })() : '<span class="none">None chosen.</span>'}
 				<button type="button" class="dash" data-act="verse" data-i="${i}">${s.ex ? 'Change' : 'Choose a verse'}${d.v ? ` · ${(d.vn || d.v.length).toLocaleString()}` : ''}</button></div>
 		</div>
 	</section>`).join('')}
@@ -444,7 +444,7 @@ document.addEventListener('click', async e => {
 	case 'usewn': { const v = await wnSense(t.dataset.id); return useSense({pos: POSOF[v.pos] || '', def: v.gloss, syn: v.lemmas, from: {src: 'WordNet', id: v.id, text: v.gloss}, pairs: [{src: 'wn', id: v.id, text: v.gloss, pos: v.pos}]}) }
 	case 'pairwn': { if (t.dataset.wd) return pairActive({src: 'wd', id: t.dataset.id, text: t.dataset.id, pos: 'Wikidata'}); const v = await wnSense(t.dataset.id); return pairActive({src: 'wn', id: v.id, text: v.gloss, pos: v.pos}) }
 	case 'pairdone': { const sh = sheet; edit(r => { const s = r.senses[sh.i]; s.pairs = [...sh.sel.values()] }); sheet = null; renderSheet(); return renderRef() }
-	case 'versedone': { const sh = sheet; if (!sh.pick) return; edit(r => r.senses[sh.i].ex = {ref: sh.pick}); sheet = null; return renderSheet() }
+	case 'versedone': { const sh = sheet; if (!sh.pick) return; edit(r => r.senses[sh.i].ex = {ref: sh.pick, km: 'km-ulb', en: 'en-ult'}); sheet = null; return renderSheet() }
 	case 'noex': { const sh = sheet; edit(r => r.senses[sh.i].ex = null); sheet = null; return renderSheet() }
 	}
 });
