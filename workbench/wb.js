@@ -104,7 +104,7 @@ const db = (() => {
 		r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
 	});
 	const tx = async (mode, f) => { const d = await open(); return new Promise((res, rej) => { const t = d.transaction('entries', mode); const out = f(t.objectStore('entries')); t.oncomplete = () => res(out?.result ?? out); t.onerror = () => rej(t.error) }) };
-	return {all: () => tx('readonly', s => s.getAll()), put: r => tx('readwrite', s => s.put(r)), putAll: rs => tx('readwrite', s => rs.forEach(r => s.put(r)))};
+	return {all: () => tx('readonly', s => s.getAll()), put: r => tx('readwrite', s => s.put(r)), putAll: rs => tx('readwrite', s => rs.forEach(r => s.put(r))), del: w => tx('readwrite', s => s.delete(w))};
 })();
 
 // ---- State ----
@@ -269,7 +269,7 @@ function renderWork() {
 		<span class="meta">${x ? `${x[1].toLocaleString()} uses · #${rank.toLocaleString()}` : 'not in the list'}</span>
 		${x ? `<span class="meta">in: ${[...x[2]].map(s => SRC[s]).join(' · ')}</span>` : ''}
 		${d.mus ? '<span class="tag mus">muslim word</span>' : ''}
-		<span class="nav"><button type="button" class="btn" data-act="prev" title="Previous ( [ )">← Prev</button><button type="button" class="btn ${r.done ? 'done' : 'go'}" data-act="done" title="Ctrl+Enter">${r.done ? '✓ Finished' : 'Finished → next'}</button></span>
+		<span class="nav"><button type="button" class="btn reset" data-act="reset" title="Clear your work on this word and start again from its Wiktionary senses">Reset</button><button type="button" class="btn" data-act="prev" title="Previous ( [ )">← Prev</button><button type="button" class="btn ${r.done ? 'done' : 'go'}" data-act="done" title="Ctrl+Enter">${r.done ? '✓ Finished' : 'Finished → next'}</button></span>
 	</div>
 	${draft ? `<div class="card draftnote"><span>Suggested from Wiktionary: ${senses.length} sense${senses.length > 1 ? 's' : ''}${nov ? `, ${nov} that may be the same meaning (combine them below)` : ''}. Saved when you change something or press Finished.</span><button type="button" class="dash" data-act="nodraft">Start empty instead</button></div>` : ''}
 	${senses.map((s, i) => `
@@ -554,6 +554,16 @@ document.addEventListener('click', async e => {
 	case 'delsense': edit(r => { r.senses.splice(i, 1); active = Math.max(0, Math.min(active, r.senses.length - 1)) }); return renderRef();
 	case 'up': edit(r => { [r.senses[i - 1], r.senses[i]] = [r.senses[i], r.senses[i - 1]]; active = i - 1 }); return renderRef();
 	case 'delsyn': return edit(r => r.senses[i].syn.splice(+t.dataset.j, 1));
+	case 'reset': {
+		// The word as if never opened: your senses, synonyms, struck and added words and Finished cleared (here and
+		// in this device's store), and its draft made again from Wiktionary
+		const w = cur;
+		if (ED.has(w) && !confirm(`Reset ${w}? Your senses, synonyms, notes, struck and added words for it are cleared, and it starts again from its Wiktionary senses.`)) return;
+		clearTimeout(saveT); ED.delete(w); DRAFT.delete(w); active = 0; counts();
+		db.del(w).then(() => setStatus(), e => { dbOK = false; setStatus(); console.warn(e) });
+		renderQueue();
+		return show(w);
+	}
 	case 'combine': return combine(i, +t.dataset.j, t.dataset.keep);
 	case 'apart': { const j = +t.dataset.j; return edit(r => { const a = r.senses[i]; a.apart = [...new Set([...(a.apart || []), ...r.senses[j].pairs.filter(p => p.src === 'wikts').map(p => 'wikts|' + p.id)])] }) }
 	case 'nodraft': DRAFT.set(cur, {...structuredClone(ED.get(cur) || blank(cur)), senses: []}); active = 0; renderWork(); return renderRef();
