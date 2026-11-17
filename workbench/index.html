@@ -108,6 +108,11 @@ mark { background: var(--mark); color: inherit; border-radius: 2px }
 .addsense .hint { font-size: 12px; color: #321 }
 @media (prefers-color-scheme: dark) { .addsense .hint { color: var(--muted) } }
 .aligned { padding: 10px 12px; display: grid; gap: 8px }
+.match { padding: 10px 12px; display: grid; gap: 8px }
+.match #matchq { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; background: var(--soft) }
+.match #mquick .l { font-size: 12px; color: var(--muted) }
+.match #mres { max-height: 420px; overflow-y: auto; display: grid; gap: 2px; align-content: start }
+.match #mres .sect { padding: 8px 0 2px }
 .sect { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--muted) }
 .al { display: inline-flex; align-items: baseline; gap: 5px; border: 1px solid var(--line); border-radius: 12px; padding: 1px 4px 1px 10px; background: var(--card) }
 .al .c { font: 11px monospace; color: var(--muted) }

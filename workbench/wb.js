@@ -112,10 +112,10 @@ let Q = [], BY = new Map(), ED = new Map();
 let mode = stored('mode', 'write'), on = new Set(stored('srcs', Object.keys(SRC))), hide = stored('hide', false);
 let shown = [], limit = 300, cur = null, info = null, active = 0, sheet = null, saveT = null, dbOK = true;
 const closed = new Set(stored('closed', ['h97', 'nath2022', 'kmwikt']));
-const blank = w => ({w, senses: [], strike: [], add: [], done: false, t: 0});
+const blank = w => ({w, senses: [], strike: [], add: [], match: [], done: false, t: 0});
 const newSense = (o = {}) => ({pos: '', def: '', syn: [], note: '', pairs: [], ex: null, from: null, ...o});
 const rec = () => ED.get(cur) || blank(cur);
-const started = r => !!r && (r.senses.some(s => s.def.trim() || s.syn.length || s.note.trim() || s.pairs.length || s.ex) || r.strike.length || r.add.length);
+const started = r => !!r && (r.senses.some(s => s.def.trim() || s.syn.length || s.note.trim() || s.pairs.length || s.ex) || r.strike.length || r.add.length || r.match?.length);
 const inMode = x => mode === 'write' ? !x[3] : !!x[3];
 
 function setStatus(msg) {
@@ -208,7 +208,7 @@ const isWikt = src => src === 'wikt' || src === 'wikts';
 async function show(w) {
 	const x = BY.get(w);
 	if (x && !inMode(x) && !$('#q').value) { mode = x[3] ? 'review' : 'write'; store('mode', mode); counts(); renderQueue() }
-	cur = w; info = null; active = 0;
+	cur = w; info = null; active = 0; M = {q: '', got: null, items: new Map()};
 	try { history.replaceState(null, '', '#' + encodeURIComponent(w)) } catch (e) {}
 	if (!document.querySelector('.qi.cur') && shown.some(x => x[0] === w)) renderQueue();
 	markQueueItem();
@@ -279,12 +279,20 @@ function renderWork() {
 		</div>
 	</section>`).join('')}
 	<div class="addsense"><button type="button" class="btn" data-act="addsense">+ Add a sense</button><span class="hint">Tab: Definition → Synonyms → Notes · Enter adds a synonym · Ctrl+Enter: finished, next word</span></div>
+	<section class="card match" aria-label="English Wiktionary senses">
+		<div class="sect">ENGLISH WIKTIONARY SENSES · tick the ones <span class="km">${esc(w)}</span> means</div>
+		<div class="chips" id="mchips"></div>
+		<input type="search" id="matchq" value="${esc(M.q)}" placeholder="An English word: its Wiktionary senses" autocomplete="off" aria-label="Find an English word's Wiktionary senses">
+		<div class="chips" id="mquick"></div>
+		<div id="mres"></div>
+	</section>
 	<section class="card aligned">
 		<div class="sect">ALIGNED ENGLISH · click a word to strike it, + to make it a synonym of sense ${active + 1}</div>
 		<div class="chips">${(d.al || []).map(([e, c]) => `<span class="al${struck.has(e) ? ' struck' : ''}"><button type="button" class="t" data-act="strike" data-e="${esc(e)}">${esc(e)}</button><span class="c">${c ? c.toLocaleString() : 'dict'}</span><button type="button" data-act="syn" data-e="${esc(e)}" aria-label="Add ${esc(e)} as a synonym">+</button></span>`).join('') || (info ? '<span class="none">No aligned English.</span>' : '…')}
 		${r.add.map(e => `<span class="al added"><span>${esc(e)}</span><button type="button" data-act="syn" data-e="${esc(e)}" aria-label="Add ${esc(e)} as a synonym">+</button><button type="button" data-act="unadd" data-e="${esc(e)}" aria-label="Remove ${esc(e)}">×</button></span>`).join('')}</div>
 		<form class="addw" id="addw"><input id="addq" placeholder="Add an English word the aligned list is missing" autocomplete="off" aria-label="Add an English word"><button type="submit" class="btn">Add</button></form>
 	</section>`;
+	renderMatch();
 	document.querySelectorAll('#work textarea').forEach(fit);
 	keep();
 }
@@ -338,6 +346,34 @@ function pairActive(p) {
 		if (!s.pairs.some(x => x.src === p.src && x.id === p.id)) s.pairs.push(p);
 	});
 	renderRef();
+}
+
+// ---- Matching the word with English Wiktionary's senses (the word's own, no sense of yours needed) ----
+let M = {q: '', got: null, items: new Map()}, matchT = null;
+async function matchSearch() {
+	const w = cur, q = M.q.trim().toLowerCase();
+	if (!q) { M.got = null; return renderMatch() }
+	M.got = {q, list: null}; renderMatch();
+	const es = (await engine.lookup('ensenses', [q], true))[q] || [];
+	if (cur !== w || M.q.trim().toLowerCase() !== q) return;
+	M.got = {q, list: es.map(wsParse).filter((e, j, a) => a.findIndex(x => x.id === e.id) === j)};
+	renderMatch(true);
+}
+function renderMatch(top) {
+	const box = $('#mres'); if (!box) return;
+	const r = rec(), mine = new Set((r.match || []).map(m => m.id));
+	const opt = e => { M.items.set(e.id, e); const on = mine.has(e.id);
+		return `<label class="opt${on ? ' on' : ''}"><input type="checkbox" data-mk="${esc(e.id)}"${on ? ' checked' : ''}><span><b>${esc(e.word)}</b> <span class="r">${esc(e.pos)}</span> ${esc(e.gloss)}</span></label>` };
+	$('#mchips').innerHTML = (r.match || []).map(m => `<span class="pair wikt" title="${esc(m.id)}">${esc(m.id)}<button type="button" class="x" data-act="unmatch" data-id="${esc(m.id)}" aria-label="Unmatch">×</button></span>`).join('')
+		|| '<span class="none">None matched yet.</span>';
+	const d = info?.data || {}, quick = [...new Set([...(d.al || []).map(a => a[0]).filter(e => !r.strike.includes(e)).slice(0, 8), ...r.add, ...r.senses.flatMap(s => s.syn)])];
+	$('#mquick').innerHTML = quick.length ? '<span class="l">Look up:</span>' + quick.map(e => `<button type="button" class="dash" data-act="msearch" data-e="${esc(e)}">${esc(e)}</button>`).join('') : '';
+	const linked = info?.wikts || [];
+	const st = box.scrollTop;
+	box.innerHTML = (linked.length ? `<div class="sect">WIKTIONARY'S TRANSLATION TABLES GIVE <span class="km">${esc(cur)}</span> FOR</div>` + linked.map(opt).join('') : '')
+		+ (M.got ? `<div class="sect">“${esc(M.got.q)}” IN ENGLISH WIKTIONARY</div>` + (M.got.list == null ? '<div class="none">Looking…</div>' : M.got.list.length ? M.got.list.map(opt).join('') : '<div class="none">No Wiktionary sense of that word (its translation tables are where the senses come from).</div>') : '')
+		+ (!linked.length && !M.got ? '<div class="none">Wiktionary\'s translation tables don\'t give this word: look up an English word.</div>' : '');
+	if (!top) box.scrollTop = st;
 }
 
 // ---- Pairing ----
@@ -475,6 +511,8 @@ document.addEventListener('click', async e => {
 	case 'delsense': edit(r => { r.senses.splice(i, 1); active = Math.max(0, Math.min(active, r.senses.length - 1)) }); return renderRef();
 	case 'up': edit(r => { [r.senses[i - 1], r.senses[i]] = [r.senses[i], r.senses[i - 1]]; active = i - 1 }); return renderRef();
 	case 'delsyn': return edit(r => r.senses[i].syn.splice(+t.dataset.j, 1));
+	case 'msearch': M.q = t.dataset.e; $('#matchq').value = M.q; return matchSearch();
+	case 'unmatch': { const id = t.dataset.id; edit(r => r.match = (r.match || []).filter(m => m.id !== id), false); return renderMatch() }
 	case 'delpair': edit(r => r.senses[i].pairs.splice(+t.dataset.j, 1)); return renderRef();
 	case 'strike': { const v = t.dataset.e; return edit(r => { r.strike = r.strike.includes(v) ? r.strike.filter(x => x !== v) : [...r.strike, v] }) }
 	case 'unadd': { const v = t.dataset.e; return edit(r => r.add = r.add.filter(x => x !== v)) }
@@ -498,12 +536,15 @@ document.addEventListener('change', e => {
 	if (t.id === 'importIn') return importFile(t.files[0]);
 	if (t.dataset.f === 'pos') { const i = +t.dataset.i, v = t.value; return edit(r => { if (!r.senses.length) r.senses.push(newSense()); r.senses[i].pos = v }, false) }
 	if (t.dataset.pk && sheet?.kind === 'pair') { const k = t.dataset.pk; t.checked ? sheet.sel.set(k, (({label, how, ...x}) => x)(sheet.all.get(k))) : sheet.sel.delete(k); return renderSheet() }
+	if (t.dataset.mk && cur) { const e = M.items.get(t.dataset.mk); if (!e) return; const on = t.checked;
+		edit(r => { r.match = (r.match || []).filter(m => m.id !== e.id); if (on) r.match.push({id: e.id, word: e.word, pos: e.pos, gloss: e.gloss}) }, false); return renderMatch() }
 	if (t.dataset.ref && sheet?.kind === 'verse') { sheet.pick = t.dataset.ref; return renderSheet() }
 });
 let pairT = null;
 document.addEventListener('input', e => {
 	const t = e.target;
 	if (t.id === 'q') { limit = 300; return renderQueue() }
+	if (t.id === 'matchq') { M.q = t.value; clearTimeout(matchT); matchT = setTimeout(matchSearch, 300); return }
 	if (t.id === 'pairq') { sheet.q = t.value; clearTimeout(pairT); pairT = setTimeout(pairSearch, 300); return }
 	if (t.id === 'verseq') { sheet.q = t.value; sheet.top = true; const pos = t.selectionStart; renderSheet(); const n = $('#verseq'); n.focus(); n.setSelectionRange(pos, pos); return }
 	if (t.dataset.f === 'def' || t.dataset.f === 'note') {
