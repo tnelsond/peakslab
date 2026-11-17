@@ -267,6 +267,8 @@ function renderWork() {
 	const rank = x ? Q.indexOf(x) + 1 : 0;
 	const struck = new Set(r.strike);
 	const pairIn = new Map(); senses.forEach((s, i) => s.pairs.forEach(p => pairIn.set(p.src + '|' + p.id, i)));
+	const alw = [...(d.al || []).map(a => a[0]).filter(e => !struck.has(e)), ...r.add.filter(e => !(d.al || []).some(a => a[0] === e))];
+	const synIn = new Map(); senses.forEach((s, i) => s.syn.forEach(y => synIn.set(y.toLowerCase(), i)));
 	const ov = overlaps(senses), nov = [...ov.values()].reduce((n, js) => n + js.length, 0), draft = DRAFT.has(w) && r.senses.length;
 	const keep = scrolls();
 	$('#work').innerHTML = `
@@ -292,6 +294,8 @@ function renderWork() {
 			<textarea id="def-${i}" data-f="def" data-i="${i}" rows="1" placeholder="What it means, in English">${esc(s.def)}</textarea>
 			<span class="l">Synonyms</span>
 			<div class="chips">${s.syn.map((y, j) => `<span class="chip">${esc(y)}<button type="button" class="x" data-act="delsyn" data-i="${i}" data-j="${j}" aria-label="Remove ${esc(y)}">×</button></span>`).join('')}<form class="synf" data-i="${i}"><input class="syn-in" id="syn-${i}" data-f="syn" data-i="${i}" placeholder="+ English word" aria-label="Add a synonym to sense ${i + 1}" enterkeyhint="done" autocomplete="off"><button type="submit" class="dash" aria-label="Add the synonym to sense ${i + 1}">Add</button></form></div>
+			${(left => left.length ? `<span class="l">Aligned</span><div class="chips alrow">${left.map(e => { const o = synIn.get(e.toLowerCase());
+				return `<button type="button" class="alq${o != null ? ' used' : ''}" data-act="synto" data-i="${i}" data-e="${esc(e)}" title="Add “${esc(e)}” to sense ${i + 1}'s synonyms${o != null ? ` (it's sense ${o + 1}'s)` : ''}">+ ${esc(e)}</button>` }).join('')}</div>` : '')(alw.filter(e => !s.syn.some(y => y.toLowerCase() === e.toLowerCase())))}
 			<label class="l" for="note-${i}">Notes</label>
 			<textarea id="note-${i}" data-f="note" data-i="${i}" rows="1" placeholder="Notes for this sense">${esc(s.note)}</textarea>
 			<span class="l">Paired with</span>
@@ -303,9 +307,9 @@ function renderWork() {
 	</section>`).join('')}
 	<div class="addsense"><button type="button" class="btn" data-act="addsense">+ Add a sense</button><span class="hint">Tab: Definition → Synonyms → Notes · Enter adds a synonym · Ctrl+Enter: finished, next word</span></div>
 	<section class="card aligned">
-		<div class="sect">ALIGNED ENGLISH · click a word to strike it, + to make it a synonym of sense ${active + 1}</div>
-		<div class="chips">${(d.al || []).map(([e, c]) => `<span class="al${struck.has(e) ? ' struck' : ''}"><button type="button" class="t" data-act="strike" data-e="${esc(e)}">${esc(e)}</button><span class="c">${c ? c.toLocaleString() : 'dict'}</span><button type="button" data-act="syn" data-e="${esc(e)}" aria-label="Add ${esc(e)} as a synonym">+</button></span>`).join('') || (info ? '<span class="none">No aligned English.</span>' : '…')}
-		${r.add.map(e => `<span class="al added"><span>${esc(e)}</span><button type="button" data-act="syn" data-e="${esc(e)}" aria-label="Add ${esc(e)} as a synonym">+</button><button type="button" data-act="unadd" data-e="${esc(e)}" aria-label="Remove ${esc(e)}">×</button></span>`).join('')}</div>
+		<div class="sect">ALIGNED ENGLISH · tap a wrong one to strike it (it leaves every sense's list); add one it's missing</div>
+		<div class="chips">${(d.al || []).map(([e, c]) => `<span class="al${struck.has(e) ? ' struck' : ''}"><button type="button" class="t" data-act="strike" data-e="${esc(e)}">${esc(e)}</button><span class="c">${c ? c.toLocaleString() : 'dict'}</span></span>`).join('') || (info ? '<span class="none">No aligned English.</span>' : '…')}
+		${r.add.map(e => `<span class="al added"><span>${esc(e)}</span><button type="button" data-act="unadd" data-e="${esc(e)}" aria-label="Remove ${esc(e)}">×</button></span>`).join('')}</div>
 		<form class="addw" id="addw"><input id="addq" placeholder="Add an English word the aligned list is missing" autocomplete="off" aria-label="Add an English word"><button type="submit" class="btn">Add</button></form>
 	</section>`;
 	document.querySelectorAll('#work textarea').forEach(fit);
@@ -729,6 +733,7 @@ document.addEventListener('click', async e => {
 	case 'delpair': edit(r => r.senses[i].pairs.splice(+t.dataset.j, 1)); return renderRef();
 	case 'strike': { const v = t.dataset.e; return edit(r => { r.strike = r.strike.includes(v) ? r.strike.filter(x => x !== v) : [...r.strike, v] }) }
 	case 'unadd': { const v = t.dataset.e; return edit(r => r.add = r.add.filter(x => x !== v)) }
+	case 'synto': return addSyn(i, t.dataset.e, false);
 	case 'syn': { const v = t.dataset.e; return edit(r => { if (!r.senses.length) r.senses.push(newSense()); const s = r.senses[Math.min(active, r.senses.length - 1)]; if (!s.syn.includes(v)) s.syn.push(v) }) }
 	case 'pair': if (!rec().senses.length) edit(r => r.senses.push(newSense())); active = i; return openPair(i);
 	case 'verse': if (!rec().senses.length) edit(r => r.senses.push(newSense())); active = i; return openVerse(i);
@@ -770,7 +775,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('focusin', e => {
 	const s = e.target.closest?.('.sense');
-	if (s && +s.dataset.i !== active) { active = +s.dataset.i; const sect = document.querySelector('.aligned .sect'); if (sect) sect.textContent = `ALIGNED ENGLISH · click a word to strike it, + to make it a synonym of sense ${active + 1}`; document.querySelectorAll('.sense').forEach(x => x.style.boxShadow = rec().senses.length > 1 && +x.dataset.i === active ? '0 0 0 3px var(--tab)' : '') }
+	if (s && +s.dataset.i !== active) { active = +s.dataset.i; document.querySelectorAll('.sense').forEach(x => x.style.boxShadow = rec().senses.length > 1 && +x.dataset.i === active ? '0 0 0 3px var(--tab)' : '') }
 });
 document.addEventListener('keydown', e => {
 	const t = e.target;

@@ -8,10 +8,10 @@
     ["peakslab.svg", 1789218198],
     ["peak.wasm", 1793706555],
     ["tnefar.wasm", 1793875014],
-    ["workbench/404.html", 1794922406],
+    ["workbench/404.html", 1794923221],
     ["workbench/data/queue.json", 1794892968],
     ["workbench/data/km-wb.zst", 1794892968],
-    ["workbench/wb.js", 1794922406]
+    ["workbench/wb.js", 1794923221]
   ],
   "dicts": [
     ["amharic/bible/text/am-1954.peak.zst", 1794355607, "Amharic Bible (መጽሐፍ ቅዱስ (የብሉይና የሐዲስ ኪዳን መጻሕፍት)), from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1307, 1, "mono", 0, 1309873],
