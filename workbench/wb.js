@@ -604,7 +604,8 @@ function openSenses(es) {
 }
 
 // ---- Reading the Bible (the Khmer ULB), every word glossed with your senses ----
-// A word's gloss is blank until you've finished it, unless it has an open definition (then that's, lighter). Tap a word to tag which of its senses it is there: that sense
+// A word's gloss is blank until you've written a sense for it (one not finished yet: a dashed line over it), unless it
+// has an open definition (then that's, lighter). Tap a word to tag which of its senses it is there: that sense
 // is then first in its gloss, in bold. Tags are the word's (tags: {"joh 3.16 2": a sense's id}: its second time
 // in that verse), saved and exported with it.
 const BOOKS = [['gen', 'Genesis'], ['exo', 'Exodus'], ['lev', 'Leviticus'], ['num', 'Numbers'], ['deu', 'Deuteronomy'], ['jos', 'Joshua'], ['jdg', 'Judges'], ['rut', 'Ruth'],
@@ -683,7 +684,7 @@ function wkGloss(w, key) {
 }
 function readGloss(w, key) {
 	const r = ED.get(w);
-	if (!r?.done) return '';
+	if (!r?.senses.some(x => x.def.trim() || x.syn.length)) return ''; // (written, finished or not)
 	const ss = r.senses.filter(x => x.def.trim() || x.syn.length), tag = r.tags?.[key], ti = tag ? ss.findIndex(x => x.id === tag) : -1;
 	const order = ti > 0 ? [ss[ti], ...ss.filter((_, j) => j !== ti)] : ss;
 	const syn = order.slice(0, 3).map(x => x.syn[0]);
@@ -732,7 +733,7 @@ function renderRead(top) {
 			const key = `${v.ref} ${k}`, r = ED.get(w), mine = readGloss(w, key), wg = mine ? '' : wkGloss(w, key), g = mine || wg, tagged = !!r?.tags?.[key];
 			total++; if (g) glossed++;
 			const from = p.from ? ` data-from="${esc(p.from)}" data-fk="${esc(p.fk)}" data-scope="${p.scope}"` : '';
-			return `<button type="button" class="rw${mine ? ' done' : wg ? ' wk' : r && hasSenses(r) ? ' started' : ''}${tagged ? ' tagged' : ''}${p.from ? ' part' : ''}" data-rw="${esc(w)}" data-key="${esc(key)}"${from}><span class="k km">${esc(w)}</span><span class="g">${g || '&nbsp;'}</span></button>`;
+			return `<button type="button" class="rw${mine ? (r.done ? ' done' : ' done unfinished') : wg ? ' wk' : r && hasSenses(r) ? ' started' : ''}${tagged ? ' tagged' : ''}${p.from ? ' part' : ''}" data-rw="${esc(w)}" data-key="${esc(key)}"${from}><span class="k km">${esc(w)}</span><span class="g">${g || '&nbsp;'}</span></button>`;
 		}).join('');
 		return `<div class="rv"><span class="vn">${v.ref.split('.')[1]}</span><div class="ws">${ws}</div>${v.en ? `<div class="en">${esc(v.en)}</div>` : ''}</div>`;
 	};
@@ -771,7 +772,7 @@ function drawTagSheet() {
 		: `<div class="sect">WHICH SENSE IS IT HERE?</div>` + ss.map((x, j) => opt(x.id || `#${j}`, `<b>${j + 1}.</b> ${x.pos ? `<span class="r">${esc(x.pos)}</span> ` : ''}${esc(x.def || '')}${x.syn.length ? ` <span class="e">(${esc(x.syn.join(', '))})</span>` : ''}`)).join('') + opt('', 'Not tagged');
 	document.body.insertAdjacentHTML('beforeend', `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="Tag ${esc(w)} in ${esc(bk)} ${esc(cv)}">
 		<div class="sh"><div class="t"><span><span class="km" style="letter-spacing:0">${esc(w)}</span> · ${esc(bk)} ${esc(cv.replace('.', ':'))}${nth > 1 ? ` (its ${nth === 2 ? '2nd' : nth === 3 ? '3rd' : nth + 'th'} time in the verse)` : ''}</span><button type="button" data-act="close" aria-label="Close">×</button></div>
-		<div class="d">${r?.done ? `Gloss here: ${readGloss(w, key) || '—'}` : wks.length ? `Its open definitions' gloss here: ${wkGloss(w, key) || '—'}` : "Not finished yet: its gloss stays blank until you finish it."}</div></div>
+		<div class="d">${readGloss(w, key) ? `Gloss here: ${readGloss(w, key)}${r.done ? '' : ' (not marked Finished yet)'}` : wks.length ? `Its open definitions' gloss here: ${wkGloss(w, key) || '—'}` : "No sense written yet: its gloss stays blank until you write one."}</div></div>
 		<div class="sb">${body}${splitHTML()}</div>
 		<div class="sfoot">${BY.has(w) ? `<button type="button" class="btn go" data-act="ropen">Open <span class="km">${esc(w)}</span> in the Workbench</button>` : '<span class="none">Not in the workbench\'s word list.</span>'}</div></section>`);
 }
