@@ -30,7 +30,7 @@ SLAB_META_FILES := $(patsubst dict_src/%,meta/%.meta,$(SLAB_DIRS))
 # The Khmer–English workbench (workbench/: a page of its own on the engine). Its
 # 404.html is index.html (the service worker serves a directory's 404.html,
 # GitHub Pages its index.html); its data is utils/kmenwb.py's
-WB_FILES := workbench/404.html workbench/wb.js workbench/data/queue.json workbench/data/km-wb.zst
+WB_FILES := workbench/404.html workbench/wb.js workbench/data/queue.json workbench/data/km-wb.zst workbench/data/km-open.zst
 WB_META := $(WB_FILES:%=meta/%.meta)
 workbench/404.html: workbench/index.html
 	cp $< $@

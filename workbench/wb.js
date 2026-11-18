@@ -26,6 +26,9 @@ const DICTS = [
 	['ulb', 'khmer/bible/text/km-ulb.peak.zst', 'Khmer ULB'],
 	['enult', 'english/bible/text/en-ult.peak.zst', 'English ULT'],
 	// English Wiktionary's senses (headwords "word (gloss)", found by the word), and by the Khmer its translation tables give them
+	// Every Khmer word with an open English definition, all together (utils/kmopen.py): English Wiktionary's, its
+	// translation tables', Wikidata's and the WordNet links' entries, each marked where it's from (p-tags)
+	['open', 'workbench/data/km-open.zst', 'Open definitions', 0, 'lazy'],
 	['ensenses', 'english/wiktionary/en-senses.peak.zst', 'Wiktionary senses', 0, 'lazy'], // (3 MB: loaded when a search first needs it)
 	['kmsenses', 'khmer/wiktionary/km-senses.peak.zst', 'Wiktionary translations'],
 ];
@@ -121,8 +124,8 @@ const db = (() => {
 
 // ---- State ----
 let Q = [], BY = new Map(), ED = new Map();
-// The words to define: those English Wiktionary (kaikki's, an open definition) has none of. One it has opens
-// (searched for) with a note: nothing to write.
+// The words to define: those with no open English definition (none in km-open: English Wiktionary, its translation
+// tables, Wikidata, the WordNet links; queue.json's 4th field). One that has opens (searched for) with a note.
 const mode = 'write'; let on = new Set(stored('srcs', Object.keys(SRC))), hide = stored('hide', false);
 let shown = [], limit = 300, cur = null, info = null, active = 0, sheet = null, saveT = null, dbOK = true;
 const closed = new Set(stored('closed', ['h97', 'nath2022', 'kmwikt']));
@@ -245,14 +248,14 @@ async function show(w) {
 	document.querySelector('.qi.cur')?.scrollIntoView({block: 'nearest'});
 	$('#app').classList.remove('qopen');
 	renderWork(); renderRef();
-	const [[wb, nath1967, kaikki, h97, nath2022, kmwikt, ipa], kms] = await Promise.all([
+	const [[wb, nath1967, kaikki, h97, nath2022, kmwikt, ipa], kms, open] = await Promise.all([
 		Promise.all(['wb', 'nath1967', 'kaikki', 'h97', 'nath2022', 'kmwikt', 'ipa'].map(d => engine.one(d, w))),
-		engine.one('kmsenses', w, true)]);
+		engine.one('kmsenses', w, true), BY.get(w)?.[3] ? engine.one('open', w) : []]);
 	if (cur !== w) return;
 	let data = {};
 	try { data = wb[0] ? JSON.parse(wb[0].body) : {} } catch (e) { console.warn(e) }
 	info = {data, nath1967, kaikki, h97, nath2022, kmwikt, ipa: ipa[0] ? clean(ipa[0].body) : '', wikt: kaikki.flatMap(e => wiktSenses(e.body)),
-		wikts: kms.map(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j)};
+		wikts: kms.map(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j), open};
 	if (!hasSenses(ED.get(w)) && !DRAFT.has(w)) { const d = await draftFor(w); if (cur !== w) return; if (d) DRAFT.set(w, d) }
 	renderWork(); renderRef();
 	const exs = rec().senses.map(s => s.ex?.ref).filter(Boolean);
@@ -291,7 +294,7 @@ function renderWork() {
 		${d.mus ? '<span class="tag mus">muslim word</span>' : ''}
 		<span class="nav"><button type="button" class="btn reset" data-act="reset" title="Clear your work on this word and start again from its Wiktionary senses">Reset</button><button type="button" class="btn" data-act="prev" title="Previous ( [ )">← Prev</button><button type="button" class="btn ${r.done ? 'done' : 'go'}" data-act="done" title="Ctrl+Enter">${r.done ? '✓ Finished' : 'Finished → next'}</button></span>
 	</div>
-	${x?.[3] ? `<div class="card draftnote"><span>English Wiktionary already defines <span class="km">${esc(w)}</span> (an open definition: see the Reference), so it doesn't need one here.</span></div>` : ''}
+	${x?.[3] ? `<div class="card draftnote"><span><span class="km">${esc(w)}</span> has an open definition${(srcs => srcs.length ? ` (${srcs.join(', ')}: see the Reference's “Open definitions”)` : '')(OPENORDER.filter(o => (info?.open || []).some(e => openSrc(e) === o)))}, so it doesn't need one here.</span></div>` : ''}
 	${draft ? `<div class="card draftnote"><span>Suggested from Wiktionary: ${senses.length} sense${senses.length > 1 ? 's' : ''}${nov ? `, ${nov} that may be the same meaning (combine them below)` : ''}. Saved when you change something or press Finished.</span><button type="button" class="dash" data-act="nodraft">Start empty instead</button></div>` : ''}
 	${senses.map((s, i) => `
 	<section class="card sense" data-i="${i}" style="${i === active && senses.length > 1 ? 'box-shadow: 0 0 0 3px var(--tab)' : ''}">
@@ -350,6 +353,7 @@ function renderRef() {
 	const wn = (d.wn || []).filter(s => !/[ក-៿]/.test(s[0])).map((s, j) => { const wd = s[1] === 'Wikidata'; return `<div class="ws"><div><span class="pos">${esc(s[1])}</span>${esc(s[0])} <span class="how">· ${esc(s[3])} ${s[2]}</span> ${where((wd ? 'wd|' : 'wn|') + s[0])}</div><div class="acts">${wd ? '' : `<button type="button" data-act="usewn" data-id="${esc(s[0])}">Use</button>`}<button type="button" data-act="pairwn" data-id="${esc(s[0])}" data-wd="${wd ? 1 : ''}">Pair</button></div></div>` }).join('');
 	const keep = scrolls();
 	$('#ref').innerHTML =
+		(info.open?.length ? card('open', 'Open definitions', 'km-open', dictHtml(info.open)) : '') +
 		card('nath1967', 'Chuon Nath 1967', 'km-nath1967', info.nath1967.length ? dictHtml(info.nath1967) : '<span class="none">Not in the 1967 edition.</span>', 'kmtext') +
 		card('kaikki', 'Wiktionary', 'km-kaikki', wikt || '<span class="none">No English Wiktionary entry.</span>') +
 		card('wikts', 'Wiktionary · translation tables', 'km-senses', wikts || `<span class="none">No English Wiktionary sense gives <span class="km">${esc(cur)}</span> as a translation.</span>`) +
@@ -586,8 +590,21 @@ function finish(toggle) {
 	if ((!toggle || !was) && next) show(next[0]);
 }
 
+// A word's open definitions as senses, for a gloss: English Wiktionary's senses, then its translation tables'
+// (the English sense: "light (of low weight)"), Wikidata's (the English label), the WordNet links' (the sense)
+const OPENORDER = ['English Wiktionary', 'Wiktionary translation table', 'Wikidata', 'WordNet link'];
+const openSrc = e => (e.body.match(/^<p-tags>([^<(]+)/)?.[1] || '').trim();
+function openSenses(es) {
+	const by = OPENORDER.map(src => es.filter(e => openSrc(e) === src));
+	const body = e => e.body.replace(/^<p-tags>.*?<\/p-tags>\s*/, '');
+	return [...by[0].flatMap(e => wiktSenses(body(e)).map(x => x.text)),
+		...by[1].map(e => clean(body(e).replace(/^<p-n>.*?<\/p-n>\s*/, ''))),
+		...by[2].map(e => clean(body(e).split('\t')[0])),
+		...by[3].map(e => clean(body(e).replace(/^<p-n>.*?<\/p-n>\s*/, '')))].filter(Boolean);
+}
+
 // ---- Reading the Bible (the Khmer ULB), every word glossed with your senses ----
-// A word's gloss is blank until you've finished it, unless English Wiktionary defines it (then its senses', lighter). Tap a word to tag which of its senses it is there: that sense
+// A word's gloss is blank until you've finished it, unless it has an open definition (then that's, lighter). Tap a word to tag which of its senses it is there: that sense
 // is then first in its gloss, in bold. Tags are the word's (tags: {"joh 3.16 2": a sense's id}: its second time
 // in that verse), saved and exported with it.
 const BOOKS = [['gen', 'Genesis'], ['exo', 'Exodus'], ['lev', 'Leviticus'], ['num', 'Numbers'], ['deu', 'Deuteronomy'], ['jos', 'Joshua'], ['jdg', 'Judges'], ['rut', 'Ruth'],
@@ -648,7 +665,9 @@ function words(text, ms, from = 0) {
 // Your gloss of a word: nothing until it's finished; then the first synonym of each of its first three senses (one
 // without: the first piece of its definition), or, none having any, the first sentence of the first two senses'
 // definitions; the sense tagged here first, in bold
-const firstPiece = d => d.split(/[;,]/)[0].replace(/\s*\([^)]*\)/g, '').trim();
+// (brackets out first, nested too: "Israel (a country in Western Asia, at …)" is Israel)
+const unbracket = d => { let t = d, u; while ((u = t.replace(/\s*\([^()]*\)/g, '')) !== t) t = u; return t };
+const firstPiece = d => unbracket(d).split(/[;,]/)[0].trim();
 const firstSent = d => (d.match(/^.*?[.!?។](?=\s|$)/)?.[0] ?? d).replace(/[.។]$/, '').trim();
 // A Wiktionary sense's synonym: its first piece, when short (three words at most, "to" aside), as PeakSlab's glosses
 const synOf = t => { const p = firstPiece(t); return p && p.replace(/^to /i, '').split(/\s+/).length <= 3 && !/[.!?។](\s|$)/.test(p) ? p : '' };
@@ -683,9 +702,9 @@ async function loadChapter(b, c) {
 	const all = vs.map(v => norm(v.km.replace(/​/g, ''))).join('\n'), ms = await engine.matchall('wb', all);
 	let o = 0;
 	for (const v of vs) { const t = norm(v.km.replace(/​/g, '')); v.words = words(t, ms, o); o += t.length + 1 }
-	// English Wiktionary's senses of its words it defines
-	const kw = [...new Set(vs.flatMap(v => v.words.filter(p => p.w && BY.get(p.w)?.[3]).map(p => p.w)))], got = await engine.lookup('kaikki', kw);
-	const wk = new Map(kw.map(w => [w, (got[w] || []).flatMap(e => wiktSenses(e.body)).map(x => x.text)]));
+	// The open definitions' senses of its words that have any
+	const kw = [...new Set(vs.flatMap(v => v.words.filter(p => p.w && BY.get(p.w)?.[3]).map(p => p.w)))], got = await engine.lookup('open', kw);
+	const wk = new Map(kw.map(w => [w, openSenses(got[w] || [])]));
 	return {b, c, name, vs, wk};
 }
 async function chapterCount(b) {
@@ -747,12 +766,12 @@ function drawTagSheet() {
 	const {w, key} = sheet, r = ED.get(w), ss = (r?.senses || []).filter(x => x.def.trim() || x.syn.length), tag = r?.tags?.[key], wks = CH?.wk?.get(w) || [];
 	const [b, cv] = key.split(' '), nth = +key.split(' ')[2], bk = BOOKS.find(x => x[0] === b)?.[1] || b;
 	const opt = (id, label) => `<label class="opt${(tag || '') === id ? ' on' : ''}"><input type="radio" name="tagsense" data-tagsense="${esc(id)}"${(tag || '') === id ? ' checked' : ''}><span>${label}</span></label>`;
-	const body = !ss.length && wks.length ? `<div class="sect">WHICH OF ENGLISH WIKTIONARY'S SENSES IS IT HERE?</div>` + wks.map((t, j) => opt(`wk#${j}`, `<b>${j + 1}.</b> ${esc(t)}`)).join('') + opt('', 'Not tagged')
+	const body = !ss.length && wks.length ? `<div class="sect">WHICH OF ITS OPEN DEFINITIONS IS IT HERE?</div>` + wks.map((t, j) => opt(`wk#${j}`, `<b>${j + 1}.</b> ${esc(t)}`)).join('') + opt('', 'Not tagged')
 		: !ss.length ? `<div class="none">You haven't written senses for <span class="km">${esc(w)}</span> yet.</div>`
 		: `<div class="sect">WHICH SENSE IS IT HERE?</div>` + ss.map((x, j) => opt(x.id || `#${j}`, `<b>${j + 1}.</b> ${x.pos ? `<span class="r">${esc(x.pos)}</span> ` : ''}${esc(x.def || '')}${x.syn.length ? ` <span class="e">(${esc(x.syn.join(', '))})</span>` : ''}`)).join('') + opt('', 'Not tagged');
 	document.body.insertAdjacentHTML('beforeend', `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="Tag ${esc(w)} in ${esc(bk)} ${esc(cv)}">
 		<div class="sh"><div class="t"><span><span class="km" style="letter-spacing:0">${esc(w)}</span> · ${esc(bk)} ${esc(cv.replace('.', ':'))}${nth > 1 ? ` (its ${nth === 2 ? '2nd' : nth === 3 ? '3rd' : nth + 'th'} time in the verse)` : ''}</span><button type="button" data-act="close" aria-label="Close">×</button></div>
-		<div class="d">${r?.done ? `Gloss here: ${readGloss(w, key) || '—'}` : wks.length ? `English Wiktionary's gloss here: ${wkGloss(w, key) || '—'}` : "Not finished yet: its gloss stays blank until you finish it."}</div></div>
+		<div class="d">${r?.done ? `Gloss here: ${readGloss(w, key) || '—'}` : wks.length ? `Its open definitions' gloss here: ${wkGloss(w, key) || '—'}` : "Not finished yet: its gloss stays blank until you finish it."}</div></div>
 		<div class="sb">${body}${splitHTML()}</div>
 		<div class="sfoot">${BY.has(w) ? `<button type="button" class="btn go" data-act="ropen">Open <span class="km">${esc(w)}</span> in the Workbench</button>` : '<span class="none">Not in the workbench\'s word list.</span>'}</div></section>`);
 }
