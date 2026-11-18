@@ -27,7 +27,7 @@ const DICTS = [
 	['enult', 'english/bible/text/en-ult.peak.zst', 'English ULT'],
 	// English Wiktionary's senses (headwords "word (gloss)", found by the word), and by the Khmer its translation tables give them
 	// Every Khmer word with an open English definition, all together (utils/kmopen.py): English Wiktionary's, its
-	// translation tables', Wikidata's and the WordNet links' entries, each marked where it's from (p-tags)
+	// translation tables' and Wikidata's entries, each marked where it's from (p-tags)
 	['open', 'workbench/data/km-open.zst', 'Open definitions', 0, 'lazy'],
 	['ensenses', 'english/wiktionary/en-senses.peak.zst', 'Wiktionary senses', 0, 'lazy'], // (3 MB: loaded when a search first needs it)
 	['kmsenses', 'khmer/wiktionary/km-senses.peak.zst', 'Wiktionary translations'],
@@ -125,7 +125,7 @@ const db = (() => {
 // ---- State ----
 let Q = [], BY = new Map(), ED = new Map();
 // The words to define: those with no open English definition (none in km-open: English Wiktionary, its translation
-// tables, Wikidata, the WordNet links; queue.json's 4th field). One that has opens (searched for) with a note.
+// tables, Wikidata; queue.json's 4th field). One that has opens (searched for) with a note.
 const mode = 'write'; let on = new Set(stored('srcs', Object.keys(SRC))), hide = stored('hide', false);
 let shown = [], limit = 300, cur = null, info = null, active = 0, sheet = null, saveT = null, dbOK = true;
 const closed = new Set(stored('closed', ['h97', 'nath2022', 'kmwikt']));
@@ -350,14 +350,15 @@ function renderRef() {
 	const where = k => pairIn.has(k) ? `<span class="in">· sense ${pairIn.get(k) + 1}</span>` : '';
 	const wikt = info.wikt.map((s, j) => `<div class="ws"><div><span class="pos">${esc(s.pos)}</span>${esc(s.text)} ${where('wikt|' + cur + '#' + j)}</div><div class="acts"><button type="button" data-act="usewikt" data-j="${j}">Use</button><button type="button" data-act="pairwikt" data-j="${j}">Pair</button></div></div>`).join('');
 	const wikts = info.wikts.map((s, j) => `<div class="ws"><div><b>${esc(s.word)}</b> <span class="pos">${esc(s.pos)}</span>${esc(s.gloss)} ${where('wikts|' + s.id)}</div><div class="acts"><button type="button" data-act="usewikts" data-j="${j}">Use</button><button type="button" data-act="pairwikts" data-j="${j}">Pair</button></div></div>`).join('');
-	const wn = (d.wn || []).filter(s => !/[ក-៿]/.test(s[0])).map((s, j) => { const wd = s[1] === 'Wikidata'; return `<div class="ws"><div><span class="pos">${esc(s[1])}</span>${esc(s[0])} <span class="how">· ${esc(s[3])} ${s[2]}</span> ${where((wd ? 'wd|' : 'wn|') + s[0])}</div><div class="acts">${wd ? '' : `<button type="button" data-act="usewn" data-id="${esc(s[0])}">Use</button>`}<button type="button" data-act="pairwn" data-id="${esc(s[0])}" data-wd="${wd ? 1 : ''}">Pair</button></div></div>` }).join('');
+	// (km-wb's wn: of its machine-made links, only Wikidata's: no Khmer WordNet is an official one, so no WordNet links)
+	const wn = (d.wn || []).filter(s => s[1] === 'Wikidata').map((s, j) => { const wd = s[1] === 'Wikidata'; return `<div class="ws"><div><span class="pos">${esc(s[1])}</span>${esc(s[0])} <span class="how">· ${esc(s[3])} ${s[2]}</span> ${where((wd ? 'wd|' : 'wn|') + s[0])}</div><div class="acts">${wd ? '' : `<button type="button" data-act="usewn" data-id="${esc(s[0])}">Use</button>`}<button type="button" data-act="pairwn" data-id="${esc(s[0])}" data-wd="${wd ? 1 : ''}">Pair</button></div></div>` }).join('');
 	const keep = scrolls();
 	$('#ref').innerHTML =
 		(info.open?.length ? card('open', 'Open definitions', 'km-open', dictHtml(info.open)) : '') +
 		card('nath1967', 'Chuon Nath 1967', 'km-nath1967', info.nath1967.length ? dictHtml(info.nath1967) : '<span class="none">Not in the 1967 edition.</span>', 'kmtext') +
 		card('kaikki', 'Wiktionary', 'km-kaikki', wikt || '<span class="none">No English Wiktionary entry.</span>') +
 		card('wikts', 'Wiktionary · translation tables', 'km-senses', wikts || `<span class="none">No English Wiktionary sense gives <span class="km">${esc(cur)}</span> as a translation.</span>`) +
-		card('wnl', 'WordNet · linked by votes', 'machine-linked', wn || '<span class="none">No WordNet senses linked.</span>') +
+		(wn ? card('wnl', 'Wikidata · linked by votes', 'machine-linked', wn) : '') +
 		card('h97', 'Headley 1997', 'km-h97', info.h97.length ? dictHtml(info.h97) : '<span class="none">Not in Headley.</span>') +
 		card('nath2022', 'Chuon Nath 2022', 'km-nath2022', info.nath2022.length ? dictHtml(info.nath2022) : '<span class="none">Not in the 2022 edition.</span>', 'kmtext') +
 		card('kmwikt', 'Khmer Wiktionary', 'km-wiktionary', info.kmwikt.length ? dictHtml(info.kmwikt) : '<span class="none">Not in Khmer Wiktionary.</span>', 'kmtext');
@@ -468,7 +469,7 @@ async function pairSearch() {
 	const wikts = es => es.map(wsParse).filter((e, j, a) => a.findIndex(x => x.id === e.id) === j).map(e => ({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word}));
 	info?.wikt.forEach((x, j) => linked.push({src: 'wikt', id: cur + '#' + j, text: x.text, pos: x.pos, label: 'Wiktionary'}));
 	(info?.wikts || []).forEach(e => linked.push({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word, how: 'Wiktionary translation table'}));
-	for (const l of (d.wn || []).filter(l => !/[ក-៿]/.test(l[0]))) {
+	for (const l of (d.wn || []).filter(l => l[1] === 'Wikidata')) { // (no WordNet links: none is official for Khmer)
 		const wd = l[1] === 'Wikidata';
 		linked.push({src: wd ? 'wd' : 'wn', id: l[0], text: l[0], pos: l[1], label: wd ? 'Wikidata' : 'WordNet', how: `${l[3]} ${l[2]}`});
 	}
@@ -591,16 +592,15 @@ function finish(toggle) {
 }
 
 // A word's open definitions as senses, for a gloss: English Wiktionary's senses, then its translation tables'
-// (the English sense: "light (of low weight)"), Wikidata's (the English label), the WordNet links' (the sense)
-const OPENORDER = ['English Wiktionary', 'Wiktionary translation table', 'Wikidata', 'WordNet link'];
+// (the English sense: "light (of low weight)"), Wikidata's (the English label)
+const OPENORDER = ['English Wiktionary', 'Wiktionary translation table', 'Wikidata'];
 const openSrc = e => (e.body.match(/^<p-tags>([^<(]+)/)?.[1] || '').trim();
 function openSenses(es) {
 	const by = OPENORDER.map(src => es.filter(e => openSrc(e) === src));
 	const body = e => e.body.replace(/^<p-tags>.*?<\/p-tags>\s*/, '');
 	return [...by[0].flatMap(e => wiktSenses(body(e)).map(x => x.text)),
 		...by[1].map(e => clean(body(e).replace(/^<p-n>.*?<\/p-n>\s*/, ''))),
-		...by[2].map(e => clean(body(e).split('\t')[0])),
-		...by[3].map(e => clean(body(e).replace(/^<p-n>.*?<\/p-n>\s*/, '')))].filter(Boolean);
+		...by[2].map(e => clean(body(e).split('\t')[0]))].filter(Boolean);
 }
 
 // ---- Reading the Bible (the Khmer ULB), every word glossed with your senses ----
