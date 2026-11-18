@@ -211,7 +211,7 @@ function wiktSenses(body) {
 		for (const li of el.children) {
 			if (li.tagName !== 'LI') continue;
 			const c = li.cloneNode(true);
-			c.querySelectorAll('ul, ol, p, details').forEach(x => x.remove());
+			c.querySelectorAll('ul, ol, p, details, p-tags').forEach(x => x.remove()); // (p-tags: "transitive", "formal")
 			const t = c.textContent.replace(/\s+/g, ' ').trim();
 			if (t) out.push({pos, text: t});
 		}
@@ -667,7 +667,7 @@ function words(text, ms, from = 0) {
 // definitions; the sense tagged here first, in bold
 // (brackets out first, nested too: "Israel (a country in Western Asia, at …)" is Israel)
 const unbracket = d => { let t = d, u; while ((u = t.replace(/\s*\([^()]*\)/g, '')) !== t) t = u; return t };
-const firstPiece = d => unbracket(d).split(/[;,]/)[0].trim();
+const firstPiece = d => unbracket(d).replace(/^[.…\s]+/, '').split(/[;,]/)[0].trim(); // ("... at all, ever": at all)
 const firstSent = d => (d.match(/^.*?[.!?។](?=\s|$)/)?.[0] ?? d).replace(/[.។]$/, '').trim();
 // A Wiktionary sense's synonym: its first piece, when short (three words at most, "to" aside), as PeakSlab's glosses
 const synOf = t => { const p = firstPiece(t); return p && p.replace(/^to /i, '').split(/\s+/).length <= 3 && !/[.!?។](\s|$)/.test(p) ? p : '' };
