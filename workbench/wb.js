@@ -121,7 +121,9 @@ const db = (() => {
 
 // ---- State ----
 let Q = [], BY = new Map(), ED = new Map();
-let mode = stored('mode', 'write'), on = new Set(stored('srcs', Object.keys(SRC))), hide = stored('hide', false);
+// The words to define: those English Wiktionary (kaikki's, an open definition) has none of. One it has opens
+// (searched for) with a note: nothing to write.
+const mode = 'write'; let on = new Set(stored('srcs', Object.keys(SRC))), hide = stored('hide', false);
 let shown = [], limit = 300, cur = null, info = null, active = 0, sheet = null, saveT = null, dbOK = true;
 const closed = new Set(stored('closed', ['h97', 'nath2022', 'kmwikt']));
 const blank = w => ({w, senses: [], strike: [], add: [], done: false, t: 0});
@@ -149,11 +151,9 @@ function setStatus(msg) {
 		`${n < engine.toLoad() ? `Loading dictionaries ${n}/${engine.toLoad()} · ` : ''}Saved on this device · ${done.toLocaleString()} finished`);
 }
 function counts() {
-	let w = 0, r = 0, wd = 0, rd = 0;
-	for (const x of Q) { const d = ED.get(x[0])?.done; if (x[3]) { r++; if (d) rd++ } else { w++; if (d) wd++ } }
+	let w = 0, wd = 0;
+	for (const x of Q) if (!x[3]) { w++; if (ED.get(x[0])?.done) wd++ }
 	$('#nWrite').textContent = `${wd.toLocaleString()}/${w.toLocaleString()}`;
-	$('#nReview').textContent = `${rd.toLocaleString()}/${r.toLocaleString()}`;
-	$('#mWrite').setAttribute('aria-pressed', mode === 'write'); $('#mReview').setAttribute('aria-pressed', mode === 'review');
 }
 function renderSrcs() {
 	$('#srcs').innerHTML = Object.entries(SRC).map(([k, n]) => `<button type="button" data-src="${k}" aria-pressed="${on.has(k)}">${n}</button>`).join('');
@@ -238,7 +238,6 @@ const isWikt = src => src === 'wikt' || src === 'wikts';
 
 async function show(w) {
 	const x = BY.get(w);
-	if (x && !inMode(x) && !$('#q').value) { mode = x[3] ? 'review' : 'write'; store('mode', mode); counts(); renderQueue() }
 	cur = w; info = null; active = 0;
 	try { history.replaceState(null, '', '#' + encodeURIComponent(w)) } catch (e) {}
 	if (!document.querySelector('.qi.cur') && shown.some(x => x[0] === w)) renderQueue();
@@ -292,6 +291,7 @@ function renderWork() {
 		${d.mus ? '<span class="tag mus">muslim word</span>' : ''}
 		<span class="nav"><button type="button" class="btn reset" data-act="reset" title="Clear your work on this word and start again from its Wiktionary senses">Reset</button><button type="button" class="btn" data-act="prev" title="Previous ( [ )">← Prev</button><button type="button" class="btn ${r.done ? 'done' : 'go'}" data-act="done" title="Ctrl+Enter">${r.done ? '✓ Finished' : 'Finished → next'}</button></span>
 	</div>
+	${x?.[3] ? `<div class="card draftnote"><span>English Wiktionary already defines <span class="km">${esc(w)}</span> (an open definition: see the Reference), so it doesn't need one here.</span></div>` : ''}
 	${draft ? `<div class="card draftnote"><span>Suggested from Wiktionary: ${senses.length} sense${senses.length > 1 ? 's' : ''}${nov ? `, ${nov} that may be the same meaning (combine them below)` : ''}. Saved when you change something or press Finished.</span><button type="button" class="dash" data-act="nodraft">Start empty instead</button></div>` : ''}
 	${senses.map((s, i) => `
 	<section class="card sense" data-i="${i}" style="${i === active && senses.length > 1 ? 'box-shadow: 0 0 0 3px var(--tab)' : ''}">
@@ -585,13 +585,9 @@ function finish(toggle) {
 	renderQueue();
 	if ((!toggle || !was) && next) show(next[0]);
 }
-function setMode(m) {
-	mode = m; store('mode', m); $('#q').value = ''; limit = 300; counts(); renderQueue();
-	const first = shown.find(x => !ED.get(x[0])?.done) || shown[0]; if (first) show(first[0]);
-}
 
 // ---- Reading the Bible (the Khmer ULB), every word glossed with your senses ----
-// A word's gloss is blank until you've finished it. Tap a word to tag which of its senses it is there: that sense
+// A word's gloss is blank until you've finished it, unless English Wiktionary defines it (then its senses', lighter). Tap a word to tag which of its senses it is there: that sense
 // is then first in its gloss, in bold. Tags are the word's (tags: {"joh 3.16 2": a sense's id}: its second time
 // in that verse), saved and exported with it.
 const BOOKS = [['gen', 'Genesis'], ['exo', 'Exodus'], ['lev', 'Leviticus'], ['num', 'Numbers'], ['deu', 'Deuteronomy'], ['jos', 'Joshua'], ['jdg', 'Judges'], ['rut', 'Ruth'],
@@ -654,6 +650,18 @@ function words(text, ms, from = 0) {
 // definitions; the sense tagged here first, in bold
 const firstPiece = d => d.split(/[;,]/)[0].replace(/\s*\([^)]*\)/g, '').trim();
 const firstSent = d => (d.match(/^.*?[.!?។](?=\s|$)/)?.[0] ?? d).replace(/[.។]$/, '').trim();
+// A Wiktionary sense's synonym: its first piece, when short (three words at most, "to" aside), as PeakSlab's glosses
+const synOf = t => { const p = firstPiece(t); return p && p.replace(/^to /i, '').split(/\s+/).length <= 3 && !/[.!?។](\s|$)/.test(p) ? p : '' };
+function wkGloss(w, key) {
+	const ss = CH?.wk?.get(w); if (!ss?.length) return '';
+	const tag = ED.get(w)?.tags?.[key], ti = tag?.startsWith('wk#') ? +tag.slice(3) : -1;
+	const order = ti >= 0 && ss[ti] ? [ss[ti], ...ss.filter((_, j) => j !== ti)] : ss;
+	const syn = order.slice(0, 3).map(synOf);
+	const gs = syn.some(Boolean) ? order.slice(0, 3).map((t, j) => syn[j] || firstPiece(t)) : order.slice(0, 2).map(firstSent);
+	const seen = new Set();
+	return gs.map((g, j) => [g, j === 0 && ti >= 0 && !!ss[ti]]).filter(([g]) => g && !seen.has(g.toLowerCase()) && seen.add(g.toLowerCase()))
+		.map(([g, bold]) => bold ? `<b>${esc(g)}</b>` : esc(g)).join('; ');
+}
 function readGloss(w, key) {
 	const r = ED.get(w);
 	if (!r?.done) return '';
@@ -675,7 +683,10 @@ async function loadChapter(b, c) {
 	const all = vs.map(v => norm(v.km.replace(/​/g, ''))).join('\n'), ms = await engine.matchall('wb', all);
 	let o = 0;
 	for (const v of vs) { const t = norm(v.km.replace(/​/g, '')); v.words = words(t, ms, o); o += t.length + 1 }
-	return {b, c, name, vs};
+	// English Wiktionary's senses of its words it defines
+	const kw = [...new Set(vs.flatMap(v => v.words.filter(p => p.w && BY.get(p.w)?.[3]).map(p => p.w)))], got = await engine.lookup('kaikki', kw);
+	const wk = new Map(kw.map(w => [w, (got[w] || []).flatMap(e => wiktSenses(e.body)).map(x => x.text)]));
+	return {b, c, name, vs, wk};
 }
 async function chapterCount(b) {
 	if (NCH.has(b)) return NCH.get(b);
@@ -699,10 +710,10 @@ function renderRead(top) {
 		const ws = broken(v).map(p => {
 			if (p.t != null) return `<span class="rt">${esc(p.t)}</span>`;
 			const w = p.w, k = (seen.get(w) || 0) + 1; seen.set(w, k);
-			const key = `${v.ref} ${k}`, r = ED.get(w), g = readGloss(w, key), tagged = !!r?.tags?.[key];
+			const key = `${v.ref} ${k}`, r = ED.get(w), mine = readGloss(w, key), wg = mine ? '' : wkGloss(w, key), g = mine || wg, tagged = !!r?.tags?.[key];
 			total++; if (g) glossed++;
 			const from = p.from ? ` data-from="${esc(p.from)}" data-fk="${esc(p.fk)}" data-scope="${p.scope}"` : '';
-			return `<button type="button" class="rw${g ? ' done' : r && hasSenses(r) ? ' started' : ''}${tagged ? ' tagged' : ''}${p.from ? ' part' : ''}" data-rw="${esc(w)}" data-key="${esc(key)}"${from}><span class="k km">${esc(w)}</span><span class="g">${g || '&nbsp;'}</span></button>`;
+			return `<button type="button" class="rw${mine ? ' done' : wg ? ' wk' : r && hasSenses(r) ? ' started' : ''}${tagged ? ' tagged' : ''}${p.from ? ' part' : ''}" data-rw="${esc(w)}" data-key="${esc(key)}"${from}><span class="k km">${esc(w)}</span><span class="g">${g || '&nbsp;'}</span></button>`;
 		}).join('');
 		return `<div class="rv"><span class="vn">${v.ref.split('.')[1]}</span><div class="ws">${ws}</div>${v.en ? `<div class="en">${esc(v.en)}</div>` : ''}</div>`;
 	};
@@ -733,14 +744,15 @@ async function tagEditor(w, key, from) {
 	sh.cands = c; renderSheet();
 }
 function drawTagSheet() {
-	const {w, key} = sheet, r = ED.get(w), ss = (r?.senses || []).filter(x => x.def.trim() || x.syn.length), tag = r?.tags?.[key];
+	const {w, key} = sheet, r = ED.get(w), ss = (r?.senses || []).filter(x => x.def.trim() || x.syn.length), tag = r?.tags?.[key], wks = CH?.wk?.get(w) || [];
 	const [b, cv] = key.split(' '), nth = +key.split(' ')[2], bk = BOOKS.find(x => x[0] === b)?.[1] || b;
 	const opt = (id, label) => `<label class="opt${(tag || '') === id ? ' on' : ''}"><input type="radio" name="tagsense" data-tagsense="${esc(id)}"${(tag || '') === id ? ' checked' : ''}><span>${label}</span></label>`;
-	const body = !ss.length ? `<div class="none">You haven't written senses for <span class="km">${esc(w)}</span> yet.</div>`
+	const body = !ss.length && wks.length ? `<div class="sect">WHICH OF ENGLISH WIKTIONARY'S SENSES IS IT HERE?</div>` + wks.map((t, j) => opt(`wk#${j}`, `<b>${j + 1}.</b> ${esc(t)}`)).join('') + opt('', 'Not tagged')
+		: !ss.length ? `<div class="none">You haven't written senses for <span class="km">${esc(w)}</span> yet.</div>`
 		: `<div class="sect">WHICH SENSE IS IT HERE?</div>` + ss.map((x, j) => opt(x.id || `#${j}`, `<b>${j + 1}.</b> ${x.pos ? `<span class="r">${esc(x.pos)}</span> ` : ''}${esc(x.def || '')}${x.syn.length ? ` <span class="e">(${esc(x.syn.join(', '))})</span>` : ''}`)).join('') + opt('', 'Not tagged');
 	document.body.insertAdjacentHTML('beforeend', `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="Tag ${esc(w)} in ${esc(bk)} ${esc(cv)}">
 		<div class="sh"><div class="t"><span><span class="km" style="letter-spacing:0">${esc(w)}</span> · ${esc(bk)} ${esc(cv.replace('.', ':'))}${nth > 1 ? ` (its ${nth === 2 ? '2nd' : nth === 3 ? '3rd' : nth + 'th'} time in the verse)` : ''}</span><button type="button" data-act="close" aria-label="Close">×</button></div>
-		<div class="d">${r?.done ? `Gloss here: ${readGloss(w, key) || '—'}` : "Not finished yet: its gloss stays blank until you finish it."}</div></div>
+		<div class="d">${r?.done ? `Gloss here: ${readGloss(w, key) || '—'}` : wks.length ? `English Wiktionary's gloss here: ${wkGloss(w, key) || '—'}` : "Not finished yet: its gloss stays blank until you finish it."}</div></div>
 		<div class="sb">${body}${splitHTML()}</div>
 		<div class="sfoot">${BY.has(w) ? `<button type="button" class="btn go" data-act="ropen">Open <span class="km">${esc(w)}</span> in the Workbench</button>` : '<span class="none">Not in the workbench\'s word list.</span>'}</div></section>`);
 }
@@ -771,7 +783,7 @@ function joinBack() {
 }
 // Tags a sense (an id, given to the senses that have none: "#2" is the second without one) to w at key; '' untags
 function tagSense(w, key, id) {
-	const r = structuredClone(ED.get(w)); if (!r) return;
+	const r = structuredClone(ED.get(w) || blank(w));
 	const ss = r.senses.filter(x => x.def.trim() || x.syn.length);
 	if (id.startsWith('#')) { const x = ss[+id.slice(1)]; if (!x) return; id = x.id ||= Math.random().toString(36).slice(2, 9) }
 	r.tags = {...r.tags}; if (id) r.tags[key] = id; else delete r.tags[key];
@@ -897,8 +909,6 @@ document.addEventListener('submit', e => {
 	const v = $('#addq').value.trim(); if (!v || !cur) return;
 	edit(r => { if (!r.add.includes(v)) r.add.push(v) }); $('#addq')?.focus();
 });
-$('#mWrite').onclick = () => setMode('write');
-$('#mReview').onclick = () => setMode('review');
 $('#listBtn').onclick = () => $('#app').classList.add('qopen');
 $('#qscrim').onclick = () => $('#app').classList.remove('qopen');
 $('#q').addEventListener('keydown', e => { if (e.key === 'Enter') { const w = norm($('#q').value); if (w) show(BY.has(w) ? w : shown[0]?.[0] || w) } });

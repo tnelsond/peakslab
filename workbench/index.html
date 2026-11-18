@@ -52,6 +52,7 @@ header .logo span { font-weight: 400; opacity: .8 }
 .modes { display: inline-flex; border: 1px solid #a98; border-radius: 8px; overflow: hidden }
 .modes button { border: 0; padding: 6px 12px; background: transparent; color: var(--header-fg); white-space: nowrap }
 .modes button[aria-pressed="true"] { background: var(--tab); color: #000; font-weight: 700 }
+.modes > span { padding: 6px 12px; white-space: nowrap; color: var(--header-fg) }
 .hbtn { border: 1px solid #a98; background: transparent; color: var(--header-fg); border-radius: 6px; padding: 5px 10px }
 #themeBtn { min-width: 2.4em; line-height: 1.2 }
 #status { margin-left: auto; font-size: 13px; opacity: .85; white-space: nowrap }
@@ -220,6 +221,7 @@ p-a { color: var(--blue) }
 .rw.done .g { color: var(--text); border-top-color: transparent }
 .rw.done .g b { color: var(--green) }
 .rw.started .g { border-top-color: var(--blue) }
+.rw.wk .g { color: var(--muted); font-style: italic; border-top-color: transparent }
 .rw.tagged { border-color: var(--green) }
 .sheet .sfoot { padding: 10px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end }
 .empty { padding: 40px; text-align: center; color: var(--muted) }
@@ -256,8 +258,7 @@ p-a { color: var(--blue) }
 		<div class="logo"><img src="/peakslab.svg" alt="PeakSlab"><span>Workbench</span></div>
 		<input type="search" id="q" class="km" placeholder="Find a Khmer word" autocomplete="off" aria-label="Find a Khmer word">
 		<div class="modes" role="group" aria-label="Mode">
-			<button type="button" id="mWrite" aria-pressed="true" title="Words English Wiktionary doesn't have">Write <span id="nWrite"></span></button>
-			<button type="button" id="mReview" aria-pressed="false" title="Words English Wiktionary has: review them">Review <span id="nReview"></span></button>
+			<span id="mWrite" title="The words with no open English definition (English Wiktionary has none): finished / all">To define <span id="nWrite"></span></span>
 		</div>
 		<button class="hbtn" id="readBtn" type="button" aria-pressed="false" title="Read the Bible with your glosses">Bible</button>
 		<button class="hbtn" id="exportBtn" type="button" title="Save your work as a file">Export</button>
