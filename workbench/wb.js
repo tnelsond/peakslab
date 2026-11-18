@@ -102,7 +102,9 @@ const engine = (() => {
 		return out;
 	}
 	const one = async (dict, key, second) => (await lookup(dict, [key], second))[key] || [];
-	return {start, lookup, one, matchall, loadedCount: () => nLoaded, toLoad: () => DICTS.filter(x => x[4] !== 'lazy').length};
+	// Every headword of dict, in the file's order
+	async function heads(dict) { const did = D[dict]; want(did); return await ready[did].p ? (await ask({type: 'heads', did})).heads : [] }
+	return {start, lookup, one, matchall, heads, loadedCount: () => nLoaded, toLoad: () => DICTS.filter(x => x[4] !== 'lazy').length};
 })();
 
 // ---- Your work: IndexedDB ----
@@ -495,23 +497,35 @@ async function openVerse(i) {
 	renderSheet(); await verseLoad();
 	void d;
 }
-// The verses of a word the Bible's own word breaks never give whole (សេចក្តីងងឹត: written សេចក្តី and ងងឹត, so
-// none of its own): those of its rarest part (the word list's split of it, fewest parts) that have it all, spaces
-// and word breaks aside (400 of that part's verses at most)
-async function versesViaParts(w) {
-	const split = splitsOf(w, await engine.matchall('wb', w))[0];
-	if (!split) return [];
-	const got = await engine.lookup('wb', split);
-	const refsOf = p => { try { const d = JSON.parse(got[p]?.[0]?.body || '{}'); return [...new Set([...(d.v || []), ...Object.values(d.vi || {}).flat()])] } catch (e) { return [] } };
-	const refs = (split.map(refsOf).filter(l => l.length).sort((a, b) => a.length - b.length)[0] || []).slice(0, 400);
-	const vs = await verses(refs), key = norm(w);
-	return refs.filter((r, j) => norm(vs[j][0].replace(/\s/g, '')).includes(key));
+// The whole Khmer ULB, for searching its text: [ref, its Khmer without word breaks (zero-width spaces), ្ដ as ្ត],
+// read once, a book's worth at a time (onstep: how far, 0 to 1)
+let ULBTEXT = null;
+function ulbText(onstep) {
+	return ULBTEXT ??= (async () => {
+		const refs = await engine.heads('ulb'), out = [];
+		for (let i = 0; i < refs.length; i += 1500) {
+			const part = refs.slice(i, i + 1500), got = await engine.lookup('ulb', part);
+			for (const r of part) if (got[r]?.[0]) out.push([r, norm(clean(got[r][0].body.split('\t').slice(1).join(' ')))]);
+			onstep?.(Math.min(1, (i + 1500) / refs.length));
+		}
+		return out;
+	})();
+}
+// The verses of a word its data has none of (the Bible writes it with word breaks inside: សេចក្តី​ងងឹត): those whose
+// text has it, word breaks removed (500 at most)
+async function versesByText(w, onstep) {
+	const key = norm(w);
+	return (await ulbText(onstep)).filter(([, t]) => t.includes(key)).map(([r]) => r).slice(0, 500);
 }
 async function verseLoad() {
 	const sh = sheet, d = info?.data || {};
 	let refs = sh.group ? (d.vi?.[sh.group] || []) : (d.v || []);
 	sh.rows = null; renderSheet();
-	if (!sh.group && !refs.length && !Object.keys(d.vi || {}).length) { sh.viaParts = true; refs = await versesViaParts(cur); if (sheet !== sh) return }
+	if (!sh.group && !refs.length && !Object.keys(d.vi || {}).length) {
+		sh.byText = 0; renderSheet();
+		refs = await versesByText(cur, f => { if (sheet === sh && !sh.rows) { sh.byText = f; const p = document.querySelector('.sheet [data-group=""]'); if (p) p.lastChild.textContent = ` as its own word · searching the Bible ${Math.round(f * 100)}%` } });
+		if (sheet !== sh) return;
+	}
 	const vs = await verses(refs);
 	if (sheet !== sh) return;
 	sh.rows = refs.map((r, j) => [r, ...vs[j]]); sh.top = true; renderSheet();
@@ -549,7 +563,7 @@ function drawSheet() {
 		foot = `<span>${sh.sel.size} chosen. A pairing is a link: your definition stays yours.</span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn go" data-act="pairdone">Pair ${sh.sel.size}</button>`;
 	} else {
 		const d = info?.data || {}, vi = d.vi || {};
-		filters = `<div class="pills"><button type="button" data-group="" aria-pressed="${!sh.group}"><span class="km">${esc(cur)}</span> as its own word · ${sh.viaParts ? (sh.rows ? `${sh.rows.length.toLocaleString()} found in its parts' verses` : 'looking in its parts\' verses') : (d.vn || (d.v || []).length).toLocaleString()}</button>${Object.keys(vi).length ? '<span class="e">inside other words:</span>' : ''}${Object.entries(vi).map(([t, rs]) => `<button type="button" class="km" data-group="${esc(t)}" aria-pressed="${sh.group === t}">${esc(t)} ${rs.length}</button>`).join('')}</div>
+		filters = `<div class="pills"><button type="button" data-group="" aria-pressed="${!sh.group}"><span class="km">${esc(cur)}</span> as its own word · ${sh.byText != null ? (sh.rows ? `${sh.rows.length.toLocaleString()} found in the Bible's text` : `searching the Bible ${Math.round(sh.byText * 100)}%`) : (d.vn || (d.v || []).length).toLocaleString()}</button>${Object.keys(vi).length ? '<span class="e">inside other words:</span>' : ''}${Object.entries(vi).map(([t, rs]) => `<button type="button" class="km" data-group="${esc(t)}" aria-pressed="${sh.group === t}">${esc(t)} ${rs.length}</button>`).join('')}</div>
 			<input type="search" id="verseq" value="${esc(sh.q)}" placeholder="Narrow the verses (Khmer or English)" aria-label="Narrow the verses">`;
 		const q = norm(sh.q).toLowerCase();
 		const rows = (sh.rows || []).filter(r => !q || r[1].includes(q) || r[2].toLowerCase().includes(q));
