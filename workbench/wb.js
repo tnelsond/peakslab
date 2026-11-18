@@ -26,7 +26,7 @@ const DICTS = [
 	['ulb', 'khmer/bible/text/km-ulb.peak.zst', 'Khmer ULB'],
 	['enult', 'english/bible/text/en-ult.peak.zst', 'English ULT'],
 	// English Wiktionary's senses (headwords "word (gloss)", found by the word), and by the Khmer its translation tables give them
-	['ensenses', 'english/wiktionary/en-senses.peak.zst', 'Wiktionary senses'],
+	['ensenses', 'english/wiktionary/en-senses.peak.zst', 'Wiktionary senses', 0, 'lazy'], // (3 MB: loaded when a search first needs it)
 	['kmsenses', 'khmer/wiktionary/km-senses.peak.zst', 'Wiktionary translations'],
 ];
 const D = Object.fromEntries(DICTS.map((d, i) => [d[0], i]));
@@ -61,24 +61,28 @@ const engine = (() => {
 	const ask = msg => new Promise(res => { const tag = ++tagN; waits.set(tag, res); worker.postMessage({...msg, tag}) });
 	let nLoaded = 0;
 	const progress = () => { nLoaded++; setStatus() };
-	async function start() {
-		await filesP;
-		const wt = files.core.find(c => c[0] === 'peak.wasm')?.[1] || 0;
-		worker.postMessage({type: 'init', id: 1, wasmTimestamp: wt});
-		DICTS.forEach(([, path, name, buf], did) => {
-			const e = files.dicts.find(d => d[0] === path);
-			worker.postMessage({type: 'load', did, msg: [path, name, buf || (e ? e[3] : 65536)], timestamp: timestampOf(path)});
-		});
+	// A dictionary loads at the start, or (lazy) when it's first asked for
+	const asked = new Set();
+	async function want(did) {
+		if (asked.has(did)) return; asked.add(did);
+		await started;
+		const [, path, name, buf] = DICTS[did], e = files.dicts.find(d => d[0] === path);
+		worker.postMessage({type: 'load', did, msg: [path, name, buf || (e ? e[3] : 65536)], timestamp: timestampOf(path)});
+	}
+	let started;
+	function start() {
+		started = filesP.then(() => worker.postMessage({type: 'init', id: 1, wasmTimestamp: files.core.find(c => c[0] === 'peak.wasm')?.[1] || 0}));
+		DICTS.forEach((x, did) => { if (x[4] !== 'lazy') want(did) });
 	}
 	// Every headword of dict at every place in text: [[start, length, match, index, second]] (UTF-16 offsets)
 	async function matchall(dict, text) {
-		const did = D[dict];
+		const did = D[dict]; want(did);
 		if (!text || !await ready[did].p) return [];
 		return (await ask({type: 'matchall', did, query: text})).matches;
 	}
 	// Entries whose headword (or, second, an index word: WordNet's lemmas) is exactly one of keys: {key: [{header, body}]}
 	async function lookup(dict, keys, second = false) {
-		const did = D[dict];
+		const did = D[dict]; want(did);
 		keys = [...new Set(keys.filter(Boolean))];
 		if (!keys.length || !await ready[did].p) return {};
 		const text = keys.join('\n'), at = new Map();
@@ -98,7 +102,7 @@ const engine = (() => {
 		return out;
 	}
 	const one = async (dict, key, second) => (await lookup(dict, [key], second))[key] || [];
-	return {start, lookup, one, matchall, loadedCount: () => nLoaded};
+	return {start, lookup, one, matchall, loadedCount: () => nLoaded, toLoad: () => DICTS.filter(x => x[4] !== 'lazy').length};
 })();
 
 // ---- Your work: IndexedDB ----
@@ -140,7 +144,7 @@ function setStatus(msg) {
 	const done = [...ED.values()].filter(r => r.done).length;
 	const n = engine.loadedCount();
 	$('#status').textContent = msg || (!dbOK ? 'Not saving: this browser has no storage for the page' :
-		`${n < DICTS.length ? `Loading dictionaries ${n}/${DICTS.length} · ` : ''}Saved on this device · ${done.toLocaleString()} finished`);
+		`${n < engine.toLoad() ? `Loading dictionaries ${n}/${engine.toLoad()} · ` : ''}Saved on this device · ${done.toLocaleString()} finished`);
 }
 function counts() {
 	let w = 0, r = 0, wd = 0, rd = 0;
@@ -181,7 +185,14 @@ async function verses(refs) {
 }
 const clean = h => { const d = document.createElement('div'); d.innerHTML = h.replace(/¶/g, ''); return d.textContent.replace(/​/g, '').replace(/\s+/g, ' ').trim() };
 const bookName = r => { const [b, cv] = r.split(' '); return `${b[0].toUpperCase()}${b.slice(1)} ${cv.replace('.', ':')}` };
-function highlight(text, w) { return esc(text).split(esc(w)).join(`<mark>${esc(w)}</mark>`) }
+// A word marked in a verse: as written there, a space (or a word break) inside it, or ្ដ for ្ត, aside
+function highlight(text, w) {
+	if (!w) return esc(text);
+	const re = new RegExp([...w].map((c, i, a) => a[i - 1] === '្' && (c === 'ត' || c === 'ដ') ? '[តដ]' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s​]?'), 'g');
+	let out = '', at = 0;
+	for (const m of text.matchAll(re)) { out += esc(text.slice(at, m.index)) + `<mark>${esc(m[0])}</mark>`; at = m.index + m[0].length }
+	return out + esc(text.slice(at));
+}
 
 // Wiktionary's senses in an entry: [{pos, text}]
 function wiktSenses(body) {
@@ -484,10 +495,23 @@ async function openVerse(i) {
 	renderSheet(); await verseLoad();
 	void d;
 }
+// The verses of a word the Bible's own word breaks never give whole (សេចក្តីងងឹត: written សេចក្តី and ងងឹត, so
+// none of its own): those of its rarest part (the word list's split of it, fewest parts) that have it all, spaces
+// and word breaks aside (400 of that part's verses at most)
+async function versesViaParts(w) {
+	const split = splitsOf(w, await engine.matchall('wb', w))[0];
+	if (!split) return [];
+	const got = await engine.lookup('wb', split);
+	const refsOf = p => { try { const d = JSON.parse(got[p]?.[0]?.body || '{}'); return [...new Set([...(d.v || []), ...Object.values(d.vi || {}).flat()])] } catch (e) { return [] } };
+	const refs = (split.map(refsOf).filter(l => l.length).sort((a, b) => a.length - b.length)[0] || []).slice(0, 400);
+	const vs = await verses(refs), key = norm(w);
+	return refs.filter((r, j) => norm(vs[j][0].replace(/\s/g, '')).includes(key));
+}
 async function verseLoad() {
 	const sh = sheet, d = info?.data || {};
-	const refs = sh.group ? (d.vi?.[sh.group] || []) : (d.v || []);
+	let refs = sh.group ? (d.vi?.[sh.group] || []) : (d.v || []);
 	sh.rows = null; renderSheet();
+	if (!sh.group && !refs.length && !Object.keys(d.vi || {}).length) { sh.viaParts = true; refs = await versesViaParts(cur); if (sheet !== sh) return }
 	const vs = await verses(refs);
 	if (sheet !== sh) return;
 	sh.rows = refs.map((r, j) => [r, ...vs[j]]); sh.top = true; renderSheet();
@@ -525,7 +549,7 @@ function drawSheet() {
 		foot = `<span>${sh.sel.size} chosen. A pairing is a link: your definition stays yours.</span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn go" data-act="pairdone">Pair ${sh.sel.size}</button>`;
 	} else {
 		const d = info?.data || {}, vi = d.vi || {};
-		filters = `<div class="pills"><button type="button" data-group="" aria-pressed="${!sh.group}"><span class="km">${esc(cur)}</span> as its own word · ${(d.vn || (d.v || []).length).toLocaleString()}</button>${Object.keys(vi).length ? '<span class="e">inside other words:</span>' : ''}${Object.entries(vi).map(([t, rs]) => `<button type="button" class="km" data-group="${esc(t)}" aria-pressed="${sh.group === t}">${esc(t)} ${rs.length}</button>`).join('')}</div>
+		filters = `<div class="pills"><button type="button" data-group="" aria-pressed="${!sh.group}"><span class="km">${esc(cur)}</span> as its own word · ${sh.viaParts ? (sh.rows ? `${sh.rows.length.toLocaleString()} found in its parts' verses` : 'looking in its parts\' verses') : (d.vn || (d.v || []).length).toLocaleString()}</button>${Object.keys(vi).length ? '<span class="e">inside other words:</span>' : ''}${Object.entries(vi).map(([t, rs]) => `<button type="button" class="km" data-group="${esc(t)}" aria-pressed="${sh.group === t}">${esc(t)} ${rs.length}</button>`).join('')}</div>
 			<input type="search" id="verseq" value="${esc(sh.q)}" placeholder="Narrow the verses (Khmer or English)" aria-label="Narrow the verses">`;
 		const q = norm(sh.q).toLowerCase();
 		const rows = (sh.rows || []).filter(r => !q || r[1].includes(q) || r[2].toLowerCase().includes(q));
