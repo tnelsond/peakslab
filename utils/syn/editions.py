@@ -7,7 +7,7 @@ A set is
   a translation table: the headword and its translations (one table per sense: its label, else its number);
   an entry's sense in another language: the word, and its gloss's words (the parts between commas, parentheses out)
     as its evidence only (a gloss is a definition, not the language's word), as the Thai edition's Lao words glossed
-    in Thai, the English edition's glossed in English.
+    in Thai, the English edition's glossed in English (not a sense that's a form of another word).
 Only peakslab's languages' words (langs.py) are kept; a set needs two languages. A language the edition gives a
 phrase of in pieces (each word linked: "в воздухе в пространстве", the Chinese edition's Russian) is left out of its
 tables: one whose tables repeat a word over PIECES of the time.
@@ -77,6 +77,8 @@ for line in gzip.open(PATH, 'rt'):
 			put((pos, sorted(items), []))
 	if ab and ab != ED and ED in AB.values():
 		for s in e.get('senses', []):
+			if s.get('form_of') or 'form-of' in s.get('tags', []):  # (a form of another word: its gloss is grammar)
+				continue
 			items = {(ED, p) for g in s.get('glosses', []) for p in gloss(g)}
 			if items:
 				put((pos, [(ab, word)], sorted(items)))
