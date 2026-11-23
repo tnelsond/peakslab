@@ -14,7 +14,7 @@ Then the other Wiktionary editions' sets of words (editions.py; in the order giv
 ones before placed): each of a set's languages votes for the concepts holding the most of its words there; the top
 concept, needing MINV votes and to beat the next by GAP (in a set of fewer languages: all but one language's, and all
 its votes), takes the set's words it lacks (not its evidence: a gloss's words; nor a word in a script its language's
-words are under 5% of, as a romanization). A sense of a Lao word glossed by one Thai word is placed by that word, if
+words are under 5% of, as a romanization). A gloss is evidence only if every part of it is its language's word. A sense of a Lao word glossed by one Thai word is placed by that word, if
 it has one concept.
 """
 import sys, json, pickle, os, collections, unicodedata
@@ -192,6 +192,8 @@ for path in EDS:
 	new, sets, placed, loo = [], 0, 0, [0, 0]
 	for p, items, evidence in stream(path):
 		sets += 1
+		if not all(w.lower() in mem[ab] for ab, w in evidence):  # (a gloss all words, not a definition or a form's note)
+			continue
 		p = POSN.get(p)
 		k = place(items + evidence, p)
 		if k is None:

@@ -4,11 +4,13 @@
 Usage: editions.py <edition code> <its kaikki extract .jsonl.gz> <out.pkl>
 
 A set is
-  a translation table: the headword and its translations (one table per sense label);
+  a translation table: the headword and its translations (one table per sense: its label, else its number);
   an entry's sense in another language: the word, and its gloss's words (the parts between commas, parentheses out)
     as its evidence only (a gloss is a definition, not the language's word), as the Thai edition's Lao words glossed
     in Thai, the English edition's glossed in English.
-Only peakslab's languages' words (langs.py) are kept; a set needs two languages.
+Only peakslab's languages' words (langs.py) are kept; a set needs two languages. A language the edition gives a
+phrase of in pieces (each word linked: "в воздухе в пространстве", the Chinese edition's Russian) is left out of its
+tables: one whose tables repeat a word over PIECES of the time.
 Out: one pickle after another, each (part of speech, [(abbreviation, word)] its words, [(abbreviation, word)] its evidence)]
 """
 import sys, os, gzip, json, re, pickle
@@ -16,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # (langs.py, bes
 from langs import LANGS
 
 ED, PATH, OUT = sys.argv[1:4]
+PIECES = .05
 AB = {c: ab for ab, _, cs in LANGS.values() for c in cs}
 ED = AB.get(ED, ED)
 
@@ -36,6 +39,22 @@ def gloss(g):
 			yield p
 
 
+def tables(e):
+	"""{(sense, language): [words]}"""
+	t = {}
+	for i, s in [(None, None)] + list(enumerate(e.get('senses', []))):
+		for x in (e.get('translations', []) if s is None else s.get('translations', [])):
+			t.setdefault((x.get('sense') or x.get('sense_index') or i, x.get('lang_code')), []).append(x.get('word') or '')
+	return t
+
+n, rep = {}, {}
+for line in gzip.open(PATH, 'rt'):
+	for (_, c), ws in tables(json.loads(line)).items():
+		n[c] = n.get(c, 0) + 1
+		rep[c] = rep.get(c, 0) + (len(ws) != len(set(ws)))
+pieces = {c for c in n if rep[c] > PIECES * n[c] and n[c] >= 100}
+print(ED, 'in pieces:', sorted(pieces), file=sys.stderr)
+
 out, sets = open(OUT, 'wb'), 0
 def put(s):
 	global sets
@@ -46,13 +65,12 @@ for line in gzip.open(PATH, 'rt'):
 	word, ab, pos = clean(e.get('word', '')), AB.get(e.get('lang_code')), e.get('pos', '')
 	if not word:
 		continue
-	tables = {}
-	for i, s in [(None, None)] + list(enumerate(e.get('senses', []))):
-		for t in (e.get('translations', []) if s is None else s.get('translations', [])):
-			tab = AB.get(t.get('lang_code'))
-			for w in filter(None, map(clean, re.split(r'[,/]', t.get('word') or ''))) if tab else ():  # (one, or a list)
-				tables.setdefault(t.get('sense') or i, set()).add((tab, w))
-	for items in tables.values():
+	tabs = {}
+	for (k, c), ws in tables(e).items():
+		tab = AB.get(c) if c not in pieces else None
+		for w in filter(None, map(clean, (p for x in ws for p in re.split(r'[,/]', x)))) if tab else ():  # (one, or a list)
+			tabs.setdefault(k, set()).add((tab, w))
+	for items in tabs.values():
 		if ab:
 			items.add((ab, word))
 		if len({a for a, _ in items}) >= 2:
