@@ -2,7 +2,7 @@
 """The universal synsets: one aligned dictionary per language, the same keys in all, so any two on are a
 dictionary between them (<lang>/thesaurus/<ab>-synsets.tsv, #lang <ab>,aligned).
 
-Usage: build.py <src.pkl> <links.pkl> <wdlabels.json> <dict_src dir>
+Usage: build.py <src.pkl> <links.pkl> <wdlabels.json> <dict_src dir> [<edition sets .pkl> ...]
 
 A concept is
   an Open English WordNet synset: its words in each language from the Open Multilingual Wordnet, the
@@ -10,36 +10,27 @@ A concept is
     key "first lemma (definition up to a ";", 80 characters)", as en-wn's was
   else a Wikidata item (the senses naming it, none linked): key "English word (its gloss)"
   else a Wiktionary translation table: key "English word (the table's sense)", as the -senses' were
+Then the other Wiktionary editions' sets of words (editions.py; in the order given, each placed with the words the
+ones before placed): each of a set's languages votes for the concepts holding the most of its words there; the top
+concept, needing MINV votes and to beat the next by GAP (in a set of fewer languages: all but one language's, and all
+its votes), takes the set's words it lacks (not its evidence: a gloss's words; nor a word in a script its language's
+words are under 5% of, as a romanization). A sense of a Lao word glossed by one Thai word is placed by that word, if
+it has one concept.
 """
-import sys, json, pickle, os, collections
+import sys, json, pickle, os, collections, unicodedata
 from html import escape
 
 SRC, LINKS, LABELS, OUT = sys.argv[1:5]
+EDS = sys.argv[5:]
+MINV, GAP = 3, 2
 d = pickle.load(open(SRC, 'rb'))
 syn, omw, wk = d['syn'], d['omw'], d['wk']
 links = pickle.load(open(LINKS, 'rb'))
 labels = json.load(open(LABELS))
 
-# peakslab's language: (abbreviation, name, its codes in Wiktionary / Wikidata / OMW)
-LANGS = {
-	'english': ('en', 'English', ['en']), 'khmer': ('km', 'Khmer', ['km']), 'lao': ('lo', 'Lao', ['lo']),
-	'thai': ('th', 'Thai', ['th']), 'chinese': ('zh', 'Chinese (Mandarin)', ['zh', 'cmn']),
-	'korean': ('ko', 'Korean', ['ko']), 'japanese': ('ja', 'Japanese', ['ja']), 'indonesian': ('id', 'Indonesian', ['id']),
-	'nepali': ('ne', 'Nepali', ['ne']), 'german': ('de', 'German', ['de']), 'portuguese': ('pt', 'Portuguese', ['pt']),
-	'spanish': ('es', 'Spanish', ['es']), 'ancient-greek': ('grc', 'Ancient Greek', ['grc']),
-	'biblical-hebrew': ('hbo', 'Biblical Hebrew', ['hbo']), 'hebrew': ('he', 'Hebrew', ['he']),
-	'levantine': ('lb', 'Levantine Arabic', ['apc', 'ajp']), 'chitonga': ('toi', 'Chitonga', ['toi']),
-	'lozi': ('loz', 'Lozi', ['loz']), 'amharic': ('am', 'Amharic', ['am']), 'arabic': ('ar', 'Arabic', ['ar']),
-	'assamese': ('as', 'Assamese', ['as']), 'bengali': ('bn', 'Bengali', ['bn']), 'burmese': ('my', 'Burmese', ['my']),
-	'cebuano': ('ceb', 'Cebuano', ['ceb']), 'french': ('fr', 'French', ['fr']), 'gujarati': ('gu', 'Gujarati', ['gu']),
-	'hausa': ('ha', 'Hausa', ['ha']), 'hindi': ('hi', 'Hindi', ['hi']), 'ilocano': ('ilo', 'Ilocano', ['ilo']),
-	'kannada': ('kn', 'Kannada', ['kn']), 'malagasy': ('mg', 'Malagasy', ['mg']), 'malayalam': ('ml', 'Malayalam', ['ml']),
-	'marathi': ('mr', 'Marathi', ['mr']), 'odia': ('or', 'Odia', ['or']), 'punjabi': ('pa', 'Punjabi', ['pa']),
-	'russian': ('ru', 'Russian', ['ru']), 'swahili': ('sw', 'Swahili', ['sw']), 'tagalog': ('tl', 'Tagalog', ['tl']),
-	'tamil': ('ta', 'Tamil', ['ta']), 'telugu': ('te', 'Telugu', ['te']), 'urdu': ('ur', 'Urdu', ['ur']),
-	'vietnamese': ('vi', 'Vietnamese', ['vi']), 'mentawai': ('mwv', 'Mentawai', ['mwv']),
-	'papuan-malay': ('pmy', 'Papuan Malay', ['pmy']),
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # (langs.py, beside this; -I leaves it off)
+from langs import LANGS, WIKTIONARIES
+
 WL = 'https://wordnet.princeton.edu/license-and-commercial-use'
 OMWCREDIT = {
 	'th': f'Thai WordNet (NICT, <a href="{WL}">WordNet license</a>)',
@@ -148,14 +139,92 @@ def english(c):
 	text = ''.join(f'<p>{e(t)}</p>' for t in ds) + (f'<ul>{"".join(f"<li><i>{e(t)}</i></li>" for t in xs if t)}</ul>' if any(xs) else '')
 	return ws, text
 
+# The concepts of each word in each language (by number: a word's tuple of them), then the editions' sets placed
+cs = list(members)
+cix = {c: i for i, c in enumerate(cs)}
+mem, scripts = {}, {}
+def script(w):
+	ch = next((ch for ch in w if ch.isalpha()), '')
+	return unicodedata.name(ch, '?').split()[0] if ch else '?'
+for l, (ab, name, codes) in LANGS.items():
+	m, n = collections.defaultdict(list), collections.Counter()
+	for i, c in enumerate(cs):
+		for w in (english(c)[0] if l == 'english' else (w for w, _ in words(c, codes))):
+			m[w.lower()].append(i)
+			n[script(w)] += 1
+	mem[ab] = {w: tuple(dict.fromkeys(v)) for w, v in m.items()}
+	scripts[ab] = {s for s, k in n.items() if k >= .05 * sum(n.values())}
+del m
+print('concepts\' words in', len(mem), 'languages', file=sys.stderr)
+POSN = {'noun': 'noun', 'name': 'noun', 'verb': 'verb', 'adj': 'adj', 'adv': 'adv'}
+cpos = [pos(c) for c in cs]
+
+def place(items, p):
+	by = collections.defaultdict(set)
+	for ab, w in items:
+		by[ab].add(w.lower())
+	fits = lambda i: not p or cpos[i] not in POSN.values() or cpos[i] == p
+	v = collections.Counter()
+	for ab, ws in by.items():
+		n = collections.Counter(i for w in ws for i in mem[ab].get(w, ()) if fits(i))
+		if n:
+			top = max(n.values())
+			v.update(i for i, k in n.items() if k == top)
+	need = min(MINV, len(by) - 1)
+	t = v.most_common(2) + [(None, 0)]
+	if need < 1 or t[0][1] < need or t[0][1] - t[1][1] < min(GAP, t[0][1]):
+		return None
+	return t[0][0]
+
+def stream(path):
+	"""editions.py's sets, one at a time"""
+	with open(path, 'rb') as f:
+		while True:
+			try:
+				yield pickle.load(f)
+			except EOFError:
+				return
+
+added = {ab: collections.defaultdict(collections.Counter) for ab in mem}
+used = []
+for path in EDS:
+	ed = os.path.basename(path).split('.')[0].split('-')[0]  # (en-Lao.pkl: the English edition's Lao entries)
+	new, sets, placed, loo = [], 0, 0, [0, 0]
+	for p, items, evidence in stream(path):
+		sets += 1
+		p = POSN.get(p)
+		k = place(items + evidence, p)
+		if k is None:
+			continue
+		placed += 1
+		for ab, w in items:
+			if k not in mem[ab].get(w.lower(), ()):
+				if script(w) in scripts[ab]:
+					new.append((ab, w, k))
+			elif len(mem[ab][w.lower()]) > 1 and len(items + evidence) > 2:  # (leave one out: still chosen without it?)
+				loo[1] += 1
+				loo[0] += place([x for x in items + evidence if x != (ab, w)], p) == k
+	for ab, w, k in new:
+		added[ab][k][w] += 1
+		mem[ab][w.lower()] = mem[ab].get(w.lower(), ()) + (k,)
+	n = collections.Counter(ab for ab, _, _ in new)
+	print(f'{ed}: {sets} sets, {placed} placed, leave-one-out {loo[0]}/{loo[1]} = {loo[0] / max(loo[1], 1):.2f}; '
+		f'{len(new)} words added: ' + ' '.join(f'{a}:{c}' for a, c in n.most_common(12)), file=sys.stderr, flush=True)
+	if ed not in used:
+		used.append(ed)
+del mem
+
 for l, (ab, name, codes) in LANGS.items():
 	rows = []
-	for c in members:
+	for i, c in enumerate(cs):
+		ws = [(w, '') for w in english(c)[0]] if l == 'english' else words(c, codes)
+		have = {w.lower() for w, _ in ws}
+		ws += [(w, '') for w, _ in added[ab].get(i, collections.Counter()).most_common() if w.lower() not in have and not have.add(w.lower())]
 		if l == 'english':
-			ws, text = english(c)
-			cells = ['@' + e(w) for w in ws] + ([text] if text else [])
+			text = english(c)[1]
+			cells = ['@' + e(w) for w, _ in ws] + ([text] if text else [])
 		else:
-			cells = [x for w, r in words(c, codes) for x in ['@' + e(w)] + ([f'<p-ipa>{e(r)}</p-ipa>'] if r else [])]
+			cells = [x for w, r in ws for x in ['@' + e(w)] + ([f'<p-ipa>{e(r)}</p-ipa>'] if r else [])]
 		if cells:
 			rows.append((key[c], f'<p-n>{e(pos(c))}</p-n>\t' + '\t'.join(cells)))
 	if not rows:
@@ -164,7 +233,13 @@ for l, (ab, name, codes) in LANGS.items():
 	if ab in OMWCREDIT:
 		src.append(OMWCREDIT[ab] + ', from the <a href="https://github.com/omwn/omw-data">Open Multilingual Wordnet</a>')
 	src += ['English Wiktionary\'s translation tables (<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>, '
-		'from <a href="https://kaikki.org/dictionary/English/">kaikki.org</a>)',
+		'from <a href="https://kaikki.org/dictionary/English/">kaikki.org</a>)']
+	if used:
+		names = [WIKTIONARIES.get(x, x) for x in used]
+		src.append(f'the {", ".join(names[:-1]) + " and " + names[-1] if len(names) > 1 else names[0]} Wiktionaries\' '
+			'translation tables and entries (<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>, '
+			'from <a href="https://kaikki.org/dictionary/rawdata.html">kaikki.org</a>)')
+	src += [
 		'Wikidata\'s lexemes and labels (<a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>)']
 	os.makedirs(f'{OUT}/{l}/thesaurus', exist_ok=True)
 	path = f'{OUT}/{l}/thesaurus/{ab}-synsets.tsv'
