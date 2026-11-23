@@ -22,15 +22,14 @@ const DICTS = [
 	['nath2022', 'khmer/dict/km-nath2022.peak.zst', 'Chuon Nath 2022'],
 	['kmwikt', 'khmer/dict/km-wiktionary.peak.zst', 'Khmer Wiktionary'],
 	['ipa', 'khmer/dict/phonetics/km-ipa.peak.zst', 'IPA'],
-	['wn', 'english/thesaurus/en-wn.peak.zst', 'WordNet'],
+	['wn', 'english/thesaurus/en-synsets.peak.zst', 'WordNet'],
 	['ulb', 'khmer/bible/text/km-ulb.peak.zst', 'Khmer ULB'],
 	['enult', 'english/bible/text/en-ult.peak.zst', 'English ULT'],
-	// English Wiktionary's senses (headwords "word (gloss)", found by the word), and by the Khmer its translation tables give them
 	// Every Khmer word with an open English definition, all together (utils/kmopen.py): English Wiktionary's, its
 	// translation tables' and Wikidata's entries, each marked where it's from (p-tags)
 	['open', 'workbench/data/km-open.zst', 'Open definitions', 0, 'lazy'],
-	['ensenses', 'english/wiktionary/en-senses.peak.zst', 'Wiktionary senses', 0, 'lazy'], // (3 MB: loaded when a search first needs it)
-	['kmsenses', 'khmer/wiktionary/km-senses.peak.zst', 'Wiktionary translations'],
+	// The senses (km-synsets: WordNet's, else Wiktionary's translation tables'), by the Khmer they give
+	['kmsenses', 'khmer/thesaurus/km-synsets.peak.zst', 'Senses'],
 ];
 const D = Object.fromEntries(DICTS.map((d, i) => [d[0], i]));
 const engine = (() => {
@@ -218,7 +217,7 @@ function wiktSenses(body) {
 	});
 	return out;
 }
-// A WordNet sense (en-wn's headword "lemma (gloss…)"): its part of speech, gloss and lemmas
+// A sense (en-synsets' headword: WordNet's "lemma (gloss…)", else Wiktionary's "word (sense)"): its part of speech, gloss and lemmas
 const WN = new Map();
 async function wnSense(id) {
 	if (WN.has(id)) return WN.get(id);
@@ -232,7 +231,7 @@ function wnParse(e) {
 	const p = (e.body.match(/<p>(.*?)<\/p>/s) || [])[1];
 	return {id: e.header, pos, gloss: p ? clean(p) : e.header.replace(/^[^(]*\(|\)$/g, ''), lemmas};
 }
-// An English Wiktionary sense (en-senses', km-senses' headword "word (gloss)"): its word, part of speech and gloss
+// A sense giving a Khmer word (km-synsets' headword "word (gloss)"): its word, part of speech and gloss
 function wsParse(e) {
 	return {id: e.header, word: e.header.replace(/ \(.*$/s, ''), pos: clean(e.body.split('\t')[0] || ''), gloss: e.header.replace(/^[^(]*\(|\)$/g, '')};
 }
@@ -357,7 +356,7 @@ function renderRef() {
 		(info.open?.length ? card('open', 'Open definitions', 'km-open', dictHtml(info.open)) : '') +
 		card('nath1967', 'Chuon Nath 1967', 'km-nath1967', info.nath1967.length ? dictHtml(info.nath1967) : '<span class="none">Not in the 1967 edition.</span>', 'kmtext') +
 		card('kaikki', 'Wiktionary', 'km-kaikki', wikt || '<span class="none">No English Wiktionary entry.</span>') +
-		card('wikts', 'Wiktionary · translation tables', 'km-senses', wikts || `<span class="none">No English Wiktionary sense gives <span class="km">${esc(cur)}</span> as a translation.</span>`) +
+		card('wikts', 'Senses', 'km-synsets', wikts || `<span class="none">No sense gives <span class="km">${esc(cur)}</span>.</span>`) +
 		(wn ? card('wnl', 'Wikidata · linked by votes', 'machine-linked', wn) : '') +
 		card('h97', 'Headley 1997', 'km-h97', info.h97.length ? dictHtml(info.h97) : '<span class="none">Not in Headley.</span>') +
 		card('nath2022', 'Chuon Nath 2022', 'km-nath2022', info.nath2022.length ? dictHtml(info.nath2022) : '<span class="none">Not in the 2022 edition.</span>', 'kmtext') +
@@ -468,7 +467,7 @@ async function pairSearch() {
 	const linked = [];
 	const wikts = es => es.map(wsParse).filter((e, j, a) => a.findIndex(x => x.id === e.id) === j).map(e => ({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word}));
 	info?.wikt.forEach((x, j) => linked.push({src: 'wikt', id: cur + '#' + j, text: x.text, pos: x.pos, label: 'Wiktionary'}));
-	(info?.wikts || []).forEach(e => linked.push({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word, how: 'Wiktionary translation table'}));
+	(info?.wikts || []).forEach(e => linked.push({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word, how: 'a sense giving it (km-synsets)'}));
 	for (const l of (d.wn || []).filter(l => l[1] === 'Wikidata')) { // (no WordNet links: none is official for Khmer)
 		const wd = l[1] === 'Wikidata';
 		linked.push({src: wd ? 'wd' : 'wn', id: l[0], text: l[0], pos: l[1], label: wd ? 'Wikidata' : 'WordNet', how: `${l[3]} ${l[2]}`});
@@ -477,12 +476,11 @@ async function pairSearch() {
 	const q = sh.q.trim();
 	const words = [...new Set([...(q && !/[ក-៿]/.test(q) ? [q] : []), ...s.syn].map(x => x.toLowerCase()))];
 	if (words.length) {
-		const [got, gotW] = await Promise.all([engine.lookup('wn', words, true), engine.lookup('ensenses', words, true)]);
+		const got = await engine.lookup('wn', words, true);
 		for (const wd of words) {
 			const es = (got[wd] || []).map(wnParse);
 			es.forEach(e => WN.set(e.id, e));
-			groups.push([`WORDNET · “${wd}”`, es.map(e => ({src: 'wn', id: e.id, text: e.gloss, pos: e.pos, label: e.lemmas.join(', ')}))]);
-			groups.push([`WIKTIONARY · “${wd}”`, wikts(gotW[wd] || [])]);
+			groups.push([`SENSES · “${wd}”`, es.map(e => ({src: 'wn', id: e.id, text: e.gloss, pos: e.pos, label: e.lemmas.join(', ')}))]);
 		}
 	}
 	if (q && /[ក-៿]/.test(q) && norm(q) !== cur) {
