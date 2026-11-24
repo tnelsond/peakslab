@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The Bible translation words (translationWords: <lang>/bible/words/<ab>-tw.tsv, each keyed by the English term) as
 sets for build.py to place on the synsets, as an edition's: each term, its English and every language's words.
-Usage: twsets.py <dict_src dir> <out.pkl>
-Out: the credit (a str), then one pickle a term: (None, [(abbreviation, word)], [])"""
+Usage: twsets.py <the tw sources (~/code/dictworking/tw: utils/twtotsv.py's, off the site)> <out.pkl>
+Out: the credit (a str), then one pickle a term: (None, [(abbreviation, word)], [], the term: a concept of its own,
+"term (Bible)", if none takes it)"""
 import sys, os, glob, pickle, collections, re
 from html import unescape
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -28,5 +29,5 @@ with open(OUT, 'wb') as o:
 	n = 0
 	for k, items in sets.items():
 		if len({ab for ab, _ in items}) >= 2:
-			pickle.dump((None, items, []), o, protocol=5); n += 1
+			pickle.dump((None, items, [], k), o, protocol=5); n += 1
 print(n, 'terms,', sum(map(len, sets.values())), 'words', file=sys.stderr)

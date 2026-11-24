@@ -10,6 +10,7 @@ A concept is
     key "first lemma (definition up to a ";", 80 characters)", as en-wn's was
   else a Wikidata item (the senses naming it, none linked): key "English word (its gloss)"
   else a Wiktionary translation table: key "English word (the table's sense)", as the -senses' were
+  else a set of words no concept takes, if its source names it: a Bible translation words' term, key "term (Bible)"
 Then sets of words that mean one thing: the Bible translation words' terms (twsets.py) and the other Wiktionary
 editions' (editions.py; in the order given, each placed with the words the
 ones before placed): each of a set's languages votes for the concepts holding the most of its words there; the top
@@ -193,17 +194,25 @@ added = {ab: collections.defaultdict(collections.Counter) for ab in mem}
 used, credits = [], []  # (the Wiktionary editions used; other sources' credits)
 for path in EDS:
 	ed = os.path.basename(path).split('.')[0].split('-')[0]  # (en-Lao.pkl: the English edition's Lao entries)
-	new, sets, placed, loo, credit = [], 0, 0, [0, 0], None
+	new, sets, placed, made, loo, credit = [], 0, 0, 0, [0, 0], None
 	for x in stream(path):
 		if isinstance(x, str):  # (a source's own credit: not a Wiktionary edition's sets)
 			credit = x
 			continue
-		p, items, evidence = x
+		p, items, evidence, *own = x  # (own: the key of the concept it is if none takes it)
 		sets += 1
 		if not all(w.lower() in mem[ab] for ab, w in evidence):  # (a gloss all words, not a definition or a form's note)
 			continue
 		p = POSN.get(p)
 		k = place(items + evidence, p)
+		if k is None and own:
+			c = ('S', own[0])
+			key[c] = next(k for k in [f'{own[0]} (Bible)'] + [f'{own[0]} (Bible) {j}' for j in range(2, 99)] if k not in taken)
+			taken.add(key[c])
+			cs.append(c); members[c] = []; cpos.append(p or '')
+			new += [(ab, w, len(cs) - 1) for ab, w in items if script(w) in scripts[ab]]
+			made += 1
+			continue
 		if k is None:
 			continue
 		placed += 1
@@ -220,7 +229,7 @@ for path in EDS:
 		added[ab][k][w] += 1
 		mem[ab][w.lower()] = mem[ab].get(w.lower(), ()) + (k,)
 	n = collections.Counter(ab for ab, _, _ in new)
-	print(f'{ed}: {sets} sets, {placed} placed, leave-one-out {loo[0]}/{loo[1]} = {loo[0] / max(loo[1], 1):.2f}; '
+	print(f'{ed}: {sets} sets, {placed} placed, {made} their own, leave-one-out {loo[0]}/{loo[1]} = {loo[0] / max(loo[1], 1):.2f}; '
 		f'{len(new)} words added: ' + ' '.join(f'{a}:{c}' for a, c in n.most_common(12)), file=sys.stderr, flush=True)
 	if credit:
 		credits.append(credit)
@@ -240,7 +249,7 @@ for l, (ab, name, codes) in LANGS.items():
 		else:
 			cells = [x for w, r in ws for x in ['@' + e(w)] + ([f'<p-ipa>{e(r)}</p-ipa>'] if r and ab not in NOROMAN else [])]
 		if cells:
-			rows.append((key[c], f'<p-n>{e(pos(c))}</p-n>\t' + '\t'.join(cells)))
+			rows.append((key[c], f'<p-n>{e(cpos[i])}</p-n>\t' + '\t'.join(cells)))
 	if not rows:
 		continue
 	src = ['Open English WordNet 2025 (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>)']
