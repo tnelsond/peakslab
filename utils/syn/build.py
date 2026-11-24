@@ -13,7 +13,8 @@ A concept is
 Then the other Wiktionary editions' sets of words (editions.py; in the order given, each placed with the words the
 ones before placed): each of a set's languages votes for the concepts holding the most of its words there; the top
 concept, needing MINV votes and to beat the next by GAP (in a set of fewer languages: all but one language's, and all
-its votes), takes the set's words it lacks (not its evidence: a gloss's words; nor a word in a script its language's
+its votes), takes the set's words it lacks (not English's: WordNet's and English Wiktionary's words are English's,
+and another edition's English is a translation, often of a word's other meanings; not its evidence: a gloss's words; nor a word in a script its language's
 words are under 5% of, as a romanization). A gloss is evidence only if every part of it is its language's word. A sense of a Lao word glossed by one Thai word is placed by that word, if
 it has one concept.
 """
@@ -200,6 +201,8 @@ for path in EDS:
 			continue
 		placed += 1
 		for ab, w in items:
+			if ab == 'en':  # (votes, adds nothing)
+				continue
 			if k not in mem[ab].get(w.lower(), ()):
 				if script(w) in scripts[ab]:
 					new.append((ab, w, k))

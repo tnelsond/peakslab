@@ -4,7 +4,9 @@
 Usage: editions.py <edition code> <its kaikki extract .jsonl.gz> <out.pkl>
 
 A set is
-  a translation table: the headword and its translations (one table per sense: its label, else its number);
+  a translation table: the headword and its translations (one table per sense: its label, else its number; not one
+    that says no sense, at the entry's level, in an entry of two or more: its words may be any of them, "after",
+    "behind" and "buttock" in one);
   an entry's sense in another language: the word, and its gloss's words (the parts between commas, parentheses out)
     as its evidence only (a gloss is a definition, not the language's word), as the Thai edition's Lao words glossed
     in Thai, the English edition's glossed in English (not a sense that's a form of another word).
@@ -41,10 +43,13 @@ def gloss(g):
 
 def tables(e):
 	"""{(sense, language): [words]}"""
-	t = {}
+	t, many = {}, sum(1 for s in e.get('senses', []) if not (s.get('form_of') or 'form-of' in s.get('tags', []))) > 1
 	for i, s in [(None, None)] + list(enumerate(e.get('senses', []))):
 		for x in (e.get('translations', []) if s is None else s.get('translations', [])):
-			t.setdefault((x.get('sense') or x.get('sense_index') or i, x.get('lang_code')), []).append(x.get('word') or '')
+			k = x.get('sense') or x.get('sense_index') or i
+			if k is None and many:
+				continue
+			t.setdefault((k, x.get('lang_code')), []).append(x.get('word') or '')
 	return t
 
 n, rep = {}, {}
