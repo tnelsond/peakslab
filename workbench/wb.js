@@ -262,7 +262,7 @@ async function show(w) {
 	info = {data, nath1967, kaikki, h97, nath2022, kmwikt, ipa: ipa[0] ? clean(ipa[0].body) : '', wikt: kaikki.flatMap(e => wiktSenses(e.body)),
 		wikts: kms.flatMap(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j), open,
 		sg: sg.map(([id, pos, v, sure, en, dicts, why]) => ({id, word: id.replace(/ \(.*$/s, ''), pos, gloss: id.replace(/^[^(]*\(|\)$/g, ''),
-			how: `Claude: ${SGV[v]}${sure ? '' : ', unsure'}`, why: `${en} in the corpus; ${dicts}. ${why}`}))};
+			how: `Claude: ${SGV[v]}${sure ? '' : ', unsure'}`, why: `${en ? en + ' in the corpus; ' : ''}${dicts}. ${why}`}))};
 	if (!hasSenses(ED.get(w)) && !DRAFT.has(w)) { const d = await draftFor(w); if (cur !== w) return; if (d) DRAFT.set(w, d) }
 	renderWork(); renderRef();
 	const exs = rec().senses.map(s => s.ex?.ref).filter(Boolean);
