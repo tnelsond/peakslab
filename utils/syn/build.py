@@ -31,6 +31,8 @@ labels = json.load(open(LABELS))
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # (langs.py, beside this; -I leaves it off)
 from langs import LANGS, WIKTIONARIES
+# Languages whose translation tables' romanizations aren't given (Khmer's: typed by hand, mostly wrong)
+NOROMAN = {'km'}
 
 WL = 'https://wordnet.princeton.edu/license-and-commercial-use'
 OMWCREDIT = {
@@ -229,7 +231,7 @@ for l, (ab, name, codes) in LANGS.items():
 			text = english(c)[1]
 			cells = ['@' + e(w) for w, _ in ws] + ([text] if text else [])
 		else:
-			cells = [x for w, r in ws for x in ['@' + e(w)] + ([f'<p-ipa>{e(r)}</p-ipa>'] if r else [])]
+			cells = [x for w, r in ws for x in ['@' + e(w)] + ([f'<p-ipa>{e(r)}</p-ipa>'] if r and ab not in NOROMAN else [])]
 		if cells:
 			rows.append((key[c], f'<p-n>{e(pos(c))}</p-n>\t' + '\t'.join(cells)))
 	if not rows:
