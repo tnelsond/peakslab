@@ -5,6 +5,8 @@ for, its part of speech English's), once: run again, it adds nothing; and the li
 
 Usage: add.py <dict_src dir> <checked words .tsv> ...
   checked words: "#credit<TAB>where they're from", then <abbreviation><TAB>concept key<TAB>word lines
+  A list whose first line is "#remove" takes its words out of their concepts instead (words checked and found
+  wrong: run after a rebuild, they're out again)
 Out: the changed <ab>-synsets.tsv; on stderr, what each list added.
 """
 import sys, os, re, collections
@@ -31,21 +33,33 @@ def read(path):
 
 
 pos = None
-want = collections.defaultdict(list)  # abbreviation: [(key, word, credit)]
+want = collections.defaultdict(list)  # abbreviation: [(key, word, credit or None: out)]
 for path in LISTS:
 	credit = ''
 	for l in open(path, encoding='utf-8'):
 		a = l.rstrip('\n').split('\t')
 		if a[0] == '#credit':
 			credit = a[1]
+		elif a[0] == '#remove':
+			credit = None
 		elif len(a) == 3 and a[0] in PATH:
 			want[a[0]].append((u(a[1]), a[2], credit))
 for ab, xs in want.items():
 	head, rows = read(PATH[ab])
 	if pos is None:  # (English's parts of speech, for a concept new to the language)
 		pos = {k: r[0] for k, r in read(PATH['en'])[1].items()}
-	n, miss, credits = 0, 0, []
+	n, miss, credits, out = 0, 0, [], 0
 	for k, w, credit in xs:
+		if credit is None:
+			if k in rows:
+				keep = [c for c in rows[k] if not (c.startswith('@') and u(c[1:]).lower() == w.lower())]
+				# (and the romanization after it, if it had one)
+				keep = [c for i, c in enumerate(keep) if not (c.startswith('<p-ipa>') and (i == 0 or not keep[i - 1].startswith('@')))]
+				out += len(rows[k]) != len(keep)
+				rows[k] = keep
+				if not any(c.startswith('@') for c in keep):
+					del rows[k]
+			continue
 		if k not in pos:
 			miss += 1
 			continue
@@ -64,4 +78,4 @@ for ab, xs in want.items():
 			o.write('\t'.join(['#desc', desc] if h[0] == '#desc' else h) + '\n')
 		for k in sorted(rows):
 			o.write(e(k) + '\t' + '\t'.join(rows[k]) + '\n')
-	print(f'{ab}: {n} words added ({len(xs) - n - miss} it had), {miss} with no such concept; {len(rows)} senses', file=sys.stderr)
+	print(f'{ab}: {n} words added ({sum(c is not None for _, _, c in xs) - n - miss} it had), {miss} with no such concept, {out} taken out; {len(rows)} senses', file=sys.stderr)
