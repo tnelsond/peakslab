@@ -1,6 +1,0 @@
-#d	Khmer–English, as complete as open sources make it: every Khmer word they give English for, with all they say of it. Its English words, all that correspond to it, commonest first: machine-made (Bibles, OPUS and NLLB word-aligned with eflomal), with people’s translations (Wiktionary’s, SBBIC’s); (muslim word): a word only the Khmer Muslim Bible has of the Khmer Bibles; <a href="https://en.wiktionary.org/">English Wiktionary</a>’s entry and translation tables (via <a href="https://kaikki.org/">Kaikki</a>); <a href="https://www.wikidata.org/">Wikidata</a> (CC0); the Greek and Hebrew words the Khmer Bibles translate by it (STEPBible’s tagged texts, CC BY 4.0); its parts under their sources’ licences: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> (Wiktionary’s), CC0 (Wikidata’s). Machine-made parts unchecked: verify before relying on them.
-#p	2
-#l	km,en
-#f	khmer/dict/km-english.peak.zst
-#t	1794879338
-#b	1803

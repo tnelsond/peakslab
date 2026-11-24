@@ -38,13 +38,24 @@ for p in DICTS:
 		elif not l.startswith('#') and len(a) == 2:
 			entries[a[0]].append(a[1])
 
+ETYM = re.compile(r'<p>Etymology:.*?</p>', re.S)
+def once(es):
+	"""A word's entries, an etymology two of them share written once, after them (one per part of speech, from
+	one etymology: Wiktionary repeats it)"""
+	n = defaultdict(int)
+	for e in es:
+		for x in set(ETYM.findall(e)):
+			n[x] += 1
+	shared = [x for x in n if n[x] > 1]
+	return [ETYM.sub(lambda m: '' if m[0] in shared else m[0], e) for e in es] + shared
+
 code = head['#lang'].split(',')[0]
 with open(OUT, 'w', encoding='utf-8') as o:
 	o.write(f"#desc\t{head['#desc']} With each word, " + '; '.join(credits) + '.\n')
 	o.write(f"#priority\t{head.get('#priority', '0')}\n#lang\t{code},senses\n")
 	for w in sorted(set(senses) | set(entries)):
 		ks = sorted(set(senses.get(w, [])))
-		cells = entries.get(w, []) + [f'<p-k><p-n>{p}</p-n> @{k}</p-k>' for p, k in ks]
+		cells = once(entries.get(w, [])) + [f'<p-k><p-n>{p}</p-n> @{k}</p-k>' for p, k in ks]
 		o.write(w + '\t' + '\t'.join(cells) + '\n')
 print(f'{OUT}: {len(set(senses) | set(entries))} words, {len(senses)} with senses, {sum(map(len, senses.values()))} senses',
       file=sys.stderr)
