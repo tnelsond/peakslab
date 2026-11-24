@@ -233,9 +233,11 @@ function wnParse(e) {
 	const p = (e.body.match(/<p>(.*?)<\/p>/s) || [])[1];
 	return {id: e.header, pos, gloss: p ? clean(p) : e.header.replace(/^[^(]*\(|\)$/g, ''), lemmas};
 }
-// A sense giving a Khmer word (km-synsets' headword "word (gloss)"): its word, part of speech and gloss
+// A Khmer word's senses (km-synsets: headed by Khmer words, each sense a <p-k>: its part of speech and its key,
+// "word (gloss)"): each's key, word, part of speech and gloss
 function wsParse(e) {
-	return {id: e.header, word: e.header.replace(/ \(.*$/s, ''), pos: clean(e.body.split('\t')[0] || ''), gloss: e.header.replace(/^[^(]*\(|\)$/g, '')};
+	return [...e.body.matchAll(/<p-k><p-n>(.*?)<\/p-n>(.*?)<\/p-k>/gs)].map(([, pos, k]) => (k = k.trim(),
+		{id: k, word: k.replace(/ \(.*$/s, ''), pos: clean(pos), gloss: k.replace(/^[^(]*\(|\)$/g, '')}));
 }
 const SGV = {accept: 'fits', other: 'this sense, not the corpus\'s', reject: 'doesn\'t fit'};
 const PAIRSRC = {wn: 'WordNet', wd: 'Wikidata', wikt: 'Wiktionary', wikts: 'Wiktionary'};
@@ -252,13 +254,13 @@ async function show(w) {
 	renderWork(); renderRef();
 	const [[wb, nath1967, kaikki, h97, nath2022, kmwikt, ipa], kms, open, sgs] = await Promise.all([
 		Promise.all(['wb', 'nath1967', 'kaikki', 'h97', 'nath2022', 'kmwikt', 'ipa'].map(d => engine.one(d, w))),
-		engine.one('kmsenses', w, true), BY.get(w)?.[3] ? engine.one('open', w) : [], engine.one('sg', w)]);
+		engine.one('kmsenses', w), BY.get(w)?.[3] ? engine.one('open', w) : [], engine.one('sg', w)]);
 	if (cur !== w) return;
 	let data = {}, sg = [];
 	try { data = wb[0] ? JSON.parse(wb[0].body) : {} } catch (e) { console.warn(e) }
 	try { sg = sgs[0] ? JSON.parse(sgs[0].body) : [] } catch (e) { console.warn(e) }
 	info = {data, nath1967, kaikki, h97, nath2022, kmwikt, ipa: ipa[0] ? clean(ipa[0].body) : '', wikt: kaikki.flatMap(e => wiktSenses(e.body)),
-		wikts: kms.map(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j), open,
+		wikts: kms.flatMap(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j), open,
 		sg: sg.map(([id, pos, v, sure, en, dicts, why]) => ({id, word: id.replace(/ \(.*$/s, ''), pos, gloss: id.replace(/^[^(]*\(|\)$/g, ''),
 			how: `Claude: ${SGV[v]}${sure ? '' : ', unsure'}`, why: `${en} in the corpus; ${dicts}. ${why}`}))};
 	if (!hasSenses(ED.get(w)) && !DRAFT.has(w)) { const d = await draftFor(w); if (cur !== w) return; if (d) DRAFT.set(w, d) }
@@ -474,7 +476,7 @@ async function pairSearch() {
 	const sh = sheet, s = rec().senses[sh.i] || newSense(), d = info?.data || {};
 	const groups = [];
 	const linked = [];
-	const wikts = es => es.map(wsParse).filter((e, j, a) => a.findIndex(x => x.id === e.id) === j).map(e => ({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word}));
+	const wikts = es => es.flatMap(wsParse).filter((e, j, a) => a.findIndex(x => x.id === e.id) === j).map(e => ({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word}));
 	info?.wikt.forEach((x, j) => linked.push({src: 'wikt', id: cur + '#' + j, text: x.text, pos: x.pos, label: 'Wiktionary'}));
 	(info?.wikts || []).forEach(e => linked.push({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word, how: 'a sense giving it (km-synsets)'}));
 	(info?.sg || []).forEach(e => info.wikts.some(x => x.id === e.id) || linked.push({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word, how: `suggested (${e.how})`}));
@@ -494,7 +496,7 @@ async function pairSearch() {
 		}
 	}
 	if (q && /[ក-៿]/.test(q) && norm(q) !== cur) {
-		const [es, kms] = await Promise.all([engine.one('kaikki', norm(q)), engine.one('kmsenses', norm(q), true)]);
+		const [es, kms] = await Promise.all([engine.one('kaikki', norm(q)), engine.one('kmsenses', norm(q))]);
 		groups.push([`WIKTIONARY · ${norm(q)}`, [...es.flatMap(e => wiktSenses(e.body)).map((x, j) => ({src: 'wikt', id: norm(q) + '#' + j, text: x.text, pos: x.pos, label: 'Wiktionary · ' + norm(q)})), ...wikts(kms)]]);
 	}
 	if (sheet !== sh) return;

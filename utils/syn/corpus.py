@@ -18,6 +18,9 @@ Out: tags.tsv (sentence, token, English, Khmer, sense), tags-narrowed.tsv (the s
 """
 import sys, os, re, json, math, random, collections
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # (langs.py, beside this; -I leaves it off)
+from langs import keyed
+
 K, SRC, OUT = sys.argv[1:4]
 CONTENT = {'NOUN': 'noun', 'PROPN': 'noun', 'VERB': 'verb', 'ADJ': 'adj', 'ADV': 'adv'}
 MINPAIR, MINDICE, MAXCTX, MAXTAG, MARGIN = 5, .05, 60, 3000, 2.0
@@ -25,11 +28,7 @@ MINPAIR, MINDICE, MAXCTX, MAXTAG, MARGIN = 5, .05, 60, 3000, 2.0
 def concepts(path):
 	"""{word: {key}}, {key: part of speech}"""
 	m, pos = collections.defaultdict(set), {}
-	for l in open(path, encoding='utf-8'):
-		if l.startswith('#'):
-			continue
-		k, *c = l.rstrip('\n').split('\t')
-		row = '\t'.join(c)
+	for k, row in keyed(path):
 		p = re.match(r'<p-n>([^<]*)</p-n>', row)
 		pos[k] = p[1] if p else ''
 		for w in re.findall(r'@([^\t<]+)', row):

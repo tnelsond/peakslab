@@ -14,7 +14,10 @@ Vocabulary: the share of the corpus's Khmer words (tokens, then distinct words s
 with the confirmed ones.
 Out: <out.tsv> (Khmer, English, POS, sense, kind, confirmed by, share, sentences, Dice), and a summary on stderr.
 """
-import sys, re, collections, html
+import sys, os, re, collections, html
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # (langs.py, beside this; -I leaves it off)
+from langs import keyed
 
 CORPUS, SRC, K, OUT = sys.argv[1:5]
 D = f'{SRC}/khmer/dict'
@@ -66,7 +69,7 @@ POS = {'NOUN': 'noun', 'PROPN': 'noun', 'VERB': 'verb', 'ADJ': 'adj', 'ADV': 'ad
 pos_of = {}
 def synsets(path):
 	words, of = collections.defaultdict(list), collections.defaultdict(set)
-	for k, r in rows(path):
+	for k, r in keyed(path):
 		p = re.match(r'<p-n>([^<]*)</p-n>', r)
 		pos_of[k] = p[1] if p else ''
 		for w in re.findall(r'@([^\t<]+)', r):
