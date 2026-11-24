@@ -17,7 +17,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').cat
 const DICTS = [
 	['wb', 'workbench/data/km-wb.zst', 'Workbench data', 65536],
 	['nath1967', 'khmer/dict/km-nath1967.peak.zst', 'Chuon Nath 1967'],
-	['kaikki', 'khmer/dict/km-kaikki.peak.zst', 'Wiktionary'],
+	['kaikki', 'khmer/thesaurus/km-synsets.peak.zst', 'Wiktionary'], // (km-kaikki's entries, in km-synsets)
 	['h97', 'khmer/dict/km-h97.peak.zst', 'Headley 1997'],
 	['nath2022', 'khmer/dict/km-nath2022.peak.zst', 'Chuon Nath 2022'],
 	['kmwikt', 'khmer/dict/km-wiktionary.peak.zst', 'Khmer Wiktionary'],
@@ -366,7 +366,7 @@ function renderRef() {
 	$('#ref').innerHTML =
 		(info.open?.length ? card('open', 'Open definitions', 'km-open', dictHtml(info.open)) : '') +
 		card('nath1967', 'Chuon Nath 1967', 'km-nath1967', info.nath1967.length ? dictHtml(info.nath1967) : '<span class="none">Not in the 1967 edition.</span>', 'kmtext') +
-		card('kaikki', 'Wiktionary', 'km-kaikki', wikt || '<span class="none">No English Wiktionary entry.</span>') +
+		card('kaikki', 'Wiktionary', 'km-synsets', wikt || '<span class="none">No English Wiktionary entry.</span>') +
 		card('wikts', 'Senses', 'km-synsets', wikts || `<span class="none">No sense gives <span class="km">${esc(cur)}</span>.</span>`) +
 		(wn ? card('wnl', 'Wikidata · linked by votes', 'machine-linked', wn) : '') +
 		card('h97', 'Headley 1997', 'km-h97', info.h97.length ? dictHtml(info.h97) : '<span class="none">Not in Headley.</span>') +

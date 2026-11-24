@@ -31,7 +31,7 @@ def heads(path, col0=True):
     return out
 D = f'{SRC}/khmer'
 srcs = {'A': heads(f'{D}/dict/km-english.tsv'), 'H': heads(f'{D}/dict/km-h97.tsv'), 'N': heads(f'{D}/dict/km-nath2022.tsv'),
-        'O': heads(f'{D}/dict/km-nath1967.tsv'), 'W': heads(f'{D}/dict/km-kaikki.tsv'), 'K': heads(f'{D}/dict/km-wiktionary.tsv')}
+        'O': heads(f'{D}/dict/km-nath1967.tsv'), 'W': {k: [c for c in a if not c.startswith('<p-k>')] for k, a in heads(f'{D}/thesaurus/km-synsets.tsv').items() if any(not c.startswith('<p-k>') for c in a[1:])}, 'K': heads(f'{D}/dict/km-wiktionary.tsv')}
 bw = {}
 for f in ('km-bibleword', 'km-tw'):
     if os.path.exists(f'{D}/bible/words/{f}.tsv'):

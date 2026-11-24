@@ -12,7 +12,7 @@
     ["workbench/data/queue.json", 1794982756],
     ["workbench/data/km-wb.zst", 1794892968], ["workbench/data/km-open.zst", 1794982756],
     ["workbench/data/km-sg.zst", 1795484077],
-    ["workbench/wb.js", 1795518711]
+    ["workbench/wb.js", 1795518855]
   ],
   "dicts": [
     ["amharic/bible/text/am-1954.peak.zst", 1794355607, "Amharic Bible (መጽሐፍ ቅዱስ (የብሉይና የሐዲስ ኪዳን መጻሕፍት)), from <a href=\"https://github.com/Beblia/Holy-Bible-XML-Format\">Beblia</a>", 1307, 1, "mono", 0, 1309873],
@@ -165,7 +165,6 @@
     ["khmer/dict/km-baby.peak.zst", 1792401579, "Baby name dictionary from tovnah.com. (URL broken)", 297, 3, "bi", 0, 12777],
     ["khmer/dict/km-english.peak.zst", 1794879338, "Khmer–English, as complete as open sources make it: every Khmer word they give English for, with all they say of it. Its English words, all that correspond to it, commonest first: machine-made (Bibles, OPUS and NLLB word-aligned with eflomal), with people’s translations (Wiktionary’s, SBBIC’s); (muslim word): a word only the Khmer Muslim Bible has of the Khmer Bibles; <a href=\"https://en.wiktionary.org/\">English Wiktionary</a>’s entry and translation tables (via <a href=\"https://kaikki.org/\">Kaikki</a>); <a href=\"https://www.wikidata.org/\">Wikidata</a> (CC0); the Greek and Hebrew words the Khmer Bibles translate by it (STEPBible’s tagged texts, CC BY 4.0); its parts under their sources’ licences: <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a> (Wiktionary’s), CC0 (Wikidata’s). Machine-made parts unchecked: verify before relying on them.", 1803, 2, "km,en", 0, 1797513],
     ["khmer/dict/km-h97.peak.zst", 1792403245, "<em>Cambodian-English Dictionary</em> by Robert K. Headley, Rath Chim, and Ok Soeum <em>(1997, Dunwoody Press, ISBN 0-931745-78-0)</em> via <a href=\"https://sealang.net/khmer/dictionary.htm\">Sealang</a>", 2208, 1, "bi", 0, 1840781],
-    ["khmer/dict/km-kaikki.peak.zst", 1793624975, "Kaikki Khmer-English Dictionary (English Wiktionary, <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>), from <a href=\"https://kaikki.org/dictionary/Khmer/\">kaikki.org</a>", 1420, 2, "bi", 0, 515702],
     ["khmer/dict/km-nath1967.peak.zst", 1794667875, "Chuon Nath’s Khmer dictionary (វចនានុក្រមខ្មែរ), its 1967 edition (the Buddhist Institute), as the <a href=\"https://www.open.org.kh/\">Open Institute</a> digitized it (USAID’s SPICE program; <a href=\"https://github.com/ericvida/khmer-dictionary-spice\">LGPL 2.1</a>); the compounds its entries run in, headwords too", 10059, 1, "mono", 0, 1369145],
     ["khmer/dict/km-nath2022.peak.zst", 1792403342, "2022 version of the <a href=\"https://play.google.com/store/apps/details?id=com.optimiskh.chuonnathdictionary&hl=en-US\">Chuon Nath Digital Dictionary</a>", 9953, 1, "mono", 0, 2035262],
     ["khmer/dict/km-phrasalverbs.peak.zst", 1793618177, "English phrasal verbs to Khmer (from the KTD Mobile Khmer Phrasal Verbs Dictionary app)", 1109, 4, "rbi", 0, 152469],

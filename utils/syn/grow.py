@@ -43,7 +43,7 @@ def eng(t):
 
 # The dictionaries' English for each Khmer word
 ev = collections.defaultdict(lambda: collections.defaultdict(set))  # Khmer: {English: {dictionary}}
-for k, b in rows(f'{D}/km-kaikki.tsv'):
+for k, b in rows(f'{SRC}/khmer/thesaurus/km-synsets.tsv'):  # (km-kaikki's entries: their <li>s, not the senses)
 	for li in re.findall(r'<li>(.*?)</li>', b):
 		for x in eng(text(li)):
 			ev[k][x].add('kaikki')

@@ -4,7 +4,7 @@ entry (its English words index words: searching English finds the Khmer too):
 
   - its English words, all that correspond to it, commonest first (km-align's, turned round
     by utils/flatalign.py: Bibles, OPUS, NLLB word-aligned, and people's translations)
-  - English Wiktionary's entry for it (km-kaikki, CC BY-SA)
+  - English Wiktionary's entry for it (km-kaikki's, in km-synsets; CC BY-SA)
   - the English senses Wiktionary's translation tables give it (wiktionary/km-senses)
   - Wikidata's items it's the label of (km-wikidata, CC0)
   - the Greek and Hebrew words the Khmer Bibles translate by it (km-strongs: Strong's numbers)
@@ -43,16 +43,18 @@ def add(k, src, body):
 
 for k, b in rows(SENSES):
     add(k, 'senses', b)
-for k, b in rows(f'{K}/dict/km-kaikki.tsv'):
-    add(k, 'kaikki', b)
+for k, b in rows(f'{K}/thesaurus/km-synsets.tsv'):  # (km-kaikki's entries, there before the senses)
+    b = re.sub(r'\t?<p-k>.*?</p-k>', '', b).strip('\t')
+    if b:
+        add(k, 'kaikki', b)
 
 # A dictionary word's aligned English, when it has no senses
 if PAIRS:
     import json
     from collections import Counter
     heads = set()
-    for f in ('km-nath2022', 'km-h97', 'km-nath1967', 'km-wiktionary', 'km-kaikki'):
-        heads |= {norm(k) for k, _ in rows(f'{K}/dict/{f}.tsv')}
+    for f in ('dict/km-nath2022', 'dict/km-h97', 'dict/km-nath1967', 'dict/km-wiktionary', 'thesaurus/km-synsets'):
+        heads |= {norm(k) for k, _ in rows(f'{K}/{f}.tsv')}
     al = defaultdict(Counter)
     for r in json.load(open(PAIRS))['pairs']:
         al[norm(r[0])][r[1]] += r[2]
