@@ -10,7 +10,8 @@ A concept is
     key "first lemma (definition up to a ";", 80 characters)", as en-wn's was
   else a Wikidata item (the senses naming it, none linked): key "English word (its gloss)"
   else a Wiktionary translation table: key "English word (the table's sense)", as the -senses' were
-Then the other Wiktionary editions' sets of words (editions.py; in the order given, each placed with the words the
+Then sets of words that mean one thing: the Bible translation words' terms (twsets.py) and the other Wiktionary
+editions' (editions.py; in the order given, each placed with the words the
 ones before placed): each of a set's languages votes for the concepts holding the most of its words there; the top
 concept, needing MINV votes and to beat the next by GAP (in a set of fewer languages: all but one language's, and all
 its votes), takes the set's words it lacks (not English's: WordNet's and English Wiktionary's words are English's,
@@ -107,7 +108,7 @@ def words(c, codes):
 	if isinstance(c, str) and c in syn:
 		for code in codes:
 			for w in omw.get(syn[c][0], {}).get(code, []):
-				n[w.replace('_', ' ')] += 1
+				n[w.replace('_', ' ').replace('+', '').lstrip('!')] += 1  # (OMW's marks: 降参+する's parts, Hebrew's "!")
 	qs = []
 	for i in members[c]:
 		x = wk[i]
@@ -189,11 +190,15 @@ def stream(path):
 				return
 
 added = {ab: collections.defaultdict(collections.Counter) for ab in mem}
-used = []
+used, credits = [], []  # (the Wiktionary editions used; other sources' credits)
 for path in EDS:
 	ed = os.path.basename(path).split('.')[0].split('-')[0]  # (en-Lao.pkl: the English edition's Lao entries)
-	new, sets, placed, loo = [], 0, 0, [0, 0]
-	for p, items, evidence in stream(path):
+	new, sets, placed, loo, credit = [], 0, 0, [0, 0], None
+	for x in stream(path):
+		if isinstance(x, str):  # (a source's own credit: not a Wiktionary edition's sets)
+			credit = x
+			continue
+		p, items, evidence = x
 		sets += 1
 		if not all(w.lower() in mem[ab] for ab, w in evidence):  # (a gloss all words, not a definition or a form's note)
 			continue
@@ -217,7 +222,9 @@ for path in EDS:
 	n = collections.Counter(ab for ab, _, _ in new)
 	print(f'{ed}: {sets} sets, {placed} placed, leave-one-out {loo[0]}/{loo[1]} = {loo[0] / max(loo[1], 1):.2f}; '
 		f'{len(new)} words added: ' + ' '.join(f'{a}:{c}' for a, c in n.most_common(12)), file=sys.stderr, flush=True)
-	if ed not in used:
+	if credit:
+		credits.append(credit)
+	elif ed not in used:
 		used.append(ed)
 del mem
 
@@ -246,7 +253,7 @@ for l, (ab, name, codes) in LANGS.items():
 		src.append(f'the {", ".join(names[:-1]) + " and " + names[-1] if len(names) > 1 else names[0]} Wiktionaries\' '
 			'translation tables and entries (<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>, '
 			'from <a href="https://kaikki.org/dictionary/rawdata.html">kaikki.org</a>)')
-	src += [
+	src += credits + [
 		'Wikidata\'s lexemes and labels (<a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>)']
 	os.makedirs(f'{OUT}/{l}/thesaurus', exist_ok=True)
 	path = f'{OUT}/{l}/thesaurus/{ab}-synsets.tsv'
