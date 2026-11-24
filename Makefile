@@ -29,8 +29,9 @@ SLAB_META_FILES := $(patsubst dict_src/%,meta/%.meta,$(SLAB_DIRS))
 # The core files (404.html, peak.wasm, ...) too, so a rebuilt app reaches the service worker
 # The Khmer–English workbench (workbench/: a page of its own on the engine). Its
 # 404.html is index.html (the service worker serves a directory's 404.html,
-# GitHub Pages its index.html); its data is utils/kmenwb.py's
-WB_FILES := workbench/404.html workbench/wb.js workbench/data/queue.json workbench/data/km-wb.zst workbench/data/km-open.zst
+# GitHub Pages its index.html); its data is utils/kmenwb.py's, its suggested
+# senses (km-sg) utils/kmsg.py's
+WB_FILES := workbench/404.html workbench/wb.js workbench/data/queue.json workbench/data/km-wb.zst workbench/data/km-open.zst workbench/data/km-sg.zst
 WB_META := $(WB_FILES:%=meta/%.meta)
 workbench/404.html: workbench/index.html
 	cp $< $@

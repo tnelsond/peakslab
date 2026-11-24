@@ -30,6 +30,8 @@ const DICTS = [
 	['open', 'workbench/data/km-open.zst', 'Open definitions', 0, 'lazy'],
 	// The senses (km-synsets: WordNet's, else Wiktionary's translation tables'), by the Khmer they give
 	['kmsenses', 'khmer/thesaurus/km-synsets.peak.zst', 'Senses'],
+	// The senses the corpus proposed for a word, confirmed by an open dictionary, as Claude judged them (utils/kmsg.py)
+	['sg', 'workbench/data/km-sg.zst', 'Suggested senses', 0, 'lazy'],
 ];
 const D = Object.fromEntries(DICTS.map((d, i) => [d[0], i]));
 const engine = (() => {
@@ -235,6 +237,7 @@ function wnParse(e) {
 function wsParse(e) {
 	return {id: e.header, word: e.header.replace(/ \(.*$/s, ''), pos: clean(e.body.split('\t')[0] || ''), gloss: e.header.replace(/^[^(]*\(|\)$/g, '')};
 }
+const SGV = {accept: 'fits', other: 'this sense, not the corpus\'s', reject: 'doesn\'t fit'};
 const PAIRSRC = {wn: 'WordNet', wd: 'Wikidata', wikt: 'Wiktionary', wikts: 'Wiktionary'};
 const isWikt = src => src === 'wikt' || src === 'wikts';
 
@@ -247,14 +250,17 @@ async function show(w) {
 	document.querySelector('.qi.cur')?.scrollIntoView({block: 'nearest'});
 	$('#app').classList.remove('qopen');
 	renderWork(); renderRef();
-	const [[wb, nath1967, kaikki, h97, nath2022, kmwikt, ipa], kms, open] = await Promise.all([
+	const [[wb, nath1967, kaikki, h97, nath2022, kmwikt, ipa], kms, open, sgs] = await Promise.all([
 		Promise.all(['wb', 'nath1967', 'kaikki', 'h97', 'nath2022', 'kmwikt', 'ipa'].map(d => engine.one(d, w))),
-		engine.one('kmsenses', w, true), BY.get(w)?.[3] ? engine.one('open', w) : []]);
+		engine.one('kmsenses', w, true), BY.get(w)?.[3] ? engine.one('open', w) : [], engine.one('sg', w)]);
 	if (cur !== w) return;
-	let data = {};
+	let data = {}, sg = [];
 	try { data = wb[0] ? JSON.parse(wb[0].body) : {} } catch (e) { console.warn(e) }
+	try { sg = sgs[0] ? JSON.parse(sgs[0].body) : [] } catch (e) { console.warn(e) }
 	info = {data, nath1967, kaikki, h97, nath2022, kmwikt, ipa: ipa[0] ? clean(ipa[0].body) : '', wikt: kaikki.flatMap(e => wiktSenses(e.body)),
-		wikts: kms.map(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j), open};
+		wikts: kms.map(wsParse).filter((s, j, a) => a.findIndex(x => x.id === s.id) === j), open,
+		sg: sg.map(([id, pos, v, sure, en, dicts, why]) => ({id, word: id.replace(/ \(.*$/s, ''), pos, gloss: id.replace(/^[^(]*\(|\)$/g, ''),
+			how: `Claude: ${SGV[v]}${sure ? '' : ', unsure'}`, why: `${en} in the corpus; ${dicts}. ${why}`}))};
 	if (!hasSenses(ED.get(w)) && !DRAFT.has(w)) { const d = await draftFor(w); if (cur !== w) return; if (d) DRAFT.set(w, d) }
 	renderWork(); renderRef();
 	const exs = rec().senses.map(s => s.ex?.ref).filter(Boolean);
@@ -348,7 +354,10 @@ function renderRef() {
 	const pairIn = new Map(); r.senses.forEach((s, i) => s.pairs.forEach(p => pairIn.set(p.src + '|' + p.id, i)));
 	const where = k => pairIn.has(k) ? `<span class="in">· sense ${pairIn.get(k) + 1}</span>` : '';
 	const wikt = info.wikt.map((s, j) => `<div class="ws"><div><span class="pos">${esc(s.pos)}</span>${esc(s.text)} ${where('wikt|' + cur + '#' + j)}</div><div class="acts"><button type="button" data-act="usewikt" data-j="${j}">Use</button><button type="button" data-act="pairwikt" data-j="${j}">Pair</button></div></div>`).join('');
-	const wikts = info.wikts.map((s, j) => `<div class="ws"><div><b>${esc(s.word)}</b> <span class="pos">${esc(s.pos)}</span>${esc(s.gloss)} ${where('wikts|' + s.id)}</div><div class="acts"><button type="button" data-act="usewikts" data-j="${j}">Use</button><button type="button" data-act="pairwikts" data-j="${j}">Pair</button></div></div>`).join('');
+	const sgOf = new Map(info.sg.map(s => [s.id, s])), how = s => s ? ` <span class="how" title="${esc(s.why)}">· ${esc(s.how)}</span>` : '';
+	const wikts = info.wikts.map((s, j) => `<div class="ws"><div><b>${esc(s.word)}</b> <span class="pos">${esc(s.pos)}</span>${esc(s.gloss)}${how(sgOf.get(s.id))} ${where('wikts|' + s.id)}</div><div class="acts"><button type="button" data-act="usewikts" data-j="${j}">Use</button><button type="button" data-act="pairwikts" data-j="${j}">Pair</button></div></div>`).join('') +
+		// (the suggested senses km-synsets hasn't for it: Claude's other sense, or one it rejected)
+		info.sg.map((s, j) => info.wikts.some(x => x.id === s.id) ? '' : `<div class="ws sg"><div><b>${esc(s.word)}</b> <span class="pos">${esc(s.pos)}</span>${esc(s.gloss)}${how(s)} ${where('wikts|' + s.id)}</div><div class="acts"><button type="button" data-act="usesg" data-j="${j}">Use</button><button type="button" data-act="pairsg" data-j="${j}">Pair</button></div></div>`).join('');
 	// (km-wb's wn: of its machine-made links, only Wikidata's: no Khmer WordNet is an official one, so no WordNet links)
 	const wn = (d.wn || []).filter(s => s[1] === 'Wikidata').map((s, j) => { const wd = s[1] === 'Wikidata'; return `<div class="ws"><div><span class="pos">${esc(s[1])}</span>${esc(s[0])} <span class="how">· ${esc(s[3])} ${s[2]}</span> ${where((wd ? 'wd|' : 'wn|') + s[0])}</div><div class="acts">${wd ? '' : `<button type="button" data-act="usewn" data-id="${esc(s[0])}">Use</button>`}<button type="button" data-act="pairwn" data-id="${esc(s[0])}" data-wd="${wd ? 1 : ''}">Pair</button></div></div>` }).join('');
 	const keep = scrolls();
@@ -468,6 +477,7 @@ async function pairSearch() {
 	const wikts = es => es.map(wsParse).filter((e, j, a) => a.findIndex(x => x.id === e.id) === j).map(e => ({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word}));
 	info?.wikt.forEach((x, j) => linked.push({src: 'wikt', id: cur + '#' + j, text: x.text, pos: x.pos, label: 'Wiktionary'}));
 	(info?.wikts || []).forEach(e => linked.push({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word, how: 'a sense giving it (km-synsets)'}));
+	(info?.sg || []).forEach(e => info.wikts.some(x => x.id === e.id) || linked.push({src: 'wikts', id: e.id, text: e.gloss, pos: e.pos, label: e.word, how: `suggested (${e.how})`}));
 	for (const l of (d.wn || []).filter(l => l[1] === 'Wikidata')) { // (no WordNet links: none is official for Khmer)
 		const wd = l[1] === 'Wikidata';
 		linked.push({src: wd ? 'wd' : 'wn', id: l[0], text: l[0], pos: l[1], label: wd ? 'Wikidata' : 'WordNet', how: `${l[3]} ${l[2]}`});
@@ -868,6 +878,8 @@ document.addEventListener('click', async e => {
 	case 'usewikt': { const s = info.wikt[+t.dataset.j], id = cur + '#' + t.dataset.j; return useSense({pos: POSOF[s.pos] || '', def: s.text, from: {src: 'Wiktionary', id, text: s.text}, pairs: [{src: 'wikt', id, text: s.text, pos: s.pos}]}) }
 	case 'usewikts': { const s = info.wikts[+t.dataset.j]; return useSense({pos: POSOF[s.pos] || '', def: s.gloss, syn: [s.word], from: {src: 'Wiktionary', id: s.id, text: s.gloss}, pairs: [{src: 'wikts', id: s.id, text: s.gloss, pos: s.pos}]}) }
 	case 'pairwikts': { const s = info.wikts[+t.dataset.j]; return pairActive({src: 'wikts', id: s.id, text: s.gloss, pos: s.pos}) }
+	case 'usesg': { const s = info.sg[+t.dataset.j]; return useSense({pos: POSOF[s.pos] || '', def: s.gloss, syn: [s.word], from: {src: 'Wiktionary', id: s.id, text: s.gloss}, pairs: [{src: 'wikts', id: s.id, text: s.gloss, pos: s.pos}]}) }
+	case 'pairsg': { const s = info.sg[+t.dataset.j]; return pairActive({src: 'wikts', id: s.id, text: s.gloss, pos: s.pos}) }
 	case 'pairwikt': { const s = info.wikt[+t.dataset.j]; return pairActive({src: 'wikt', id: cur + '#' + t.dataset.j, text: s.text, pos: s.pos}) }
 	case 'usewn': { const v = await wnSense(t.dataset.id); return useSense({pos: POSOF[v.pos] || '', def: v.gloss, syn: v.lemmas, from: {src: 'WordNet', id: v.id, text: v.gloss}, pairs: [{src: 'wn', id: v.id, text: v.gloss, pos: v.pos}]}) }
 	case 'pairwn': { if (t.dataset.wd) return pairActive({src: 'wd', id: t.dataset.id, text: t.dataset.id, pos: 'Wikidata'}); const v = await wnSense(t.dataset.id); return pairActive({src: 'wn', id: v.id, text: v.gloss, pos: v.pos}) }
