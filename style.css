@@ -1139,4 +1139,3 @@ body.ctx-open #content { padding-bottom: 90px; } /* (the end of the results abov
 /* A chapter's recording's description (its copyright notice), at the chapter's end once it's played */
 .rec-credit { margin: 1em 0 .3em; font-size: 11px; line-height: 1.35; color: var(--muted); }
 p-k { display: block; } /* a senses one's sense: its key (the same in every language's) */
-p-y { display: block; padding-left: 1.5em; font-style: italic; color: var(--muted); } /* its other words (synonyms) */
