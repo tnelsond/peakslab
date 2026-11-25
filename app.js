@@ -103,12 +103,10 @@ const abbr = filesJson.abbr || {};
 // Chinese, "zh" just Chinese (the headword's first); else null (mono, bi, ...).
 // "km,aligned": aligned with the other aligned ones in its category, their
 // headwords the same keys (Wiktionary's English senses, "god (deity)"), so
-// any two are a dictionary between them. "km,senses": the same keys, headed by
-// the language's words instead, each row's keys its <p-k>s (second index words)
+// any two are a dictionary between them
 const langByAbbr = Object.fromEntries(Object.entries(abbr).filter(([, a]) => a[2]).map(([l, a]) => [a[0], l]));
-const isAligned = x => /(^|,)(aligned|senses)(,|$)/.test(x.type), isSenses = x => x.type.split(',').includes('senses');
-const isKeyHeaded = x => isAligned(x) && !isSenses(x);
-const typeLangs = ({type}, ls = type.split(',').filter(a => a !== 'aligned' && a !== 'senses')) => type && ls.every(a => langByAbbr[a]) ? ls.map(a => langByAbbr[a]) : null;
+const isAligned = x => x.type.split(',').includes('aligned');
+const typeLangs = ({type}, ls = type.split(',').filter(a => a !== 'aligned')) => type && ls.every(a => langByAbbr[a]) ? ls.map(a => langByAbbr[a]) : null;
 const cap = t => t && t.replace(/(^|-)(.)/g, (_, h, c) => (h && ' ') + c.toUpperCase()); // (ancient-greek: Ancient Greek)
 const chevron = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 // A list's row: its button (class and attributes), its words and what's
@@ -322,7 +320,7 @@ if(!isDictPage){
 	const insertSorted = (parent, el, n, key = 'id') => parent.insertBefore(el, [...parent.children].find(c => +c.dataset[key] > n) || null);
 	// An entry of dictionary d (starred: they come first, and stand out),
 	// its name first, then html
-	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}"${isKeyHeaded(dicts[d]) ? ' data-aligned' : ''}${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
+	const entryHTML = (d, html = '') => `<p-e data-id="${sortId(d)}" data-dict="${escapeHTML(dicts[d].name)}" data-d="${d}"${isAligned(dicts[d]) ? ' data-aligned' : ''}${isStar(d) ? ' class="starred"' : ''}>${entryHeadHTML(d)}${html}</p-e>`;
 	// A dictionary's name above its entry (★ if starred): tap it for its menu
 	const entryHeadHTML = d => `<p-h role="button" tabindex="0" title="${escapeHTML(typeLabel(dicts[d]))}" onclick="dictMenu(this)">${isStar(d) ? '★ ' : ''}<span class="dn">${escapeHTML(dicts[d].name)}</span></p-h>`;
 	// The little menus (a dictionary's, Share's): one at a time, right
@@ -358,7 +356,7 @@ if(!isDictPage){
 		const d = +h.parentNode.dataset.d, name = dicts[d].name, pairs = document.body.classList.contains('wikt-pairs');
 		popMenu(h, `<button data-a="off">Turn off ${escapeHTML(name)}</button>` +
 			`<button data-a="star">${isStar(d) ? '☆ Unstar' : '★ Star: show it first'}</button>` +
-			(isKeyHeaded(dicts[d]) ? `<button data-a="pairs">${pairs ? 'Every sense' : 'Only senses another language has too'}</button>` : ''),
+			(isAligned(dicts[d]) ? `<button data-a="pairs">${pairs ? 'Every sense' : 'Only senses another language has too'}</button>` : ''),
 			a => a === 'off' ? turnOff(d) : a === 'star' ? toggleStar(d) : setWiktPairs(!pairs));
 	};
 	// Off from its name: glosses and the popup too (they use it if it's ticked for them and downloaded)
@@ -371,7 +369,7 @@ if(!isDictPage){
 	// hides the rest: a card's lone one, and a card of nothing
 	// else): with two or more of them searched in a category, unless its menu said
 	// otherwise (remembered while it's not what they'd have)
-	const wiktAuto = () => (cs => cs.length > new Set(cs).size)(dicts.filter((x, d) => isKeyHeaded(x) && searched(d)).map(catId)); // (two in a category)
+	const wiktAuto = () => (cs => cs.length > new Set(cs).size)(dicts.filter((x, d) => isAligned(x) && searched(d)).map(catId)); // (two in a category)
 	const applyWiktPairs = () => document.body.classList.toggle('wikt-pairs', stored('wiktPairs') ?? wiktAuto());
 	const setWiktPairs = on => { store('wiktPairs', on === wiktAuto() ? null : on); applyWiktPairs(); };
 	// One more result: the count, and maybe more of them
@@ -2615,9 +2613,10 @@ if(!isDictPage){
 	// categories the gloss has picked, each word's box with a row for each
 	// row's (glossRows). The ones first win a word: starred (in the order
 	// starred), then by priority (0, 1, 2, 3, ..., then -1, -2, ...: rank),
-	// then the dictionaries' order
+	// aligned ones last (a word's by sense: a last resort), then the
+	// dictionaries' order
 	const glossIds = () => dictIds.filter(d => isOn(d, 'gloss'))
-		.sort((a, b) => isStar(a) || isStar(b) ? sortId(a) - sortId(b) : rank(dicts[a].priority) - rank(dicts[b].priority) || a - b); // (starred first)
+		.sort((a, b) => isStar(a) || isStar(b) ? sortId(a) - sortId(b) : isAligned(dicts[a]) - isAligned(dicts[b]) || rank(dicts[a].priority) - rank(dicts[b].priority) || a - b); // (starred first)
 	const glossMask = () => dicts.map((_, d) => isOn(d, 'gloss'));
 	const names = ids => ids.map(d => escapeHTML(dicts[d].name)).join(' + ');
 
@@ -2832,30 +2831,29 @@ if(!isDictPage){
 	const render = (d, xs) => askDict(d, {type: 'renderlines', lines: xs.map(x => [x.m, x.ix])}).then(r => xs.forEach((x, i) => { x.r = r.entries[i]; }));
 	const renderAll = xs => { const by = new Map(); xs.forEach(x => x.r || push(by, x.d, x)); return Promise.all([...by].map(([d, xs]) => render(d, xs))); }; // (a range's is rendered)
 	// The rows' languages' words for the aligned ones' keys matched
-	// (x.via[lang]: [its words, the dictionary]): a match's keys (an aligned
-	// one's word: its row's headword; a senses one's: its <p-k>s), and the words
-	// for them in that language's aligned one in the same category (a row
-	// headed by the key: its words; rows with it as a <p-k>: their headwords)
-	const keysOf = x => isSenses(dicts[x.d]) ? [...x.r.body.matchAll(/<p-k>(?:<p-n>[^]*?<\/p-n>)?([^]*?)<\/p-k>/g)].map(m => m[1].trim().toLowerCase()) : [x.r.header.toLowerCase()];
+	// (x.via[lang]: [its words, the dictionary]): a match's key (its row's
+	// headword), and the words for it in that language's aligned one in the
+	// same category (the row headed by the key)
 	function senseWords(xs, ids){
 		const ts = ids.filter(t => isAligned(dicts[t]) && glossRows.some(r => r?.lang === outLang({d: t})));
-		const ss = xs.filter(x => isAligned(dicts[x.d]) && !x.sec === isSenses(dicts[x.d]));
+		const ss = xs.filter(x => x.sec && isAligned(dicts[x.d]));
 		if (!ts.length || !ss.length) return Promise.resolve();
-		return renderAll(ss).then(() => Promise.all(ts.map(t => {
-			const heads = [...new Set(ss.flatMap(x => x.r ? keysOf(x) : []))], at = new Map();
+		const key = x => x.r?.header.toLowerCase();
+		return renderAll(ss).then(() => {
+			const heads = [...new Set(ss.map(key).filter(Boolean))], at = new Map(), query = heads.join('\n');
 			heads.reduce((a, h) => (at.set(a, h), a + h.length + 1), 0);
-			return askDict(t, {type: 'matchall', query: heads.join('\n')}).then(r => {
-				const ys = r.matches.filter(([a, len, , , sec]) => !sec !== isSenses(dicts[t]) && at.get(a)?.length === len).map(([a, , m, ix]) => ({d: t, m, ix, h: at.get(a)}));
+			return Promise.all(ts.map(t => askDict(t, {type: 'matchall', query}).then(r => {
+				const ys = r.matches.filter(([a, len, , , sec]) => !sec && at.get(a)?.length === len).map(([a, , m, ix]) => ({d: t, m, ix, h: at.get(a)}));
 				return render(t, ys).then(() => {
 					const words = new Map();
-					ys.forEach(y => y.r && push(words, y.h, isSenses(dicts[t]) ? y.r.header : textLines(y.r.body.replace(/<p-(n|ipa|x)>[^]*?<\/p-\1>/g, '')).filter(Boolean).join(', ')));
+					ys.forEach(y => y.r && push(words, y.h, textLines(y.r.body.replace(/<p-(n|ipa|x)>[^]*?<\/p-\1>/g, '')).filter(Boolean).join(', ')));
 					ss.forEach(x => {
-						const w = x.r && catOf(x.d) === catOf(t) && [...new Set(keysOf(x).flatMap(k => words.get(k) || []))];
-						if (w?.length) (x.via ||= {})[outLang({d: t})] ||= [w.join(', '), t];
+						const w = catOf(x.d) === catOf(t) && words.get(key(x));
+						if (w) (x.via ||= {})[outLang({d: t})] ||= [[...new Set(w)].join(', '), t];
 					});
 				});
-			});
-		})));
+			})));
+		});
 	}
 	function pickPieces(matches, text, ids, done){
 		const pieces = splitText(matches, text, 0, text.length);
