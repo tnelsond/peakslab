@@ -1783,10 +1783,13 @@ if(!isDictPage){
 
 	// The side panel for the whole history or all the bookmarks
 	// Each view's title and what's in it (the filter's and the gloss's: VIEWS, filterHTML)
-	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-export="${v}">Export</button> <button class="text-btn" data-clear="${v}">Clear all</button>` : '');
-	// The list as a text file to use somewhere else (e.g. a word game): a
-	// line each, "word = gloss" for a bookmark, newest first
-	const listText = k => lists[k].items.map(x => { const w = x.w.replace(/\s*\n\s*/g, ' '); return x.g ? `${w} = ${x.g}` : w; }).join('\n');
+	const listView = v => (lists[v].items.length ? `<div class="list-acts"><button class="text-btn" data-export="${v}">Export</button> <button class="text-btn" data-clear="${v}">Clear all</button></div>` : '') + listHTML(v);
+	// The list as a table to use somewhere else (a spreadsheet, a word game):
+	// tab separated, newest first, a line each: the word, its pronunciation and
+	// two definitions, as the gloss gives them (wordTSV)
+	const tsvCell = t => (t || '').replace(/\s+/g, ' ').trim();
+	const listTSV = k => Promise.all(lists[k].items.map(x => wordTSV(x.w.replace(/\s*\n\s*/g, ' ').trim(), x.g)))
+		.then(rows => ['headword\tphonetics\tdefinition 1\tdefinition 2', ...rows.map(r => r.map(tsvCell).join('\t'))].join('\n'));
 	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], bible: ['Bible', bibleHTML],
 		library: ['Library', libraryHTML],
 		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML], upload: ['Upload', uploadHTML], about: ['About', () => $('about').innerHTML]};
@@ -2212,13 +2215,18 @@ if(!isDictPage){
 		} else if (rm) {
 			setList(rm, lists[rm].items.filter(x => x.w !== w));
 		} else if (b.dataset.export) {
-			const k = b.dataset.export, a = document.createElement('a');
-			a.href = URL.createObjectURL(new Blob([listText(k) + '\n'], {type: 'text/plain;charset=utf-8'}));
-			a.download = `peakslab-${k}-${pParts.join('-') || 'all'}-${new Date().toISOString().slice(0, 10)}.txt`;
-			document.body.append(a);
-			a.click();
-			a.remove();
-			setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+			const k = b.dataset.export, label = b.textContent;
+			b.disabled = true;
+			b.textContent = 'Exporting…';
+			listTSV(k).then(tsv => {
+				const a = document.createElement('a');
+				a.href = URL.createObjectURL(new Blob([tsv + '\n'], {type: 'text/tab-separated-values;charset=utf-8'}));
+				a.download = `peakslab-${k}-${pParts.join('-') || 'all'}-${new Date().toISOString().slice(0, 10)}.tsv`;
+				document.body.append(a);
+				a.click();
+				a.remove();
+				setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+			}).catch(e => alert(`Export: ${e.message}`)).finally(() => { b.disabled = false; b.textContent = label; });
 		} else if (clear) {
 			if (confirm(`Clear all the ${lists[clear].title.toLowerCase()}?`)) setList(clear, []);
 		} else if (open) {
@@ -2883,6 +2891,43 @@ if(!isDictPage){
 			const more = splitText(p.xs.filter(x => x.len < p.b - p.a), text, p.a, p.b).filter(q => q.w).length > 1; // (at least two shorter words with definitions in it: its + splits it)
 			return {text: text.slice(p.a, p.b), d: p.w?.d, rows: gs.map(g => g.join(' ')), media, ds: [...new Set(ds)], more}; // ds: the dictionaries in its rows, and its media's
 		})));
+	}
+
+	// A word's line in an export (listTSV): [the word, its pronunciation,
+	// two definitions]. As its gloss: the dictionaries the gloss has on, in
+	// its order (glossIds), the entries for all of the word. Its pronunciation
+	// is the first pronunciation dictionary's (dict/phonetics); its
+	// definitions the next two different glosses, of entries that fit one of
+	// the gloss's rows (as its boxes have them: entryGloss, a second index
+	// word's headword, ...). None for all of it (a phrase): its words'
+	// gloss's rows, the phonetics one's and the first two others', its
+	// pieces' one after another. A bookmark's own gloss fills a gap.
+	const PHON = 'dict/phonetics';
+	function wordTSV(word, saved){
+		const ids = glossIds(), typed = word.replace(/[​⁠­﻿]/g, ''), text = typed.toLowerCase();
+		if (!ids.length || !text) return Promise.resolve([word, '', saved || '', '']);
+		const isPhon = x => catFits({cat: PHON}, x);
+		return Promise.all(ids.map((d, k) => !glosses(d) ? [] : askDict(d, {type: 'matchall', query: text}).then(r => r.matches
+			.filter(([a, len]) => a === 0 && len === text.length).map(([a, len, m, ix, sec]) => ({a, len, m, ix, sec, d, rank: k})))))
+			.then(all => {
+				const xs = all.flat().sort((x, y) => x.rank - y.rank || x.sec - y.sec);
+				const phon = xs.find(isPhon), defs = xs.filter(x => !isPhon(x) && glossRows.some(r => fits(r, x)));
+				if (!phon && !defs.length) return phraseTSV(word, saved, ids);
+				return renderAll([phon, ...defs].filter(Boolean)).then(() => {
+					const gloss = x => x?.r ? glossOf(x, typed, glossRows.find(r => fits(r, x)) || {}) : '';
+					const ds = [...new Set(defs.map(gloss).map(tsvCell).filter(Boolean))];
+					if (saved && !ds.includes(tsvCell(saved))) ds.push(saved);
+					return [word, gloss(phon), ds[0] || '', ds[1] || ''];
+				});
+			});
+	}
+	function phraseTSV(word, saved, ids){
+		return new Promise(then => translateText(ids, word, pieces => {
+			const rows = glossRows.map((_, r) => pieces.map(p => p.rows[r]).filter(Boolean).join(' '));
+			const ph = glossRows.findIndex(r => r?.cat === PHON);
+			const others = rows.filter((t, r) => r !== ph && t);
+			then([word, ph >= 0 ? rows[ph] : '', others[0] || saved || '', others[1] || (others[0] ? saved || '' : '')]);
+		}));
 	}
 
 	// Each word in a box, with its rows under it, each an entry in a line

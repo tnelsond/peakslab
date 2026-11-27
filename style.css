@@ -809,6 +809,8 @@ p-d[data-pop="cmp"] > h2 { background: var(--compare-bg); }
 }
 .row-x:hover { opacity: 1; }
 .empty { margin: .2em 0; color: var(--muted); font-size: .95em; }
+/* Export and Clear all, above the history's or the bookmarks' list */
+.list-acts { display: flex; justify-content: flex-end; gap: 4px; margin: 0 0 4px; }
 .lang-row:visited, .lang-row:hover { color: var(--card-text); }
 .lang-row { flex-direction: row !important; align-items: center !important; gap: 10px !important; flex-wrap: wrap; text-decoration: none; }
 .lang-row .row-t { margin-left: auto; }
