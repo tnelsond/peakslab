@@ -1783,7 +1783,10 @@ if(!isDictPage){
 
 	// The side panel for the whole history or all the bookmarks
 	// Each view's title and what's in it (the filter's and the gloss's: VIEWS, filterHTML)
-	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '');
+	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-copylist="${v}">Copy list</button> <button class="text-btn" data-clear="${v}">Clear all</button>` : '');
+	// The list as text to paste somewhere else (e.g. a word game): a line
+	// each, "word = gloss" for a bookmark
+	const listText = k => lists[k].items.map(x => { const w = x.w.replace(/\s*\n\s*/g, ' '); return x.g ? `${w} = ${x.g}` : w; }).join('\n');
 	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], bible: ['Bible', bibleHTML],
 		library: ['Library', libraryHTML],
 		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML], upload: ['Upload', uploadHTML], about: ['About', () => $('about').innerHTML]};
@@ -2148,7 +2151,7 @@ if(!isDictPage){
 	function rowClick(e){
 		const b = e.target.closest('button');
 		if (!b) return;
-		const {book, all, q, rm, w, clear, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txDrop, go} = b.dataset;
+		const {book, all, q, rm, w, clear, copylist, open, act, on, get, del, delpath, unlink, add, exp, library, pick, level, first, tx, txAdd, txDrop, go} = b.dataset;
 		const drawerBooks = drawerView === 'bible';
 		if (b.dataset.upDel) return deleteUpload(b.dataset.upDel);
 		if (tx !== undefined || txAdd !== undefined) return cardTextsClick(b.dataset); // (the translations)
@@ -2208,6 +2211,12 @@ if(!isDictPage){
 			else search(q);
 		} else if (rm) {
 			setList(rm, lists[rm].items.filter(x => x.w !== w));
+		} else if (copylist) {
+			const text = listText(copylist);
+			navigator.clipboard.writeText(text).then(() => {
+				b.textContent = 'Copied ✓';
+				setTimeout(() => { b.textContent = 'Copy list'; }, 1500);
+			}, () => window.prompt('Copy this:', text));
 		} else if (clear) {
 			if (confirm(`Clear all the ${lists[clear].title.toLowerCase()}?`)) setList(clear, []);
 		} else if (open) {
