@@ -1783,7 +1783,10 @@ if(!isDictPage){
 
 	// The side panel for the whole history or all the bookmarks
 	// Each view's title and what's in it (the filter's and the gloss's: VIEWS, filterHTML)
-	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-clear="${v}">Clear all</button>` : '');
+	const listView = v => listHTML(v) + (lists[v].items.length ? `<button class="text-btn" data-export="${v}">Export</button> <button class="text-btn" data-clear="${v}">Clear all</button>` : '');
+	// The list as a text file to use somewhere else (e.g. a word game): a
+	// line each, "word = gloss" for a bookmark, newest first
+	const listText = k => lists[k].items.map(x => { const w = x.w.replace(/\s*\n\s*/g, ' '); return x.g ? `${w} = ${x.g}` : w; }).join('\n');
 	const drawers = {history: ['History', listView], bookmarks: ['Bookmarks', listView], bible: ['Bible', bibleHTML],
 		library: ['Library', libraryHTML],
 		lang: ['Language', langHTML], first: ['Download dictionaries', firstHTML], upload: ['Upload', uploadHTML], about: ['About', () => $('about').innerHTML]};
@@ -2208,6 +2211,14 @@ if(!isDictPage){
 			else search(q);
 		} else if (rm) {
 			setList(rm, lists[rm].items.filter(x => x.w !== w));
+		} else if (b.dataset.export) {
+			const k = b.dataset.export, a = document.createElement('a');
+			a.href = URL.createObjectURL(new Blob([listText(k) + '\n'], {type: 'text/plain;charset=utf-8'}));
+			a.download = `peakslab-${k}-${pParts.join('-') || 'all'}-${new Date().toISOString().slice(0, 10)}.txt`;
+			document.body.append(a);
+			a.click();
+			a.remove();
+			setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 		} else if (clear) {
 			if (confirm(`Clear all the ${lists[clear].title.toLowerCase()}?`)) setList(clear, []);
 		} else if (open) {
